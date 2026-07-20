@@ -128,6 +128,11 @@ def _db_path():
 def _connect() -> sqlite3.Connection:
     path = _db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Same state.db as hermes_state.SessionDB -- reuse its owner-only (0600)
+    # hardening so this writer doesn't create/leave the file (and its WAL
+    # sidecars) at the process umask. See hermes_state._secure_state_db_files.
+    from hermes_state import _secure_state_db_files
+    _secure_state_db_files(path, create_main=True)
     conn = sqlite3.connect(path, timeout=10)
     try:
         _initialize_schema(conn)
@@ -136,6 +141,7 @@ def _connect() -> sqlite3.Connection:
         # just-opened connection back to the caller.
         conn.close()
         raise
+    _secure_state_db_files(path)
     return conn
 
 
