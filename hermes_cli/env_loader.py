@@ -485,13 +485,43 @@ def load_hermes_dotenv(
     - callers that only maintain the installation can set
       ``load_external_secrets=False`` to avoid loading optional secret-manager
       dependencies into the process that replaces that same environment.
+    - routed multiplex profile loads hydrate external sources into the
+      profile's private secret snapshot without mutating the shared process
+      environment; unscoped startup loads retain the normal behavior above.
     """
+<<<<<<< HEAD
     loaded: list[Path] = []
 
     # Desktop spawn injects OKVEVO_WEB_ORIGIN from pack-env (including "").
     # Restore after override=True dotenv so leftover ~/.hermes/.env cannot win.
     origin_injected = "OKVEVO_WEB_ORIGIN" in os.environ
     origin_snapshot = os.environ.get("OKVEVO_WEB_ORIGIN") if origin_injected else None
+=======
+    home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
+
+    # A multiplex gateway hosts every profile in one process.  While a routed
+    # profile-home override is active, copying that profile's .env into
+    # os.environ would expose its credentials to sibling turns and every
+    # subsequently spawned child.  An unscoped startup load remains process
+    # configuration and must retain the normal loading path.
+    # External secret sources still need their normal refresh path, so resolve
+    # them against the existing profile-local mapping instead of simply
+    # returning before all hydration work.
+    from agent.secret_scope import is_multiplex_active
+    from hermes_constants import get_hermes_home_override
+
+    if is_multiplex_active() and get_hermes_home_override() is not None:
+        if load_external_secrets:
+            from hermes_cli import _early_recovery
+
+            if not _early_recovery._should_skip_external_secret_sources():
+                hydrate_profile_secret_sources(home_path)
+        return []
+
+    loaded: list[Path] = []
+    user_env = home_path / ".env"
+    project_env_path = Path(project_env) if project_env else None
+>>>>>>> 1aa62ceb45 (fix(security): isolate multiplex dotenv reloads)
 
     try:
         home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
