@@ -489,24 +489,12 @@ def load_hermes_dotenv(
       profile's private secret snapshot without mutating the shared process
       environment; unscoped startup loads retain the normal behavior above.
     """
-<<<<<<< HEAD
-    loaded: list[Path] = []
-
-    # Desktop spawn injects OKVEVO_WEB_ORIGIN from pack-env (including "").
-    # Restore after override=True dotenv so leftover ~/.hermes/.env cannot win.
-    origin_injected = "OKVEVO_WEB_ORIGIN" in os.environ
-    origin_snapshot = os.environ.get("OKVEVO_WEB_ORIGIN") if origin_injected else None
-=======
     home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
 
-    # A multiplex gateway hosts every profile in one process.  While a routed
+    # A multiplex gateway hosts every profile in one process. While a routed
     # profile-home override is active, copying that profile's .env into
-    # os.environ would expose its credentials to sibling turns and every
-    # subsequently spawned child.  An unscoped startup load remains process
-    # configuration and must retain the normal loading path.
-    # External secret sources still need their normal refresh path, so resolve
-    # them against the existing profile-local mapping instead of simply
-    # returning before all hydration work.
+    # os.environ would expose its credentials to sibling turns. Keep Nia's
+    # OKVEVO_WEB_ORIGIN restore on the unscoped path below.
     from agent.secret_scope import is_multiplex_active
     from hermes_constants import get_hermes_home_override
 
@@ -519,12 +507,13 @@ def load_hermes_dotenv(
         return []
 
     loaded: list[Path] = []
-    user_env = home_path / ".env"
-    project_env_path = Path(project_env) if project_env else None
->>>>>>> 1aa62ceb45 (fix(security): isolate multiplex dotenv reloads)
+
+    # Desktop spawn injects OKVEVO_WEB_ORIGIN from pack-env (including "").
+    # Restore after override=True dotenv so leftover ~/.hermes/.env cannot win.
+    origin_injected = "OKVEVO_WEB_ORIGIN" in os.environ
+    origin_snapshot = os.environ.get("OKVEVO_WEB_ORIGIN") if origin_injected else None
 
     try:
-        home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
         user_env = home_path / ".env"
         project_env_path = Path(project_env) if project_env else None
 

@@ -151,6 +151,11 @@ jobs:
     if: needs.detect.outputs.uv_lock == 'true'
     uses: ./.github/workflows/uv-lockfile-check.yml
 
+  profile-artifact-check:
+    name: Profile artifact check
+    needs: detect
+    uses: ./.github/workflows/profile-artifact-check.yml
+
   lockfile-diff:
     name: package-lock.json diff
     needs: detect
@@ -206,6 +211,7 @@ jobs:
       - history-check
       - uv-lockfile
       - lockfile-diff
+      - profile-artifact-check
       - supply-chain
       - osv-scanner
       - nia-branding
