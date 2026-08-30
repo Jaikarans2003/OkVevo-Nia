@@ -104,6 +104,20 @@ class TestEnsureHermesHome:
             ensure_hermes_home()
             assert soul_path.read_text(encoding="utf-8") == DEFAULT_SOUL_MD
 
+    def test_upgrades_95681_installer_seed_soul_md(self, tmp_path):
+        # Recent installers seeded the #95681 Hermes persona directly into
+        # SOUL.md (install.sh em-dash / install.ps1 ASCII). Still auto-seed,
+        # zero user intent — safe to upgrade to Nia on next run.
+        from hermes_cli.default_soul import DEFAULT_SOUL_MD, _LEGACY_TEMPLATE_SOULS
+
+        installer_seed = _LEGACY_TEMPLATE_SOULS[-2]  # ASCII -- variant (install.ps1)
+
+        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+            soul_path = tmp_path / "SOUL.md"
+            soul_path.write_text(installer_seed, encoding="utf-8")
+            ensure_hermes_home()
+            assert soul_path.read_text(encoding="utf-8") == DEFAULT_SOUL_MD
+
     def test_does_not_upgrade_user_customized_soul_md(self, tmp_path):
         # A SOUL.md that merely starts with the old default but was edited by
         # the user carries real intent and must never be silently overwritten.
