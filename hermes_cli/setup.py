@@ -3176,7 +3176,7 @@ def _run_setup_wizard_impl(args):
     )
     print(
         color(
-            "│             ⚕ Hermes Agent Setup Wizard                │", Colors.MAGENTA
+            "│             ⚕ Nia Setup Wizard                         │", Colors.MAGENTA
         )
     )
     print(
@@ -3187,7 +3187,7 @@ def _run_setup_wizard_impl(args):
     )
     print(
         color(
-            "│  Let's configure your Hermes Agent installation.       │", Colors.MAGENTA
+            "│  Let's configure your Nia installation.                │", Colors.MAGENTA
         )
     )
     print(

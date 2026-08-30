@@ -37,6 +37,7 @@ from agent.prompt_builder import (
     GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
     HERMES_AGENT_HELP_GUIDANCE,
     HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS,
+    IDENTITY_RESPONSE_GUIDANCE,
     KANBAN_GUIDANCE,
     MEMORY_GUIDANCE,
     USER_PROFILE_GUIDANCE,
@@ -485,6 +486,8 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     if not _soul_loaded:
         # Fallback to hardcoded identity
         stable_parts.append(DEFAULT_AGENT_IDENTITY)
+
+    stable_parts.append(IDENTITY_RESPONSE_GUIDANCE)
 
     # Pointer to the docs (and, when it exists, the hermes-agent skill) for
     # user questions about Hermes itself. The skill_view() pointer is a

@@ -67,6 +67,30 @@ class TestContextFileCwd:
         assert _captured_context_cwd(_make_agent()) == tmp_path
 
 
+class TestIdentityResponseGuidance:
+    def test_follows_soul_identity(self):
+        soul = "You are Nia, built by OkVevo. Warm and curious."
+        with (
+            patch("run_agent.load_soul_md", return_value=soul),
+            patch("run_agent.build_environment_hints", return_value=""),
+            patch("run_agent.build_context_files_prompt", return_value=""),
+        ):
+            stable = build_system_prompt_parts(_make_agent())["stable"]
+        assert soul in stable
+        assert "capability brochure" in stable
+        assert stable.index(soul) < stable.index("capability brochure")
+
+    def test_follows_default_identity_when_soul_missing(self):
+        with (
+            patch("run_agent.load_soul_md", return_value=""),
+            patch("run_agent.build_environment_hints", return_value=""),
+            patch("run_agent.build_context_files_prompt", return_value=""),
+        ):
+            stable = build_system_prompt_parts(_make_agent())["stable"]
+        assert "You are Nia, built by OkVevo" in stable
+        assert "capability brochure" in stable
+
+
 def _stable_prompt(agent):
     with (
         patch("run_agent.load_soul_md", return_value=""),

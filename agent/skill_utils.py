@@ -434,13 +434,17 @@ def _load_raw_config() -> Dict[str, Any]:
     return parsed
 
 
-# Skills that must stay available regardless of configuration. The
-# `hermes-agent` skill is the agent's own operating manual — it drives
-# configuring, extending, and troubleshooting Hermes itself, and the system
-# prompt unconditionally points at it. Disabling it leaves the agent unable
-# to help with Hermes, so disable requests for these names are ignored
-# everywhere the disabled list is consulted.
-ESSENTIAL_SKILLS: frozenset = frozenset({"hermes-agent"})
+# Skills excluded from shipped builds. Not synced, discovered, or loaded.
+SHIP_EXCLUDED_SKILL_NAMES: frozenset = frozenset({"hermes-agent"})
+
+
+def is_ship_excluded_skill_name(name: str) -> bool:
+    """True when *name* must never ship or load in production builds."""
+    return (name or "").strip() in SHIP_EXCLUDED_SKILL_NAMES
+
+
+# Skills that must stay available regardless of configuration.
+ESSENTIAL_SKILLS: frozenset = frozenset()
 
 
 def get_disabled_skill_names(platform: str | None = None) -> Set[str]:

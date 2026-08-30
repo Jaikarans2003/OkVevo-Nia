@@ -192,13 +192,13 @@ def _format_messages_as_prompt(
     tool_choice: Any = None,
 ) -> str:
     sections: list[str] = [
-        "You are being used as the active ACP agent backend for Hermes.",
+        "You are being used as the active ACP agent backend for Nia.",
         "Use ACP capabilities to complete tasks.",
         "IMPORTANT: If you take an action with a tool, you MUST output tool calls using <tool_call>{...}</tool_call> blocks with JSON exactly in OpenAI function-call shape.",
         "If no tool is needed, answer normally.",
     ]
     if model:
-        sections.append(f"Hermes requested model hint: {model}")
+        sections.append(f"Nia requested model hint: {model}")
 
     # Copilot has no tools of its own that would collide with Hermes', so it
     # forwards the whole toolset (no allowlist).
@@ -544,7 +544,7 @@ class CopilotACPClient:
                     },
                     "clientInfo": {
                         "name": "hermes-agent",
-                        "title": "Hermes Agent",
+                        "title": "Nia",
                         "version": "0.0.0",
                     },
                 },

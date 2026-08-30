@@ -702,6 +702,7 @@ def _find_all_skills(*, skip_disabled: bool = False) -> List[Dict[str, Any]]:
     from agent.skill_utils import (
         get_external_skills_dirs,
         get_project_skills_dirs,
+        is_ship_excluded_skill_name,
         iter_project_skill_files,
         iter_skill_index_files,
     )
@@ -769,6 +770,8 @@ def _find_all_skills(*, skip_disabled: bool = False) -> List[Dict[str, Any]]:
 
                 name = frontmatter.get("name", skill_dir.name)[:MAX_NAME_LENGTH]
                 if name in seen_names:
+                    continue
+                if is_ship_excluded_skill_name(name):
                     continue
                 if name in disabled:
                     continue

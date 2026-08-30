@@ -733,7 +733,7 @@ def build_anthropic_client(
         kwargs["api_key"] = api_key
         kwargs["default_headers"] = {
             "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-            "X-Title": "Hermes Agent",
+            "X-Title": "Nia",
             "User-Agent": f"HermesAgent/{_HERMES_VERSION}",
             **( {"anthropic-beta": ",".join(common_betas)} if common_betas else {} )
         }
@@ -780,7 +780,7 @@ def build_anthropic_client(
         # the same set on top of whatever auth branch ran above.
         headers = dict(kwargs.get("default_headers") or {})
         headers.setdefault("HTTP-Referer", "https://hermes-agent.nousresearch.com")
-        headers.setdefault("X-Title", "Hermes Agent")
+        headers.setdefault("X-Title", "Nia")
         headers.setdefault("User-Agent", f"HermesAgent/{_HERMES_VERSION}")
         kwargs["default_headers"] = headers
 

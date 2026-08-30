@@ -111,7 +111,7 @@ def _essential_names() -> frozenset:
         from agent.skill_utils import ESSENTIAL_SKILLS
         return ESSENTIAL_SKILLS
     except Exception:
-        return frozenset({"hermes-agent"})
+        return frozenset()
 
 
 def _get_bundled_dir() -> Path:
@@ -258,6 +258,8 @@ def _discover_bundled_skills(bundled_dir: Path) -> List[Tuple[str, Path]]:
     Find all SKILL.md files in the bundled directory.
     Returns list of (skill_name, skill_directory_path) tuples.
     """
+    from agent.skill_utils import is_ship_excluded_skill_name
+
     skills = []
     if not bundled_dir.exists():
         return skills
@@ -273,6 +275,8 @@ def _discover_bundled_skills(bundled_dir: Path) -> List[Tuple[str, Path]]:
             continue
         skill_dir = skill_md.parent
         skill_name = _read_skill_name(skill_md, skill_dir.name)
+        if is_ship_excluded_skill_name(skill_name):
+            continue
         skills.append((skill_name, skill_dir))
 
     return skills

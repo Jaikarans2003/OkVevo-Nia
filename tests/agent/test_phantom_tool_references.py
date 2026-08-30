@@ -15,14 +15,16 @@ from pathlib import Path
 
 
 class TestHermesAgentHelpGuidance:
-    def test_skill_variant_used_when_skill_view_present(self):
+    def test_skill_variant_scoped_to_nia_troubleshooting(self):
         from agent.prompt_builder import HERMES_AGENT_HELP_GUIDANCE
-        assert "skill_view(name='hermes-agent')" in HERMES_AGENT_HELP_GUIDANCE
+        assert "Nia (by OkVevo)" in HERMES_AGENT_HELP_GUIDANCE
+        assert "troubleshooting Nia itself" in HERMES_AGENT_HELP_GUIDANCE
+        assert "capability" not in HERMES_AGENT_HELP_GUIDANCE.lower()
 
     def test_no_skills_variant_has_no_skill_view_reference(self):
         from agent.prompt_builder import HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS
         assert "skill_view" not in HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS
-        assert "hermes-agent.nousresearch.com/docs" in HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS
+        assert "troubleshooting Nia itself" in HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS
 
 
 class TestExecutionGuidanceText:
