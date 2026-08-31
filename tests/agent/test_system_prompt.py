@@ -259,7 +259,7 @@ class TestNamedProfileHintIntegration:
         with patch("agent.coding_context._coding_mode", return_value="off"):
             prompt = "\n\n".join(_prompt_parts(agent).values())
 
-        assert "Active Hermes profile: coder." in prompt
+        assert "Active Nia profile: coder." in prompt
         assert f"reads and writes {profile_home}/." in prompt
         # The doubled form must not appear anywhere.
         assert f"{profile_home}/profiles/coder" not in prompt
@@ -284,7 +284,7 @@ class TestNamedProfileHintIntegration:
         with patch("agent.coding_context._coding_mode", return_value="off"):
             prompt = "\n\n".join(_prompt_parts(agent).values())
 
-        assert "Active Hermes profile: default." in prompt
+        assert "Active Nia profile: default." in prompt
         assert f"under {root}/profiles/<name>/." in prompt
 
 
@@ -310,6 +310,8 @@ def test_coding_prompt_preserves_legacy_workspace_order(monkeypatch):
         _parallel_tool_call_guidance=False,
     )
     monkeypatch.setattr(system_prompt, "DEFAULT_AGENT_IDENTITY", "IDENTITY")
+    monkeypatch.setattr(system_prompt, "IDENTITY_RESPONSE_GUIDANCE", "ID_GUIDANCE")
+    monkeypatch.setattr(system_prompt, "PRODUCT_IDENTITY_GUIDANCE", "PRODUCT_GUIDANCE")
     monkeypatch.setattr(system_prompt, "HERMES_AGENT_HELP_GUIDANCE", "HELP")
     monkeypatch.setattr(system_prompt, "HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS", "HELP")
     monkeypatch.setattr(system_prompt, "STEER_CHANNEL_NOTE", "STEER")
@@ -320,7 +322,7 @@ def test_coding_prompt_preserves_legacy_workspace_order(monkeypatch):
     # build the expectation the same way instead of hardcoding "/hermes".
     _home_str = str(Path("/hermes"))
     expected_profile = (
-        "Active Hermes profile: default. Other profiles (if any) live "
+        "Active Nia profile: default. Other profiles (if any) live "
         f"under {_home_str}/profiles/<name>/. Each profile has its own skills/, "
         "plugins/, cron/, and memories/ that affect a different session than "
         "this one. Do not modify another profile's skills/plugins/cron/memories "
@@ -328,6 +330,8 @@ def test_coding_prompt_preserves_legacy_workspace_order(monkeypatch):
     )
     expected = "\n\n".join((
         "IDENTITY",
+        "ID_GUIDANCE",
+        "PRODUCT_GUIDANCE",
         "HELP",
         "STEER",
         "CODING_STABLE",
@@ -357,7 +361,7 @@ def test_coding_prompt_preserves_legacy_workspace_order(monkeypatch):
         prompt = build_system_prompt(agent, system_message="SYSTEM_MESSAGE")
 
     assert prompt == expected
-    assert agent._cached_system_prompt_static == "\n\n".join(expected.split("\n\n")[:4])
+    assert agent._cached_system_prompt_static == "\n\n".join(expected.split("\n\n")[:6])
 
 
 class TestTelegramRichMessagesHint:

@@ -28,7 +28,7 @@ def preview_close(url: str = "") -> str:
     except Exception as exc:  # noqa: BLE001
         return tool_error(f"Failed to close the preview: {exc}")
     if not ok:
-        return tool_error("The preview pane is only available in the Hermes desktop app.")
+        return tool_error("The preview pane is only available in the Nia desktop app.")
     return json.dumps({"success": True, "closed": target or "all"}, ensure_ascii=False)
 
 
@@ -50,7 +50,7 @@ def _handle_preview(args, **kw):
 PREVIEW_SCHEMA = {
     "name": "desktop_preview",
     "description": (
-        "The preview pane beside the chat in the Hermes desktop app. open: show "
+        "The preview pane beside the chat in the Nia desktop app. open: show "
         "a web URL (bare domains fine), a localhost dev server, or a file path "
         "(HTML renders live) — opens for the current window only. close: dismiss "
         "the whole pane, or one tab via url. read: what the pane currently shows "

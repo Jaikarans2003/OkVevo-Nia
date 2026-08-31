@@ -19,7 +19,7 @@ def read_window_below_tool(callback: Optional[Callable] = None) -> str:
     """Return the window underneath the Hermes window as a JSON string."""
     if callback is None:
         return tool_error(
-            "read_window_below is only available in the Hermes desktop app."
+            "read_window_below is only available in the Nia desktop app."
         )
 
     try:

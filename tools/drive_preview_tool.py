@@ -66,7 +66,7 @@ def drive_preview_tool(
 ) -> str:
     """Dispatch one interaction to the desktop renderer and return its outcome."""
     if callback is None:
-        return tool_error("drive_preview is only available in the Hermes desktop app.")
+        return tool_error("drive_preview is only available in the Nia desktop app.")
 
     verb = (action or "").strip().lower()
     if verb not in ACTIONS:

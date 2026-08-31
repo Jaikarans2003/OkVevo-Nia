@@ -28,7 +28,7 @@ def focus_pane_tool(pane: str) -> str:
     except Exception as exc:
         return tool_error(f"Failed to focus the {name} pane: {exc}")
     if not ok:
-        return tool_error("Pane focus is only available in the Hermes desktop app.")
+        return tool_error("Pane focus is only available in the Nia desktop app.")
 
     return json.dumps({"success": True, "pane": name}, ensure_ascii=False)
 

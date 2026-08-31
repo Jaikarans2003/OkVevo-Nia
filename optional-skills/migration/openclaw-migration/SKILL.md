@@ -13,7 +13,7 @@ metadata:
 
 # OpenClaw -> Hermes Migration
 
-Use this skill when a user wants to move their OpenClaw setup into Hermes Agent with minimal manual cleanup.
+Use this skill when a user wants to move their OpenClaw setup into Nia with minimal manual cleanup.
 
 ## CLI Command
 

@@ -8,7 +8,7 @@ full step list the user pages through with Next/Prev (``start``).
 
 Two surfaces share the same engine (driver.js in the renderer):
 
-- ``surface="app"`` — the Hermes desktop app's own DOM (tours of Hermes itself).
+- ``surface="app"`` — the Nia desktop app's own DOM (tours of Hermes itself).
 - ``surface="preview"`` — the page loaded in the in-app browser/preview pane
   (tours of ANY web app, e.g. a project open via open_preview).
 
@@ -45,7 +45,7 @@ def tour_tool(
 ) -> str:
     """Dispatch one tour action to the desktop renderer and return its outcome."""
     if callback is None:
-        return tool_error("tour is only available in the Hermes desktop app.")
+        return tool_error("tour is only available in the Nia desktop app.")
 
     verb = (action or "").strip().lower()
     if verb not in ACTIONS:

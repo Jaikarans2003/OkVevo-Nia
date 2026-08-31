@@ -48,7 +48,7 @@ def open_preview_tool(url: str, label: str = "") -> str:
     except Exception as exc:
         return tool_error(f"Failed to open the preview pane: {exc}")
     if not ok:
-        return tool_error("The preview pane is only available in the Hermes desktop app.")
+        return tool_error("The preview pane is only available in the Nia desktop app.")
 
     return json.dumps({"success": True, "url": target, "label": label}, ensure_ascii=False)
 

@@ -1,6 +1,6 @@
 # Desktop App Plugins — UI Panes, Commands, Widgets
 
-Write plugins for the Hermes desktop app: statusbar items, layout panes,
+Write plugins for the Nia desktop app: statusbar items, layout panes,
 command-palette commands, keybinds, routes, and themes. A plugin is a single
 plain-JavaScript ESM file the app loads at runtime — no build step, no repo
 changes. A plugin can also talk to its own Python backend namespace
@@ -31,7 +31,7 @@ Full human reference (every export, area payloads, backend, security):
 
 ## Prerequisites
 
-- The Hermes desktop app (it loads plugins; the CLI/gateway alone does not).
+- The Nia desktop app (it loads plugins; the CLI/gateway alone does not).
 - Write access to `$HERMES_HOME/desktop-plugins/` (usually
   `~/.hermes/desktop-plugins/`).
 

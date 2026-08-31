@@ -38,6 +38,7 @@ from agent.prompt_builder import (
     HERMES_AGENT_HELP_GUIDANCE,
     HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS,
     IDENTITY_RESPONSE_GUIDANCE,
+    PRODUCT_IDENTITY_GUIDANCE,
     KANBAN_GUIDANCE,
     MEMORY_GUIDANCE,
     USER_PROFILE_GUIDANCE,
@@ -488,6 +489,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         stable_parts.append(DEFAULT_AGENT_IDENTITY)
 
     stable_parts.append(IDENTITY_RESPONSE_GUIDANCE)
+    stable_parts.append(PRODUCT_IDENTITY_GUIDANCE)
 
     # Pointer to the docs (and, when it exists, the hermes-agent skill) for
     # user questions about Hermes itself. The skill_view() pointer is a
@@ -800,7 +802,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         _home_str = _root_str = str(get_hermes_home())
     if active_profile == "default":
         post_workspace_parts.append(
-            "Active Hermes profile: default. Other profiles (if any) live "
+            "Active Nia profile: default. Other profiles (if any) live "
             "under " + _root_str + "/profiles/<name>/. Each profile has its own "
             "skills/, plugins/, cron/, and memories/ that affect a different "
             "session than this one. Do not modify another profile's "
@@ -818,7 +820,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         profile_home = _home_str
         default_root = get_default_hermes_root()
         post_workspace_parts.append(
-            f"Active Hermes profile: {active_profile}. This session reads "
+            f"Active Nia profile: {active_profile}. This session reads "
             f"and writes {profile_home}/. The default "
             f"profile's data lives at {default_root}/skills/, {default_root}/plugins/, "
             f"{default_root}/cron/, {default_root}/memories/ — those belong to a "

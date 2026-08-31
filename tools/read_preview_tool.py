@@ -25,7 +25,7 @@ def read_preview_tool(
 ) -> str:
     """Return the active preview tab's contents (+ metadata) as a JSON string."""
     if callback is None:
-        return tool_error("read_preview is only available in the Hermes desktop app.")
+        return tool_error("read_preview is only available in the Nia desktop app.")
 
     try:
         window = {

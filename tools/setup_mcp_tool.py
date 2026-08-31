@@ -31,7 +31,7 @@ def setup_mcp_tool(
     """Ask the desktop GUI to run an MCP setup flow; return its JSON outcome."""
     if callback is None:
         return tool_error(
-            "setup_mcp is only available in the Hermes desktop app. Use the "
+            "setup_mcp is only available in the Nia desktop app. Use the "
             "terminal instead: `hermes mcp install <name>` for catalog entries, "
             "`hermes mcp login <name>` for OAuth."
         )

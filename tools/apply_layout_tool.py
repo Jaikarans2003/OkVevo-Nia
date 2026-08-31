@@ -22,7 +22,7 @@ from tools.registry import registry, tool_error
 
 # Renderer answer arrives via the blocking-prompt bridge with this timeout;
 # applying a layout is synchronous in the renderer, so this is generous.
-_TIMEOUT_NOTE = "Layout apply is only available in the Hermes desktop app."
+_TIMEOUT_NOTE = "Layout apply is only available in the Nia desktop app."
 
 
 def apply_layout_tool(preset: str) -> str:
@@ -44,7 +44,7 @@ def apply_layout_tool(preset: str) -> str:
 APPLY_LAYOUT_SCHEMA = {
     "name": "apply_layout",
     "description": (
-        "Apply a saved layout preset to the Hermes desktop app when the user "
+        "Apply a saved layout preset to the Nia desktop app when the user "
         "asks to rearrange the workspace. Built-ins: default (chat + "
         "sidebars), focus (chat only), terminal-deck, quad; plugin/user "
         "presets by id. To reveal ONE pane, use focus_pane instead."
