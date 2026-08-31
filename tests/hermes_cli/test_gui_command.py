@@ -99,6 +99,16 @@ def _make_packaged_executable(root: Path, monkeypatch) -> Path:
     return exe
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS packaged layout")
+def test_desktop_packaged_executable_finds_nia_app(tmp_path):
+    desktop_dir = tmp_path / "apps" / "desktop"
+    exe = desktop_dir / "release" / "mac-arm64" / "Nia.app" / "Contents" / "MacOS" / "Nia"
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    exe.write_text("", encoding="utf-8")
+
+    assert cli_main._desktop_packaged_executable(desktop_dir) == exe
+
+
 def test_gui_installs_packages_and_launches_desktop_app(tmp_path, monkeypatch):
     root = _make_desktop_tree(tmp_path)
     desktop_dir = root / "apps" / "desktop"

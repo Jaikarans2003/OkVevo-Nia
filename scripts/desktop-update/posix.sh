@@ -328,7 +328,9 @@ linux_gate() {
 
 mac_swap() {
   local rebuilt="" c
-  for c in "$INSTALL_ROOT/apps/desktop/release/mac-arm64/Hermes.app" \
+  for c in "$INSTALL_ROOT/apps/desktop/release/mac-arm64/Nia.app" \
+           "$INSTALL_ROOT/apps/desktop/release/mac/Nia.app" \
+           "$INSTALL_ROOT/apps/desktop/release/mac-arm64/Hermes.app" \
            "$INSTALL_ROOT/apps/desktop/release/mac/Hermes.app"; do
     [ -d "$c" ] && { rebuilt="$c"; break; }
   done

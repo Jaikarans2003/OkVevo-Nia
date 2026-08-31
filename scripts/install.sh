@@ -3385,6 +3385,8 @@ install_desktop() {
     else
         local cand
         for cand in \
+            "$desktop_dir/release/mac-arm64/Nia.app" \
+            "$desktop_dir/release/mac/Nia.app" \
             "$desktop_dir/release/mac-arm64/Hermes.app" \
             "$desktop_dir/release/mac/Hermes.app"; do
             if [ -d "$cand" ]; then
