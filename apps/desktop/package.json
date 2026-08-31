@@ -4,10 +4,10 @@
   "private": true,
   "version": "0.17.0",
   "description": "Native desktop shell for Nia Agent.",
-  "author": "Nous Research",
+  "author": "OkVevo",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NousResearch/hermes-agent.git"
+    "url": "git+https://github.com/Jaikarans2003/OkVevo-Nia.git"
   },
   "type": "module",
   "main": "dist/electron-main.mjs",
@@ -286,7 +286,7 @@
     },
     "linux": {
       "category": "Development",
-      "maintainer": "Nous Research <support@nousresearch.com>",
+      "maintainer": "OkVevo",
       "synopsis": "Native desktop shell for Nia Agent.",
       "target": [
         "AppImage",

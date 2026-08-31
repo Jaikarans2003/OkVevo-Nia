@@ -65,15 +65,15 @@ export const zh: Translations = {
   },
 
   boot: {
-    ready: 'Hermes 桌面版已就绪',
+    ready: 'Nia 桌面版已就绪',
     desktopBootFailedWithMessage: message => `桌面启动失败：${message}`,
     steps: {
       connectingGateway: '正在连接桌面网关',
-      loadingSettings: '正在加载 Hermes 设置',
+      loadingSettings: '正在加载 Nia 设置',
       loadingSessions: '正在加载最近会话',
       retryingRemoteBackend: '正在重新连接远程 Hermes 后端…',
       startingDesktopConnection: '正在启动桌面连接',
-      startingHermesDesktop: '正在启动 Hermes 桌面版…'
+      startingHermesDesktop: '正在启动 Nia 桌面版…'
     },
     errors: {
       backgroundExited: 'Hermes 后台进程已退出。',
@@ -152,7 +152,7 @@ export const zh: Translations = {
       elevenLabsRejectedKey: 'ElevenLabs 拒绝了该 API key (401)。',
       diskFull: '磁盘已满 — 请腾出一些空间后再试。',
       gatewayAuthFailed: '网关认证失败 — 请检查你的 API_SERVER_KEY。',
-      methodNotAllowed: '桌面后端拒绝了该请求 (405 Method Not Allowed)。请尝试重启 Hermes Desktop。',
+      methodNotAllowed: '桌面后端拒绝了该请求 (405 Method Not Allowed)。请尝试重启 Nia。',
       microphonePermission: '麦克风权限已被拒绝。',
       openaiRejectedApiKey: 'OpenAI 拒绝了该 API key。',
       openaiRejectedApiKeyWithStatus: status => `OpenAI 拒绝了该 API key (${status} invalid_api_key)。`,
@@ -183,8 +183,8 @@ export const zh: Translations = {
       approveAction: '批准',
       rejectAction: '拒绝',
       inputTitle: '需要输入',
-      inputBody: 'Hermes 正在等待你的回应。',
-      turnDoneTitle: 'Hermes 已完成',
+      inputBody: 'Nia 正在等待你的回应。',
+      turnDoneTitle: 'Nia 已完成',
       turnDoneBody: '',
       turnErrorTitle: '本轮失败',
       backgroundDoneTitle: '后台任务已完成',
@@ -316,7 +316,6 @@ export const zh: Translations = {
       'view.findInPage': '页面内查找',
       'view.findNext': '查找下一个',
       'view.findPrevious': '查找上一个',
-      'appearance.toggleMode': '切换浅色/深色',
       'profile.default': '切换到默认配置',
       'profile.switch.1': '切换到配置 1',
       'profile.switch.2': '切换到配置 2',
@@ -373,7 +372,7 @@ export const zh: Translations = {
     exportConfig: '导出配置',
     importConfig: '导入配置',
     resetToDefaults: '恢复默认',
-    resetConfirm: '将所有设置恢复为 Hermes 默认值？',
+    resetConfirm: '将所有设置恢复为 Nia 默认值？',
     exportFailed: '导出失败',
     resetFailed: '重置失败',
     nav: {
@@ -396,7 +395,7 @@ export const zh: Translations = {
     plugins: {
       title: '桌面插件',
       blurb:
-        '加载到此应用中的界面扩展——随构建捆绑，或放入 desktop-plugins 文件夹（包括 Hermes 编写的插件）。禁用会即时卸载插件并在重启后保持。',
+        '加载到此应用中的界面扩展——随构建捆绑，或放入 desktop-plugins 文件夹（包括 Nia 编写的插件）。禁用会即时卸载插件并在重启后保持。',
       count: n => `已安装 ${n} 个`,
       openFolder: '打开插件文件夹',
       rescan: '重新扫描',
@@ -427,7 +426,7 @@ export const zh: Translations = {
         includesHeading: '此包包含',
         agentLabel: '智能体插件',
         desktopLabel: '桌面 UI',
-        agentTargetLocal: profile => `安装到 ${profile} 后端（~/.hermes/plugins/）`,
+        agentTargetLocal: profile => `安装到 ${profile} 后端（~/.nia/plugins/）`,
         agentTargetRemote: profile => `安装到已连接的 ${profile} 后端`,
         desktopTarget: '安装到此应用的本地 desktop-plugins 文件夹',
         desktopOnlyNote: '仅桌面包不会安装后端智能体插件。',
@@ -458,7 +457,7 @@ export const zh: Translations = {
       intro: '原生桌面通知，区别于应用内提示。设置按设备保存，每台电脑各自独立。',
       enableAll: '启用通知',
       enableAllDesc: '关闭后静音下方所有通知。',
-      focusedHint: '完成提醒仅在 Hermes 处于后台时触发。',
+      focusedHint: '完成提醒仅在 Nia 处于后台时触发。',
       kinds: {
         approval: {
           label: '需要批准',
@@ -466,11 +465,11 @@ export const zh: Translations = {
         },
         input: {
           label: '需要输入',
-          description: 'Hermes 提出了问题，或需要密码或密钥。'
+          description: 'Nia 提出了问题，或需要密码或密钥。'
         },
         turnDone: {
           label: '回复就绪',
-          description: 'Hermes 在后台时完成了一轮对话。'
+          description: 'Nia 在后台时完成了一轮对话。'
         },
         turnError: {
           label: '本轮失败',
@@ -486,11 +485,11 @@ export const zh: Translations = {
         },
         plugin: {
           label: '插件通知',
-          description: 'Hermes 在后台时，桌面插件发送了通知。'
+          description: 'Nia 在后台时，桌面插件发送了通知。'
         }
       },
       test: '发送测试通知',
-      testTitle: 'Hermes',
+      testTitle: 'Nia',
       testBody: '通知工作正常。',
       testSent: '测试已发送。如果没有出现，请检查系统通知权限和专注模式／勿扰模式。',
       testUnsupported: '此系统不支持原生通知。',
@@ -509,30 +508,20 @@ export const zh: Translations = {
       advanced: '高级'
     },
     searchPlaceholder: {
-      about: '关于 Hermes Desktop',
+      about: '关于 Nia',
       config: '搜索设置…',
       gateway: '网关连接…',
       keys: '搜索 API 密钥…',
       mcp: '搜索 MCP 服务器…',
       sessions: '搜索已归档会话…'
     },
-    modeOptions: {
-      light: { label: '明亮', description: '明亮的桌面界面' },
-      dark: { label: '暗色', description: '低眩光工作区' },
-      system: { label: '跟随系统', description: '跟随系统外观' }
-    },
     appearance: {
       title: '外观',
-      intro: '这些是仅桌面端的显示偏好。模式控制明暗；主题控制强调色与对话界面样式。',
-      colorMode: '颜色模式',
-      colorModeDesc: '选择固定模式，或让 Hermes 跟随系统设置。',
+      intro: '这些是仅桌面端的显示偏好：语言、密度、透明度和对话界面。',
       toolViewTitle: '工具调用显示',
       toolViewDesc: '产品模式隐藏原始工具数据；技术模式显示完整输入/输出。',
       reasoningCollapsedTitle: '默认折叠推理过程',
       reasoningCollapsedDesc: '保留流式推理内容，但在您打开前保持折叠。',
-      uiScaleTitle: '界面缩放',
-      uiScaleDesc: (percent: number) =>
-        `缩放整个应用的文字和界面。也可使用 Cmd/Ctrl 加 +、- 或 0 调整。当前：${percent}%`,
       sessionDensityTitle: '会话列表密度',
       sessionDensityDesc: '选择侧边栏会话标题下方显示的信息量。',
       sessionDensityCompact: '紧凑',
@@ -573,12 +562,12 @@ export const zh: Translations = {
       introSplashTitle: '开场标识',
       introSplashDesc: '空白对话中显示的字标和提示语。',
       reactionsTitle: '消息回应',
-      reactionsDesc: 'iMessage 风格的表情回应 — 你可以给消息添加回应，Hermes 也能回应你的消息。',
+      reactionsDesc: 'iMessage 风格的表情回应 — 你可以给消息添加回应，Nia 也能回应你的消息。',
       tipsTitle: '应用内提示',
-      tipsDesc: '指向应用某处的小气泡：空闲时偶尔出现，需要时 Hermes 也会给你一条。关掉一条就不再出现。',
+      tipsDesc: '指向应用某处的小气泡：空闲时偶尔出现，需要时 Nia 也会给你一条。关掉一条就不再出现。',
       tipsReset: (count: number) => `恢复 ${count} 条已关闭的提示`,
       toursTitle: '引导导览',
-      toursDesc: '让 Hermes 带你熟悉应用：调暗界面并逐步高亮每个位置。',
+      toursDesc: '让 Nia 带你熟悉应用：调暗界面并逐步高亮每个位置。',
       composerPopoutTitle: '悬浮输入框',
       composerPopoutDesc: '允许将输入框拖出底部停靠区。关闭后，输入框会锁定在底部。',
       vibeHeartsTitle: '心情爱心',
@@ -594,23 +583,11 @@ export const zh: Translations = {
       productDesc: '易读的工具活动与简洁摘要。',
       technical: '技术',
       technicalDesc: '包含原始工具参数/结果及底层细节。',
-      themeTitle: '主题',
-      themeDesc: '仅桌面端调色板。所选模式叠加其上。',
-      themeProfileNote: profile => `已为「${profile}」配置文件保存——每个配置文件保留各自的主题。`,
-      installTitle: '从 VS Code 安装',
-      installDesc: '粘贴 Marketplace 扩展 ID（例如 dracula-theme.theme-dracula），将其配色主题转换为桌面调色板。',
-      installPlaceholder: 'publisher.extension',
-      installButton: '安装',
-      installing: '安装中…',
-      installError: '无法安装该主题。',
-      installed: name => `已安装「${name}」。`,
-      removeTheme: '移除主题',
-      importedBadge: '已导入',
       pet: {
         title: '宠物',
         intro:
-          '领养一只悬浮在应用上的 petdex 动画宠物，它会根据 Hermes 的状态做出反应——工具执行时奔跑、成功时欢呼、出错时沮丧。',
-        restartHint: '宠物功能需要重启——当前运行的应用在此功能加入前启动。请退出并重新打开 Hermes，然后回到此处。',
+          '领养一只悬浮在应用上的 petdex 动画宠物，它会根据 Nia 的状态做出反应——工具执行时奔跑、成功时欢呼、出错时沮丧。',
+        restartHint: '宠物功能需要重启——当前运行的应用在此功能加入前启动。请退出并重新打开 Nia，然后回到此处。',
         scaleTitle: '大小',
         scaleDesc: '调整悬浮宠物的大小，所有界面即时生效。',
         roamTitle: '漫游',
@@ -820,10 +797,10 @@ export const zh: Translations = {
         repoScanRoots: '要扫描的文件夹。留空时扫描主目录。',
         repoScanExcludePaths: '发现代码仓库时跳过这些文件夹及其子目录。'
       },
-      timezone: '当 Hermes 需要本地时间上下文时使用。留空则使用系统时区。',
+      timezone: '当 Nia 需要本地时间上下文时使用。留空则使用系统时区。',
       agent: {
         imageInputMode: '控制图片附件如何发送给模型。',
-        maxTurns: 'Hermes 停止一次运行前工具调用轮次的上限。'
+        maxTurns: 'Nia 停止一次运行前工具调用轮次的上限。'
       },
       terminal: {
         cwd: '工具与终端操作的默认项目目录。',
@@ -833,9 +810,9 @@ export const zh: Translations = {
       codeExecution: {
         mode: '代码执行被限定到当前项目的严格程度。'
       },
-      fileReadMaxChars: 'Hermes 单次文件读取可读取的最大字符数。',
+      fileReadMaxChars: 'Nia 单次文件读取可读取的最大字符数。',
       approvals: {
-        mode: 'Hermes 如何处理需要显式审批的命令。',
+        mode: 'Nia 如何处理需要显式审批的命令。',
         timeout: '审批提示在超时前等待的时长。'
       },
       security: {
@@ -865,11 +842,12 @@ export const zh: Translations = {
       },
       updates: {
         nonInteractiveLocalChanges:
-          'Hermes 从应用内更新时（无终端提示），保留本地源码修改（暂存）或丢弃（放弃）。通过终端更新时始终会询问。'
+          'Nia 从应用内更新时（无终端提示），保留本地源码修改（暂存）或丢弃（放弃）。通过终端更新时始终会询问。'
       }
     }),
     about: {
-      heading: 'Hermes Desktop',
+      heading: 'Nia',
+      madeBy: '由 OkVevo 出品',
       version: value => `版本 ${value}`,
       versionUnavailable: '版本不可用',
       bundleOutOfSync: '应用构建版本过旧',
@@ -892,7 +870,7 @@ export const zh: Translations = {
       lastChecked: age => `上次检查:${age}`,
       justNowSuffix: ' · 刚刚',
       automaticUpdates: '自动更新',
-      automaticUpdatesDesc: 'Hermes 会在后台自动检查更新，并在有可用更新时通知你。',
+      automaticUpdatesDesc: 'Nia 会在后台自动检查更新，并在有可用更新时通知你。',
       branchCommit: (branch, commit) => `分支 ${branch} · 提交 ${commit}`,
       never: '从未',
       justNow: '刚刚',
@@ -909,7 +887,7 @@ export const zh: Translations = {
       searchPlaceholder: '搜索…',
       noResults: '未找到结果',
       systemDefault: '系统默认',
-      loading: '正在加载 Hermes 配置...',
+      loading: '正在加载 Nia 配置...',
       emptyTitle: '无可配置项',
       emptyDesc: '此分区没有可调整的设置。',
       failedLoad: '设置加载失败',
@@ -930,7 +908,7 @@ export const zh: Translations = {
     },
     quickEntry: {
       enabledTitle: '快速输入',
-      enabledDesc: '用全局快捷键在任何地方唤出一个小输入框，无需打开 Hermes 即可发送提示。',
+      enabledDesc: '用全局快捷键在任何地方唤出一个小输入框，无需打开 Nia 即可发送提示。',
       shortcutTitle: '快速输入快捷键',
       shortcutDesc: '至少需要一个修饰键，例如 CommandOrControl+Shift+Space。',
       active: '快捷键已生效。',
@@ -1043,7 +1021,7 @@ export const zh: Translations = {
       title: '网关连接',
       envOverride: '环境变量覆盖',
       intro:
-        'Hermes Desktop 默认会启动自己的本地网关。当你希望此应用控制另一台机器上或可信代理后的现有 Hermes 后端时，可以使用远程网关。网关连接属于本机级设置；profile 是从所连接的网关中发现的。',
+        'Nia 默认会启动自己的本地网关。当你希望此应用控制另一台机器上或可信代理后的现有 Hermes 后端时，可以使用远程网关。网关连接属于本机级设置；profile 是从所连接的网关中发现的。',
       envOverrideTitle: '环境变量正在控制此桌面会话。',
       envOverrideDesc: '取消设置 HERMES_DESKTOP_REMOTE_URL 和 HERMES_DESKTOP_REMOTE_TOKEN 后才会使用下面保存的设置。',
       modeTitle: '连接模式',
@@ -1126,7 +1104,7 @@ export const zh: Translations = {
       enterUrlFirst: '请先输入远程 URL。',
       restartingTitle: '网关连接正在重启',
       savedTitle: '网关设置已保存',
-      restartingMessage: 'Hermes Desktop 将使用已保存设置重新连接（界面保持打开）。',
+      restartingMessage: 'Nia 将使用已保存设置重新连接（界面保持打开）。',
       savedMessage: '已保存，下一次重启生效。',
       connectedTo: (baseUrl, version) => `已连接到 ${baseUrl}${version ? ` · Hermes ${version}` : ''}`,
       reachableTitle: '远程网关可访问',
@@ -1161,7 +1139,7 @@ export const zh: Translations = {
       sshTestConnection: '测试 SSH',
       sshConnect: '连接',
       sshButtonsHint: '“保存”将在下次启动时生效，“连接”则立即重新连接。',
-      sshReachable: (host, platform) => `可连接：${host}（${platform}）——已找到 Hermes`,
+      sshReachable: (host, platform) => `可连接：${host}（${platform}）——已找到 Nia`,
       sshIncompleteHost: '连接前请输入 SSH 主机。',
       sshErrUnreachable: '无法通过 SSH 连接到该主机。请检查主机、端口和网络。',
       sshErrAuth:
@@ -1169,7 +1147,7 @@ export const zh: Translations = {
       sshErrHostKey: '自上次连接以来主机密钥已更改。请确认这是预期的，然后运行 ssh-keygen -R <host> 并重新连接。',
       sshErrNotInstalled:
         '远程主机上未安装 Hermes。请在远程安装（curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh）或设置 Hermes 路径。',
-      sshErrPlatform: '不支持的远程平台。Hermes Desktop 的 SSH 模式支持 Linux、macOS 和 Windows 远程主机。',
+      sshErrPlatform: '不支持的远程平台。Nia 的 SSH 模式支持 Linux、macOS 和 Windows 远程主机。',
       sshErrTimeout: 'SSH 连接超时。主机可能无法访问或处于休眠状态。',
       sshErrUpdateRequired: '使用 Desktop SSH 连接前，请更新远程主机上的 Hermes。',
       sshErrUnknown: 'SSH 连接失败。'
@@ -1257,7 +1235,7 @@ export const zh: Translations = {
       noOutput: '暂无输出。',
       deepLinkTitle: '添加 MCP 服务器？',
       deepLinkDescription:
-        '一个链接请求将此 MCP 服务器添加到 Hermes。请检查下方的完整配置——它来自该链接，而非 Hermes。',
+        '一个链接请求将此 MCP 服务器添加到 Nia。请检查下方的完整配置——它来自该链接，而非 Nia。',
       deepLinkStdioWarning: '此服务器会使用下方所示命令在你的电脑上运行本地进程。仅在信任其来源时继续。',
       deepLinkConfirm: '添加服务器',
       deepLinkNameInvalid: '名称须为 1-64 个字母、数字、点、连字符或下划线。',
@@ -1308,7 +1286,7 @@ export const zh: Translations = {
     providers: {
       connectAccount: '连接账号',
       haveApiKey: '改用 API 密钥？',
-      intro: '使用订阅登录，无需复制 API 密钥。Hermes 会在应用中为你完成浏览器登录。',
+      intro: '使用订阅登录，无需复制 API 密钥。Nia 会在应用中为你完成浏览器登录。',
       connected: '已连接',
       collapse: '收起',
       connectAnother: '连接其他提供方',
@@ -1328,7 +1306,7 @@ export const zh: Translations = {
       noKeysMatch: '没有匹配的提供方。',
       localEndpoint: {
         title: '本地 / 自定义端点',
-        description: '将 Hermes 指向任意 OpenAI 兼容端点（Zyphra、vLLM、llama.cpp、Ollama 等）。'
+        description: '将 Nia 指向任意 OpenAI 兼容端点（Zyphra、vLLM、llama.cpp、Ollama 等）。'
       },
       loading: '正在加载提供方...'
     },
@@ -1574,7 +1552,7 @@ export const zh: Translations = {
     loadFailed: '无法加载记忆图谱',
     loading: '加载中…',
     emptyTitle: '尚无学习内容',
-    emptyDesc: '当 Hermes 为你的工作构建技能和记忆时，会显示在这里。',
+    emptyDesc: '当 Nia 为你的工作构建技能和记忆时，会显示在这里。',
     share: '分享图谱',
     shareHint: '复制代码以分享此图谱，或粘贴代码以载入。仅包含布局，不含你的记忆或技能内容。',
     shareTitle: '导入 / 导出图谱',
@@ -1636,8 +1614,6 @@ export const zh: Translations = {
     commandCenter: '命令中心',
     appearance: '外观',
     settings: '设置',
-    changeTheme: '更改主题',
-    changeColorMode: '更改颜色模式…',
     pets: {
       title: '宠物',
       placeholder: '搜索宠物…',
@@ -1671,7 +1647,7 @@ export const zh: Translations = {
       hatchSaving: '马上就好……',
       namePlaceholder: '给宠物起个名字',
       staleBackend: '请更新 Hermes 以生成宠物。',
-      backgroundHint: '你可以关闭此窗口——完成后 Hermes 会通知你。',
+      backgroundHint: '你可以关闭此窗口——完成后 Nia 会通知你。',
       slowProviderHint: '这可能需要几分钟',
       remix: '混合生成',
       remixConfirmTitle: '以此造型混合生成？',
@@ -1681,18 +1657,6 @@ export const zh: Translations = {
       referenceImageInvalid: '无法读取该参考图。请尝试 PNG、JPG、WebP 或 GIF。',
       adopt: '领养',
       startOver: '重新开始'
-    },
-    installTheme: {
-      title: '安装主题…',
-      pageTitle: '安装主题',
-      placeholder: '搜索 VS Code Marketplace...',
-      loading: '正在搜索 Marketplace...',
-      error: '无法连接到 Marketplace。',
-      empty: '没有匹配的主题。',
-      install: '安装',
-      installing: '安装中...',
-      installed: '已安装',
-      installs: count => `${count} 次安装`
     },
     settingsFields: '设置字段',
     mcpServers: 'MCP 服务器',
@@ -1706,7 +1670,7 @@ export const zh: Translations = {
     },
     nav: {
       newChat: { title: '新建会话', detail: '开始一个新会话' },
-      settings: { title: '设置', detail: '配置 Hermes 桌面端' },
+      settings: { title: '设置', detail: '配置 Nia 桌面端' },
       skills: { title: '技能与工具', detail: '启用技能、工具集与提供方' },
       messaging: { title: '消息平台', detail: '配置 Telegram、Slack、Discord 等' },
       artifacts: { title: '产物', detail: '浏览生成的输出' }
@@ -1936,10 +1900,10 @@ export const zh: Translations = {
       slack: '创建 Slack 应用，启用 Socket Mode，安装到你的工作区，然后复制 bot 令牌和 app 级令牌。',
       mattermost: '在你的 Mattermost 服务器上，创建机器人账户或个人访问令牌，然后在此粘贴服务器 URL 和令牌。',
       matrix: '用机器人账户登录你的 homeserver，然后复制访问令牌、用户 ID 和 homeserver URL。',
-      signal: '在可访问的位置运行 signal-cli REST 桥接，然后把 Hermes 指向该 URL 和已注册的电话号码。',
+      signal: '在可访问的位置运行 signal-cli REST 桥接，然后把 Nia 指向该 URL 和已注册的电话号码。',
       whatsapp: '启动 Hermes 自带的 WhatsApp 桥接，首次运行时扫描二维码，然后启用该平台。',
       bluebubbles:
-        '在装有 iMessage 的 Mac 上运行 BlueBubbles Server，暴露其 API，然后用服务器密码把 Hermes 指向该 URL。',
+        '在装有 iMessage 的 Mac 上运行 BlueBubbles Server，暴露其 API，然后用服务器密码把 Nia 指向该 URL。',
       homeassistant: '在 Home Assistant 中打开你的个人资料并创建长期访问令牌。把它连同你的 HA URL 一起粘贴到这里。',
       email: '使用专用邮箱。对于 Gmail/Workspace,创建应用专用密码并使用 imap.gmail.com / smtp.gmail.com。',
       sms: '从 Twilio 控制台获取你的 Account SID 和 Auth Token，以及一个可发送短信的电话号码。',
@@ -1951,7 +1915,7 @@ export const zh: Translations = {
         '运行 `hermes gateway setup`，选择 Weixin，然后使用个人微信账号扫描并确认二维码。Hermes 会通过腾讯 iLink Bot API 连接并保存凭据。',
       qqbot: '在 QQ 开放平台 (q.qq.com) 注册一个应用，复制 App ID 和 Client Secret。',
       api_server:
-        '把 Hermes 暴露为兼容 OpenAI 的 API。设置一个鉴权密钥，然后把 Open WebUI / LobeChat 等指向 host:port。',
+        '把 Nia 暴露为兼容 OpenAI 的 API。设置一个鉴权密钥，然后把 Open WebUI / LobeChat 等指向 host:port。',
       webhook: '运行一个 HTTP 服务器，供其他工具 (GitHub、GitLab、自定义应用)POST。用 secret 验证签名。'
     }
   },
@@ -2055,7 +2019,7 @@ export const zh: Translations = {
       menuItem: '连接到远程主机…',
       badge: (host: string) => `运行于 ${host}`,
       title: (profile: string) => `将 ${profile} 连接到远程主机`,
-      description: '此配置档案中的会话将在你指定的远程 Hermes 上运行，而不是这台电脑。',
+      description: '此配置档案中的会话将在你指定的远程 Nia 上运行，而不是这台电脑。',
       urlLabel: '远程地址',
       urlPlaceholder: 'https://hermes.example.com',
       urlInvalid: '请输入以 http:// 或 https:// 开头的完整地址',
@@ -2118,7 +2082,7 @@ export const zh: Translations = {
     deleteDescMid: ' 并移除其 ',
     deleteDescSuffix: ' 目录。此操作无法撤销。',
     deleting: '删除中…',
-    createDesc: '配置档案是相互独立的 Hermes 环境：各自拥有独立的配置、技能和 SOUL.md。',
+    createDesc: '配置档案是相互独立的 Nia 环境：各自拥有独立的配置、技能和 SOUL.md。',
     nameLabel: '名称',
     cloneFrom: '克隆来源',
     cloneFromNone: '无（空白）',
@@ -2160,7 +2124,7 @@ export const zh: Translations = {
       message: count => `在您检查模型设置之前，${count} 个定时任务将被跳过。`,
       detailMore: (names, remaining) => `${names}，以及另外 ${remaining} 个`,
       review: '检查定时任务',
-      saveFailed: 'Hermes 未保存该模型更改。',
+      saveFailed: 'Nia 未保存该模型更改。',
       confirmTitle: '模型选择警告',
       confirmDetail: '仅在你接受此权衡时确认。',
       confirmAction: '确认',
@@ -2220,7 +2184,7 @@ export const zh: Translations = {
     topOfHour: '每个整点',
     everyHourAt: minute => `每小时的 :${minute}`,
     newCron: '新建定时任务',
-    emptyDescNew: '按 cron 表达式排程一个提示词。Hermes 会运行它，并把结果发送到你选择的目的地。',
+    emptyDescNew: '按 cron 表达式排程一个提示词。Nia 会运行它，并把结果发送到你选择的目的地。',
     emptyDescSearch: '尝试更宽泛的搜索词。',
     emptyTitleNew: '暂无排程任务',
     emptyTitleSearch: '无匹配项',
@@ -2417,7 +2381,7 @@ export const zh: Translations = {
       removeFromSidebar: '从侧边栏移除',
       createFailed: '无法创建项目',
       staleBackend: '请更新 Hermes 后端以创建项目——当前后端比桌面应用旧（设置 → 更新 → 后端）。',
-      deleteConfirm: '这会从 Hermes 中移除已保存的项目。文件、git 仓库和工作树保持不变。',
+      deleteConfirm: '这会从 Nia 中移除已保存的项目。文件、git 仓库和工作树保持不变。',
       startWork: '新建工作树',
       newWorktreeTitle: '新建工作树',
       newWorktreeDesc: '为这个工作树命名分支。',
@@ -2520,12 +2484,12 @@ export const zh: Translations = {
   composer: {
     message: '消息',
     wakingProfile: profile => `正在唤醒 ${profile}…`,
-    placeholderStarting: '正在启动 Hermes…',
+    placeholderStarting: '正在启动 Nia…',
     placeholderReconnecting: '正在重新连接 Hermes…',
     placeholderFollowUp: '发送后续消息',
     newSessionPlaceholders: [
       '我们要构建什么？',
-      '给 Hermes 一个任务',
+      '给 Nia 一个任务',
       '你在想什么？',
       '描述你需要什么',
       '我们该处理什么？',
@@ -2593,7 +2557,7 @@ export const zh: Translations = {
       'composer.history': '循环弹窗 / 历史'
     },
     attachUrlTitle: '附加 URL',
-    attachUrlDesc: 'Hermes 将抓取该页面并作为本回合的上下文。',
+    attachUrlDesc: 'Nia 将抓取该页面并作为本回合的上下文。',
     urlPlaceholder: 'https://example.com/post',
     urlHintPre: '请包含完整 URL，例如 ',
     attach: '附加',
@@ -2743,7 +2707,7 @@ export const zh: Translations = {
       createPr: '创建 PR',
       openPr: '打开 PR',
       ghMissing: '安装 GitHub CLI (gh) 并登录后可打开 PR',
-      agentShip: '让 Hermes 提交并开 PR',
+      agentShip: '让 Nia 提交并开 PR',
       agentShipUnavailable: '拥有这些更改的会话当前不在屏幕上。',
       agentShipPrompt: '检查当前更改，使用清晰的约定式提交信息提交，推送分支，并开启一个拉取请求。',
       newBranch: '新建分支',
@@ -2773,13 +2737,13 @@ export const zh: Translations = {
     checkFailedTitle: '无法检查更新',
     tryAgain: '重试',
     notAvailableTitle: '更新不可用',
-    unsupportedMessage: '此版本的 Hermes 无法在应用内自行更新。',
+    unsupportedMessage: '此版本的 Nia 无法在应用内自行更新。',
     connectionRetry: '请检查网络连接后重试。',
     latestBody: '你正在运行最新版本。',
     latestBodyBackend: '后端正在运行最新版本。',
     allSetTitle: '已是最新',
     availableTitle: '有可用更新',
-    availableBody: '新版 Hermes 已可安装。',
+    availableBody: '新版 Nia 已可安装。',
     availableTitleBackend: '后端有可用更新',
     availableBodyBackend: '已连接的 Hermes 后端有新版本可安装。',
     availableBodyNoChangelog: '已有新版本可用。此安装方式无法显示更新日志。',
@@ -2787,8 +2751,8 @@ export const zh: Translations = {
     maybeLater: '稍后再说',
     moreChanges: count => `另有 ${count} 项更改。`,
     manualTitle: '从终端更新',
-    manualBody: '你是从命令行安装的 Hermes，因此更新也需要在那里运行。请将此命令粘贴到终端：',
-    manualPickedUp: '下次启动 Hermes 时会使用新版本。',
+    manualBody: '你是从命令行安装的 Nia，因此更新也需要在那里运行。请将此命令粘贴到终端：',
+    manualPickedUp: '下次启动 Nia 时会使用新版本。',
     guiSkewTitle: '请更新桌面应用',
     guiSkewBody:
       '后端已更新，但此桌面应用包未更改。请更新或重新安装 Hermes 桌面应用（你的 AppImage / .deb / .rpm）以保持一致。',
@@ -2796,16 +2760,16 @@ export const zh: Translations = {
     copied: '已复制',
     done: '完成',
     applyingBody:
-      'Hermes 更新器会在自己的窗口中接管，并在完成后自动重新打开 Hermes。更新期间请不要自行重新打开 Hermes。',
+      'Nia 更新器会在自己的窗口中接管，并在完成后自动重新打开 Nia。更新期间请不要自行重新打开 Nia。',
     applyingBodyBackend: '远程后端正在应用更新并将重启。恢复后 Hermes 会自动重新连接。',
-    applyingClose: '此窗口会在更新期间关闭，随后 Hermes 会自动重新打开。',
+    applyingClose: '此窗口会在更新期间关闭，随后 Nia 会自动重新打开。',
     errorTitle: '更新未完成',
     errorBody: '没有数据丢失。你可以现在重试。',
     blockerTitle: '关闭本地预览以更新 Hermes？',
-    blockerBody: 'Hermes 需要在更新前停止这些本地预览。这不会修改或删除你的文件。',
+    blockerBody: 'Nia 需要在更新前停止这些本地预览。这不会修改或删除你的文件。',
     foreignBlockerTitle: '关闭其他进程以更新 Hermes',
-    foreignBlockerBody: 'Hermes 无法安全地自动关闭这些进程。请关闭拥有这些进程的应用、终端或服务，然后重试更新。',
-    mixedBlockerBody: 'Hermes 可以关闭下方列出的本地预览。其他进程必须手动关闭，更新才能继续。',
+    foreignBlockerBody: 'Nia 无法安全地自动关闭这些进程。请关闭拥有这些进程的应用、终端或服务，然后重试更新。',
+    mixedBlockerBody: 'Nia 可以关闭下方列出的本地预览。其他进程必须手动关闭，更新才能继续。',
     closePreviewsAndUpdate: '关闭预览并更新',
     closePreviewsAndCheckAgain: '关闭预览并重新检查',
     localPreview: '本地预览',
@@ -2838,7 +2802,7 @@ export const zh: Translations = {
       skipped: '已跳过',
       failed: '失败'
     },
-    oneTimeTitle: 'Hermes 需要一次性安装',
+    oneTimeTitle: 'Nia 需要一次性安装',
     unsupportedDesc: platform =>
       `${platform} 暂不支持自动首次启动安装。请打开终端并运行下面的命令，然后重新启动此应用。之后启动会跳过此步骤。`,
     installCommand: '安装命令',
@@ -2846,16 +2810,16 @@ export const zh: Translations = {
     viewDocs: '查看安装文档',
     installTo: '将安装到',
     retryAfterRun: '我已运行 -- 重试',
-    setupChoiceTitle: '设置 Hermes Desktop',
-    setupChoiceDesc: '将此应用连接到你已运行的 Hermes 网关，或在这台电脑上本地安装 Hermes。',
-    connectExistingTitle: '连接到现有 Hermes',
+    setupChoiceTitle: '设置 Nia',
+    setupChoiceDesc: '将此应用连接到你已运行的 Nia 网关，或在这台电脑上本地安装 Nia。',
+    connectExistingTitle: '连接到现有 Nia',
     connectExistingShort: '连接现有环境',
     connectExistingDesc: '使用会话令牌或浏览器登录连接远程后端。不会启动本地安装。',
-    installLocalTitle: '本地安装 Hermes',
-    installLocalDesc: '下载 Hermes，创建 Python 环境，并在这台电脑上运行后端。',
-    localStartUnavailable: '无法启动本地安装。请重启 Hermes Desktop 后重试。',
-    remoteSetupTitle: '连接到现有 Hermes',
-    remoteSetupDesc: '输入网关 URL。Hermes Desktop 会检测需要令牌还是浏览器登录。',
+    installLocalTitle: '本地安装 Nia',
+    installLocalDesc: '下载 Nia，创建 Python 环境，并在这台电脑上运行后端。',
+    localStartUnavailable: '无法启动本地安装。请重启 Nia 后重试。',
+    remoteSetupTitle: '连接到现有 Nia',
+    remoteSetupDesc: '输入网关 URL。Nia 会检测需要令牌还是浏览器登录。',
     remoteUrlTitle: '网关 URL',
     remoteUrlDesc: '使用 Hermes 网关的基础 URL；远程地址请包含 https://。',
     remoteUrlPlaceholder: 'https://gateway.example.com/hermes',
@@ -2880,11 +2844,11 @@ export const zh: Translations = {
     applyRemote: '应用并重新连接',
     backToSetup: '返回',
     failedTitle: '安装失败',
-    settingUpTitle: '正在设置 Hermes Agent',
+    settingUpTitle: '正在设置 Nia',
     finishingTitle: '正在收尾',
     failedDesc:
-      '某个安装步骤失败。在 Windows 上，如果另一个 Hermes CLI 或桌面实例正在运行，可能会出现这种情况。请停止正在运行的 Hermes 实例后重试。可查看下面的详情或 desktop 日志中的完整记录。',
-    activeDesc: '这是一次性设置。Hermes 安装器正在下载依赖并配置你的机器。之后启动会跳过此步骤。',
+      '某个安装步骤失败。在 Windows 上，如果另一个 Nia CLI 或桌面实例正在运行，可能会出现这种情况。请停止正在运行的 Nia 实例后重试。可查看下面的详情或 desktop 日志中的完整记录。',
+    activeDesc: '这是一次性设置。Nia 安装器正在下载依赖并配置你的机器。之后启动会跳过此步骤。',
     progress: (completed, total) => `${completed}/${total} 个步骤已完成`,
     currentStage: stage => ` -- 当前：${stage}`,
     fetchingManifest: '正在获取安装器 manifest...',
@@ -2902,10 +2866,10 @@ export const zh: Translations = {
   },
 
   onboarding: {
-    headerTitle: '开始设置 Hermes Agent',
+    headerTitle: '开始设置 Nia',
     headerDesc: '连接模型提供方即可开始对话。大多数选项只需一次点击。',
-    preparingInstall: 'Hermes 正在完成安装。首次运行通常不到一分钟。',
-    starting: '正在启动 Hermes…',
+    preparingInstall: 'Nia 正在完成安装。首次运行通常不到一分钟。',
+    starting: '正在启动 Nia…',
     lookingUpProviders: '正在查找提供方...',
     collapse: '收起',
     otherProviders: '其他提供方',
@@ -2913,7 +2877,7 @@ export const zh: Translations = {
     chooseLater: '稍后再选择提供方',
     recommended: '推荐',
     connected: '已连接',
-    featuredPitch: '一个订阅，300+ 前沿模型 — 运行 Hermes 的推荐方式',
+    featuredPitch: '一个订阅，300+ 前沿模型 — 运行 Nia 的推荐方式',
     fireworksPitch: '直接模型 API — Fireworks 托管的前沿模型',
     openRouterPitch: '一个密钥，数百个模型 — 稳妥的默认选择',
     apiKeyOptions: {
@@ -2924,7 +2888,7 @@ export const zh: Translations = {
       xai: { short: 'Grok 模型', description: '直接访问 xAI Grok 模型。' },
       local: {
         short: '自托管',
-        description: '将 Hermes 指向本地或自托管的 OpenAI 兼容端点 (vLLM、llama.cpp、Ollama 等)。'
+        description: '将 Nia 指向本地或自托管的 OpenAI 兼容端点 (vLLM、llama.cpp、Ollama 等)。'
       }
     },
     backToSignIn: '返回登录',
@@ -2937,7 +2901,7 @@ export const zh: Translations = {
     update: '更新',
     flowSubtitles: {
       pkce: '打开浏览器登录，然后回到这里继续',
-      device_code: '在浏览器中打开验证页面 — Hermes 会自动连接',
+      device_code: '在浏览器中打开验证页面 — Nia 会自动连接',
       external: '先在终端登录一次，然后回来继续对话'
     },
     startingSignIn: provider => `正在为 ${provider} 启动登录...`,
@@ -2948,11 +2912,11 @@ export const zh: Translations = {
     pickDifferentProvider: '选择其他提供方',
     signInWith: provider => `使用 ${provider} 登录`,
     openedBrowser: provider => `已在浏览器中打开 ${provider}。`,
-    authorizeThere: '请在那里授权 Hermes。',
+    authorizeThere: '请在那里授权 Nia。',
     copyAuthCode: '复制授权码并粘贴到下面。',
     pasteAuthCode: '粘贴授权码',
     reopenAuthPage: '重新打开授权页面',
-    autoBrowser: provider => `已在浏览器中打开 ${provider}。请在那里授权 Hermes，连接会自动完成，无需复制或粘贴。`,
+    autoBrowser: provider => `已在浏览器中打开 ${provider}。请在那里授权 Nia，连接会自动完成，无需复制或粘贴。`,
     reopenSignInPage: '重新打开登录页面',
     waitingAuthorize: '等待你授权...',
     externalPending: provider => `${provider} 通过自己的 CLI 登录。请在终端运行此命令，然后回来选择“我已登录”：`,
@@ -3053,7 +3017,7 @@ export const zh: Translations = {
       update: '更新',
       updateInProgress: '正在更新',
       commitsBehind: (count, branch) => `落后 ${branch} ${count} 个提交`,
-      desktopVersion: version => `Hermes Desktop v${version}`,
+      desktopVersion: version => `Nia v${version}`,
       backendVersion: version => `后端 v${version}`,
       clientLabel: version => `客户端 v${version}`,
       connectionSsh: host => `SSH: ${host}`,
@@ -3192,7 +3156,7 @@ export const zh: Translations = {
     binaryTitle: '这看起来像二进制文件',
     binaryBody: label => `预览 ${label} 可能会显示不可读文本。`,
     largeTitle: '此文件较大',
-    largeBody: (label, size) => `${label} 大小为 ${size}。Hermes 只会显示前 512 KB。`,
+    largeBody: (label, size) => `${label} 大小为 ${size}。Nia 只会显示前 512 KB。`,
     previewAnyway: '仍然预览',
     truncated: '显示前 512 KB。',
     noInlineTitle: '没有内联预览',
@@ -3232,11 +3196,11 @@ export const zh: Translations = {
         '该地址指向运行代理的那台机器，而不是本机。浏览器面板在本地加载页面，因此远程开发服务器需要端口转发或可访问的主机名。',
       failedToLoad: '预览加载失败',
       tryAgain: '重试',
-      restarting: 'Hermes 正在重启...',
-      askRestart: '让 Hermes 重启服务器',
-      lookingRestart: taskId => `Hermes 正在查找要重启的预览服务器 (${taskId})`,
+      restarting: 'Nia 正在重启...',
+      askRestart: '让 Nia 重启服务器',
+      lookingRestart: taskId => `Nia 正在查找要重启的预览服务器 (${taskId})`,
       restartingTitle: '正在重启预览服务器',
-      restartingMessage: 'Hermes 正在后台工作。可在预览控制台查看进度。',
+      restartingMessage: 'Nia 正在后台工作。可在预览控制台查看进度。',
       startRestartFailed: message => `无法启动服务器重启：${message}`,
       restartFailed: '服务器重启失败',
       hideConsole: '隐藏预览控制台',
@@ -3248,15 +3212,15 @@ export const zh: Translations = {
       reload: '重新加载页面',
       address: '地址',
       addressPlaceholder: '输入地址',
-      blankPageBody: '在上方输入地址开始浏览，或让 Hermes 打开一个页面。',
-      finishedRestarting: message => `Hermes 已完成预览服务器重启${message ? `: ${message}` : ''}`,
+      blankPageBody: '在上方输入地址开始浏览，或让 Nia 打开一个页面。',
+      finishedRestarting: message => `Nia 已完成预览服务器重启${message ? `: ${message}` : ''}`,
       failedRestarting: message => `服务器重启失败：${message}`,
       unknownError: '未知错误',
       restartedTitle: '预览服务器已重启',
       reloadingNow: '正在重新加载预览。',
       restartFailedTitle: '预览重启失败',
-      restartFailedMessage: 'Hermes 无法重启服务器。',
-      stillWorking: 'Hermes 仍在工作，但还没有收到重启结果。服务器命令可能正在前台运行。',
+      restartFailedMessage: 'Nia 无法重启服务器。',
+      stillWorking: 'Nia 仍在工作，但还没有收到重启结果。服务器命令可能正在前台运行。',
       workspaceReloading: '工作区已变更，正在重新加载预览',
       fileChanged: url => `文件已变更，正在重新加载预览：${url}`,
       filesChanged: (count, url) => `${count} 个文件变更，正在重新加载预览：${url}`,
@@ -3346,7 +3310,7 @@ export const zh: Translations = {
     thread: {
       loadingSession: '正在加载会话',
       showEarlier: '显示更早的消息',
-      loadingResponse: 'Hermes 正在加载回复',
+      loadingResponse: 'Nia 正在加载回复',
       resumeWhenBackgroundDone: count =>
         count === 1 ? '后台任务完成后将自动继续' : `${count} 个后台任务完成后将自动继续`,
       thinking: '思考中',
@@ -3413,7 +3377,7 @@ export const zh: Translations = {
       reject: '拒绝',
       alwaysTitle: '始终允许此命令？',
       alwaysDescription: pattern =>
-        `这会将“${pattern}”模式加入永久允许列表 (~/.hermes/config.yaml)。Hermes 对类似命令将不再询问，包括当前会话和未来会话。`,
+        `这会将“${pattern}”模式加入永久允许列表 (~/.nia/config.yaml)。Nia 对类似命令将不再询问，包括当前会话和未来会话。`,
       alwaysAllow: '始终允许'
     },
     clarify: {
@@ -3536,10 +3500,10 @@ export const zh: Translations = {
     sudoSendFailed: '无法发送 sudo 密码',
     secretSendFailed: '无法发送密钥',
     sudoTitle: '管理员密码',
-    sudoDesc: 'Hermes 需要你的 sudo 密码来运行特权命令。它只会发送给你的本地 agent。',
+    sudoDesc: 'Nia 需要你的 sudo 密码来运行特权命令。它只会发送给你的本地 agent。',
     sudoPlaceholder: 'sudo 密码',
     secretTitle: '需要密钥',
-    secretDesc: 'Hermes 需要一个凭据才能继续。',
+    secretDesc: 'Nia 需要一个凭据才能继续。',
     secretPlaceholder: '密钥值'
   },
 
@@ -3595,8 +3559,8 @@ export const zh: Translations = {
     sessionExportFailed: '无法导出会话',
     imageSaved: '图片已保存',
     downloadStarted: '下载已开始',
-    restartToUseSaveImage: '重启 Hermes 桌面版后可使用保存图片。',
-    restartToSaveImages: '重启 Hermes 桌面版以保存图片',
+    restartToUseSaveImage: '重启 Nia 桌面版后可使用保存图片。',
+    restartToSaveImages: '重启 Nia 桌面版以保存图片',
     imageDownloadFailed: '图片下载失败',
     openImage: '打开图片',
     downloadImage: '下载图片',
@@ -3628,14 +3592,14 @@ export const zh: Translations = {
       },
       skills: {
         title: '教一次就够',
-        text: '技能是一组说明文件，Hermes 会在需要时自行加载。'
+        text: '技能是一组说明文件，Nia 会在需要时自行加载。'
       },
       messaging: {
         title: '离开电脑也能用',
         text: '接入 Telegram、Discord、Slack 等 — 同一个智能体，同一份记忆。'
       },
       artifacts: {
-        title: 'Hermes 做过的一切',
+        title: 'Nia 做过的一切',
         text: '所有会话里的图片、文件和链接，都汇总在这里。'
       },
       cron: {
@@ -3648,7 +3612,7 @@ export const zh: Translations = {
       },
       profiles: {
         title: '配置文件彼此独立',
-        text: '每个都是独立的 Hermes — 自己的密钥、记忆和会话。'
+        text: '每个都是独立的 Nia — 自己的密钥、记忆和会话。'
       },
       'composer-mentions': {
         title: '附件与命令',

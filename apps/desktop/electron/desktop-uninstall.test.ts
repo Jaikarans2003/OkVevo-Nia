@@ -57,12 +57,12 @@ test('mode predicates classify what each mode removes', () => {
 
 test('resolveRemovableAppPath finds the .app bundle on macOS', () => {
   assert.equal(
-    resolveRemovableAppPath('/Applications/Hermes.app/Contents/MacOS/Hermes', 'darwin'),
-    '/Applications/Hermes.app'
+    resolveRemovableAppPath('/Applications/Nia.app/Contents/MacOS/Nia', 'darwin'),
+    '/Applications/Nia.app'
   )
   assert.equal(
-    resolveRemovableAppPath('/Users/x/Applications/Hermes.app/Contents/MacOS/Hermes', 'darwin'),
-    '/Users/x/Applications/Hermes.app'
+    resolveRemovableAppPath('/Users/x/Applications/Nia.app/Contents/MacOS/Nia', 'darwin'),
+    '/Users/x/Applications/Nia.app'
   )
 })
 
@@ -81,17 +81,21 @@ test('resolveRemovableAppPath: dev-run .app resolves (safety is shouldRemoveAppB
 
 test('resolveRemovableAppPath finds the install dir on Windows', () => {
   assert.equal(
+    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Nia\\Nia.exe', 'win32'),
+    'C:\\Users\\x\\AppData\\Local\\Programs\\Nia'
+  )
+  assert.equal(
     resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Hermes\\Hermes.exe', 'win32'),
     'C:\\Users\\x\\AppData\\Local\\Programs\\Hermes'
   )
   assert.equal(
-    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\hermes-desktop\\Hermes.exe', 'win32'),
+    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\hermes-desktop\\Nia.exe', 'win32'),
     'C:\\Users\\x\\AppData\\Local\\hermes-desktop'
   )
 })
 
 test('resolveRemovableAppPath returns null for an unrecognized Windows dir', () => {
-  assert.equal(resolveRemovableAppPath('C:\\Temp\\foo\\Hermes.exe', 'win32'), null)
+  assert.equal(resolveRemovableAppPath('C:\\Temp\\foo\\Nia.exe', 'win32'), null)
 })
 
 test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
@@ -115,8 +119,8 @@ test('resolveRemovableAppPath returns null for an empty exe path', () => {
 // --- shouldRemoveAppBundle ---
 
 test('shouldRemoveAppBundle requires packaged AND a resolved path', () => {
-  assert.equal(shouldRemoveAppBundle(true, '/Applications/Hermes.app'), true)
-  assert.equal(shouldRemoveAppBundle(false, '/Applications/Hermes.app'), false)
+  assert.equal(shouldRemoveAppBundle(true, '/Applications/Nia.app'), true)
+  assert.equal(shouldRemoveAppBundle(false, '/Applications/Nia.app'), false)
   assert.equal(shouldRemoveAppBundle(true, null), false)
   assert.equal(shouldRemoveAppBundle(false, null), false)
 })

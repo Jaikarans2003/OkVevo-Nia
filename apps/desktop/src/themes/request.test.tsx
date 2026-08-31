@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { registry } from '@/contrib/registry'
 
 import { __resetBackendSkinSync } from './backend-sync'
-import { skinPref, ThemeProvider, useTheme } from './context'
-import { midnightTheme } from './presets'
+import { ThemeProvider, useTheme } from './context'
+import { niaTheme } from './presets'
 import { requestTheme } from './request'
 import type { DesktopTheme } from './types'
 import { THEMES_AREA } from './user-themes'
@@ -35,33 +35,21 @@ describe('requestTheme', () => {
 
   afterEach(cleanup)
 
-  it('switches the painted theme from outside React', () => {
+  it('refuses every switch and leaves the Nia theme painted', () => {
     renderProbe()
 
-    let accepted = false
+    let accepted = true
     act(() => {
-      accepted = requestTheme('mono')
+      accepted = requestTheme('nia')
     })
 
-    expect(accepted).toBe(true)
-    expect(ctx.themeName).toBe('mono')
+    expect(accepted).toBe(false)
+    expect(ctx.themeName).toBe('nia')
+    expect(cssVar('--theme-foreground')).toBe(niaTheme.colors.foreground)
   })
 
-  // The imperative door must land in the same place the React one does, or a
-  // plugin-driven switch would evaporate on the next profile read.
-  it('persists per profile like a manual pick', () => {
+  it('refuses an unknown name', () => {
     renderProbe()
-
-    act(() => void requestTheme('midnight'))
-
-    expect(skinPref.resolve('default')).toBe('midnight')
-  })
-
-  it('refuses a name that does not resolve, leaving the appearance untouched', () => {
-    renderProbe()
-
-    act(() => void requestTheme('mono'))
-    const painted = cssVar('--theme-foreground')
 
     let accepted = true
     act(() => {
@@ -69,25 +57,22 @@ describe('requestTheme', () => {
     })
 
     expect(accepted).toBe(false)
-    expect(ctx.themeName).toBe('mono')
-    expect(cssVar('--theme-foreground')).toBe(painted)
+    expect(cssVar('--theme-foreground')).toBe(niaTheme.colors.foreground)
   })
 
-  // The whole plugin loop: contribute a palette through THEMES_AREA, then
-  // activate it on an event with no component in scope.
-  it('activates a theme contributed through the registry', () => {
-    const zeus: DesktopTheme = { ...midnightTheme, description: 'Zeus', label: 'Zeus', name: 'zeus' }
+  it('does not activate a registry-contributed theme', () => {
+    const zeus: DesktopTheme = { ...niaTheme, description: 'Zeus', label: 'Zeus', name: 'zeus' }
     const dispose = registry.register({ area: THEMES_AREA, data: zeus, id: 'zeus' })
 
     renderProbe()
 
-    let accepted = false
+    let accepted = true
     act(() => {
       accepted = requestTheme('zeus')
     })
 
-    expect(accepted).toBe(true)
-    expect(ctx.themeName).toBe('zeus')
+    expect(accepted).toBe(false)
+    expect(ctx.themeName).toBe('nia')
 
     dispose()
   })

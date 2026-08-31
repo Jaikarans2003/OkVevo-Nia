@@ -1,20 +1,12 @@
 /**
- * E2E regression: in-page route navigation must preserve the chosen UI scale.
- *
- * Desktop is a HashRouter over one file:// document, so every route is a
- * distinct URL to Chromium's per-URL zoom store, and a route with no record of
- * its own resolves to the host default (100%). In-page navigation fires no load
- * or window event, so nothing re-asserted the persisted level: switching
- * sessions dropped the window to 100% while Appearance kept reading the chosen
- * scale (#48658, #38854, #79863).
+ * E2E: UI scale is locked at Chromium actual-size (100%). setPercent and
+ * in-page navigation must not drift — the main process reasserts 100%.
  *
  * Prerequisite: `npm run build` must have been run so dist/ exists.
  */
 
 import { type MockBackendFixture, setupMockBackend, waitForAppReady } from './fixtures'
 import { expect, test } from './test'
-
-const SCALE = 110
 
 let fixture: MockBackendFixture | null = null
 
@@ -26,17 +18,6 @@ async function readZoomPercent(): Promise<number> {
 
     return (await desktop.hermesDesktop.zoom.get()).percent
   })
-}
-
-async function setZoomPercent(percent: number): Promise<void> {
-  await fixture!.page.evaluate(target => {
-    const desktop = window as unknown as {
-      hermesDesktop: { zoom: { setPercent: (percent: number) => void } }
-    }
-
-    desktop.hermesDesktop.zoom.setPercent(target)
-  }, percent)
-  await expect.poll(readZoomPercent).toBe(percent)
 }
 
 async function gotoRoute(route: string): Promise<void> {
@@ -58,24 +39,28 @@ test.afterAll(async () => {
   fixture = null
 })
 
-test('a non-default UI scale survives navigation to never-zoomed routes', async () => {
-  await setZoomPercent(SCALE)
+test('zoom stays locked at 100% across navigation even if setPercent asks for 110', async () => {
+  await fixture!.page.evaluate(() => {
+    const desktop = window as unknown as {
+      hermesDesktop: { zoom: { setPercent: (percent: number) => void } }
+    }
 
-  // Routes Chromium has no zoom record for — what opening a new session looks
-  // like to the per-URL store. Pre-fix, the first hop reports 100%.
+    desktop.hermesDesktop.zoom.setPercent(110)
+  })
+  await expect.poll(readZoomPercent).toBe(100)
+
   const fresh = `/e2e-zoom-${Date.now()}`
 
   for (const route of [`${fresh}-one`, `${fresh}-two`, '/settings?tab=config%3Aappearance']) {
     await gotoRoute(route)
-    await expect.poll(readZoomPercent, { message: `UI scale after navigating to ${route}` }).toBe(SCALE)
+    await expect.poll(readZoomPercent, { message: `UI scale after navigating to ${route}` }).toBe(100)
   }
 })
 
-test('Cmd/Ctrl+N preserves a non-default UI scale', async () => {
+test('Cmd/Ctrl+N keeps zoom at 100%', async () => {
   const page = fixture!.page
 
   await gotoRoute('/settings')
-  await setZoomPercent(SCALE)
 
   await page.evaluate(() => {
     ;(document.activeElement as HTMLElement | null)?.blur()
@@ -83,5 +68,5 @@ test('Cmd/Ctrl+N preserves a non-default UI scale', async () => {
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+N' : 'Control+N')
   await page.waitForFunction(() => window.location.hash === '#/')
 
-  await expect.poll(readZoomPercent).toBe(SCALE)
+  await expect.poll(readZoomPercent).toBe(100)
 })

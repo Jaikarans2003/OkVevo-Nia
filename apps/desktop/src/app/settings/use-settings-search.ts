@@ -119,23 +119,6 @@ export function useSettingsSearchCatalog(enabled: boolean) {
       label: t.language.label,
       target: { setting: APPEARANCE_SETTING_IDS.language, view: 'config:appearance' }
     },
-    {
-      context: appearanceContext,
-      description: appearance.themeDesc,
-      icon: Palette,
-      id: `setting:${APPEARANCE_SETTING_IDS.theme}`,
-      keywords: ['color mode', 'skin'],
-      label: appearance.themeTitle,
-      target: { setting: APPEARANCE_SETTING_IDS.theme, view: 'config:appearance' }
-    },
-    {
-      context: appearanceContext,
-      icon: Palette,
-      id: `setting:${APPEARANCE_SETTING_IDS.uiScale}`,
-      keywords: ['zoom', 'size'],
-      label: appearance.uiScaleTitle,
-      target: { setting: APPEARANCE_SETTING_IDS.uiScale, view: 'config:appearance' }
-    },
     // Linux has no translucency row to land on, and a palette hit that scrolls
     // to nothing is worse than no hit.
     ...(TRANSLUCENCY_SUPPORTED

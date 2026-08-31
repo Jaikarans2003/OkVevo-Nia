@@ -21,8 +21,8 @@ import {
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
 
-const RELEASE_NOTES_URL = 'https://github.com/NousResearch/hermes-agent/releases'
-const INSTALLER_URL = 'https://hermes-agent.nousresearch.com/'
+const RELEASE_NOTES_URL = 'https://github.com/Jaikarans2003/OkVevo-Nia/releases'
+const INSTALLER_URL = 'https://github.com/Jaikarans2003/OkVevo-Nia'
 
 function relativeTime(ms: number | undefined, a: Translations['settings']['about']) {
   if (!ms) {
@@ -103,6 +103,7 @@ export function AboutSettings() {
         <BrandMark className="size-16" />
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{a.heading}</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{a.madeBy}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {version?.appVersion ? a.version(version.appVersion) : a.versionUnavailable}
           </p>

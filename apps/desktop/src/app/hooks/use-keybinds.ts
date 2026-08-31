@@ -63,7 +63,6 @@ import {
 } from '@/store/session-switcher'
 import { toggleStatusbarVisible } from '@/store/statusbar-prefs'
 import { openNewWindow } from '@/store/windows'
-import { useTheme } from '@/themes/context'
 
 import { requestComposerFocus, requestModelMenuToggle, requestVoiceToggle } from '../chat/composer/focus'
 import { handleComposerFocusChord } from '../chat/composer/focus-chord'
@@ -104,7 +103,6 @@ type HandlerMap = Record<string, () => void>
 export function useKeybinds(deps: KeybindRuntimeDeps): void {
   const navigate = useNavigate()
   const location = useLocation()
-  const { resolvedMode, setMode } = useTheme()
 
   // Keep the latest closures without re-subscribing the listener.
   const handlersRef = useRef<HandlerMap>({})
@@ -289,8 +287,6 @@ export function useKeybinds(deps: KeybindRuntimeDeps): void {
     // invisibly.
     'view.findNext': findNextMatch,
     'view.findPrevious': findPreviousMatch,
-
-    'appearance.toggleMode': () => setMode(resolvedMode === 'dark' ? 'light' : 'dark'),
 
     'profile.default': switchToDefaultProfile,
     ...profileSwitchHandlers,

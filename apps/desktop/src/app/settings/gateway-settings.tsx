@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Terminal
 } from '@/lib/icons'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 import { coerceRemoteUrlScheme } from '@/lib/remote-url'
 import { selectableCardClass } from '@/lib/selectable-card'
 import { cn } from '@/lib/utils'
@@ -1104,7 +1105,7 @@ export function GatewaySettings({ embedded = false }: { embedded?: boolean } = {
         <div className="text-[length:var(--conversation-caption-font-size)] font-medium text-(--ui-text-secondary)">
           {g.modeTitle}
         </div>
-        <div className="grid auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2 min-[72rem]:grid-cols-4">
+        <div className={`grid auto-rows-fr grid-cols-1 gap-2 ${LOCAL_ONLY_V1 ? '' : 'sm:grid-cols-2 min-[72rem]:grid-cols-4'}`}>
           <ModeCard
             active={state.mode === 'local'}
             description={g.localDesc}
@@ -1113,6 +1114,8 @@ export function GatewaySettings({ embedded = false }: { embedded?: boolean } = {
             onSelect={() => setState(current => ({ ...current, mode: 'local' }))}
             title={g.localTitle}
           />
+          {LOCAL_ONLY_V1 ? null : (
+            <>
           <ModeCard
             active={state.mode === 'cloud'}
             description={g.cloudDesc}
@@ -1139,13 +1142,15 @@ export function GatewaySettings({ embedded = false }: { embedded?: boolean } = {
             onSelect={() => setState(current => ({ ...current, mode: 'ssh' }))}
             title={g.sshTitle}
           />
+            </>
+          )}
         </div>
       </div>
 
       {/* Hermes Cloud panel: one portal sign-in, then a discovered-agent picker
           whose selection drives the silent per-agent cascade + a cloud
           connection. Replaces the URL/token form while in cloud mode. */}
-      {state.mode === 'cloud' && !state.envOverride ? (
+      {!LOCAL_ONLY_V1 && state.mode === 'cloud' && !state.envOverride ? (
         <div className="mt-5 grid gap-1">
           <ListRow
             action={
@@ -1565,7 +1570,7 @@ export function GatewaySettings({ embedded = false }: { embedded?: boolean } = {
       {/* Unified Gateways page: the full connections registry (add/edit/delete
           named agent sources) lives on this page now, below the window
           connection controls. Hidden in the embedded (boot-recovery) form. */}
-      {embedded ? null : (
+      {embedded || LOCAL_ONLY_V1 ? null : (
         <>
           <ConnectionsRegistrySection />
           {/* Per-connection driver for the transactional managed SSH update

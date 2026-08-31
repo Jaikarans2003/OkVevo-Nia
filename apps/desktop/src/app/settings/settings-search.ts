@@ -15,10 +15,8 @@ export const APPEARANCE_SETTING_IDS = {
   embeds: 'appearance.embeds',
   introSplash: 'appearance.intro-splash',
   language: 'appearance.language',
-  theme: 'appearance.theme',
   toolView: 'appearance.tool-view',
-  translucency: 'appearance.translucency',
-  uiScale: 'appearance.ui-scale'
+  translucency: 'appearance.translucency'
 } as const
 
 export interface SettingsSearchTarget {

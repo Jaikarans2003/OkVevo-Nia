@@ -298,8 +298,8 @@ const en: BotsMessages = {
     advanced: 'Advanced',
     advancedHint: 'Advanced — model, skills, toolsets, SOUL.md',
     advancedFailed: 'Advanced configuration failed',
-    openAnotherChatUnsupported: 'Update Hermes Desktop to open another Bot chat.',
-    remoteConnectionsUnsupported: 'Update Hermes Desktop to chat with bots on other connections.',
+    openAnotherChatUnsupported: 'Update Nia to open another Bot chat.',
+    remoteConnectionsUnsupported: 'Update Nia to chat with bots on other connections.',
     chatEmpty: 'Say something to get started.',
     kickoff: 'Hey, tell me about yourself!'
   },
@@ -489,8 +489,8 @@ const ja: BotsMessages = {
     advanced: '詳細設定',
     advancedHint: '詳細設定 — モデル、スキル、ツールセット、SOUL.md',
     advancedFailed: '詳細設定に失敗しました',
-    openAnotherChatUnsupported: '別のボットチャットを開くには Hermes Desktop を更新してください。',
-    remoteConnectionsUnsupported: '他の接続上のボットとチャットするには Hermes Desktop を更新してください。',
+    openAnotherChatUnsupported: '別のボットチャットを開くには Nia を更新してください。',
+    remoteConnectionsUnsupported: '他の接続上のボットとチャットするには Nia を更新してください。',
     chatEmpty: '何か書いて始めましょう。',
     kickoff: 'こんにちは、自己紹介をしてください！'
   },
@@ -679,8 +679,8 @@ const zh: BotsMessages = {
     advanced: '高级',
     advancedHint: '高级 — 模型、技能、工具集、SOUL.md',
     advancedFailed: '高级配置失败',
-    openAnotherChatUnsupported: '请更新 Hermes Desktop 以打开另一个机器人聊天。',
-    remoteConnectionsUnsupported: '请更新 Hermes Desktop 以与其他连接上的机器人聊天。',
+    openAnotherChatUnsupported: '请更新 Nia 以打开另一个机器人聊天。',
+    remoteConnectionsUnsupported: '请更新 Nia 以与其他连接上的机器人聊天。',
     chatEmpty: '说点什么开始吧。',
     kickoff: '你好，介绍一下你自己吧！'
   },
@@ -869,8 +869,8 @@ const zhHant: BotsMessages = {
     advanced: '進階',
     advancedHint: '進階 — 模型、技能、工具集、SOUL.md',
     advancedFailed: '進階設定失敗',
-    openAnotherChatUnsupported: '請更新 Hermes Desktop 以開啟另一個機器人聊天。',
-    remoteConnectionsUnsupported: '請更新 Hermes Desktop 以與其他連線上的機器人聊天。',
+    openAnotherChatUnsupported: '請更新 Nia 以開啟另一個機器人聊天。',
+    remoteConnectionsUnsupported: '請更新 Nia 以與其他連線上的機器人聊天。',
     chatEmpty: '說點什麼開始吧。',
     kickoff: '你好，介紹一下你自己吧！'
   },

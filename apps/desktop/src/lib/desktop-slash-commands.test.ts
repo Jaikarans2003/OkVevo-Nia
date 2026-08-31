@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   type CommandCatalogMeta,
   type CommandsCatalogLike,
-  desktopSkinSlashCompletions,
   type DesktopSlashArgumentMode,
   desktopSlashCommandArgumentMode,
   desktopSlashDescription,
@@ -77,7 +76,6 @@ describe('desktop slash command curation', () => {
   it('keeps core desktop chat commands in suggestions', () => {
     expect(isDesktopSlashSuggestion('/new')).toBe(true)
     expect(isDesktopSlashSuggestion('/branch')).toBe(true)
-    expect(isDesktopSlashSuggestion('/skin')).toBe(true)
     expect(isDesktopSlashSuggestion('/usage')).toBe(true)
     expect(isDesktopSlashSuggestion('/version')).toBe(true)
     expect(isDesktopSlashSuggestion('/yolo')).toBe(true)
@@ -333,34 +331,6 @@ describe('desktop slash command curation', () => {
     expect(desktopSlashDescription('/branch', 'Branch the current session')).toBe(
       'Branch the latest message into a new chat'
     )
-    expect(desktopSlashDescription('/skin', 'Show or change the display skin/theme')).toBe(
-      'Switch desktop theme or cycle to the next one'
-    )
-  })
-
-  it('builds /skin completions from desktop themes', () => {
-    const completions = desktopSkinSlashCompletions(
-      [
-        { name: 'mono', label: 'Mono', description: 'Clean grayscale' },
-        { name: 'midnight', label: 'Midnight', description: 'Deep blue' },
-        { name: 'slate', label: 'Slate', description: 'Cool slate blue' }
-      ],
-      'mono',
-      'm'
-    )
-
-    expect(completions).toEqual([
-      {
-        text: '/skin mono',
-        display: '/skin mono',
-        meta: 'Mono (current) - Clean grayscale'
-      },
-      {
-        text: '/skin midnight',
-        display: '/skin midnight',
-        meta: 'Midnight - Deep blue'
-      }
-    ])
   })
 
   it('explains known commands that desktop owns elsewhere', () => {

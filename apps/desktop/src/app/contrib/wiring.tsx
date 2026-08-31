@@ -82,7 +82,6 @@ import {
 import { clearSessionTodos, setSessionTodos, todosForHydration } from '@/store/todos'
 import { armWakeWord, stopClientCapture } from '@/store/wake-word'
 import { isAuxiliaryWindow, isBrowserWindow, isHudWindow } from '@/store/windows'
-import { useSkinCommand } from '@/themes/use-skin-command'
 
 import { closeWorkspaceTab } from '../chat/close-tab'
 import { requestComposerInsert } from '../chat/composer/focus'
@@ -610,8 +609,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     [branchCurrentSession, refreshSessions]
   )
 
-  const handleSkinCommand = useSkinCommand()
-
   const {
     cancelRun,
     editMessage,
@@ -631,7 +628,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     getRoutedStoredSessionId,
     getRuntimeIdForStoredSession,
     getRouteToken,
-    handleSkinCommand,
     openMemoryGraph: openStarmap,
     refreshSessions,
     requestGateway,

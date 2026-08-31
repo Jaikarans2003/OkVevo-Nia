@@ -80,15 +80,15 @@ export const ar = defineLocale({
     pathCopied: 'تم نسخ المسار'
   },
   boot: {
-    ready: 'Hermes Desktop جاهز',
+    ready: 'Nia جاهز',
     desktopBootFailedWithMessage: message => `فشل تشغيل سطح المكتب: ${message}`,
     steps: {
       connectingGateway: 'جار الاتصال ببوابة سطح المكتب',
-      loadingSettings: 'جار تحميل إعدادات Hermes',
+      loadingSettings: 'جار تحميل إعدادات Nia',
       loadingSessions: 'جار تحميل الجلسات الأخيرة',
       retryingRemoteBackend: 'جارٍ إعادة الاتصال بخادم Hermes البعيد…',
       startingDesktopConnection: 'جار بدء اتصال سطح المكتب',
-      startingHermesDesktop: 'جار تشغيل Hermes Desktop...'
+      startingHermesDesktop: 'جار تشغيل Nia...'
     },
     errors: {
       backgroundExited: 'خرجت عملية Hermes الخلفية.',
@@ -161,7 +161,7 @@ export const ar = defineLocale({
       elevenLabsNeedsKey: 'يتطلب ElevenLabs STT المفتاح ELEVENLABS_API_KEY.',
       elevenLabsRejectedKey: 'رفض ElevenLabs مفتاح API (401).',
       diskFull: 'القرص ممتلئ — حرّر مساحة ثم أعد المحاولة.',
-      methodNotAllowed: 'رفضت خلفية سطح المكتب هذا الطلب (405 Method Not Allowed). جرب إعادة تشغيل Hermes Desktop.',
+      methodNotAllowed: 'رفضت خلفية سطح المكتب هذا الطلب (405 Method Not Allowed). جرب إعادة تشغيل Nia.',
       microphonePermission: 'تم رفض إذن الميكروفون.',
       openaiRejectedApiKey: 'رفض OpenAI مفتاح API.',
       openaiRejectedApiKeyWithStatus: status => `رفض OpenAI مفتاح API (${status} invalid_api_key).`,
@@ -192,8 +192,8 @@ export const ar = defineLocale({
       approveAction: 'موافقة',
       rejectAction: 'رفض',
       inputTitle: 'مطلوب إدخال',
-      inputBody: 'ينتظر Hermes ردّك.',
-      turnDoneTitle: 'أنهى Hermes',
+      inputBody: 'ينتظر Nia ردّك.',
+      turnDoneTitle: 'أنهى Nia',
       turnDoneBody: '',
       turnErrorTitle: 'فشلت الجولة',
       backgroundDoneTitle: 'انتهت المهمة في الخلفية',
@@ -284,7 +284,6 @@ export const ar = defineLocale({
       'view.terminalPaste': 'لصق في الطرفية',
       'view.closePreviewTab': 'إغلاق علامة تبويب المعاينة',
       'view.flipPanes': 'تبديل جانبي الشريط الجانبي',
-      'appearance.toggleMode': 'تبديل الفاتح / الداكن',
       'profile.default': 'الانتقال إلى الملف الشخصي الافتراضي',
       'profile.switch.1': 'الانتقال إلى الملف الشخصي 1',
       'profile.switch.2': 'الانتقال إلى الملف الشخصي 2',
@@ -333,7 +332,7 @@ export const ar = defineLocale({
     exportConfig: 'تصدير الإعدادات',
     importConfig: 'استيراد الإعدادات',
     resetToDefaults: 'إعادة الافتراضيات',
-    resetConfirm: 'هل تريد إعادة كل الإعدادات إلى افتراضيات Hermes؟',
+    resetConfirm: 'هل تريد إعادة كل الإعدادات إلى افتراضيات Nia؟',
     exportFailed: 'فشل التصدير',
     resetFailed: 'فشلت إعادة الضبط',
     nav: {
@@ -354,7 +353,7 @@ export const ar = defineLocale({
     plugins: {
       title: 'إضافات سطح المكتب',
       blurb:
-        'امتدادات واجهة تُحمّل داخل هذا التطبيق — إما مضمّنة مع البناء، أو موضوعة في مجلد desktop-plugins (بما فيها التي يكتبها Hermes). تعطيل الإضافة يفرغها مباشرة ويبقى بعد إعادة التشغيل.',
+        'امتدادات واجهة تُحمّل داخل هذا التطبيق — إما مضمّنة مع البناء، أو موضوعة في مجلد desktop-plugins (بما فيها التي يكتبها Nia). تعطيل الإضافة يفرغها مباشرة ويبقى بعد إعادة التشغيل.',
       count: n => `${n} مثبتة`,
       openFolder: 'فتح مجلد الإضافات',
       rescan: 'إعادة الفحص',
@@ -379,7 +378,7 @@ export const ar = defineLocale({
         },
         input: {
           label: 'يلزم إدخال',
-          description: 'طرح Hermes سؤالا أو يحتاج إلى كلمة مرور أو سر.'
+          description: 'طرح Nia سؤالا أو يحتاج إلى كلمة مرور أو سر.'
         },
         turnDone: {
           label: 'الرد جاهز',
@@ -395,7 +394,7 @@ export const ar = defineLocale({
         }
       },
       test: 'إرسال إشعار تجريبي',
-      testTitle: 'Hermes',
+      testTitle: 'Nia',
       testBody: 'الإشعارات تعمل.',
       testSent: 'تم إرسال التجربة. إذا لم يظهر شيء، تحقق من أذونات الإشعارات في نظام التشغيل ووضع التركيز/عدم الإزعاج.',
       testUnsupported: 'هذا النظام لا يدعم الإشعارات الأصلية.',
@@ -414,32 +413,16 @@ export const ar = defineLocale({
       advanced: 'متقدم'
     },
     searchPlaceholder: {
-      about: 'حول Hermes Desktop',
+      about: 'حول Nia',
       config: 'ابحث في الإعدادات...',
       gateway: 'اتصال البوابة...',
       keys: 'ابحث في مفاتيح API...',
       mcp: 'ابحث في خوادم MCP...',
       sessions: 'ابحث في المحادثات المؤرشفة...'
     },
-    modeOptions: {
-      light: {
-        label: 'فاتح',
-        description: 'أسطح سطح مكتب ساطعة'
-      },
-      dark: {
-        label: 'داكن',
-        description: 'مساحة عمل منخفضة الوهج'
-      },
-      system: {
-        label: 'النظام',
-        description: 'اتباع مظهر نظام التشغيل'
-      }
-    },
     appearance: {
       title: 'المظهر',
-      intro: 'خصص مظهر Hermes Desktop.',
-      colorMode: 'نمط الألوان',
-      colorModeDesc: 'اختر الوضع الفاتح أو الداكن أو اتبع النظام.',
+      intro: 'خصص مظهر Nia.',
       toolViewTitle: 'عرض الأدوات',
       toolViewDesc: 'تحكم في كيفية عرض نشاط الأدوات داخل المحادثة.',
       reasoningCollapsedTitle: 'طي التفكير افتراضيًا',
@@ -468,13 +451,13 @@ export const ar = defineLocale({
       introSplashTitle: 'شاشة المقدمة',
       introSplashDesc: 'الشعار النصي والعبارة التمهيدية في محادثة فارغة.',
       reactionsTitle: 'تفاعلات الرسائل',
-      reactionsDesc: 'تفاعلات إيموجي بأسلوب iMessage — تفاعل مع الرسائل، ويمكن لـ Hermes التفاعل مع رسائلك.',
+      reactionsDesc: 'تفاعلات إيموجي بأسلوب iMessage — تفاعل مع الرسائل، ويمكن لـ Nia التفاعل مع رسائلك.',
       tipsTitle: 'نصائح داخل التطبيق',
       tipsDesc:
-        'فقاعة صغيرة تشير إلى جزء من التطبيق، تظهر أحيانًا أثناء الخمول ومن Hermes عند الحاجة. إغلاق نصيحة يزيلها نهائيًا.',
+        'فقاعة صغيرة تشير إلى جزء من التطبيق، تظهر أحيانًا أثناء الخمول ومن Nia عند الحاجة. إغلاق نصيحة يزيلها نهائيًا.',
       tipsReset: count => `استعادة ${count} نصيحة مغلقة`,
       toursTitle: 'جولات إرشادية',
-      toursDesc: 'دع Hermes يرشدك في التطبيق، مع تعتيم الشاشة وإبراز كل خطوة.',
+      toursDesc: 'دع Nia يرشدك في التطبيق، مع تعتيم الشاشة وإبراز كل خطوة.',
       composerPopoutTitle: 'محرر عائم',
       composerPopoutDesc: 'السماح بسحب محرر الرسائل خارج موضعه. عطّل هذا الخيار لإبقائه مثبتًا في الأسفل.',
       vibeHeartsTitle: 'قلوب المزاج',
@@ -490,24 +473,12 @@ export const ar = defineLocale({
       productDesc: 'عرض أنظف يركز على النتيجة.',
       technical: 'تقني',
       technicalDesc: 'يعرض تفاصيل أكثر عن الأدوات والتنفيذ.',
-      themeTitle: 'الثيم',
-      themeDesc: 'اختر ثيم سطح المكتب.',
-      themeProfileNote: profile => `سيطبق هذا الثيم على الملف الشخصي ${profile}.`,
-      installTitle: 'تثبيت ثيم',
-      installDesc: 'ألصق رابط ثيم أو اسمه لتثبيته.',
-      installPlaceholder: 'رابط أو اسم الثيم',
-      installButton: 'تثبيت',
-      installing: 'جار التثبيت...',
-      installError: 'فشل تثبيت الثيم',
-      installed: name => `تم تثبيت ${name}`,
-      removeTheme: 'إزالة الثيم',
-      importedBadge: 'مستورد',
       pet: {
         title: 'حيوان أليف',
         intro:
-          'تبنَّ تعويذة petdex متحركة تطفو فوق التطبيق وتتفاعل مع ما يفعله Hermes — تجري أثناء تنفيذ الأدوات، وتحتفل عند النجاح، وتعبس عند الأخطاء.',
+          'تبنَّ تعويذة petdex متحركة تطفو فوق التطبيق وتتفاعل مع ما يفعله Nia — تجري أثناء تنفيذ الأدوات، وتحتفل عند النجاح، وتعبس عند الأخطاء.',
         restartHint:
-          'تحتاج الحيوانات الأليفة إلى إعادة تشغيل سريعة — بدأ التطبيق العامل قبل إضافة هذه الميزة. أغلق Hermes وأعد فتحه، ثم ارجع إلى هنا.',
+          'تحتاج الحيوانات الأليفة إلى إعادة تشغيل سريعة — بدأ التطبيق العامل قبل إضافة هذه الميزة. أغلق Nia وأعد فتحه، ثم ارجع إلى هنا.',
         on: 'تشغيل',
         off: 'إيقاف',
         scaleTitle: 'الحجم',
@@ -634,9 +605,9 @@ export const ar = defineLocale({
       fallbackProviders: 'إدخالات احتياطية بصيغة provider:model لتجربتها إذا فشل النموذج الافتراضي.',
       'display.personality': 'أسلوب المساعد الافتراضي للجلسات الجديدة.',
       'display.showReasoning': 'يعرض أقسام التفكير عندما توفرها الخلفية.',
-      timezone: 'تستخدم عندما يحتاج Hermes إلى سياق الوقت المحلي. اتركها فارغة لاستخدام منطقة النظام.',
+      timezone: 'تستخدم عندما يحتاج Nia إلى سياق الوقت المحلي. اتركها فارغة لاستخدام منطقة النظام.',
       'agent.imageInputMode': 'يتحكم في طريقة إرسال مرفقات الصور إلى النموذج.',
-      'agent.maxTurns': 'الحد الأعلى لدورات استدعاء الأدوات قبل أن يوقف Hermes التشغيل.',
+      'agent.maxTurns': 'الحد الأعلى لدورات استدعاء الأدوات قبل أن يوقف Nia التشغيل.',
       'terminal.cwd': 'مجلد المشروع الافتراضي لعمل الأدوات والطرفية.',
       'terminal.persistentShell': 'يحافظ على حالة الصدفة بين الأوامر عندما تدعمها الخلفية.',
       'terminal.envPassthrough': 'متغيرات البيئة التي تمرر إلى تنفيذ الأدوات.',
@@ -645,8 +616,8 @@ export const ar = defineLocale({
       'terminal.modalImage': 'الصورة المستخدمة عند اختيار Modal.',
       'terminal.daytonaImage': 'الصورة المستخدمة عند اختيار Daytona.',
       'codeExecution.mode': 'مدى تقييد تنفيذ الكود بالمشروع الحالي.',
-      fileReadMaxChars: 'أقصى عدد أحرف يستطيع Hermes قراءته من ملف واحد في الطلب.',
-      'approvals.mode': 'كيف يتعامل Hermes مع الأوامر التي تحتاج موافقة صريحة.',
+      fileReadMaxChars: 'أقصى عدد أحرف يستطيع Nia قراءته من ملف واحد في الطلب.',
+      'approvals.mode': 'كيف يتعامل Nia مع الأوامر التي تحتاج موافقة صريحة.',
       'approvals.timeout': 'مدة انتظار طلبات الموافقة قبل انتهاء المهلة.',
       'security.redactSecrets': 'يخفي الأسرار المكتشفة من المحتوى المرئي للنموذج قدر الإمكان.',
       'checkpoints.enabled': 'ينشئ لقطات رجوع قبل تعديلات الملفات.',
@@ -661,15 +632,15 @@ export const ar = defineLocale({
       'stt.enabled': 'يفعل التفريغ الصوتي المحلي أو عبر مزود.',
       'stt.elevenlabs.languageCode': 'رمز لغة ISO-639-3 اختياري. اتركه فارغاً للاكتشاف التلقائي.',
       'updates.nonInteractiveLocalChanges':
-        'عندما يحدّث Hermes نفسه من التطبيق دون موجه طرفية، احتفظ بتعديلات المصدر المحلية أو تجاهلها.'
+        'عندما يحدّث Nia نفسه من التطبيق دون موجه طرفية، احتفظ بتعديلات المصدر المحلية أو تجاهلها.'
     },
     about: {
-      heading: 'حول Hermes',
+      heading: 'حول Nia',
       version: value => `الإصدار ${value}`,
       versionUnavailable: 'الإصدار غير متاح',
       bundleOutOfSync: 'إصدار التطبيق قديم',
       bundleOutOfSyncDesc:
-        'تم تحديث وقت تشغيل Hermes، لكن تطبيق سطح المكتب نفسه لا يزال إصدارًا قديمًا — لن تظهر ميزات الواجهة الجديدة (مثل Bot Mode) حتى يتم تحديث التطبيق. شغّل التحديث أدناه لإعادة بناء التطبيق. إذا لم يختفِ هذا التحذير، فأعد التثبيت من أحدث مثبّت لسطح المكتب.',
+        'تم تحديث وقت تشغيل Nia، لكن تطبيق سطح المكتب نفسه لا يزال إصدارًا قديمًا — لن تظهر ميزات الواجهة الجديدة (مثل Bot Mode) حتى يتم تحديث التطبيق. شغّل التحديث أدناه لإعادة بناء التطبيق. إذا لم يختفِ هذا التحذير، فأعد التثبيت من أحدث مثبّت لسطح المكتب.',
       bundleOutOfSyncAction: 'الحصول على المثبّت',
       updates: 'التحديثات',
       checkNow: 'التحقق الآن',
@@ -687,7 +658,7 @@ export const ar = defineLocale({
       lastChecked: age => `آخر تحقق ${age}`,
       justNowSuffix: 'الآن',
       automaticUpdates: 'التحديثات التلقائية',
-      automaticUpdatesDesc: 'اسمح لـ Hermes بالتحقق من التحديثات وتثبيتها.',
+      automaticUpdatesDesc: 'اسمح لـ Nia بالتحقق من التحديثات وتثبيتها.',
       branchCommit: (branch, commit) => `${branch} عند ${commit}`,
       never: 'أبدا',
       justNow: 'الآن',
@@ -703,7 +674,7 @@ export const ar = defineLocale({
       searchPlaceholder: 'بحث…',
       noResults: 'لا توجد نتائج',
       systemDefault: 'إعداد النظام الافتراضي',
-      loading: 'جار تحميل إعدادات Hermes...',
+      loading: 'جار تحميل إعدادات Nia...',
       emptyTitle: 'لا توجد إعدادات',
       emptyDesc: 'لا يحتوي هذا القسم على إعدادات قابلة للتعديل.',
       failedLoad: 'فشل تحميل الإعدادات',
@@ -713,7 +684,7 @@ export const ar = defineLocale({
     },
     quickEntry: {
       enabledTitle: 'الإدخال السريع',
-      enabledDesc: 'استدعِ محرّرا صغيرا من أي مكان باختصار عام وأرسل طلبا دون فتح Hermes.',
+      enabledDesc: 'استدعِ محرّرا صغيرا من أي مكان باختصار عام وأرسل طلبا دون فتح Nia.',
       shortcutTitle: 'اختصار الإدخال السريع',
       shortcutDesc: 'يحتاج إلى مفتاح تعديل واحد على الأقل، مثل CommandOrControl+Shift+Space.',
       active: 'الاختصار مفعّل.',
@@ -746,7 +717,7 @@ export const ar = defineLocale({
       title: 'اتصال البوابة',
       envOverride: 'تجاوز من البيئة',
       intro:
-        'يشغّل Hermes Desktop بوابة محلية خاصة افتراضياً. استخدم بوابة بعيدة عندما تريد أن يتحكم هذا التطبيق بخلفية Hermes تعمل مسبقاً على جهاز آخر أو خلف وكيل موثوق. اتصالات البوابة إعداد على مستوى الجهاز؛ ويتم اكتشاف الملفات الشخصية من البوابات المتصلة.',
+        'يشغّل Nia بوابة محلية خاصة افتراضياً. استخدم بوابة بعيدة عندما تريد أن يتحكم هذا التطبيق بخلفية Hermes تعمل مسبقاً على جهاز آخر أو خلف وكيل موثوق. اتصالات البوابة إعداد على مستوى الجهاز؛ ويتم اكتشاف الملفات الشخصية من البوابات المتصلة.',
       envOverrideTitle: 'متغيرات البيئة تتحكم في جلسة سطح المكتب هذه.',
       envOverrideDesc: 'أزل HERMES_DESKTOP_REMOTE_URL و HERMES_DESKTOP_REMOTE_TOKEN لاستخدام الإعداد المحفوظ أدناه.',
       localTitle: 'بوابة محلية',
@@ -790,7 +761,7 @@ export const ar = defineLocale({
       enterUrlFirst: 'أدخل رابط البوابة البعيدة أولاً.',
       restartingTitle: 'جار إعادة تشغيل اتصال البوابة',
       savedTitle: 'تم حفظ إعدادات البوابة',
-      restartingMessage: 'سيعيد Hermes Desktop الاتصال باستخدام الإعدادات المحفوظة.',
+      restartingMessage: 'سيعيد Nia الاتصال باستخدام الإعدادات المحفوظة.',
       savedMessage: 'تم الحفظ للتشغيل القادم.',
       connectedTo: (baseUrl, version) => `متصل بـ ${baseUrl}${version ? ` · Hermes ${version}` : ''}`,
       reachableTitle: 'البوابة البعيدة قابلة للوصول',
@@ -841,7 +812,7 @@ export const ar = defineLocale({
       saveServer: 'حفظ الخادم',
       deepLinkTitle: 'إضافة خادم MCP؟',
       deepLinkDescription:
-        'طلب رابط إضافة خادم MCP هذا إلى Hermes. راجع الإعدادات الكاملة أدناه — فهي قادمة من الرابط وليست من Hermes.',
+        'طلب رابط إضافة خادم MCP هذا إلى Nia. راجع الإعدادات الكاملة أدناه — فهي قادمة من الرابط وليست من Nia.',
       deepLinkStdioWarning:
         'سيشغّل هذا الخادم عملية محلية على جهازك بالأمر الموضح أدناه. لا تتابع إلا إذا كنت تثق بمصدره.',
       deepLinkConfirm: 'إضافة الخادم',
@@ -909,7 +880,7 @@ export const ar = defineLocale({
     providers: {
       connectAccount: 'ربط حساب',
       haveApiKey: 'لديك مفتاح API بدلاً من ذلك؟',
-      intro: 'سجل الدخول باشتراكك دون نسخ مفتاح API. يشغّل Hermes تسجيل الدخول من المتصفح لك داخل التطبيق.',
+      intro: 'سجل الدخول باشتراكك دون نسخ مفتاح API. يشغّل Nia تسجيل الدخول من المتصفح لك داخل التطبيق.',
       connected: 'متصل',
       collapse: 'طي',
       connectAnother: 'ربط مزود آخر',
@@ -1062,8 +1033,6 @@ export const ar = defineLocale({
     commandCenter: 'مركز الأوامر',
     appearance: 'المظهر',
     settings: 'الإعدادات',
-    changeTheme: 'تغيير الثيم',
-    changeColorMode: 'تغيير نمط الألوان',
     pets: {
       title: 'الحيوانات الأليفة',
       placeholder: 'البحث في الحيوانات الأليفة...',
@@ -1097,7 +1066,7 @@ export const ar = defineLocale({
       hatchSaving: 'أوشكنا على الانتهاء...',
       namePlaceholder: 'سمِّ حيوانك الأليف',
       staleBackend: 'حدّث Hermes لتوليد الحيوانات الأليفة.',
-      backgroundHint: 'يمكنك إغلاق هذا — سيُعلِمك Hermes عند الانتهاء.',
+      backgroundHint: 'يمكنك إغلاق هذا — سيُعلِمك Nia عند الانتهاء.',
       slowProviderHint: 'قد يستغرق هذا عدة دقائق',
       remix: 'إعادة مزج',
       remixConfirmTitle: 'إعادة مزج هذا المظهر؟',
@@ -1107,17 +1076,6 @@ export const ar = defineLocale({
       referenceImageInvalid: 'تعذّرت قراءة صورة المرجع تلك. جرّب PNG أو JPG أو WebP أو GIF.',
       adopt: 'تبنّي',
       startOver: 'البدء من جديد'
-    },
-    installTheme: {
-      title: 'تثبيت سمة...',
-      placeholder: 'البحث في VS Code Marketplace...',
-      loading: 'جار البحث في Marketplace...',
-      error: 'تعذّر الوصول إلى Marketplace.',
-      empty: 'لا توجد سمات مطابقة.',
-      install: 'تثبيت',
-      installing: 'جار التثبيت...',
-      installed: 'مثبّت',
-      installs: count => `${count} عملية تثبيت`
     },
     settingsFields: 'حقول الإعدادات',
     mcpServers: 'خوادم MCP',
@@ -1140,7 +1098,7 @@ export const ar = defineLocale({
       },
       settings: {
         title: 'الإعدادات',
-        detail: 'تكوين Hermes desktop'
+        detail: 'تكوين Nia desktop'
       },
       skills: {
         title: 'المهارات والأدوات',
@@ -1410,7 +1368,7 @@ export const ar = defineLocale({
       menuItem: 'الاتصال بمضيف بعيد…',
       badge: (host: string) => `يعمل على ${host}`,
       title: (profile: string) => `ربط ${profile} بمضيف بعيد`,
-      description: 'ستعمل جلسات هذا الملف الشخصي على خادم Hermes البعيد الذي تحدده، بدلاً من هذا الجهاز.',
+      description: 'ستعمل جلسات هذا الملف الشخصي على خادم Nia البعيد الذي تحدده، بدلاً من هذا الجهاز.',
       urlLabel: 'العنوان البعيد',
       urlPlaceholder: 'https://hermes.example.com',
       urlInvalid: 'أدخل عنواناً كاملاً يبدأ بـ http:// أو https://',
@@ -1509,7 +1467,7 @@ export const ar = defineLocale({
       message: count => `سيتم تخطي ${count} من المهام المجدولة حتى تراجع إعدادات النموذج الخاصة بها.`,
       detailMore: (names, remaining) => `${names} و${remaining} أخرى`,
       review: 'مراجعة المهام المجدولة',
-      saveFailed: 'لم يحفظ Hermes تغيير النموذج هذا.',
+      saveFailed: 'لم يحفظ Nia تغيير النموذج هذا.',
       confirmTitle: 'تحذير اختيار النموذج',
       confirmDetail: 'أكّد فقط إذا كنت تقبل هذه المقايضة.',
       confirmAction: 'تأكيد',
@@ -1569,7 +1527,7 @@ export const ar = defineLocale({
     topOfHour: 'في بداية كل ساعة',
     everyHourAt: minute => `كل ساعة عند :${minute}`,
     newCron: 'مهمة مجدولة جديدة',
-    emptyDescNew: 'أنشئ مهمة مجدولة لتشغيل Hermes تلقائيا.',
+    emptyDescNew: 'أنشئ مهمة مجدولة لتشغيل Nia تلقائيا.',
     emptyDescSearch: 'لا توجد مهام تطابق البحث.',
     emptyTitleNew: 'لا توجد مهام مجدولة',
     emptyTitleSearch: 'لا توجد نتائج',
@@ -1606,11 +1564,11 @@ export const ar = defineLocale({
     editTitle: 'تحرير المهمة المجدولة',
     createTitle: 'إنشاء مهمة مجدولة',
     editDesc: 'عدل الجدول والرسالة.',
-    createDesc: 'اضبط مهمة يشغلها Hermes تلقائيا.',
+    createDesc: 'اضبط مهمة يشغلها Nia تلقائيا.',
     nameLabel: 'الاسم',
     namePlaceholder: 'مثال: الملخص الصباحي',
     promptLabel: 'الرسالة',
-    promptPlaceholder: 'ماذا تريد من Hermes أن يفعل؟',
+    promptPlaceholder: 'ماذا تريد من Nia أن يفعل؟',
     frequencyLabel: 'التكرار',
     deliverLabel: 'التسليم',
     customScheduleLabel: 'جدول مخصص',
@@ -1737,14 +1695,14 @@ export const ar = defineLocale({
       copyPath: 'نسخ المسار',
       removeFromSidebar: 'إخفاء من الشريط الجانبي',
       createFailed: 'تعذّر إنشاء المشروع',
-      deleteConfirm: 'هذا يزيل المشروع المحفوظ من Hermes. تبقى الملفات ومستودعات git وأشجار العمل دون تغيير.',
+      deleteConfirm: 'هذا يزيل المشروع المحفوظ من Nia. تبقى الملفات ومستودعات git وأشجار العمل دون تغيير.',
       startWork: 'شجرة عمل جديدة',
       newWorktreeTitle: 'شجرة عمل جديدة',
       newWorktreeDesc: 'سمِّ الفرع لشجرة العمل هذه.',
       branchPlaceholder: 'مثال: my-feature',
       startWorkFailed: 'تعذّر إنشاء شجرة العمل',
       worktreeStaleBackend:
-        'حدِّث خادم Hermes لإنشاء أشجار العمل عبر هذا الاتصال البعيد — فهو أقدم من واجهة git worktree.',
+        'حدِّث خادم Nia لإنشاء أشجار العمل عبر هذا الاتصال البعيد — فهو أقدم من واجهة git worktree.',
       worktreeProjectLabel: 'المشروع',
       worktreeProjectPlaceholder: 'ابحث في المشاريع…',
       worktreeProjectNone: 'لا توجد مشاريع بمجلد',
@@ -1822,10 +1780,10 @@ export const ar = defineLocale({
   composer: {
     message: 'الرسالة',
     wakingProfile: profile => `جار إيقاظ ${profile}`,
-    placeholderStarting: 'جار بدء Hermes...',
+    placeholderStarting: 'جار بدء Nia...',
     placeholderReconnecting: 'جار إعادة الاتصال...',
     placeholderFollowUp: 'اكتب متابعة...',
-    newSessionPlaceholders: ['اسأل Hermes عن شيء...', 'اطلب من Hermes تنفيذ مهمة...', 'ابدأ محادثة جديدة...'],
+    newSessionPlaceholders: ['اسأل Nia عن شيء...', 'اطلب من Nia تنفيذ مهمة...', 'ابدأ محادثة جديدة...'],
     followUpPlaceholders: ['اكتب متابعة...', 'أضف توجيها...', 'اسأل سؤالا آخر...'],
     startVoice: 'بدء الصوت',
     openDirective: 'فتح',
@@ -1876,7 +1834,7 @@ export const ar = defineLocale({
     attachUrlTitle: 'إرفاق رابط',
     attachUrlDesc: 'أضف رابطا إلى الرسالة.',
     urlPlaceholder: 'https://example.com',
-    urlHintPre: 'سيقرأ Hermes الرابط ضمن السياق.',
+    urlHintPre: 'سيقرأ Nia الرابط ضمن السياق.',
     attach: 'إرفاق',
     queued: count => `${count} في الطابور`,
     attachmentOnly: 'إرفاق فقط',
@@ -1979,7 +1937,7 @@ export const ar = defineLocale({
       createPr: 'إنشاء PR',
       openPr: 'فتح PR',
       ghMissing: 'ثبّت GitHub CLI (gh) وسجّل الدخول لفتح طلبات السحب',
-      agentShip: 'اطلب من Hermes فتح PR',
+      agentShip: 'اطلب من Nia فتح PR',
       agentShipUnavailable: 'المحادثة التي تملك هذه التغييرات ليست على الشاشة.',
       agentShipPrompt: 'راجع التغييرات الحالية، وأودعها برسالة إيداع تقليدية واضحة، وادفع الفرع، وافتح طلب سحب.',
       newBranch: 'فرع جديد',
@@ -2008,13 +1966,13 @@ export const ar = defineLocale({
     checkFailedTitle: 'تعذّر التحقق من التحديثات',
     tryAgain: 'إعادة المحاولة',
     notAvailableTitle: 'التحديث غير متاح',
-    unsupportedMessage: 'لا يمكن لهذا الإصدار من Hermes تحديث نفسه من داخل التطبيق.',
+    unsupportedMessage: 'لا يمكن لهذا الإصدار من Nia تحديث نفسه من داخل التطبيق.',
     connectionRetry: 'تحقق من اتصالك وأعد المحاولة.',
     latestBody: 'أنت تستخدم أحدث إصدار.',
     latestBodyBackend: 'الواجهة الخلفية تعمل بأحدث إصدار.',
     allSetTitle: 'كل شيء جاهز',
     availableTitle: 'يتوفر تحديث جديد',
-    availableBody: 'إصدار جديد من Hermes جاهز للتثبيت.',
+    availableBody: 'إصدار جديد من Nia جاهز للتثبيت.',
     availableTitleBackend: 'يتوفر تحديث للواجهة الخلفية',
     availableBodyBackend: 'إصدار أحدث من واجهة Hermes الخلفية المتصلة جاهز للتثبيت.',
     availableBodyNoChangelog: 'إصدار أحدث جاهز. ملاحظات الإصدار غير متاحة لنوع التثبيت هذا.',
@@ -2022,8 +1980,8 @@ export const ar = defineLocale({
     maybeLater: 'ربما لاحقا',
     moreChanges: count => `+ ${count} تغيير${count === 1 ? '' : 'ات'} إضافي مُضمَّن.`,
     manualTitle: 'التحديث من الطرفية',
-    manualBody: 'لقد ثبّتت Hermes من سطر الأوامر، لذا تُجرى التحديثات من هناك أيضا. الصق هذا في طرفيتك:',
-    manualPickedUp: 'سيلتقط Hermes الإصدار الجديد في المرة التالية التي تشغّله فيها.',
+    manualBody: 'لقد ثبّتت Nia من سطر الأوامر، لذا تُجرى التحديثات من هناك أيضا. الصق هذا في طرفيتك:',
+    manualPickedUp: 'سيلتقط Nia الإصدار الجديد في المرة التالية التي تشغّله فيها.',
     guiSkewTitle: 'تحديث تطبيق سطح المكتب',
     guiSkewBody:
       'تم تحديث الواجهة الخلفية، لكن حزمة تطبيق سطح المكتب هذه لم تتغير. حدّث أو أعد تثبيت تطبيق Hermes لسطح المكتب (ملف AppImage / ‎.deb / ‎.rpm) لمطابقته.',
@@ -2031,19 +1989,19 @@ export const ar = defineLocale({
     copied: 'تم النسخ',
     done: 'تم',
     applyingBody:
-      'يتولّى مُحدِّث Hermes المهمة في نافذته الخاصة ويعيد فتح Hermes تلقائيا عند الانتهاء. الرجاء عدم إعادة فتح Hermes بنفسك أثناء التحديث.',
+      'يتولّى مُحدِّث Nia المهمة في نافذته الخاصة ويعيد فتح Nia تلقائيا عند الانتهاء. الرجاء عدم إعادة فتح Nia بنفسك أثناء التحديث.',
     applyingBodyBackend:
       'تطبّق الواجهة الخلفية البعيدة التحديث وستعيد التشغيل. يعيد Hermes الاتصال تلقائيا عند عودتها.',
-    applyingClose: 'ستُغلق هذه النافذة أثناء تشغيل التحديث، ثم يعيد Hermes فتح نفسه تلقائيا.',
+    applyingClose: 'ستُغلق هذه النافذة أثناء تشغيل التحديث، ثم يعيد Nia فتح نفسه تلقائيا.',
     errorTitle: 'لم يكتمل التحديث',
     errorBody: 'لا داعي للقلق — لم يُفقد شيء. يمكنك إعادة المحاولة الآن.',
     blockerTitle: 'إغلاق المعاينات المحلية لتحديث Hermes؟',
-    blockerBody: 'يحتاج Hermes إلى إيقاف هذه المعاينات المحلية قبل التحديث. لن يؤدي ذلك إلى تعديل ملفاتك أو حذفها.',
+    blockerBody: 'يحتاج Nia إلى إيقاف هذه المعاينات المحلية قبل التحديث. لن يؤدي ذلك إلى تعديل ملفاتك أو حذفها.',
     foreignBlockerTitle: 'أغلق العمليات الأخرى لتحديث Hermes',
     foreignBlockerBody:
-      'لا يمكن لـ Hermes إغلاق هذه العمليات تلقائيًا بأمان. أغلق التطبيق أو الطرفية أو الخدمة التي تشغّل كل عملية، ثم حاول التحديث مرة أخرى.',
+      'لا يمكن لـ Nia إغلاق هذه العمليات تلقائيًا بأمان. أغلق التطبيق أو الطرفية أو الخدمة التي تشغّل كل عملية، ثم حاول التحديث مرة أخرى.',
     mixedBlockerBody:
-      'يمكن لـ Hermes إغلاق المعاينات المحلية المدرجة أدناه. يجب إغلاق العمليات الأخرى يدويًا قبل متابعة التحديث.',
+      'يمكن لـ Nia إغلاق المعاينات المحلية المدرجة أدناه. يجب إغلاق العمليات الأخرى يدويًا قبل متابعة التحديث.',
     closePreviewsAndUpdate: 'إغلاق المعاينات والتحديث',
     closePreviewsAndCheckAgain: 'إغلاق المعاينات والتحقق مجددًا',
     localPreview: 'معاينة محلية',
@@ -2076,7 +2034,7 @@ export const ar = defineLocale({
       skipped: 'تم التخطي',
       failed: 'فشل'
     },
-    oneTimeTitle: 'يحتاج Hermes إلى تثبيت لمرة واحدة',
+    oneTimeTitle: 'يحتاج Nia إلى تثبيت لمرة واحدة',
     unsupportedDesc: platform =>
       `التثبيت التلقائي عند أول تشغيل غير متاح على ${platform} بعد. افتح الطرفية وشغّل الأمر أدناه، ثم أعد تشغيل هذا التطبيق. ستتخطى عمليات التشغيل اللاحقة هذه الخطوة.`,
     installCommand: 'أمر التثبيت',
@@ -2085,12 +2043,12 @@ export const ar = defineLocale({
     installTo: 'سيتم التثبيت في',
     retryAfterRun: 'لقد شغّلته -- إعادة المحاولة',
     failedTitle: 'فشل التثبيت',
-    settingUpTitle: 'جار إعداد وكيل Hermes',
+    settingUpTitle: 'جار إعداد وكيل Nia',
     finishingTitle: 'جار الإنهاء',
     failedDesc:
-      'فشلت إحدى خطوات التثبيت. على Windows، قد يحدث هذا إذا كان هناك نسخة أخرى من Hermes CLI أو تطبيق سطح المكتب قيد التشغيل. أوقف أي نسخ Hermes قيد التشغيل، ثم أعد المحاولة. تحقق من التفاصيل أدناه أو من سجل سطح المكتب للحصول على النص الكامل.',
+      'فشلت إحدى خطوات التثبيت. على Windows، قد يحدث هذا إذا كان هناك نسخة أخرى من Nia CLI أو تطبيق سطح المكتب قيد التشغيل. أوقف أي نسخ Nia قيد التشغيل، ثم أعد المحاولة. تحقق من التفاصيل أدناه أو من سجل سطح المكتب للحصول على النص الكامل.',
     activeDesc:
-      'هذا إعداد لمرة واحدة. يقوم مثبّت Hermes بتنزيل التبعيات وتهيئة جهازك. ستتخطى عمليات التشغيل اللاحقة هذه الخطوة.',
+      'هذا إعداد لمرة واحدة. يقوم مثبّت Nia بتنزيل التبعيات وتهيئة جهازك. ستتخطى عمليات التشغيل اللاحقة هذه الخطوة.',
     progress: (completed, total) => `اكتملت ${completed} من ${total} خطوة`,
     currentStage: stage => ` -- الآن: ${stage}`,
     fetchingManifest: 'جار جلب بيان المثبّت...',
@@ -2107,10 +2065,10 @@ export const ar = defineLocale({
     reloadRetry: 'إعادة التحميل وإعادة المحاولة'
   },
   onboarding: {
-    headerTitle: 'لنُعِدّ لك Hermes Agent',
+    headerTitle: 'لنُعِدّ لك Nia',
     headerDesc: 'اربط مزوّد نماذج لبدء المحادثة. معظم الخيارات تتطلب نقرة واحدة.',
-    preparingInstall: 'يُكمل Hermes التثبيت. عادة ما يستغرق ذلك أقل من دقيقة في أول تشغيل.',
-    starting: 'جار بدء Hermes...',
+    preparingInstall: 'يُكمل Nia التثبيت. عادة ما يستغرق ذلك أقل من دقيقة في أول تشغيل.',
+    starting: 'جار بدء Nia...',
     lookingUpProviders: 'جار البحث عن المزوّدين...',
     collapse: 'طي',
     otherProviders: 'مزودون آخرون',
@@ -2118,7 +2076,7 @@ export const ar = defineLocale({
     chooseLater: 'سأختار مزوّدا لاحقا',
     recommended: 'موصى به',
     connected: 'متصل',
-    featuredPitch: 'اشتراك واحد، أكثر من 300 نموذج متقدم — الطريقة الموصى بها لتشغيل Hermes',
+    featuredPitch: 'اشتراك واحد، أكثر من 300 نموذج متقدم — الطريقة الموصى بها لتشغيل Nia',
     fireworksPitch: 'نماذج مفتوحة سريعة مع استضافة Fireworks.',
     openRouterPitch: 'مفتاح واحد لمئات النماذج — خيار افتراضي جيد',
     apiKeyOptions: {
@@ -2141,7 +2099,7 @@ export const ar = defineLocale({
       local: {
         short: 'مستضاف ذاتيا',
         description:
-          'وجّه Hermes إلى نقطة نهاية محلية أو مستضافة ذاتيا متوافقة مع OpenAI (vLLM، llama.cpp، Ollama، إلخ).'
+          'وجّه Nia إلى نقطة نهاية محلية أو مستضافة ذاتيا متوافقة مع OpenAI (vLLM، llama.cpp، Ollama، إلخ).'
       }
     },
     backToSignIn: 'العودة إلى تسجيل الدخول',
@@ -2154,8 +2112,8 @@ export const ar = defineLocale({
     update: 'تحديث',
     flowSubtitles: {
       pkce: 'يفتح المتصفح لتسجيل الدخول ثم يتابع هنا',
-      device_code: 'يفتح صفحة تحقق في المتصفح — يتصل Hermes تلقائياً',
-      loopback: 'يفتح المتصفح لتسجيل الدخول — يتصل Hermes تلقائياً',
+      device_code: 'يفتح صفحة تحقق في المتصفح — يتصل Nia تلقائياً',
+      loopback: 'يفتح المتصفح لتسجيل الدخول — يتصل Nia تلقائياً',
       external: 'سجل الدخول مرة واحدة في الطرفية ثم عد إلى المحادثة'
     },
     startingSignIn: provider => `جار بدء تسجيل الدخول لـ ${provider}...`,
@@ -2166,11 +2124,11 @@ export const ar = defineLocale({
     pickDifferentProvider: 'اختر مزوداً آخر',
     signInWith: provider => `تسجيل الدخول عبر ${provider}`,
     openedBrowser: provider => `فتحنا ${provider} في المتصفح.`,
-    authorizeThere: 'صرّح لـ Hermes هناك.',
+    authorizeThere: 'صرّح لـ Nia هناك.',
     copyAuthCode: 'انسخ رمز التفويض وألصقه أدناه.',
     pasteAuthCode: 'ألصق رمز التفويض',
     reopenAuthPage: 'إعادة فتح صفحة التفويض',
-    autoBrowser: provider => `فتحنا ${provider} في المتصفح. صرّح لـ Hermes هناك وسيتم الاتصال تلقائياً دون نسخ أو لصق.`,
+    autoBrowser: provider => `فتحنا ${provider} في المتصفح. صرّح لـ Nia هناك وسيتم الاتصال تلقائياً دون نسخ أو لصق.`,
     reopenSignInPage: 'إعادة فتح صفحة تسجيل الدخول',
     waitingAuthorize: 'بانتظار التفويض...',
     externalPending: provider =>
@@ -2350,7 +2308,7 @@ export const ar = defineLocale({
     binaryTitle: 'يبدو هذا ملفا ثنائيا',
     binaryBody: label => `قد تعرض معاينة ${label} نصا غير قابل للقراءة.`,
     largeTitle: 'هذا الملف كبير',
-    largeBody: (label, size) => `حجم ${label} هو ${size}. سيعرض Hermes أول 512 KB فقط.`,
+    largeBody: (label, size) => `حجم ${label} هو ${size}. سيعرض Nia أول 512 KB فقط.`,
     previewAnyway: 'معاينة على أي حال',
     truncated: 'عرض أول 512 KB.',
     noInlineTitle: 'لا توجد معاينة مضمّنة',
@@ -2391,8 +2349,8 @@ export const ar = defineLocale({
       failedToLoad: 'فشل تحميل المعاينة',
       tryAgain: 'إعادة المحاولة',
       restarting: 'جار إعادة تشغيل Hermes...',
-      askRestart: 'اطلب من Hermes إعادة تشغيل الخادم',
-      lookingRestart: taskId => `يبحث Hermes عن خادم معاينة لإعادة تشغيله (${taskId})`,
+      askRestart: 'اطلب من Nia إعادة تشغيل الخادم',
+      lookingRestart: taskId => `يبحث Nia عن خادم معاينة لإعادة تشغيله (${taskId})`,
       restartingTitle: 'جار إعادة تشغيل خادم المعاينة',
       restartingMessage: 'يعمل Hermes في الخلفية. راقب كونسول المعاينة لمتابعة التقدم.',
       startRestartFailed: message => `تعذّر بدء إعادة تشغيل الخادم: ${message}`,
@@ -2406,16 +2364,16 @@ export const ar = defineLocale({
       reload: 'إعادة تحميل الصفحة',
       address: 'العنوان',
       addressPlaceholder: 'أدخل العنوان',
-      blankPageBody: 'اكتب عنوانًا في الأعلى للتصفح، أو اطلب من Hermes فتح صفحة.',
-      finishedRestarting: message => `أنهى Hermes إعادة تشغيل خادم المعاينة${message ? `: ${message}` : ''}`,
+      blankPageBody: 'اكتب عنوانًا في الأعلى للتصفح، أو اطلب من Nia فتح صفحة.',
+      finishedRestarting: message => `أنهى Nia إعادة تشغيل خادم المعاينة${message ? `: ${message}` : ''}`,
       failedRestarting: message => `فشلت إعادة تشغيل الخادم: ${message}`,
       unknownError: 'خطأ غير معروف',
       restartedTitle: 'تمت إعادة تشغيل خادم المعاينة',
       reloadingNow: 'جار إعادة تحميل المعاينة الآن.',
       restartFailedTitle: 'فشلت إعادة تشغيل المعاينة',
-      restartFailedMessage: 'تعذّر على Hermes إعادة تشغيل الخادم.',
+      restartFailedMessage: 'تعذّر على Nia إعادة تشغيل الخادم.',
       stillWorking:
-        'لا يزال Hermes يعمل، لكن لم تصل نتيجة إعادة التشغيل بعد. قد يكون أمر الخادم قيد التشغيل في المقدمة.',
+        'لا يزال Nia يعمل، لكن لم تصل نتيجة إعادة التشغيل بعد. قد يكون أمر الخادم قيد التشغيل في المقدمة.',
       workspaceReloading: 'تغيّرت مساحة العمل، جار إعادة تحميل المعاينة',
       fileChanged: url => `تغيّر الملف، جار إعادة تحميل المعاينة: ${url}`,
       filesChanged: (count, url) => `${count} تغييرات ملفات، جار إعادة تحميل المعاينة: ${url}`,
@@ -2852,14 +2810,14 @@ export const ar = defineLocale({
       },
       skills: {
         title: 'علّمه مرة واحدة',
-        text: 'المهارات مجلدات من التعليمات يحمّلها Hermes عندما يقتضي العمل ذلك.'
+        text: 'المهارات مجلدات من التعليمات يحمّلها Nia عندما يقتضي العمل ذلك.'
       },
       messaging: {
-        title: 'Hermes بعيدًا عن مكتبك',
+        title: 'Nia بعيدًا عن مكتبك',
         text: 'اربطه بـ Telegram وDiscord وSlack وغيرها — الوكيل نفسه والذاكرة نفسها.'
       },
       artifacts: {
-        title: 'كل ما صنعه Hermes',
+        title: 'كل ما صنعه Nia',
         text: 'الصور والملفات والروابط من كل الجلسات، مفهرسة في مكان واحد.'
       },
       cron: {
@@ -2872,7 +2830,7 @@ export const ar = defineLocale({
       },
       profiles: {
         title: 'الملفات الشخصية منفصلة',
-        text: 'كل واحد منها Hermes مستقل — مفاتيحه وذاكرته وجلساته الخاصة.'
+        text: 'كل واحد منها Nia مستقل — مفاتيحه وذاكرته وجلساته الخاصة.'
       },
       'composer-mentions': {
         title: 'المرفقات والأوامر',

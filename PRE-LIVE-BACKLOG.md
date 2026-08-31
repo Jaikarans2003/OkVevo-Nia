@@ -97,16 +97,6 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | `https://github.com/Jaikarans2003/OkVevo-Nia.git` |
 | **Verify** | `rg 'NousResearch/hermes-agent' hermes_cli/banner.py` → 0 |
 
-### [ ] npm package metadata still references Nous repo
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Should fix before live |
-| **Risk if skipped** | Package/repository metadata mislabels product source. |
-| **Scope** | `apps/desktop/package.json` — `repository.url` |
-| **Fix** | Point at `Jaikarans2003/OkVevo-Nia` |
-| **Verify** | Inspect `package.json` repository field |
-
 ### [ ] Public docs still quote Hermes fallback identity
 
 | Field | Value |
@@ -138,3 +128,5 @@ _(Move items here when done.)_
 | First-install bootstrap clone/download URLs → OkVevo-Nia | 2026-08-31 | `07567979f4` |
 | Installer SOUL.md seed + legacy Hermes upgrade | 2026-08-31 | `07567979f4` |
 | Clone-shipped backend identity (Python, SOUL, locales, tests) | 2026-08-31 | `e23f5d5c05` |
+| LOCAL_ONLY_V1 gates Settings → gateway Cloud/remote/SSH cards, cloud sign-in, connections registry, boot-failure cloud re-auth, and first-run “connect existing” | 2026-08-31 | pending commit (desktop visual rebrand; verify: Settings → gateway on a fresh profile — only the Local card) |
+| `apps/desktop/package.json` author / repository.url / linux maintainer → OkVevo / OkVevo-Nia | 2026-08-31 | pending commit (desktop visual rebrand) |

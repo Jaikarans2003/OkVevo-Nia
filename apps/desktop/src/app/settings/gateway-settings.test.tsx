@@ -45,6 +45,13 @@ describe('GatewaySettings', () => {
       screen.getByText('Start a private Hermes backend on localhost. This is the default and works offline.')
     ).toBeTruthy()
 
+    // LOCAL_ONLY_V1: cloud / remote / SSH cards and the connections registry
+    // stay hidden. Only the Local card is a v1 entry point.
+    expect(screen.queryByText('Hermes Cloud')).toBeNull()
+    expect(screen.queryByText('Remote gateway')).toBeNull()
+    expect(screen.queryByText('Connect via SSH')).toBeNull()
+    expect(screen.queryByText('Sign in to Hermes Cloud')).toBeNull()
+
     // The page manages the machine's gateway connections; it must load the
     // global config, never a per-profile override.
     await waitFor(() => expect(getConnectionConfig).toHaveBeenCalledWith(null))

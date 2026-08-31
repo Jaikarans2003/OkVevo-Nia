@@ -2,7 +2,7 @@
 //
 // Each entry is pure metadata: an id, a category, and the default combo(s).
 // Handlers are wired separately in `use-keybinds.ts` (they need React context
-// like navigate / theme); labels come from i18n (`t.keybinds.actions[id]`). To
+// like navigate); labels come from i18n (`t.keybinds.actions[id]`). To
 // add a hotkey, add a row here and a handler there — nothing else.
 
 import { registry } from '@/contrib/registry'
@@ -173,7 +173,6 @@ export const KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
   // and a user who prefers a dedicated chord can bind one.
   { id: 'view.findNext', category: 'view', defaults: [] },
   { id: 'view.findPrevious', category: 'view', defaults: [] },
-  { id: 'appearance.toggleMode', category: 'view', defaults: ['shift+x'] },
   { id: 'keybinds.openPanel', category: 'view', defaults: ['mod+/'] }
 ]
 

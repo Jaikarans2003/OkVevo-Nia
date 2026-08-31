@@ -15,7 +15,9 @@ import type {
   DesktopBootstrapState
 } from '@/global'
 import { useI18n } from '@/i18n'
+import { displayInstallPath } from '@/lib/display-path'
 import { AlertCircle, ChevronDown, ChevronRight, Globe, iconSize, Loader2, Monitor } from '@/lib/icons'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 import { capitalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 
@@ -392,7 +394,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
     return null
   }
 
-  if (remoteOpen) {
+  if (remoteOpen && !LOCAL_ONLY_V1) {
     return <FirstRunRemoteForm onBack={() => setRemoteOpen(false)} />
   }
 
@@ -408,7 +410,8 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className={LOCAL_ONLY_V1 ? 'mt-6 grid gap-3' : 'mt-6 grid gap-3 sm:grid-cols-2'}>
+            {LOCAL_ONLY_V1 ? null : (
             <button
               className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 text-left transition hover:bg-(--chrome-action-hover)"
               onClick={() => setRemoteOpen(true)}
@@ -420,6 +423,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               </div>
               <p className="mt-2 text-sm leading-5 text-muted-foreground">{copy.connectExistingDesc}</p>
             </button>
+            )}
 
             <button
               className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 text-left transition hover:bg-(--chrome-action-hover) disabled:cursor-wait disabled:opacity-60"
@@ -462,7 +466,9 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
 
           <div className="mt-6 text-xs text-muted-foreground">
             {copy.installTo}{' '}
-            <code className="font-mono text-(--ui-text-secondary)">{state.setupChoice.activeRoot}</code>
+            <code className="font-mono text-(--ui-text-secondary)">
+              {displayInstallPath(state.setupChoice.activeRoot)}
+            </code>
           </div>
         </div>
       </div>
@@ -512,13 +518,16 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
 
           <div className="mt-6 flex items-center justify-between pt-2">
             <span className="text-xs text-muted-foreground">
-              {copy.installTo} <code className="font-mono text-(--ui-text-secondary)">{ups.activeRoot}</code>
+              {copy.installTo}{' '}
+              <code className="font-mono text-(--ui-text-secondary)">{displayInstallPath(ups.activeRoot)}</code>
             </span>
             <div className="flex items-center gap-2">
+              {LOCAL_ONLY_V1 ? null : (
               <Button onClick={() => setRemoteOpen(true)} size="sm" variant="secondary">
                 <Globe className="size-4" />
                 {copy.connectExistingShort}
               </Button>
+              )}
               <Button onClick={() => window.location.reload()} size="sm" variant="default">
                 {copy.retryAfterRun}
               </Button>

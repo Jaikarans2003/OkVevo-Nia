@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { displayPath, normalizeDisplayPath, pathLeaf } from './display-path'
+import { displayInstallPath, displayPath, normalizeDisplayPath, pathLeaf } from './display-path'
 
 describe('displayPath', () => {
   it('collapses a macOS home prefix to ~', () => {
@@ -43,5 +43,18 @@ describe('pathLeaf', () => {
     expect(pathLeaf('/Users/me/www/hermes-agent')).toBe('hermes-agent')
     expect(pathLeaf('~/www/hermes-agent')).toBe('hermes-agent')
     expect(pathLeaf('/')).toBe('/')
+  })
+})
+
+describe('displayInstallPath', () => {
+  it('nicknames the Hermes install root for display', () => {
+    expect(displayInstallPath('/Users/karan/.hermes/hermes-agent')).toBe('/Users/karan/.nia/nia-agent')
+    expect(displayInstallPath('~/.hermes/plugins/')).toBe('~/.nia/plugins/')
+    expect(displayInstallPath('~/.hermes/config.yaml')).toBe('~/.nia/config.yaml')
+  })
+
+  it('leaves non-path strings and real commands alone', () => {
+    expect(displayInstallPath('Hermes is ready')).toBe('Hermes is ready')
+    expect(displayInstallPath('hermes desktop --force-build')).toBe('hermes desktop --force-build')
   })
 })

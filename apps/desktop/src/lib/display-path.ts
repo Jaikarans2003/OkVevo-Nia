@@ -155,3 +155,12 @@ export function pathLeaf(raw: null | string | undefined): string {
 
   return leaf || path
 }
+
+/**
+ * Nickname the on-disk Hermes root when painting it. Disk stays `~/.hermes`;
+ * the UI prints `.nia` / `nia-agent`. Do not use this on inputs, commands,
+ * URLs, or copy payloads.
+ */
+export function displayInstallPath(raw: string): string {
+  return raw.replaceAll('hermes-agent', 'nia-agent').replaceAll('.hermes', '.nia')
+}

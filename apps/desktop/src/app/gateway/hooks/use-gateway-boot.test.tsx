@@ -216,6 +216,7 @@ function fakeDesktop() {
         bootProgressHandler = null
       }
     }),
+    onBootstrapEvent: vi.fn(() => () => {}),
     // Test helper: fire a post-boot progress event through the real subscription.
     emitBootProgress(payload: Record<string, unknown>) {
       bootProgressHandler?.(payload)

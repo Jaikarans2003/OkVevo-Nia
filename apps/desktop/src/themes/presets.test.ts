@@ -6,7 +6,7 @@ import {
   DEFAULT_SKIN_NAME,
   DEFAULT_TYPOGRAPHY,
   EMOJI_FALLBACK,
-  nousAltTheme
+  niaTheme
 } from './presets'
 
 // #40364: none of the UI text/mono fonts carry emoji glyphs, so every font
@@ -39,14 +39,14 @@ describe('theme typography emoji fallback (#40364)', () => {
   })
 })
 
-// The pre-GitHub Nous palette stays available as nous-alt; the default name
-// still means GitHub chrome + brand blue.
-describe('nous-alt is the retired Nous, not the default', () => {
-  it('is registered under its own name and leaves nous as the default', () => {
-    expect(DEFAULT_SKIN_NAME).toBe('nous')
-    expect(BUILTIN_THEMES['nous-alt']).toBe(nousAltTheme)
-    expect(BUILTIN_THEMES.nous).not.toBe(nousAltTheme)
-    expect(nousAltTheme.darkColors?.background).toBe('#0D2F86')
-    expect(BUILTIN_THEMES.nous.darkColors?.background).not.toBe(nousAltTheme.darkColors?.background)
+describe('nia is the only built-in skin', () => {
+  it('is registered as the default', () => {
+    expect(DEFAULT_SKIN_NAME).toBe('nia')
+    expect(BUILTIN_THEMES.nia).toBe(niaTheme)
+    expect(Object.keys(BUILTIN_THEMES)).toEqual(['nia'])
+    expect(niaTheme.colors.background).toBe('#2b2b2b')
+    expect(niaTheme.colors.foreground).toBe('#e3dcd6')
+    expect(niaTheme.colors.primary).toBe('#ff6d1f')
+    expect(niaTheme.darkColors).toEqual(niaTheme.colors)
   })
 })

@@ -81,7 +81,6 @@ function Harness() {
     getRoutedStoredSessionId: () => null,
     getRuntimeIdForStoredSession: () => null,
     getRouteToken: () => 'token',
-    handleSkinCommand: () => '',
     openMemoryGraph: () => undefined,
     refreshSessions: async () => undefined,
     requestGateway,

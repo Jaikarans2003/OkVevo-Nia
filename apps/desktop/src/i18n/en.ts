@@ -69,7 +69,7 @@ export const en: Translations = {
     desktopBootFailedWithMessage: message => `Desktop boot failed: ${message}`,
     steps: {
       connectingGateway: 'Connecting live desktop gateway',
-      loadingSettings: 'Loading Hermes settings',
+      loadingSettings: 'Loading Nia settings',
       loadingSessions: 'Loading recent sessions',
       retryingRemoteBackend: 'Reconnecting to the remote Hermes backend…',
       startingDesktopConnection: 'Starting desktop connection',
@@ -157,7 +157,7 @@ export const en: Translations = {
       diskFull: 'Disk full — free some space, then try again.',
       gatewayAuthFailed: 'Gateway authentication failed — check your API_SERVER_KEY.',
       methodNotAllowed:
-        'The desktop backend rejected that request (405 Method Not Allowed). Try restarting Hermes Desktop.',
+        'The desktop backend rejected that request (405 Method Not Allowed). Try restarting Nia.',
       microphonePermission: 'Microphone permission was denied.',
       openaiRejectedApiKey: 'OpenAI rejected the API key.',
       openaiRejectedApiKeyWithStatus: status => `OpenAI rejected the API key (${status} invalid_api_key).`,
@@ -188,8 +188,8 @@ export const en: Translations = {
       approveAction: 'Approve',
       rejectAction: 'Reject',
       inputTitle: 'Input needed',
-      inputBody: 'Hermes is waiting for your response.',
-      turnDoneTitle: 'Hermes finished',
+      inputBody: 'Nia is waiting for your response.',
+      turnDoneTitle: 'Nia finished',
       turnDoneBody: '',
       turnErrorTitle: 'Turn failed',
       backgroundDoneTitle: 'Background task finished',
@@ -329,7 +329,6 @@ export const en: Translations = {
       'view.findInPage': 'Find in page',
       'view.findNext': 'Find next match',
       'view.findPrevious': 'Find previous match',
-      'appearance.toggleMode': 'Toggle light / dark',
       'profile.default': 'Switch to default profile',
       'profile.switch.1': 'Switch to profile 1',
       'profile.switch.2': 'Switch to profile 2',
@@ -386,7 +385,7 @@ export const en: Translations = {
     exportConfig: 'Export config',
     importConfig: 'Import config',
     resetToDefaults: 'Reset to defaults',
-    resetConfirm: 'Reset all settings to Hermes defaults?',
+    resetConfirm: 'Reset all settings to Nia defaults?',
     exportFailed: 'Export failed',
     resetFailed: 'Reset failed',
     nav: {
@@ -439,7 +438,7 @@ export const en: Translations = {
         includesHeading: 'This package includes',
         agentLabel: 'Agent plugin',
         desktopLabel: 'Desktop UI',
-        agentTargetLocal: profile => `Installs into the ${profile} backend (~/.hermes/plugins/)`,
+        agentTargetLocal: profile => `Installs into the ${profile} backend (~/.nia/plugins/)`,
         agentTargetRemote: profile => `Installs into the connected ${profile} backend`,
         desktopTarget: "Installs into this app's local desktop-plugins folder",
         desktopOnlyNote: 'Desktop-only packages do not install a backend agent plugin.',
@@ -471,7 +470,7 @@ export const en: Translations = {
       intro: 'OS notifications (not in-app toasts). Per device.',
       enableAll: 'Enable notifications',
       enableAllDesc: 'Off silences every notification below.',
-      focusedHint: 'Completion alerts only fire while Hermes is in the background.',
+      focusedHint: 'Completion alerts only fire while Nia is in the background.',
       kinds: {
         approval: {
           label: 'Approval needed',
@@ -479,11 +478,11 @@ export const en: Translations = {
         },
         input: {
           label: 'Input needed',
-          description: 'Hermes asked a question or needs a password or secret.'
+          description: 'Nia asked a question or needs a password or secret.'
         },
         turnDone: {
           label: 'Response ready',
-          description: 'A turn finished while Hermes was in the background.'
+          description: 'A turn finished while Nia was in the background.'
         },
         turnError: {
           label: 'Turn failed',
@@ -499,11 +498,11 @@ export const en: Translations = {
         },
         plugin: {
           label: 'Plugin notifications',
-          description: 'A desktop plugin sent a notification while Hermes was in the background.'
+          description: 'A desktop plugin sent a notification while Nia was in the background.'
         }
       },
       test: 'Send test notification',
-      testTitle: 'Hermes',
+      testTitle: 'Nia',
       testBody: 'Notifications are working.',
       testSent: 'Test sent. If nothing appears, check your OS notification permissions and Focus/Do Not Disturb.',
       testUnsupported: 'This system does not support native notifications.',
@@ -522,30 +521,20 @@ export const en: Translations = {
       advanced: 'Advanced'
     },
     searchPlaceholder: {
-      about: 'About Hermes Desktop',
+      about: 'About Nia',
       config: 'Search settings...',
       gateway: 'Gateway connection...',
       keys: 'Search API keys...',
       mcp: 'Search MCP servers...',
       sessions: 'Search archived sessions...'
     },
-    modeOptions: {
-      light: { label: 'Light', description: 'Bright desktop surfaces' },
-      dark: { label: 'Dark', description: 'Low-glare workspace' },
-      system: { label: 'System', description: 'Follow OS appearance' }
-    },
     appearance: {
       title: 'Appearance',
-      intro: 'Desktop-only. Mode is brightness; theme is palette and chat chrome.',
-      colorMode: 'Color Mode',
-      colorModeDesc: 'Pick a fixed mode or let Hermes follow your system setting.',
+      intro: 'Desktop-only. Language, density, translucency, and chat chrome.',
       toolViewTitle: 'Tool Call Display',
       toolViewDesc: 'Product hides raw tool payloads; Technical shows full input/output.',
       reasoningCollapsedTitle: 'Collapse thinking by default',
       reasoningCollapsedDesc: 'Keep streamed reasoning available without expanding it until you open it.',
-      uiScaleTitle: 'UI Scale',
-      uiScaleDesc: (percent: number) =>
-        `Scales text and controls across the whole app. Cmd/Ctrl with +, - and 0 also works. Current: ${percent}%.`,
       sessionDensityTitle: 'Session List Density',
       sessionDensityDesc: 'Choose how much context appears beneath session titles in the sidebar.',
       sessionDensityCompact: 'Compact',
@@ -587,13 +576,13 @@ export const en: Translations = {
       introSplashTitle: 'Intro Splash',
       introSplashDesc: 'The wordmark and prompt shown on an empty chat.',
       reactionsTitle: 'Message Reactions',
-      reactionsDesc: 'iMessage-style emoji tapbacks — react to messages, and Hermes can react to yours.',
+      reactionsDesc: 'iMessage-style emoji tapbacks — react to messages, and Nia can react to yours.',
       tipsTitle: 'In-App Tips',
       tipsDesc:
-        'A small bubble pointing at one part of the app, shown occasionally while idle and by Hermes when it helps. Closing one retires it for good.',
+        'A small bubble pointing at one part of the app, shown occasionally while idle and by Nia when it helps. Closing one retires it for good.',
       tipsReset: (count: number) => `Bring back ${count} closed ${count === 1 ? 'tip' : 'tips'}`,
       toursTitle: 'Guided Tours',
-      toursDesc: 'Let Hermes walk you through the app, dimming the screen and spotlighting each step.',
+      toursDesc: 'Let Nia walk you through the app, dimming the screen and spotlighting each step.',
       composerPopoutTitle: 'Floating Composer',
       composerPopoutDesc: 'Allow dragging the composer out of its dock. Turn this off to keep it locked at the bottom.',
       vibeHeartsTitle: 'Vibe Hearts',
@@ -610,25 +599,12 @@ export const en: Translations = {
       productDesc: 'Human-friendly tool activity with concise summaries.',
       technical: 'Technical',
       technicalDesc: 'Include raw tool args/results and low-level details.',
-      themeTitle: 'Theme',
-      themeDesc: 'Desktop palettes only. The selected mode is applied on top.',
-      themeProfileNote: profile => `Saved for the ${profile} profile — each profile keeps its own theme.`,
-      installTitle: 'Install from VS Code',
-      installDesc:
-        'Paste a Marketplace extension id (e.g. dracula-theme.theme-dracula) to convert its color theme into a desktop palette.',
-      installPlaceholder: 'publisher.extension',
-      installButton: 'Install',
-      installing: 'Installing…',
-      installError: 'Could not install that theme.',
-      installed: name => `Installed “${name}”.`,
-      removeTheme: 'Remove theme',
-      importedBadge: 'Imported',
       pet: {
         title: 'Pet',
         intro:
-          'Adopt an animated petdex mascot that floats over the app and reacts to what Hermes is doing — running while tools execute, celebrating on success, sulking on errors.',
+          'Adopt an animated petdex mascot that floats over the app and reacts to what Nia is doing — running while tools execute, celebrating on success, sulking on errors.',
         restartHint:
-          'Pets need a quick restart — the running app started before this feature was added. Quit and reopen Hermes, then come back here.',
+          'Pets need a quick restart — the running app started before this feature was added. Quit and reopen Nia, then come back here.',
         on: 'On',
         off: 'Off',
         scaleTitle: 'Size',
@@ -666,7 +642,8 @@ export const en: Translations = {
     fieldLabels: FIELD_LABELS,
     fieldDescriptions: FIELD_DESCRIPTIONS,
     about: {
-      heading: 'Hermes Desktop',
+      heading: 'Nia',
+      madeBy: 'by OkVevo',
       version: value => `Version ${value}`,
       versionUnavailable: 'Version unavailable',
       bundleOutOfSync: 'App build out of date',
@@ -690,7 +667,7 @@ export const en: Translations = {
       justNowSuffix: ' · just now',
       automaticUpdates: 'Automatic updates',
       automaticUpdatesDesc:
-        'Hermes checks for updates automatically in the background and lets you know when one is ready.',
+        'Nia checks for updates automatically in the background and lets you know when one is ready.',
       branchCommit: (branch, commit) => `Branch ${branch} · Commit ${commit}`,
       never: 'never',
       justNow: 'just now',
@@ -729,7 +706,7 @@ export const en: Translations = {
     quickEntry: {
       enabledTitle: 'Quick Entry',
       enabledDesc:
-        'Summon a small composer from anywhere with a global shortcut and fire a prompt without opening Hermes.',
+        'Summon a small composer from anywhere with a global shortcut and fire a prompt without opening Nia.',
       shortcutTitle: 'Quick Entry shortcut',
       shortcutDesc: 'Needs at least one modifier, e.g. CommandOrControl+Shift+Space.',
       active: 'Shortcut is active.',
@@ -929,7 +906,7 @@ export const en: Translations = {
       enterUrlFirst: 'Enter a remote URL first.',
       restartingTitle: 'Gateway connection restarting',
       savedTitle: 'Gateway settings saved',
-      restartingMessage: 'Hermes Desktop will reconnect using the saved settings — the shell stays open.',
+      restartingMessage: 'Nia will reconnect using the saved settings — the shell stays open.',
       savedMessage: 'Saved for the next restart.',
       connectedTo: (baseUrl, version) => `Connected to ${baseUrl}${version ? ` · Hermes ${version}` : ''}`,
       reachableTitle: 'Remote gateway reachable',
@@ -974,7 +951,7 @@ export const en: Translations = {
       sshErrNotInstalled:
         'Hermes is not installed on the remote host. Install it there (curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh) or set the Hermes path.',
       sshErrPlatform:
-        'Unsupported remote platform. Hermes Desktop SSH mode supports Linux, macOS, and Windows remote hosts.',
+        'Unsupported remote platform. Nia SSH mode supports Linux, macOS, and Windows remote hosts.',
       sshErrTimeout: 'SSH connection timed out. The host may be unreachable or asleep.',
       sshErrUpdateRequired: 'Update Hermes on the remote host before connecting with Desktop SSH.',
       sshErrUnknown: 'SSH connection failed.'
@@ -1062,7 +1039,7 @@ export const en: Translations = {
       noOutput: 'No output yet.',
       deepLinkTitle: 'Add MCP server?',
       deepLinkDescription:
-        'A link asked to add this MCP server to Hermes. Review the exact configuration below — it comes from the link, not from Hermes.',
+        'A link asked to add this MCP server to Nia. Review the exact configuration below — it comes from the link, not from Nia.',
       deepLinkStdioWarning:
         'This server runs a local process on your machine with the command shown below. Only continue if you trust its source.',
       deepLinkConfirm: 'Add server',
@@ -1115,7 +1092,7 @@ export const en: Translations = {
       connectAccount: 'Connect an account',
       haveApiKey: 'Have an API key instead?',
       intro:
-        'Sign in with a subscription — no API key to copy. Hermes runs the browser sign-in for you, right here in the app.',
+        'Sign in with a subscription — no API key to copy. Nia runs the browser sign-in for you, right here in the app.',
       connected: 'Connected',
       collapse: 'Collapse',
       connectAnother: 'Connect another provider',
@@ -1136,7 +1113,7 @@ export const en: Translations = {
       noKeysMatch: 'No providers match your search.',
       localEndpoint: {
         title: 'Local / custom endpoint',
-        description: 'Point Hermes at any OpenAI-compatible endpoint (Zyphra, vLLM, llama.cpp, Ollama, etc).'
+        description: 'Point Nia at any OpenAI-compatible endpoint (Zyphra, vLLM, llama.cpp, Ollama, etc).'
       },
       loading: 'Loading providers...'
     },
@@ -1386,7 +1363,7 @@ export const en: Translations = {
     loadFailed: 'Could not load memory graph',
     loading: 'Loading…',
     emptyTitle: 'Nothing learned yet',
-    emptyDesc: 'As Hermes builds skills and memories for your work, they appear here.',
+    emptyDesc: 'As Nia builds skills and memories for your work, they appear here.',
     share: 'Share map',
     shareHint:
       'Copy the code to share this map, or paste one to load. It only includes the layout, not your memory or skill text.',
@@ -1449,14 +1426,12 @@ export const en: Translations = {
     commandCenter: 'Command Center',
     appearance: 'Appearance',
     settings: 'Settings',
-    changeTheme: 'Change theme',
-    changeColorMode: 'Change color mode…',
     pets: {
       title: 'Pets',
       placeholder: 'Search pets…',
       loading: 'Loading petdex gallery…',
       error: 'Could not reach the petdex gallery.',
-      staleBackend: 'Restart Hermes to use pets — the backend predates this feature.',
+      staleBackend: 'Restart Nia to use pets — the backend predates this feature.',
       empty: 'No matching pets.',
       turnOff: 'Turn off',
       turnOn: 'Turn on',
@@ -1483,8 +1458,8 @@ export const en: Translations = {
       hatchComposing: 'Piecing it together…',
       hatchSaving: 'Almost there…',
       namePlaceholder: 'Name your pet',
-      staleBackend: 'Update Hermes to generate pets.',
-      backgroundHint: 'You can close this — Hermes will notify you when it’s done.',
+      staleBackend: 'Update Nia to generate pets.',
+      backgroundHint: 'You can close this — Nia will notify you when it’s done.',
       slowProviderHint: 'This can take several minutes',
       remix: 'Remix',
       remixConfirmTitle: 'Remix this look?',
@@ -1495,18 +1470,6 @@ export const en: Translations = {
       referenceImageInvalid: 'Could not read that reference image. Try a PNG, JPG, WebP, or GIF.',
       adopt: 'Adopt',
       startOver: 'Start over'
-    },
-    installTheme: {
-      title: 'Install theme…',
-      pageTitle: 'Install theme',
-      placeholder: 'Search the VS Code Marketplace...',
-      loading: 'Searching the Marketplace...',
-      error: 'Could not reach the Marketplace.',
-      empty: 'No matching themes.',
-      install: 'Install',
-      installing: 'Installing...',
-      installed: 'Installed',
-      installs: count => `${count} installs`
     },
     settingsFields: 'Settings fields',
     mcpServers: 'MCP servers',
@@ -1520,7 +1483,7 @@ export const en: Translations = {
     },
     nav: {
       newChat: { title: 'New session', detail: 'Start a fresh session' },
-      settings: { title: 'Settings', detail: 'Configure Hermes desktop' },
+      settings: { title: 'Settings', detail: 'Configure Nia' },
       skills: { title: 'Capabilities', detail: 'Skills, tools, and MCP servers' },
       messaging: { title: 'Messaging', detail: 'Set up Telegram, Slack, Discord, and more' },
       artifacts: { title: 'Artifacts', detail: 'Browse generated outputs' }
@@ -1979,7 +1942,7 @@ export const en: Translations = {
         `${count} scheduled ${count === 1 ? 'job' : 'jobs'} will be skipped until you review their model settings.`,
       detailMore: (names, remaining) => `${names} and ${remaining} more`,
       review: 'Review scheduled jobs',
-      saveFailed: 'Hermes did not save that model change.',
+      saveFailed: 'Nia did not save that model change.',
       confirmTitle: 'Model Selection Warning',
       confirmDetail: 'Confirm only if you accept this trade-off.',
       confirmAction: 'Confirm',
@@ -2040,7 +2003,7 @@ export const en: Translations = {
     everyHourAt: minute => `Every hour at :${minute}`,
     newCron: 'New cron',
     emptyDescNew:
-      'Schedule a prompt to run on a cron expression. Hermes will run it and deliver results to the destination you pick.',
+      'Schedule a prompt to run on a cron expression. Nia will run it and deliver results to the destination you pick.',
     emptyDescSearch: 'Try a broader search query.',
     emptyTitleNew: 'No scheduled jobs yet',
     emptyTitleSearch: 'No matches',
@@ -2237,7 +2200,7 @@ export const en: Translations = {
       createFailed: 'Could not create project',
       staleBackend:
         'Update the Hermes backend to create projects — your backend is older than this desktop app (Settings → Updates → Backend).',
-      deleteConfirm: 'This removes the saved project from Hermes. Files, git repos, and worktrees stay untouched.',
+      deleteConfirm: 'This removes the saved project from Nia. Files, git repos, and worktrees stay untouched.',
       startWork: 'New worktree',
       newWorktreeTitle: 'New worktree',
       newWorktreeDesc: 'Name the branch for this worktree.',
@@ -2341,12 +2304,12 @@ export const en: Translations = {
   composer: {
     message: 'Message',
     wakingProfile: profile => `Waking up ${profile}…`,
-    placeholderStarting: 'Starting Hermes...',
+    placeholderStarting: 'Starting Nia...',
     placeholderReconnecting: 'Reconnecting to Hermes…',
     placeholderFollowUp: 'Send follow-up',
     newSessionPlaceholders: [
       'What are we building?',
-      'Give Hermes a task',
+      'Give Nia a task',
       "What's on your mind?",
       'Describe what you need',
       'What should we tackle?',
@@ -2414,7 +2377,7 @@ export const en: Translations = {
       'composer.history': 'cycle popover / history'
     },
     attachUrlTitle: 'Attach a URL',
-    attachUrlDesc: 'Hermes will fetch the page and include it as context for this turn.',
+    attachUrlDesc: 'Nia will fetch the page and include it as context for this turn.',
     urlPlaceholder: 'https://example.com/post',
     urlHintPre: 'Include the full URL, e.g. ',
     attach: 'Attach',
@@ -2564,7 +2527,7 @@ export const en: Translations = {
       createPr: 'Create PR',
       openPr: 'Open PR',
       ghMissing: 'Install the GitHub CLI (gh) and sign in to open PRs',
-      agentShip: 'Ask Hermes to open PR',
+      agentShip: 'Ask Nia to open PR',
       agentShipUnavailable: "The chat that owns these changes isn't on screen.",
       agentShipPrompt:
         'Review the current changes, commit them with a clear conventional-commit message, push the branch, and open a pull request.',
@@ -2742,7 +2705,7 @@ export const en: Translations = {
     chooseLater: "I'll choose a provider later",
     recommended: 'Recommended',
     connected: 'Connected',
-    featuredPitch: 'One subscription, 300+ frontier models — the recommended way to run Hermes',
+    featuredPitch: 'One subscription, 300+ frontier models — the recommended way to run Nia',
     fireworksPitch: 'Direct model API — Fireworks-hosted frontier models',
     openRouterPitch: 'One key, hundreds of models — a solid default',
     apiKeyOptions: {
@@ -2759,7 +2722,7 @@ export const en: Translations = {
       xai: { short: 'Grok models', description: 'Direct access to xAI Grok models.' },
       local: {
         short: 'self-hosted',
-        description: 'Point Hermes at a local or self-hosted OpenAI-compatible endpoint (vLLM, llama.cpp, Ollama, etc).'
+        description: 'Point Nia at a local or self-hosted OpenAI-compatible endpoint (vLLM, llama.cpp, Ollama, etc).'
       }
     },
     backToSignIn: 'Back to sign in',
@@ -2772,7 +2735,7 @@ export const en: Translations = {
     update: 'Update',
     flowSubtitles: {
       pkce: 'Opens your browser to sign in, then continues here',
-      device_code: 'Opens a verification page in your browser — Hermes connects automatically',
+      device_code: 'Opens a verification page in your browser — Nia connects automatically',
       external: 'Sign in once in your terminal, then come back to chat'
     },
     startingSignIn: provider => `Starting sign-in for ${provider}...`,
@@ -2783,12 +2746,12 @@ export const en: Translations = {
     pickDifferentProvider: 'Pick a different provider',
     signInWith: provider => `Sign in with ${provider}`,
     openedBrowser: provider => `We opened ${provider} in your browser.`,
-    authorizeThere: 'Authorize Hermes there.',
+    authorizeThere: 'Authorize Nia there.',
     copyAuthCode: 'Copy the authorization code and paste it below.',
     pasteAuthCode: 'Paste authorization code',
     reopenAuthPage: 'Re-open authorization page',
     autoBrowser: provider =>
-      `We opened ${provider} in your browser. Authorize Hermes there and you'll be connected automatically — nothing to copy or paste.`,
+      `We opened ${provider} in your browser. Authorize Nia there and you'll be connected automatically — nothing to copy or paste.`,
     reopenSignInPage: 'Re-open sign-in page',
     waitingAuthorize: 'Waiting for you to authorize...',
     externalPending: provider =>
@@ -2890,7 +2853,7 @@ export const en: Translations = {
       update: 'update',
       updateInProgress: 'Update in progress',
       commitsBehind: (count, branch) => `${count} commit${count === 1 ? '' : 's'} behind ${branch}`,
-      desktopVersion: version => `Hermes Desktop v${version}`,
+      desktopVersion: version => `Nia v${version}`,
       backendVersion: version => `Backend v${version}`,
       clientLabel: version => `client v${version}`,
       connectionSsh: host => `SSH: ${host}`,
@@ -3029,7 +2992,7 @@ export const en: Translations = {
     binaryTitle: 'This looks like a binary file',
     binaryBody: label => `Previewing ${label} may show unreadable text.`,
     largeTitle: 'This file is large',
-    largeBody: (label, size) => `${label} is ${size}. Hermes will only show the first 512 KB.`,
+    largeBody: (label, size) => `${label} is ${size}. Nia will only show the first 512 KB.`,
     previewAnyway: 'Preview anyway',
     truncated: 'Showing first 512 KB.',
     noInlineTitle: 'No inline preview',
@@ -3070,11 +3033,11 @@ export const en: Translations = {
         'This address points at the machine running your agent, not this one. The browser pane loads pages locally, so a remote dev server needs a port forward or a reachable hostname.',
       failedToLoad: 'Preview failed to load',
       tryAgain: 'Try again',
-      restarting: 'Hermes is restarting...',
-      askRestart: 'Ask Hermes to restart the server',
-      lookingRestart: taskId => `Hermes is looking for a preview server to restart (${taskId})`,
+      restarting: 'Nia is restarting...',
+      askRestart: 'Ask Nia to restart the server',
+      lookingRestart: taskId => `Nia is looking for a preview server to restart (${taskId})`,
       restartingTitle: 'Restarting preview server',
-      restartingMessage: 'Hermes is working in the background. Watch the preview console for progress.',
+      restartingMessage: 'Nia is working in the background. Watch the preview console for progress.',
       startRestartFailed: message => `Could not start server restart: ${message}`,
       restartFailed: 'Server restart failed',
       hideConsole: 'Hide preview console',
@@ -3086,16 +3049,16 @@ export const en: Translations = {
       reload: 'Reload page',
       address: 'Address',
       addressPlaceholder: 'Enter address',
-      blankPageBody: 'Type an address above to browse, or ask Hermes to open a page.',
-      finishedRestarting: message => `Hermes finished restarting the preview server${message ? `: ${message}` : ''}`,
+      blankPageBody: 'Type an address above to browse, or ask Nia to open a page.',
+      finishedRestarting: message => `Nia finished restarting the preview server${message ? `: ${message}` : ''}`,
       failedRestarting: message => `Server restart failed: ${message}`,
       unknownError: 'unknown error',
       restartedTitle: 'Preview server restarted',
       reloadingNow: 'Reloading the preview now.',
       restartFailedTitle: 'Preview restart failed',
-      restartFailedMessage: 'Hermes could not restart the server.',
+      restartFailedMessage: 'Nia could not restart the server.',
       stillWorking:
-        'Hermes is still working, but no restart result has arrived yet. The server command may be running in the foreground.',
+        'Nia is still working, but no restart result has arrived yet. The server command may be running in the foreground.',
       workspaceReloading: 'Workspace changed, reloading preview',
       fileChanged: url => `File changed, reloading preview: ${url}`,
       filesChanged: (count, url) => `${count} file changes, reloading preview: ${url}`,
@@ -3186,7 +3149,7 @@ export const en: Translations = {
     thread: {
       loadingSession: 'Loading session',
       showEarlier: 'Show earlier messages',
-      loadingResponse: 'Hermes is loading a response',
+      loadingResponse: 'Nia is loading a response',
       resumeWhenBackgroundDone: count =>
         count === 1
           ? 'Will resume when the background task finishes'
@@ -3256,7 +3219,7 @@ export const en: Translations = {
       reject: 'Reject',
       alwaysTitle: 'Always allow this command?',
       alwaysDescription: pattern =>
-        `This adds the “${pattern}” pattern to your permanent allowlist (~/.hermes/config.yaml). Hermes won’t ask again for commands like this — in this session or any future one.`,
+        `This adds the “${pattern}” pattern to your permanent allowlist (~/.nia/config.yaml). Nia won’t ask again for commands like this — in this session or any future one.`,
       alwaysAllow: 'Always allow'
     },
     clarify: {
@@ -3391,10 +3354,10 @@ export const en: Translations = {
     sudoSendFailed: 'Could not send sudo password',
     secretSendFailed: 'Could not send secret',
     sudoTitle: 'Administrator password',
-    sudoDesc: 'Hermes needs your sudo password to run a privileged command. It is sent only to your local agent.',
+    sudoDesc: 'Nia needs your sudo password to run a privileged command. It is sent only to your local agent.',
     sudoPlaceholder: 'sudo password',
     secretTitle: 'Secret required',
-    secretDesc: 'Hermes needs a credential to continue.',
+    secretDesc: 'Nia needs a credential to continue.',
     secretPlaceholder: 'secret value'
   },
 
@@ -3452,8 +3415,8 @@ export const en: Translations = {
     sessionExportFailed: 'Could not export session',
     imageSaved: 'Image saved',
     downloadStarted: 'Download started',
-    restartToUseSaveImage: 'Restart Hermes Desktop to use Save Image.',
-    restartToSaveImages: 'Restart Hermes Desktop to save images',
+    restartToUseSaveImage: 'Restart Nia to use Save Image.',
+    restartToSaveImages: 'Restart Nia to save images',
     imageDownloadFailed: 'Image download failed',
     openImage: 'Open image',
     downloadImage: 'Download image',
@@ -3485,14 +3448,14 @@ export const en: Translations = {
       },
       skills: {
         title: 'Teach it once',
-        text: 'Skills are folders of instructions Hermes loads when the work calls for them.'
+        text: 'Skills are folders of instructions Nia loads when the work calls for them.'
       },
       messaging: {
-        title: 'Hermes away from your desk',
+        title: 'Nia away from your desk',
         text: 'Connect Telegram, Discord, Slack and more — same agent, same memory.'
       },
       artifacts: {
-        title: 'Everything Hermes made',
+        title: 'Everything Nia made',
         text: 'Images, files and links from every session, indexed in one place.'
       },
       cron: {
@@ -3505,7 +3468,7 @@ export const en: Translations = {
       },
       profiles: {
         title: 'Profiles are separate',
-        text: 'Each one is its own Hermes — own keys, own memory, own sessions.'
+        text: 'Each one is its own Nia — own keys, own memory, own sessions.'
       },
       'composer-mentions': {
         title: 'Attach and command',

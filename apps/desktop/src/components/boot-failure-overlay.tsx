@@ -9,6 +9,7 @@ import type { DesktopConnectionConfig } from '@/global'
 import { useI18n } from '@/i18n'
 import { openExternalLink } from '@/lib/external-link'
 import { ChevronLeft, ExternalLink, FileText, Loader2, LogIn, RefreshCw, SlidersHorizontal, Wrench } from '@/lib/icons'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 import { $desktopBoot } from '@/store/boot'
 import { notify, notifyError } from '@/store/notifications'
 import { $desktopOnboarding } from '@/store/onboarding'
@@ -181,7 +182,7 @@ export function BootFailureOverlay() {
 
       let result: { connected?: boolean } | undefined
 
-      if (connectionConfig?.mode === 'cloud' && desktop?.cloud) {
+      if (!LOCAL_ONLY_V1 && connectionConfig?.mode === 'cloud' && desktop?.cloud) {
         const status = await desktop.cloud.status()
 
         if (!status.signedIn) {

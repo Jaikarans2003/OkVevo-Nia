@@ -3,64 +3,34 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { modePref, skinPref } from './context'
 import { DEFAULT_SKIN_NAME } from './presets'
 
-// Skin and mode share one per-profile contract, so assert it once over both.
-interface Pref {
-  resolve: (profile: string) => string
-  assign: (profile: string, value: string) => void
-}
-
-const cases = [
-  {
-    name: 'skin',
-    pref: skinPref as unknown as Pref,
-    fallback: DEFAULT_SKIN_NAME,
-    a: 'ember',
-    b: 'catppuccin',
-    junk: 'nope'
-  },
-  { name: 'mode', pref: modePref as unknown as Pref, fallback: 'system', a: 'dark', b: 'light', junk: 'dusk' }
-]
-
-describe.each(cases)('per-profile $name', ({ pref, fallback, a, b, junk }) => {
+describe('per-profile skin', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('falls back to the default when unassigned', () => {
-    expect(pref.resolve('default')).toBe(fallback)
-    expect(pref.resolve('work')).toBe(fallback)
+  it('falls back to nia when unassigned', () => {
+    expect(skinPref.resolve('default')).toBe(DEFAULT_SKIN_NAME)
+    expect(skinPref.resolve('work')).toBe(DEFAULT_SKIN_NAME)
   })
 
-  it('keeps each profile on its own value', () => {
-    pref.assign('work', a)
-    pref.assign('default', b)
-    expect(pref.resolve('work')).toBe(a)
-    expect(pref.resolve('default')).toBe(b)
-  })
-
-  it('lets unassigned profiles inherit the default profile as the global fallback', () => {
-    pref.assign('default', a)
-    expect(pref.resolve('never-themed')).toBe(a)
-  })
-
-  it('normalizes an unknown stored value back to the default', () => {
-    pref.assign('work', junk)
-    expect(pref.resolve('work')).toBe(fallback)
+  it('normalizes deleted or unknown preset names to nia', () => {
+    skinPref.assign('work', 'ember')
+    skinPref.assign('default', 'nope')
+    expect(skinPref.resolve('work')).toBe(DEFAULT_SKIN_NAME)
+    expect(skinPref.resolve('default')).toBe(DEFAULT_SKIN_NAME)
   })
 })
 
-// A fresh profile follows the OS. This defaulted to `light`, so a dark-mode
-// desktop got a white window on first launch — and, once translucency became
-// per-appearance, light's much heavier tint along with it. Main already
-// defaulted its own themeSource to 'system', so the two disagreed at boot.
-describe('a profile that has never chosen a mode', () => {
+describe('per-profile mode', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('follows the OS rather than forcing light', () => {
-    expect(modePref.resolve('default')).toBe('system')
-    expect(modePref.resolve('work')).toBe('system')
+  it('is always dark — Nia has no light or OS-follow mode', () => {
+    expect(modePref.resolve('default')).toBe('dark')
+    expect(modePref.resolve('work')).toBe('dark')
   })
 
-  it('still honours an explicit choice', () => {
+  it('normalizes stored light/system prefs to dark', () => {
     modePref.assign('default', 'light')
-    expect(modePref.resolve('default')).toBe('light')
+    modePref.assign('work', 'system')
+    expect(modePref.resolve('default')).toBe('dark')
+    expect(modePref.resolve('work')).toBe('dark')
   })
 })

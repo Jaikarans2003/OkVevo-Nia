@@ -146,7 +146,7 @@ describe('BootFailureOverlay', () => {
     }
   })
 
-  it('recovers a cloud connection through the portal cascade instead of native OAuth', async () => {
+  it('does not recover a cloud connection through the portal when LOCAL_ONLY_V1', async () => {
     const gatewayUrl = 'https://agent-1.agents.nousresearch.com'
     const logout = vi.fn().mockResolvedValue({ ok: true, connected: false })
     const nativeLogin = vi.fn().mockResolvedValue({ ok: true, connected: false })
@@ -181,11 +181,11 @@ describe('BootFailureOverlay', () => {
       render(<BootFailureOverlay />)
       fireEvent.click(await screen.findByRole('button', { name: /sign in/i }))
 
-      await waitFor(() => expect(cloudAgentSignIn).toHaveBeenCalledWith(gatewayUrl))
+      await waitFor(() => expect(nativeLogin).toHaveBeenCalledWith(gatewayUrl))
       expect(logout).toHaveBeenCalledWith(gatewayUrl)
-      expect(cloudStatus).toHaveBeenCalledTimes(1)
-      expect(cloudLogin).toHaveBeenCalledTimes(1)
-      expect(nativeLogin).not.toHaveBeenCalled()
+      expect(cloudStatus).not.toHaveBeenCalled()
+      expect(cloudLogin).not.toHaveBeenCalled()
+      expect(cloudAgentSignIn).not.toHaveBeenCalled()
     } finally {
       restore()
     }

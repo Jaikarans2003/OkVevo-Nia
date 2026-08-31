@@ -5,23 +5,22 @@
  * Tailwind utility that references a color or font-family token picks up
  * the change automatically.
  *
- * Mode (light/dark/system) controls brightness; skin controls accent.
- * The two are persisted independently. Shift+X toggles light/dark.
+ * Nia ships one fixed dark look. Mode/skin pickers are gone; stored prefs
+ * that name a deleted preset fall back to `nia`.
  */
 
 import { useStore } from '@nanostores/react'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 import { $registryVersion } from '@/contrib/registry'
-import { matchesQuery, useMediaQuery } from '@/hooks/use-media-query'
 import { persistString, persistStringRecord, storedString, storedStringRecord } from '@/lib/storage'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { setAppearance } from '@/store/translucency'
 
 import { $accentOverride } from './accent-override'
-import { $backendThemes, $pendingSkinApply } from './backend-sync'
+import { $backendThemes } from './backend-sync'
 import { ensureContrast, harmonize, hexToRgb, mix, readableOn } from './color'
-import { BUILTIN_THEME_LIST, DEFAULT_SKIN_NAME, DEFAULT_TYPOGRAPHY, nousTheme } from './presets'
+import { BUILTIN_THEME_LIST, DEFAULT_SKIN_NAME, DEFAULT_TYPOGRAPHY, niaTheme } from './presets'
 import { retintTheme } from './retint'
 import type { DesktopTheme, DesktopThemeColors } from './types'
 import { $userThemes, listAllThemes, resolveTheme } from './user-themes'
@@ -46,22 +45,13 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 
 const INJECTED_FONT_URLS = new Set<string>()
 
-const resolveMode = (mode: ThemeMode, systemDark = matchesQuery('(prefers-color-scheme: dark)')): 'light' | 'dark' =>
-  mode === 'system' ? (systemDark ? 'dark' : 'light') : mode
+const resolveMode = (_mode?: ThemeMode, _systemDark?: boolean): 'light' | 'dark' => 'dark'
 
 const normalizeSkin = (name: string | null): string =>
   name && resolveTheme(name) && !RETIRED_SKINS.has(name) ? name : DEFAULT_SKIN_NAME
 
-/**
- * A stored mode, or `system` when there isn't one.
- *
- * A fresh profile follows the OS. Defaulting to `light` meant someone whose
- * desktop is dark got a white window on first launch and had to go find the
- * setting — and with per-appearance translucency it also handed them light's
- * much heavier tint, tuned for a bright desktop they don't have.
- */
-const normalizeMode = (value: string | null): ThemeMode =>
-  value === 'light' || value === 'dark' || value === 'system' ? value : 'system'
+/** Nia is dark-only. Stored light/system prefs are ignored. */
+const normalizeMode = (_value?: string | null): ThemeMode => 'dark'
 
 // ─── Per-profile appearance persistence ─────────────────────────────────────
 // Skin and mode are each stored per profile. "default" isn't a real profile —
@@ -132,7 +122,7 @@ function synthLightColors(seed: DesktopTheme): DesktopThemeColors {
 
 /** Returns the seed palette for a given skin + mode (no overrides applied). */
 export function getBaseColors(skinName: string, mode: 'light' | 'dark'): DesktopThemeColors {
-  const seed = resolveTheme(skinName) ?? nousTheme
+  const seed = resolveTheme(skinName) ?? niaTheme
 
   if (mode === 'dark') {
     return seed.darkColors ?? seed.colors
@@ -142,7 +132,7 @@ export function getBaseColors(skinName: string, mode: 'light' | 'dark'): Desktop
 }
 
 function deriveTheme(skinName: string, mode: 'light' | 'dark'): DesktopTheme {
-  const seed = resolveTheme(skinName) ?? nousTheme
+  const seed = resolveTheme(skinName) ?? niaTheme
 
   return {
     ...seed,
@@ -201,7 +191,7 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
 
   const root = document.documentElement
   const c = theme.colors
-  const typo = { ...DEFAULT_TYPOGRAPHY, ...nousTheme.typography, ...theme.typography }
+  const typo = { ...DEFAULT_TYPOGRAPHY, ...niaTheme.typography, ...theme.typography }
   const rendered = renderedModeFor(c, mode)
   const isDark = rendered === 'dark'
   const midground = c.midground ?? c.ring
@@ -287,7 +277,7 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
     window.localStorage.setItem('hermes-boot-color-scheme', rendered)
   } catch {
     // Storage may be unavailable (private mode / quota); the inline script
-    // falls back to prefers-color-scheme.
+    // falls back to the Nia charcoal.
   }
 
   if (typo.fontUrl && !INJECTED_FONT_URLS.has(typo.fontUrl)) {
@@ -300,23 +290,16 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
   }
 }
 
-// Pin Electron's nativeTheme to the app's mode so the NATIVE window chrome
-// (macOS vibrancy material, titlebar, pre-paint background) matches the app
-// theme instead of the OS appearance. An explicit light/dark pick is forced;
-// 'system' stays 'system' so prefers-color-scheme keeps tracking the OS.
-const syncNativeTheme = (pref: ThemeMode, rendered: 'light' | 'dark') =>
-  window.hermesDesktop?.setNativeTheme?.(pref === 'system' ? 'system' : rendered)
+// Pin Electron's nativeTheme to dark so native chrome (vibrancy, titlebar,
+// pre-paint background) matches the fixed Nia look instead of the OS.
+const syncNativeTheme = () => window.hermesDesktop?.setNativeTheme?.('dark')
 
-// Boot-time paint to avoid a flash before <ThemeProvider> mounts. Use the last
-// active profile's appearance so a non-default profile relaunch paints its own
-// skin + light/dark mode.
+// Boot-time paint to avoid a flash before <ThemeProvider> mounts.
 if (typeof window !== 'undefined') {
   const profile = readBootProfileKey()
-  const pref = modePref.resolve(profile)
-  const resolved = resolveMode(pref)
-  const theme = deriveTheme(skinPref.resolve(profile), resolved)
-  applyTheme(theme, resolved)
-  syncNativeTheme(pref, renderedModeFor(theme.colors, resolved))
+  const theme = deriveTheme(skinPref.resolve(profile), 'dark')
+  applyTheme(theme, 'dark')
+  syncNativeTheme()
 }
 
 // ─── Context ────────────────────────────────────────────────────────────────
@@ -325,40 +308,28 @@ interface ThemeContextValue {
   theme: DesktopTheme
   themeName: string
   mode: ThemeMode
-  /** The light/dark switch the user picked. */
+  /** Always `'dark'` — Nia has no light/system mode. */
   resolvedMode: 'light' | 'dark'
   /**
    * The mode actually painted, derived from the active background's luminance.
-   * Differs from `resolvedMode` for skins that keep a bright surface in "dark"
-   * (or vice-versa). Surface-bound UI (e.g. the terminal palette) should key off
-   * this so it matches what's on screen instead of inverting.
    */
   renderedMode: 'light' | 'dark'
   availableThemes: Array<{ name: string; label: string; description: string }>
   setTheme: (name: string) => void
   setMode: (mode: ThemeMode) => void
-  /**
-   * Paint a theme with an explicit light/dark, without persistence. This is
-   * the highlight preview for the palette. A commit (`setTheme`) or
-   * `clearThemePreview` repaints the committed appearance.
-   */
-  previewTheme: (name: string, mode: 'light' | 'dark') => void
-  clearThemePreview: () => void
 }
 
 const SKIN_LIST = BUILTIN_THEME_LIST.map(({ name, label, description }) => ({ name, label, description }))
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: nousTheme,
+  theme: niaTheme,
   themeName: DEFAULT_SKIN_NAME,
-  mode: 'light',
-  resolvedMode: 'light',
-  renderedMode: 'light',
+  mode: 'dark',
+  resolvedMode: 'dark',
+  renderedMode: 'dark',
   availableThemes: SKIN_LIST,
   setTheme: () => {},
-  setMode: () => {},
-  previewTheme: () => {},
-  clearThemePreview: () => {}
+  setMode: () => {}
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -391,7 +362,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   )
 
   const [mode, setModeState] = useState<ThemeMode>(() =>
-    typeof window === 'undefined' ? 'system' : modePref.resolve(readBootProfileKey())
+    typeof window === 'undefined' ? 'dark' : modePref.resolve(readBootProfileKey())
   )
 
   // Follow profile switches: paint the profile's assigned skin + mode and
@@ -423,16 +394,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
-  const resolvedMode = resolveMode(mode, systemDark)
+  const resolvedMode = resolveMode()
 
-  // Transient highlight preview (palette theme picker). It is never
-  // persisted. A commit or an explicit clear returns the paint to the
-  // committed appearance.
-  const [preview, setPreview] = useState<{ name: string; mode: 'light' | 'dark' } | null>(null)
-
-  const paintedName = preview ? preview.name : themeName
-  const paintedMode = preview ? preview.mode : resolvedMode
+  const paintedName = themeName
+  const paintedMode = resolvedMode
 
   const activeTheme = useMemo(
     () => deriveTheme(paintedName, paintedMode),
@@ -458,9 +423,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => applyTheme(paintedTheme, paintedMode), [paintedTheme, paintedMode])
 
-  // Keep the native window appearance pinned to the app theme (vibrancy
-  // material, titlebar, new-window pre-paint background).
-  useEffect(() => syncNativeTheme(mode, renderedMode), [mode, renderedMode])
+  useEffect(() => syncNativeTheme(), [mode, renderedMode])
 
   // Assign to whichever profile is live right now (read fresh so the callbacks
   // stay stable across profile switches).
@@ -468,37 +431,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback((name: string) => {
     const next = normalizeSkin(name)
-    setPreview(null)
     setThemeNameState(next)
     skinPref.assign(liveProfile(), next)
   }, [])
 
-  const setMode = useCallback((next: ThemeMode) => {
-    setPreview(null)
-    setModeState(next)
-    modePref.assign(liveProfile(), next)
+  const setMode = useCallback((_next: ThemeMode) => {
+    setModeState('dark')
+    modePref.assign(liveProfile(), 'dark')
   }, [])
-
-  const previewTheme = useCallback((name: string, previewMode: 'light' | 'dark') => {
-    setPreview(resolveTheme(name) ? { name, mode: previewMode } : null)
-  }, [])
-
-  const clearThemePreview = useCallback(() => setPreview(null), [])
-
-  // Drain a backend-driven skin switch (Hermes authoring/activating a skin from a
-  // prompt, or `/skin` on another surface). setTheme persists it per profile, so
-  // the choice sticks like any manual pick.
-  const pendingSkin = useStore($pendingSkinApply)
-
-  useEffect(() => {
-    if (pendingSkin) {
-      setTheme(pendingSkin)
-      $pendingSkinApply.set(null)
-    }
-  }, [pendingSkin, setTheme])
-
-  // The light/dark toggle (Shift+X by default) is owned by the keybind runtime
-  // (`appearance.toggleMode`) so it shows up in the hotkey map and is rebindable.
 
   const value = useMemo<ThemeContextValue>(
     () => ({
@@ -509,22 +449,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       renderedMode,
       availableThemes,
       setTheme,
-      setMode,
-      previewTheme,
-      clearThemePreview
+      setMode
     }),
-    [
-      paintedTheme,
-      themeName,
-      mode,
-      resolvedMode,
-      renderedMode,
-      availableThemes,
-      setTheme,
-      setMode,
-      previewTheme,
-      clearThemePreview
-    ]
+    [paintedTheme, themeName, mode, resolvedMode, renderedMode, availableThemes, setTheme, setMode]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

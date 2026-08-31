@@ -94,10 +94,10 @@ describe('ingestBackendSkin', () => {
   })
 
   it('does not shadow a built-in name but can still apply it', () => {
-    ingestBackendSkin(skin('mono'), { apply: true })
+    ingestBackendSkin(skin('nia'), { apply: true })
 
-    expect($backendThemes.get().mono).toBeUndefined()
-    expect($pendingSkinApply.get()).toBe('mono')
+    expect($backendThemes.get().nia).toBeUndefined()
+    expect($pendingSkinApply.get()).toBe('nia')
   })
 
   it('ignores empty payloads', () => {

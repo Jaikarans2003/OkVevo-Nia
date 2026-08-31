@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DesktopBootstrapEvent, DesktopBootstrapState, DesktopConnectionProbeResult } from '@/global'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 
 import { DesktopInstallOverlay } from './desktop-install-overlay'
 
@@ -100,8 +101,9 @@ describe('DesktopInstallOverlay first-run setup', () => {
     render(<DesktopInstallOverlay />)
 
     expect(await screen.findByText('Set up Nia Desktop')).toBeTruthy()
-    expect(screen.getByText('Connect to existing Nia')).toBeTruthy()
+    expect(screen.queryByText('Connect to existing Nia')).toBeNull()
     expect(screen.getByText('Install Nia locally')).toBeTruthy()
+    expect(screen.getByText(/nia-agent/)).toBeTruthy()
     expect(screen.queryByText(/steps complete/i)).toBeNull()
     expect(screen.queryByText(/Fetching installer manifest/i)).toBeNull()
   })
@@ -197,7 +199,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(screen.queryByText('Local installation could not start. Restart Nia Desktop and try again.')).toBeNull()
   })
 
-  it('opens the remote connection form from the first-run choice', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('opens the remote connection form from the first-run choice', async () => {
     installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
@@ -213,7 +215,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(screen.getByText('Apply and reconnect')).toBeTruthy()
   })
 
-  it('returns from the remote connection form to the first-run choice', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('returns from the remote connection form to the first-run choice', async () => {
     installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
@@ -231,7 +233,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(screen.getByText('Install Nia locally')).toBeTruthy()
   })
 
-  it('requires a successful token connection test before applying remote config', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('requires a successful token connection test before applying remote config', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
@@ -301,7 +303,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     await waitFor(() => expect(screen.queryByText('Gateway URL')).toBeNull())
   })
 
-  it('ignores a completed probe after the gateway URL becomes invalid', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('ignores a completed probe after the gateway URL becomes invalid', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
@@ -345,7 +347,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect((screen.getByText('Apply and reconnect').closest('button') as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('does not enable Apply when credentials change during a connection test', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('does not enable Apply when credentials change during a connection test', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
@@ -398,7 +400,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(apply.disabled).toBe(true)
   })
 
-  it('restores remote apply controls when applying the tested connection fails', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('restores remote apply controls when applying the tested connection fails', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
@@ -445,7 +447,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(screen.getByText('Gateway URL')).toBeTruthy()
   })
 
-  it('signs in, tests, and applies a password-style remote gateway', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('signs in, tests, and applies a password-style remote gateway', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
@@ -516,7 +518,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     })
   })
 
-  it('offers remote connection from the unsupported packaged install screen', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('offers remote connection from the unsupported packaged install screen', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         unsupportedPlatform: {

@@ -40,11 +40,6 @@ interface ToolTitleCopy {
   pendingAction: string
 }
 
-interface ModeOptionCopy {
-  label: string
-  description: string
-}
-
 interface AuxTaskCopy {
   label: string
   hint: string
@@ -428,18 +423,13 @@ export interface Translations {
     }
     sections: Record<string, string>
     searchPlaceholder: Record<'about' | 'config' | 'gateway' | 'keys' | 'mcp' | 'sessions', string>
-    modeOptions: Record<'light' | 'dark' | 'system', ModeOptionCopy>
     appearance: {
       title: string
       intro: string
-      colorMode: string
-      colorModeDesc: string
       toolViewTitle: string
       toolViewDesc: string
       reasoningCollapsedTitle: string
       reasoningCollapsedDesc: string
-      uiScaleTitle: string
-      uiScaleDesc: (percent: number) => string
       sessionDensityTitle: string
       sessionDensityDesc: string
       sessionDensityCompact: string
@@ -499,18 +489,6 @@ export interface Translations {
       productDesc: string
       technical: string
       technicalDesc: string
-      themeTitle: string
-      themeDesc: string
-      themeProfileNote: (profile: string) => string
-      installTitle: string
-      installDesc: string
-      installPlaceholder: string
-      installButton: string
-      installing: string
-      installError: string
-      installed: (name: string) => string
-      removeTheme: string
-      importedBadge: string
       pet: {
         title: string
         intro: string
@@ -553,6 +531,7 @@ export interface Translations {
     fieldDescriptions: Record<string, string>
     about: {
       heading: string
+      madeBy: string
       version: (value: string) => string
       versionUnavailable: string
       bundleOutOfSync: string
@@ -1280,8 +1259,6 @@ export interface Translations {
     commandCenter: string
     appearance: string
     settings: string
-    changeTheme: string
-    changeColorMode: string
     pets: {
       title: string
       placeholder: string
@@ -1325,18 +1302,6 @@ export interface Translations {
       referenceImageInvalid: string
       adopt: string
       startOver: string
-    }
-    installTheme: {
-      title: string
-      pageTitle: string
-      placeholder: string
-      loading: string
-      error: string
-      empty: string
-      install: string
-      installing: string
-      installed: string
-      installs: (count: string) => string
     }
     settingsFields: string
     mcpServers: string

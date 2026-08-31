@@ -928,20 +928,9 @@ let rendererTitleBarTheme = null
 // nativeTheme.themeSource to it and persist the value so cold launches paint
 // correctly before the renderer has even loaded.
 const NATIVE_THEME_CONFIG_PATH = path.join(app.getPath('userData'), 'native-theme.json')
-const THEME_SOURCES = new Set(['dark', 'light', 'system'])
 
-function readPersistedThemeSource() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(NATIVE_THEME_CONFIG_PATH, 'utf8'))
-
-    if (parsed && THEME_SOURCES.has(parsed.themeSource)) {
-      return parsed.themeSource
-    }
-  } catch {
-    // Missing / malformed → follow the OS like a fresh install.
-  }
-
-  return 'system'
+function readPersistedThemeSource(): 'dark' {
+  return 'dark'
 }
 
 function writePersistedThemeSource(mode) {
@@ -1123,7 +1112,7 @@ function getWindowBackgroundColor() {
     return rendererTitleBarTheme.background
   }
 
-  return nativeTheme.shouldUseDarkColors ? '#111111' : '#f7f7f7'
+  return '#2b2b2b'
 }
 
 // Transparent WCO — renderer chrome shows through. rgba(0,0,0,0) can fall back
@@ -1151,9 +1140,7 @@ function getTitleBarOverlayOptions() {
     symbolColor:
       rendererTitleBarTheme && isHexColor(rendererTitleBarTheme.foreground)
         ? rendererTitleBarTheme.foreground
-        : nativeTheme.shouldUseDarkColors
-          ? '#f7f7f7'
-          : '#242424'
+        : '#e3dcd6'
   }
 }
 
@@ -6583,32 +6570,6 @@ function buildApplicationMenu() {
         click: (_menuItem, browserWindow) => toggleDevTools(browserWindow || mainWindow)
       },
       { type: 'separator' },
-      {
-        label: 'Actual Size',
-        accelerator: 'CommandOrControl+0',
-        click: () => {
-          setAndPersistZoomLevel(mainWindow, DEFAULT_ZOOM_LEVEL)
-        }
-      },
-      {
-        label: 'Zoom In',
-        accelerator: 'CommandOrControl+Plus',
-        click: () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            setAndPersistZoomLevel(mainWindow, mainWindow.webContents.getZoomLevel() + ZOOM_STEP)
-          }
-        }
-      },
-      {
-        label: 'Zoom Out',
-        accelerator: 'CommandOrControl+-',
-        click: () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            setAndPersistZoomLevel(mainWindow, mainWindow.webContents.getZoomLevel() - ZOOM_STEP)
-          }
-        }
-      },
-      { type: 'separator' },
       { role: 'togglefullscreen' }
     ]
   })
@@ -6708,8 +6669,6 @@ import {
   DEFAULT_ZOOM_LEVEL,
   installZoomReassertOnNavigation,
   installZoomReassertOnWindowEvents,
-  percentToZoomLevel,
-  ZOOM_STEP,
   ZOOM_STORAGE_KEY,
   zoomLevelToPercent,
   zoomWiringForWindowKind
@@ -6742,57 +6701,20 @@ function restorePersistedZoomLevel(window) {
     return
   }
 
-  // Prefer the JSON file — it survives crash recovery wiping Electron's
-  // cache/storage folders (#56726). applyZoomLevel notifies the renderer so
-  // the Appearance UI Scale control stays in sync.
-  const saved = readZoomState()
+  // Fixed at Chromium 100%. Ignore any previously persisted 90% (or other)
+  // level so existing installs normalize once and stay there.
+  const current = window.webContents?.getZoomLevel?.()
 
-  if (saved != null) {
-    // Drift-guard: skip when this window already shows the persisted level.
-    // Blindly re-applying on every resize/move would race the compositor's
-    // surface reconfigure during a Wayland resize storm (Cosmic tiled mode
-    // fires one whenever a new session window opens — #84818) and keep the
-    // renderer notification stream churning for no gain. The settle-verify
-    // chain in installZoomReassertOnWindowEvents re-applies only when the
-    // window actually drifted from the persisted level.
-    const current = window.webContents?.getZoomLevel?.()
-
-    if (current != null && Math.abs(current - saved) < 1e-9) {
-      return
-    }
-
-    applyZoomLevel(window.webContents, saved)
-
+  if (current != null && Math.abs(current - DEFAULT_ZOOM_LEVEL) < 1e-9) {
     return
   }
 
-  // No JSON yet: paint the shipped default immediately so a fresh install
-  // doesn't flash Chromium 100%, then try localStorage for pre-JSON installs
-  // and overwrite if a legacy value is there.
-  applyZoomLevel(window.webContents, DEFAULT_ZOOM_LEVEL)
-
-  window.webContents
-    .executeJavaScript(
-      `(() => { try { return localStorage.getItem(${JSON.stringify(ZOOM_STORAGE_KEY)}) } catch { return null } })()`
-    )
-    .then(stored => {
-      if (!window || window.isDestroyed()) {
-        return
-      }
-
-      const level = stored == null ? DEFAULT_ZOOM_LEVEL : Number(stored)
-      const applied = applyZoomLevel(window.webContents, level)
-      writeZoomState(applied)
-    })
-    .catch(error => rememberLog(`[zoom] restore failed: ${error?.message || error}`))
+  const applied = applyZoomLevel(window.webContents, DEFAULT_ZOOM_LEVEL)
+  writeZoomState(applied)
 }
 
-function installZoomShortcuts(window) {
-  // Override Ctrl/Cmd + +/-/0 with half Chromium's default zoom step (ZOOM_STEP
-  // is 0.1 vs Chromium's 0.2). The menu items handle this on macOS (where the
-  // menu is always present), but on Linux/Windows the menu is null and
-  // Chromium's default handler would use the full 0.2 step, so we intercept
-  // here for consistency. Ctrl/Cmd+0 resets to DEFAULT_ZOOM_LEVEL, not Chromium 0.
+/** Swallow Chromium's Cmd/Ctrl +/-/0 and wheel zoom so UI scale stays at 100%. */
+function installZoomLock(window) {
   window.webContents.on('before-input-event', (event, input) => {
     const mod = IS_MAC ? input.meta : input.control
 
@@ -6802,40 +6724,18 @@ function installZoomShortcuts(window) {
 
     const key = input.key
 
-    if (key === '0') {
-      if (input.shift) {
-        return // Ctrl/Cmd+Shift+0 is not a zoom chord — leave it alone
-      }
-
+    if (key === '0' && !input.shift) {
       event.preventDefault()
-      setAndPersistZoomLevel(window, DEFAULT_ZOOM_LEVEL)
     } else if (key === '=' || key === '+') {
-      // Zoom-in must accept the shift modifier: on US layouts Plus is
-      // physically Shift+=, so Cmd+Plus arrives as Cmd+Shift+'+' (or '='
-      // depending on platform). The old blanket shift guard silently
-      // dropped keyboard zoom-in on macOS (#43517).
       event.preventDefault()
-      setAndPersistZoomLevel(window, window.webContents.getZoomLevel() + ZOOM_STEP)
-    } else if (key === '-') {
-      if (input.shift) {
-        return // Shift+'-' is '_' territory on most layouts, not zoom-out
-      }
-
+    } else if (key === '-' && !input.shift) {
       event.preventDefault()
-      setAndPersistZoomLevel(window, window.webContents.getZoomLevel() - ZOOM_STEP)
     }
   })
 
-  // Ctrl/Cmd + mouse wheel — the standard desktop/browser zoom gesture
-  // (#40295). Chromium surfaces it as the main-process 'zoom-changed' event
-  // (wheel events are DOM-side, so before-input-event never sees them).
-  // Route through the same persist+notify funnel as the keyboard shortcuts
-  // so wheel zoom survives restarts and the settings Scale control stays in
-  // sync, and use the same half step for consistency.
-  window.webContents.on('zoom-changed', (event, zoomDirection) => {
+  window.webContents.on('zoom-changed', event => {
     event.preventDefault()
-    const delta = zoomDirection === 'in' ? ZOOM_STEP : -ZOOM_STEP
-    setAndPersistZoomLevel(window, window.webContents.getZoomLevel() + delta)
+    restorePersistedZoomLevel(window)
   })
 }
 
@@ -12256,7 +12156,7 @@ async function startHermes() {
   // otherwise SIGTERMs the running instance's live backend (#87295).
   if (!isPrimaryInstance) {
     rememberLog('[boot] non-primary instance: skipping backend machinery')
-    throw new Error('Hermes Desktop is already running in another window.')
+    throw new Error('Nia is already running in another window.')
   }
 
   await reapOrphanedBackendsOnce()
@@ -12715,8 +12615,8 @@ function wireCommonWindowHandlers(win, { zoom = true }: { zoom?: boolean } = {})
   }
 
   if (zoom) {
-    installZoomShortcuts(win)
-    // Re-apply persisted zoom on show/restore/resize/cross-display move
+    installZoomLock(win)
+    // Re-apply 100% zoom on show/restore/resize/cross-display move
     // (Chromium can drop webContents zoom after these window transitions), on
     // EVERY full load — not once, since crash recovery reloads and would
     // outlive a spent `once` listener (#46429) — and after in-page navigation,
@@ -12800,7 +12700,7 @@ function spawnSecondaryWindow({ sessionId, watch }: { sessionId?: string; watch?
     height: SESSION_WINDOW_MIN_HEIGHT,
     minWidth: SESSION_WINDOW_MIN_WIDTH,
     minHeight: SESSION_WINDOW_MIN_HEIGHT,
-    title: 'Hermes',
+    title: 'Nia',
     titleBarStyle: 'hidden',
     titleBarOverlay: getTitleBarOverlayOptions(),
     trafficLightPosition: IS_MAC ? WINDOW_BUTTON_POSITION : undefined,
@@ -12893,7 +12793,7 @@ function spawnBrowserWindow(tabId) {
     height: BROWSER_WINDOW_HEIGHT,
     minWidth: BROWSER_WINDOW_MIN_WIDTH,
     minHeight: BROWSER_WINDOW_MIN_HEIGHT,
-    title: 'Hermes',
+    title: 'Nia',
     titleBarStyle: 'hidden',
     titleBarOverlay: getTitleBarOverlayOptions(),
     trafficLightPosition: IS_MAC ? WINDOW_BUTTON_POSITION : undefined,
@@ -12985,7 +12885,7 @@ function createInstanceWindow() {
     ...nextInstanceBounds(),
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
-    title: 'Hermes',
+    title: 'Nia',
     titleBarStyle: 'hidden',
     titleBarOverlay: getTitleBarOverlayOptions(),
     trafficLightPosition: IS_MAC ? WINDOW_BUTTON_POSITION : undefined,
@@ -13935,7 +13835,7 @@ function createWindow() {
     ...computeWindowOptions(savedWindowState, screen.getAllDisplays()),
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
-    title: 'Hermes',
+    title: 'Nia',
     // Frameless title bar on every platform so the renderer can paint the
     // "hide sidebar" button (and other left-side titlebar tools) flush with
     // the top edge — matching the macOS layout where the traffic lights sit
@@ -14449,14 +14349,14 @@ ipcMain.handle('hermes:zoom:get', event => {
 
   return { level, percent: zoomLevelToPercent(level) }
 })
-ipcMain.on('hermes:zoom:set-percent', (event, percent) => {
+ipcMain.on('hermes:zoom:set-percent', (event, _percent) => {
   const window = BrowserWindow.fromWebContents(event.sender)
 
   if (!window || window.isDestroyed()) {
     return
   }
 
-  setAndPersistZoomLevel(window, percentToZoomLevel(Number(percent)))
+  setAndPersistZoomLevel(window, DEFAULT_ZOOM_LEVEL)
 })
 
 // --- Pet overlay (pop-out mascot) — see pet-overlay-ipc.ts. ---------------
@@ -16079,7 +15979,7 @@ ipcMain.handle('hermes:notify', (_event, payload) => {
   const icon = typeof payload?.icon === 'string' && payload.icon.trim() ? payload.icon.trim() : undefined
 
   const notification = new Notification({
-    title: payload?.title || 'Hermes',
+    title: payload?.title || 'Nia',
     body: payload?.body || '',
     silent: Boolean(payload?.silent),
     ...(icon ? { icon } : {}),
@@ -16464,14 +16364,10 @@ ipcMain.on('hermes:titlebar-theme', (_event, payload) => {
 })
 
 // Pin the native appearance to the app theme (see NATIVE_THEME_CONFIG_PATH).
-ipcMain.on('hermes:native-theme', (_event, mode) => {
-  if (!THEME_SOURCES.has(mode)) {
-    return
-  }
-
-  if (nativeTheme.themeSource !== mode) {
-    nativeTheme.themeSource = mode
-    writePersistedThemeSource(mode)
+ipcMain.on('hermes:native-theme', () => {
+  if (nativeTheme.themeSource !== 'dark') {
+    nativeTheme.themeSource = 'dark'
+    writePersistedThemeSource('dark')
   }
 })
 

@@ -827,7 +827,7 @@ export function CreateAgentDialog({ open, onClose, roster }: CreateAgentDialogPr
                   // — a message rather than rendering `undefined` as a
                   // component, which throws.
                   <div className="px-2 py-3 text-center text-xs text-(--ui-text-tertiary)">
-                    Skills need a newer Hermes Desktop.
+                    Skills need a newer Nia.
                   </div>
                 )
               ) : capsFailed ? (
