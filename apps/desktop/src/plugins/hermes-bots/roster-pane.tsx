@@ -51,6 +51,7 @@ import {
   botRosterKey,
   botSourceStatus,
   filterBots,
+  isDefaultBot,
   preferReachableSameNameRows,
   sourceByConnection,
   useRoster
@@ -141,6 +142,11 @@ function rosterWithSelectedOwner(roster: RosterRow[], sources: GatewaySource[], 
   return ghost ? [...rows, ghost] : rows
 }
 
+/** Local primary `default` profile — hidden from Bot Mode roster display. */
+function isLocalPrimaryDefaultBot(bot: RosterRow): boolean {
+  return isDefaultBot(bot) && !bot.remoteSource && !bot.sourceScoped
+}
+
 /** Keep the persisted selection honest against the live roster and seat a
  *  first selection when there is none. PRESENTATION ONLY: it never opens,
  *  prepares, activates, or creates anything — an unreachable owner keeps its
@@ -161,7 +167,10 @@ function reconcileRosterSelection(roster: RosterRow[], sources: GatewaySource[],
   }
 
   const first = (Array.isArray(roster) ? roster : []).find(
-    bot => !isBotHidden(bot, metaByName) && botSourceStatus(annotateBotSource(bot, sources)).available
+    bot =>
+      !isBotHidden(bot, metaByName) &&
+      !isLocalPrimaryDefaultBot(bot) &&
+      botSourceStatus(annotateBotSource(bot, sources)).available
   )
 
   if (first) {
@@ -334,7 +343,9 @@ export function BotsPane() {
   // non-display consumer continues to receive the complete roster.
   const hiddenExpanded = useValue($showHiddenBots)
   const hiddenBots = roster.filter(bot => isBotHidden(bot, allMeta))
-  const visibleRoster = roster.filter(bot => !isBotHidden(bot, allMeta))
+  const visibleRoster = roster
+    .filter(bot => !isBotHidden(bot, allMeta))
+    .filter(bot => !isLocalPrimaryDefaultBot(bot))
   const gatewayRoster = filterBotsByGateway(visibleRoster, gatewayFilter)
 
   const filteredRoster = filterBots(gatewayRoster, allMeta, query).filter((bot: RosterRow) =>

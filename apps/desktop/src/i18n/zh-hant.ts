@@ -1912,7 +1912,7 @@ export const zhHant = defineLocale({
     message: '訊息',
     wakingProfile: profile => `正在喚醒 ${profile}…`,
     placeholderStarting: '正在啟動 Nia...',
-    placeholderReconnecting: '正在重新連線至 Hermes…',
+    placeholderReconnecting: '正在重新連線至 Nia…',
     placeholderFollowUp: '傳送後續訊息',
     newSessionPlaceholders: [
       '我們要建立什麼？',

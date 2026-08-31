@@ -1977,7 +1977,7 @@ export const ja = defineLocale({
     message: 'メッセージ',
     wakingProfile: profile => `${profile} を起動中…`,
     placeholderStarting: 'Nia を起動中...',
-    placeholderReconnecting: 'Hermes に再接続中…',
+    placeholderReconnecting: 'Nia に再接続中…',
     placeholderFollowUp: 'フォローアップを送信',
     newSessionPlaceholders: [
       '何を作りますか？',

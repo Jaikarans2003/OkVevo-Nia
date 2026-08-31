@@ -73,7 +73,7 @@ test('does not fall back to heavyweight /api/status for transient health failure
     waitForHermesReady('http://127.0.0.1:9000', {
       fetchPublicJson: async url => {
         calls.push(['public', url])
-        throw new Error('Timed out connecting to Hermes backend after 15000ms')
+        throw new Error('Timed out connecting to Nia after 15000ms')
       },
       fetchJson: async url => {
         calls.push(['token', url])
@@ -144,7 +144,7 @@ test('recognizes missing-route shapes only', () => {
     ),
     true
   )
-  assert.equal(isMissingHealthEndpointError(new Error('Timed out connecting to Hermes backend after 15000ms')), false)
+  assert.equal(isMissingHealthEndpointError(new Error('Timed out connecting to Nia after 15000ms')), false)
   assert.equal(isMissingHealthEndpointError(new Error('500: boom')), false)
 })
 

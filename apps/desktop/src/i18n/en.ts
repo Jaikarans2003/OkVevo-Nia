@@ -2305,7 +2305,7 @@ export const en: Translations = {
     message: 'Message',
     wakingProfile: profile => `Waking up ${profile}…`,
     placeholderStarting: 'Starting Nia...',
-    placeholderReconnecting: 'Reconnecting to Hermes…',
+    placeholderReconnecting: 'Reconnecting to Nia…',
     placeholderFollowUp: 'Send follow-up',
     newSessionPlaceholders: [
       'What are we building?',

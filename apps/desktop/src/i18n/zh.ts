@@ -2485,7 +2485,7 @@ export const zh: Translations = {
     message: '消息',
     wakingProfile: profile => `正在唤醒 ${profile}…`,
     placeholderStarting: '正在启动 Nia…',
-    placeholderReconnecting: '正在重新连接 Hermes…',
+    placeholderReconnecting: '正在重新连接 Nia…',
     placeholderFollowUp: '发送后续消息',
     newSessionPlaceholders: [
       '我们要构建什么？',
