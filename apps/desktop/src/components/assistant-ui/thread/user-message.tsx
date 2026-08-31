@@ -41,7 +41,7 @@ export function StickyHumanMessageContainer({
     // while attachments below it scroll away.
     <>
       <div
-        className="group/user-message sticky z-40 -mx-4 flex w-[calc(100%+2rem)] min-w-0 max-w-none flex-col items-stretch gap-0 self-end overflow-visible bg-(--ui-chat-surface-background) px-4 pb-(--conversation-turn-gap) pt-1"
+        className="group/user-message sticky z-40 -mx-4 flex w-[calc(100%+2rem)] min-w-0 max-w-none flex-col items-end gap-0 self-end overflow-visible bg-(--ui-chat-surface-background) px-4 pb-(--conversation-turn-gap) pt-1"
         data-message-id={messageId}
         data-role="user"
         data-slot="aui_user-message-root"
@@ -54,9 +54,8 @@ export function StickyHumanMessageContainer({
 }
 
 // Shared "user bubble" base. Both the read-only message and the inline
-// edit composer render the same bubble surface (rounded glass card);
-// they only differ in border weight, cursor, and padding-right (the
-// read-only view reserves room for the restore icon).
+// edit composer render the same right-aligned pill; they only differ in
+// cursor and padding-right (the read-only view reserves room for restore).
 //
 // no-drag: sticky bubbles park at --sticky-human-top (~4px), sliding under the
 // titlebar's [-webkit-app-region:drag] strips (app-shell.tsx). Electron resolves
@@ -64,7 +63,7 @@ export function StickyHumanMessageContainer({
 // so without the carve-out, clicking a stuck bubble drags the window instead of
 // opening the edit composer.
 export const USER_BUBBLE_BASE_CLASS =
-  'composer-human-message standalone-glass relative flex w-full min-w-0 max-w-full flex-col gap-1.5 overflow-y-auto rounded-xl border bg-(--dt-user-bubble) px-3 py-2 text-left [-webkit-app-region:no-drag]'
+  'composer-human-message relative flex w-fit max-w-[min(85%,40rem)] flex-col gap-1.5 overflow-y-auto rounded-full border-0 bg-[#2f2f2f] px-4 py-2 text-left self-end ml-auto [-webkit-app-region:no-drag]'
 
 export const USER_ACTION_ICON_BUTTON_CLASS =
   'grid place-items-center rounded-md bg-transparent text-(--ui-text-secondary) transition-colors hover:bg-(--ui-control-active-background) hover:text-foreground disabled:cursor-default disabled:text-(--ui-text-quaternary) disabled:opacity-70'
@@ -407,8 +406,7 @@ export const UserMessage: FC<{
 
   const bubbleClassName = cn(
     USER_BUBBLE_BASE_CLASS,
-    'cursor-pointer pr-9 text-[length:var(--conversation-text-font-size)] leading-(--dt-line-height) text-foreground/95 transition-colors',
-    'border-(--ui-stroke-tertiary) hover:border-(--ui-stroke-secondary)'
+    'cursor-pointer pr-9 text-[length:var(--conversation-text-font-size)] leading-(--dt-line-height) text-foreground/95 transition-colors'
   )
 
   const bubbleContent = hasBody && (
@@ -443,8 +441,8 @@ export const UserMessage: FC<{
         }
         messageId={messageId}
       >
-        <ActionBarPrimitive.Root className="relative w-full max-w-full" data-slot="aui_user-bubble-actions">
-          <div className="human-message-with-todos-wrapper flex w-full flex-col gap-0">
+        <ActionBarPrimitive.Root className="relative w-fit max-w-full ml-auto" data-slot="aui_user-bubble-actions">
+          <div className="human-message-with-todos-wrapper flex w-fit max-w-full flex-col gap-0 ml-auto">
             <ReactionPicker
               onOpenChange={setPickerOpen}
               onSelect={pickEmoji}
@@ -452,7 +450,7 @@ export const UserMessage: FC<{
               selected={shownReactions.find(reaction => reaction.author === 'user')?.emoji}
             >
               <div
-                className="relative w-full"
+                className="relative w-fit ml-auto"
                 // The app context menu skips PLAIN right-clicks here (the
                 // attr below) so this handler keeps the picker gesture; a
                 // link/image/selection inside the bubble still gets the app

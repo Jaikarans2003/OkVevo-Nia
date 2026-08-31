@@ -6701,8 +6701,8 @@ function restorePersistedZoomLevel(window) {
     return
   }
 
-  // Fixed at Chromium 100%. Ignore any previously persisted 90% (or other)
-  // level so existing installs normalize once and stay there.
+  // Fixed at 110%. Ignore any previously persisted level so existing
+  // installs normalize once and stay there.
   const current = window.webContents?.getZoomLevel?.()
 
   if (current != null && Math.abs(current - DEFAULT_ZOOM_LEVEL) < 1e-9) {
@@ -6713,7 +6713,7 @@ function restorePersistedZoomLevel(window) {
   writeZoomState(applied)
 }
 
-/** Swallow Chromium's Cmd/Ctrl +/-/0 and wheel zoom so UI scale stays at 100%. */
+/** Swallow Chromium's Cmd/Ctrl +/-/0 and wheel zoom so UI scale stays at 110%. */
 function installZoomLock(window) {
   window.webContents.on('before-input-event', (event, input) => {
     const mod = IS_MAC ? input.meta : input.control

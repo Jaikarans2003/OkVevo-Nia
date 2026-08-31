@@ -1,18 +1,14 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
-import { DecodeText } from '@/components/ui/decode-text'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { prefersReducedMotion } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 import { $desktopBoot } from '@/store/boot'
 import { $gatewaySwitching } from '@/store/gateway-switch'
 import { $gatewayState } from '@/store/session'
 
-// Decode mechanics live in the shared <DecodeText> primitive
-// (components/ui/decode-text.tsx). "CONN" stays legible via prefix={4}.
-const TEXT = 'CONNECTING'
-
-// Exit choreography (ms): text fades down + out, hold, then the overlay fades.
+// Exit choreography (ms): spinner fades down + out, hold, then the overlay fades.
 const TEXT_OUT_MS = 360
 const POST_TEXT_HOLD_MS = 300
 const OVERLAY_OUT_MS = 520
@@ -146,16 +142,14 @@ export function GatewayConnectingOverlay() {
       // in styles.css.
       data-glass-opaque=""
     >
-      <DecodeText
-        active={phase === 'live' && (previewing || connecting)}
+      <div
         className={cn(
-          'pl-[0.4em] text-(--theme-primary) transition duration-300 ease-out',
+          'transition duration-300 ease-out',
           leaving ? 'translate-y-2 opacity-0 saturate-0' : 'translate-y-0 opacity-100 saturate-100'
         )}
-        cursor
-        prefix={4}
-        text={TEXT}
-      />
+      >
+        <LoadingIndicator aria-label="Connecting" />
+      </div>
     </div>
   )
 }

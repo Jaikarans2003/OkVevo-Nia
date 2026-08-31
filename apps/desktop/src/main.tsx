@@ -5,6 +5,8 @@ import './store/active-work'
 import './store/power'
 // Side-effect: applies the persisted window translucency on load.
 import './store/translucency'
+// Side-effect: force-applies Nia-locked desktop prefs before React mounts.
+import './app/settings/nia-locked-prefs'
 // Dev-only render/state churn counters. MUST precede the `react-dom` import
 // below: react-dom captures the devtools hook at module init, so bippy has to
 // install during THIS import's evaluation or every commit goes unseen

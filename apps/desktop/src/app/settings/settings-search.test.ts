@@ -56,6 +56,26 @@ describe('settings search index', () => {
     expect(entries.some(entry => entry.id === 'config-field:tts.openai.voice')).toBe(false)
   })
 
+  it('omits Nia-hidden config keys from the search index', () => {
+    const schema: Record<string, ConfigFieldSchema> = {
+      'terminal.cwd': { type: 'string' },
+      'desktop.repo_scan_roots': { type: 'array' },
+      'browser.allow_private_urls': { type: 'boolean' }
+    }
+    const config = {
+      terminal: { cwd: '/tmp' },
+      desktop: { repo_scan_roots: [] },
+      browser: { allow_private_urls: false }
+    } as unknown as HermesConfigRecord
+
+    const entries = buildConfigSearchEntries(schema, config, {
+      ...searchCopy,
+      sections: { ...searchCopy.sections, workspace: 'Workspace', browser: 'Browser' }
+    })
+
+    expect(entries.map(entry => entry.id)).toEqual(['config-field:terminal.cwd'])
+  })
+
   it('discovers future tool and setting entries entirely from backend metadata', () => {
     const vars = {
       FUTURE_CRAWLER_API_KEY: envVar('tool', {

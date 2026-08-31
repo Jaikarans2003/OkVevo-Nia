@@ -5,7 +5,7 @@
  * Chromium actual-size baseline); Chromium's internal unit is the zoom level,
  * where factor = 1.2 ^ level.
  *
- * Our shipped default is Chromium actual-size (100%). Zoom is not user-adjustable.
+ * Our shipped default is 110%. Zoom is not user-adjustable.
  */
 
 export const ZOOM_STORAGE_KEY = 'hermes:desktop:zoomLevel'
@@ -17,8 +17,9 @@ const MAX_ZOOM_LEVEL = 9
 /** Half Chromium's default step; matching the shortcuts and View menu. */
 export const ZOOM_STEP = 0.1
 
-/** Chromium actual-size. Fresh installs and every restore. */
-export const DEFAULT_ZOOM_LEVEL = 0
+/** Locked UI scale (110%). Fresh installs and every restore. */
+export const LOCKED_ZOOM_PERCENT = 110
+export const DEFAULT_ZOOM_LEVEL = Math.log(LOCKED_ZOOM_PERCENT / 100) / Math.log(ZOOM_FACTOR_BASE)
 
 export function clampZoomLevel(value) {
   if (!Number.isFinite(value)) {

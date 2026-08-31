@@ -26,9 +26,8 @@ import { defaultTranslucencyValues } from '@hermes/shared/translucency'
 
 import { $translucency, $translucencyBook, GLASS_SUPPORTED, setAppearance } from './translucency'
 
-// The windows table is the one that must win on Win10. These are the numbers
-// the issue calls out: mac light 66 / mac dark 22 vs windows light 20 /
-// windows dark 5.
+// The windows table is the one that must win on Win10 — same 100% tint as
+// Mac, but Bright frost (`titlebar`) rather than Mac Glare (`header`).
 const WINDOWS_DARK = defaultTranslucencyValues('dark', true)
 const WINDOWS_LIGHT = defaultTranslucencyValues('light', true)
 
@@ -45,15 +44,14 @@ describe('Win10 translucency defaults (regression for #90824)', () => {
     // platform defaults. The store's initial appearance is dark.
     expect($translucency.get()).toEqual({ ...WINDOWS_DARK, mode: 'clear' })
 
-    // The bug's signature: mac dark intensity is 22, windows dark is 5.
-    expect($translucency.get().intensity).toBe(5)
-    expect($translucency.get().intensity).not.toBe(22)
+    expect($translucency.get().intensity).toBe(100)
+    expect($translucency.get().material).toBe('titlebar')
+    expect($translucency.get().material).not.toBe('header')
 
-    // Light appearance must resolve the windows light table too.
     setAppearance('light')
     expect($translucency.get()).toEqual({ ...WINDOWS_LIGHT, mode: 'clear' })
-    expect($translucency.get().intensity).toBe(20)
-    expect($translucency.get().intensity).not.toBe(66)
+    expect($translucency.get().intensity).toBe(100)
+    expect($translucency.get().material).toBe('titlebar')
   })
 
   it('keeps the mode clear when glass is unsupported', () => {
@@ -69,6 +67,7 @@ describe('Win10 translucency defaults (regression for #90824)', () => {
     setAppearance('dark')
 
     expect($translucency.get()).toEqual({ ...WINDOWS_DARK, mode: 'clear' })
-    expect($translucency.get().intensity).toBe(5)
+    expect($translucency.get().intensity).toBe(100)
+    expect($translucency.get().material).toBe('titlebar')
   })
 })

@@ -54,8 +54,7 @@ afterEach(cleanup)
 // The connecting overlay renders "CONN" + a scrambled tail inside one
 // uppercase span; match that node specifically so the recovery overlay's
 // "Lost connection…" copy doesn't read as a false positive.
-const isConnectingShown = () =>
-  screen.queryAllByText((_, el) => /^CONN[/\\|\-_=+<>~:*A-Z]*$/.test(el?.textContent?.trim() ?? '')).length > 0
+const isConnectingShown = () => Boolean(screen.queryByRole('status', { name: /loading|connecting/i }))
 
 const isRecoveryShown = () =>
   Boolean(screen.queryByText(/use local gateway/i) || screen.queryByText(/retry/i) || screen.queryByText(/sign in/i))

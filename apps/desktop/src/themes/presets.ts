@@ -76,7 +76,7 @@ const NIA_COLORS = {
   destructiveForeground: '#ffffff',
   sidebarBackground: '#252525',
   sidebarBorder: '#41403f',
-  userBubble: '#493429',
+  userBubble: '#2f2f2f',
   userBubbleBorder: '#41403f'
 } as const
 

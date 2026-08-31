@@ -27,6 +27,8 @@ import * as path from 'node:path'
 
 import { _electron, type ElectronApplication, type Page } from '@playwright/test'
 
+import { DEFAULT_ZOOM_LEVEL } from '../electron/zoom'
+
 import { startMockServer, type MockServerOptions } from './mock-server'
 import { installErrorBannerGuard } from './test'
 
@@ -120,14 +122,11 @@ export function createSandbox(prefix: string): Sandbox {
     'utf8',
   )
 
-  // Pin Chromium actual-size zoom (level 0) for the suite. Fresh installs
-  // ship DEFAULT_ZOOM_LEVEL at the Appearance 90% preset, but Playwright
-  // click hit-testing and the committed visual baselines were calibrated at
-  // 100%. Without this file every sandbox would inherit the product default
-  // and fail pointer interception + snapshot diffs.
+  // Pin product zoom (restorePersistedZoomLevel forces DEFAULT_ZOOM_LEVEL).
+  // Written for any path that still reads zoom-state.json.
   fs.writeFileSync(
     path.join(userDataDir, 'zoom-state.json'),
-    JSON.stringify({ zoomLevel: 0 }, null, 2),
+    JSON.stringify({ zoomLevel: DEFAULT_ZOOM_LEVEL }, null, 2),
     'utf8',
   )
 

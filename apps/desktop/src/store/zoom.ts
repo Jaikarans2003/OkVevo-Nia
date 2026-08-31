@@ -10,8 +10,10 @@
 
 import { atom } from 'nanostores'
 
-// Mirror DEFAULT_ZOOM_LEVEL (100%). Keep in sync with electron/zoom.ts.
-export const $zoomPercent = atom<number>(100)
+/** Locked UI scale. Keep in sync with electron/zoom.ts DEFAULT_ZOOM_LEVEL. */
+export const LOCKED_ZOOM_PERCENT = 110
+
+export const $zoomPercent = atom<number>(LOCKED_ZOOM_PERCENT)
 
 export function setZoomPercent(percent: number): void {
   window.hermesDesktop?.zoom?.setPercent(percent)

@@ -14,7 +14,7 @@ import { type CSSProperties, Fragment, type ReactNode, type RefObject, useEffect
 
 import { ActionsContextMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
 import { Codicon } from '@/components/ui/codicon'
-import { DecodeText } from '@/components/ui/decode-text'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { DROP_SHEET_BLUR_CLASS, DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
 import {
   PANE_TAB_STRIP_LINE_LEFT,
@@ -673,8 +673,7 @@ export function TreeGroup({
         <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
           {isEmpty ? (
             <div className="grid h-full place-items-center">
-              {/* Same decode primitive as the CONNECTING boot overlay. */}
-              <DecodeText className="text-(--ui-text-quaternary)" cursor prefix={1} text="NIA" />
+              <LoadingIndicator />
             </div>
           ) : (
             keptPanes.map(paneId => {

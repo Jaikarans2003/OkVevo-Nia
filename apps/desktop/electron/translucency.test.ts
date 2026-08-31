@@ -639,18 +639,21 @@ describe('the defaults a fresh profile lands on', () => {
 
   it('falls back to clear where no native material exists', () => {
     expect(defaultTranslucencyState('dark', false, false).mode).toBe('clear')
+    expect(defaultTranslucencyState('dark', false, false).intensity).toBe(0)
   })
 
-  it('tints light more heavily than dark, on both platforms', () => {
-    // A dark field already separates from what is behind it; a bright one
-    // needs real thinning before the desktop reads as a layer underneath.
-    expect(mac('light').intensity).toBeGreaterThan(mac('dark').intensity)
-    expect(win('light').intensity).toBeGreaterThan(win('dark').intensity)
+  it('locks both appearances at full tint', () => {
+    expect(mac('light').intensity).toBe(100)
+    expect(mac('dark').intensity).toBe(100)
+    expect(win('light').intensity).toBe(100)
+    expect(win('dark').intensity).toBe(100)
   })
 
-  it('asks far less of Windows, which composites its own tint in DWM', () => {
-    expect(win('light').intensity).toBeLessThan(mac('light').intensity)
-    expect(win('dark').intensity).toBeLessThan(mac('dark').intensity)
+  it('uses Glare frost on Mac and Bright frost on Windows', () => {
+    expect(mac('light').material).toBe('header')
+    expect(mac('dark').material).toBe('header')
+    expect(win('light').material).toBe('titlebar')
+    expect(win('dark').material).toBe('titlebar')
   })
 
   it('never fades a Windows window — setOpacity dims the composited backdrop', () => {

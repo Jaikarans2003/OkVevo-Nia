@@ -1,9 +1,7 @@
 /**
  * Message reactions (iMessage-style tapbacks) — opt-in.
  *
- * Off by default: reactions add affordances to every message row (the ☺ slot,
- * right-click pickers, :shortcode: completions), and the agent gains a tool
- * that reacts to your messages. Presentation-scoped, so the renderer owns it
+ * On by default (Nia-locked). Presentation-scoped, so the renderer owns it
  * (desktop AGENTS.md: state lives with its authority).
  *
  * Gates the UI only — persisted reactions still render if the data exists
@@ -17,7 +15,7 @@ import { activeGateway } from '@/store/gateway'
 
 const KEY = 'hermes.desktop.reactions.v1'
 
-export const $reactionsEnabled = atom<boolean>(typeof window === 'undefined' ? false : storedString(KEY) === 'on')
+export const $reactionsEnabled = atom<boolean>(typeof window === 'undefined' ? true : storedString(KEY) !== 'off')
 
 export function setReactionsEnabled(enabled: boolean): void {
   $reactionsEnabled.set(enabled)

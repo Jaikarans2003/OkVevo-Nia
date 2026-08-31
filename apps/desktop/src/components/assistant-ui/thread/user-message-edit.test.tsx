@@ -75,6 +75,18 @@ function StockHarness({ onEdit }: { onEdit: () => Promise<void> }) {
 }
 
 describe('click-to-edit user message', () => {
+  it('renders the user bubble as a right-aligned content-width pill', async () => {
+    render(<IncrementalHarness onEdit={async () => {}} />)
+
+    const bubble = await screen.findByRole('button', { name: 'Edit message' })
+    const classes = bubble.className.split(/\s+/)
+
+    expect(classes).toContain('self-end')
+    expect(classes).toContain('ml-auto')
+    expect(classes).not.toContain('w-full')
+    expect(classes).toContain('rounded-full')
+  })
+
   it('opens the edit composer with the incremental runtime', async () => {
     const { container } = render(<IncrementalHarness onEdit={async () => {}} />)
 
