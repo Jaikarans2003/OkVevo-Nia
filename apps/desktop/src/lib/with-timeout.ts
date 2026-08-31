@@ -28,6 +28,80 @@ export function isTimeoutError(error: unknown): error is TimeoutError {
   return error instanceof TimeoutError
 }
 
+/** True while first-run bootstrap blocks backend reachability — renderer boot
+ * must not burn BACKEND_BOOT_WAIT_TIMEOUT_MS during these phases. */
+export function shouldSuspendBackendBootWait(snapshot: {
+  bootstrapActive?: boolean
+  bootstrapSetupChoice?: unknown | null
+  bootPhase?: null | string
+}): boolean {
+  return (
+    snapshot.bootstrapSetupChoice != null ||
+    snapshot.bootstrapActive === true ||
+    snapshot.bootPhase === 'bootstrap.choice'
+  )
+}
+
+/** Like withTimeout, but the deadline only advances while `isSuspended()` is
+ * false. Used for initial getConnection() while main is in first-run setup. */
+export function withSuspendableTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+  options: { isSuspended: () => boolean; pollMs?: number }
+): Promise<T> {
+  const pollMs = options.pollMs ?? 200
+
+  return new Promise<T>((resolve, reject) => {
+    let elapsed = 0
+    let lastTick = Date.now()
+    let settled = false
+    let timer: ReturnType<typeof setInterval> | null = null
+
+    const finish = (fn: (value: T | TimeoutError) => void, value: T | TimeoutError) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+
+      if (timer) {
+        clearInterval(timer)
+      }
+
+      fn(value)
+    }
+
+    const tick = () => {
+      if (settled) {
+        return
+      }
+
+      const now = Date.now()
+
+      if (!options.isSuspended()) {
+        elapsed += now - lastTick
+
+        if (elapsed >= ms) {
+          finish(reject, new TimeoutError(message))
+
+          return
+        }
+      }
+
+      lastTick = now
+    }
+
+    timer = setInterval(tick, pollMs)
+    lastTick = Date.now()
+
+    Promise.resolve(promise).then(
+      value => finish(resolve, value),
+      err => finish(reject, err)
+    )
+  })
+}
+
 /** Settle with `promise`, or reject with a TimeoutError after `ms`.
  * `onTimeout` runs synchronously before the rejection is published so callers
  * can revoke ownership of work that would otherwise keep running unowned. If

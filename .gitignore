@@ -213,3 +213,6 @@ native/fts5_cjk/*.so
 # by accident via 3a69e34702, removed in the #72002 salvage).
 .lazy-refresh-incomplete
 .skills_prompt_snapshot.json
+
+# Graphify knowledge graph outputs (generated locally; see graphify-out/GRAPH_REPORT.md)
+graphify-out/
