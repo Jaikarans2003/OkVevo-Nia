@@ -65,7 +65,7 @@ export const en: Translations = {
   },
 
   boot: {
-    ready: 'Hermes Desktop is ready',
+    ready: 'Nia Desktop is ready',
     desktopBootFailedWithMessage: message => `Desktop boot failed: ${message}`,
     steps: {
       connectingGateway: 'Connecting live desktop gateway',
@@ -73,7 +73,7 @@ export const en: Translations = {
       loadingSessions: 'Loading recent sessions',
       retryingRemoteBackend: 'Reconnecting to the remote Hermes backend…',
       startingDesktopConnection: 'Starting desktop connection',
-      startingHermesDesktop: 'Starting Hermes Desktop…'
+      startingHermesDesktop: 'Starting Nia Desktop…'
     },
     errors: {
       backgroundExited: 'Hermes background process exited.',
@@ -2665,7 +2665,7 @@ export const en: Translations = {
       skipped: 'Skipped',
       failed: 'Failed'
     },
-    oneTimeTitle: 'Hermes needs a one-time install',
+    oneTimeTitle: 'Nia needs a one-time install',
     unsupportedDesc: platform =>
       `Automated first-launch install isn’t available on ${platform} yet. Open Terminal and run the command below, then relaunch this app. Subsequent launches will skip this step.`,
     installCommand: 'Install command',
@@ -2673,22 +2673,22 @@ export const en: Translations = {
     viewDocs: 'View install docs',
     installTo: 'Will install to',
     retryAfterRun: 'I’ve run it -- retry',
-    setupChoiceTitle: 'Set up Hermes Desktop',
+    setupChoiceTitle: 'Set up Nia Desktop',
     setupChoiceDesc:
-      'Connect this app to a Hermes gateway you already run, or install Hermes locally on this computer.',
-    connectExistingTitle: 'Connect to existing Hermes',
+      'Connect this app to a Nia gateway you already run, or install Nia locally on this computer.',
+    connectExistingTitle: 'Connect to existing Nia',
     connectExistingShort: 'Connect existing',
     connectExistingDesc: 'Use a remote backend with a session token or browser sign-in. No local install will start.',
-    installLocalTitle: 'Install Hermes locally',
-    installLocalDesc: 'Download Hermes, create its Python environment, and run the backend on this computer.',
-    localStartUnavailable: 'Local installation could not start. Restart Hermes Desktop and try again.',
-    remoteSetupTitle: 'Connect to existing Hermes',
-    remoteSetupDesc: 'Enter your gateway URL. Hermes Desktop will detect whether it needs a token or browser sign-in.',
+    installLocalTitle: 'Install Nia locally',
+    installLocalDesc: 'Download Nia, create its Python environment, and run the backend on this computer.',
+    localStartUnavailable: 'Local installation could not start. Restart Nia Desktop and try again.',
+    remoteSetupTitle: 'Connect to existing Nia',
+    remoteSetupDesc: 'Enter your gateway URL. Nia Desktop will detect whether it needs a token or browser sign-in.',
     remoteUrlTitle: 'Gateway URL',
-    remoteUrlDesc: 'Use the base URL of the Hermes gateway, including https:// when remote.',
+    remoteUrlDesc: 'Use the base URL of the Nia gateway, including https:// when remote.',
     remoteUrlPlaceholder: 'https://gateway.example.com/hermes',
     probing: 'Detecting gateway authentication...',
-    probeError: 'Could not reach that Hermes gateway.',
+    probeError: 'Could not reach that Nia gateway.',
     identityProvider: 'your identity provider',
     authTitle: 'Authentication',
     authNeedsOauth: provider => `Sign in with ${provider} before testing this gateway.`,
@@ -2708,12 +2708,12 @@ export const en: Translations = {
     applyRemote: 'Apply and reconnect',
     backToSetup: 'Back',
     failedTitle: 'Installation failed',
-    settingUpTitle: 'Setting up Hermes Agent',
+    settingUpTitle: 'Setting up Nia Agent',
     finishingTitle: 'Finishing up',
     failedDesc:
-      'One of the install steps failed. On Windows, this can happen if another Hermes CLI or desktop instance is running. Stop any running Hermes instances, then retry. Check the details below or the desktop log for the full transcript.',
+      'One of the install steps failed. On Windows, this can happen if another Nia CLI or desktop instance is running. Stop any running Nia instances, then retry. Check the details below or the desktop log for the full transcript.',
     activeDesc:
-      'This is a one-time setup. The Hermes installer is downloading dependencies and configuring your machine. Subsequent launches will skip this step.',
+      'This is a one-time setup. The Nia installer is downloading dependencies and configuring your machine. Subsequent launches will skip this step.',
     progress: (completed, total) => `${completed} of ${total} steps complete`,
     currentStage: stage => ` -- now: ${stage}`,
     fetchingManifest: 'Fetching installer manifest...',
@@ -2731,10 +2731,10 @@ export const en: Translations = {
   },
 
   onboarding: {
-    headerTitle: "Let's get you setup with Hermes Agent",
+    headerTitle: "Let's get you setup with Nia Agent",
     headerDesc: 'Connect a model provider to start chatting. Most options take one click.',
-    preparingInstall: 'Hermes is finishing install. This usually takes under a minute on first run.',
-    starting: 'Starting Hermes…',
+    preparingInstall: 'Nia is finishing install. This usually takes under a minute on first run.',
+    starting: 'Starting Nia…',
     lookingUpProviders: 'Looking up providers...',
     collapse: 'Collapse',
     otherProviders: 'Other providers',

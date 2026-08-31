@@ -78,8 +78,8 @@ export function appIconCandidates(opts: {
 
   return [
     ...(isWindows ? [path.join(resourcesPath ?? '', 'icon.ico'), path.join(appRoot, 'assets', 'icon.ico')] : []),
-    path.join(appRoot, 'public', 'apple-touch-icon.png'),
-    path.join(appRoot, 'dist', 'apple-touch-icon.png'),
-    path.join(unpackedPathFor(appRoot), 'dist', 'apple-touch-icon.png')
+    path.join(appRoot, 'public', 'nia.png'),
+    path.join(appRoot, 'dist', 'nia.png'),
+    path.join(unpackedPathFor(appRoot), 'dist', 'nia.png')
   ]
 }
