@@ -88,7 +88,8 @@ describe('click-to-edit user message', () => {
     expect(classes).toContain('w-fit')
     expect(classes).not.toContain('w-full')
     expect(classes).not.toContain('flex')
-    expect(classes).toContain('rounded-full')
+    expect(classes).toContain('rounded-2xl')
+    expect(classes).not.toContain('rounded-full')
     expect(classes.some(name => name.startsWith('max-w-[min(75%'))).toBe(true)
     expect(classes.some(name => name.startsWith('max-w-[min(85%'))).toBe(false)
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   MACOS_TAHOE_DARWIN_MAJOR,
+  SYSTEM_TOOL_COUNT,
   TITLEBAR_CONTROL_OFFSET_X,
   TITLEBAR_CONTROL_SIZE,
   TITLEBAR_EDGE_INSET,
@@ -24,6 +25,11 @@ describe('titlebar sizing', () => {
 
   it('reserves width from abutting hit targets only', () => {
     expect(titlebarToolsWidthCss(4)).toBe('calc(4 * var(--titlebar-control-size))')
+  })
+
+  it('counts three visible system tools (hud, haptics, settings)', () => {
+    expect(SYSTEM_TOOL_COUNT).toBe(3)
+    expect(titlebarToolsWidthCss(SYSTEM_TOOL_COUNT)).toBe('calc(3 * var(--titlebar-control-size))')
   })
 })
 

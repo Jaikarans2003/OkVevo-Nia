@@ -94,6 +94,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `rg 'Hermes' ui-tui/src web/src --glob '*.{tsx,ts,html}' --glob '!**/*.test.*' --glob '!**/__tests__/**'` — triage every match; user-facing hits should → 0 or be explicitly documented exceptions. |
 | **Notes** | Known examples (non-exhaustive): `ui-tui/src/content/setup.ts` (“Hermes needs a model provider”), `useMainApp.ts` fallback `'Hermes'`, wake-word help (“Hey Hermes”), `web/src/i18n/en.ts` `updateHermes` / “Hermes Achievements”, `ChannelsPage.tsx` `bot_name: "Hermes Agent"`, all non-English `web/src/i18n/*.ts` `brand: "Hermes Agent"`. Not blocking SOUL.md / bootstrap URL fix. |
 
+### [ ] Windows Taskbar screenshot of rounded Nia icon
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | macOS Dock can look rounded while Windows Taskbar still shows a square ICO (Windows does not mask). Testers on Windows see a different brand mark than Mac. |
+| **Scope** | `apps/desktop/assets/icon.ico`, `apps/bootstrap-installer/src-tauri/icons/icon.ico` (alpha already baked 2026-09-01; proof is a screenshot, not the pack) |
+| **Fix** | Install the built Windows app; capture the Taskbar with Nia next to neighboring icons so rounding is visible. Keep this item open until that shot exists. |
+| **Verify** | Taskbar screenshot shows transparent corners vs square neighbors; ICO is not a full-bleed opaque square. |
+| **Notes** | Deferred 2026-09-01 from Nia UI polish: this environment is macOS only. Mac Dock shot can be taken here. Do not close `app-icon` / ship as done on Dock-only evidence. |
+
 ### [ ] Desktop/Electron shell rebrand not yet committed
 
 | Field | Value |

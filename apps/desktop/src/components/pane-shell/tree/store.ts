@@ -53,6 +53,10 @@ writeKey('hermes.desktop.layoutTree.v1', null)
 
 let defaultTree: LayoutNode | null = null
 
+export function hasDeclaredDefaultTree(): boolean {
+  return defaultTree !== null
+}
+
 function loadPersisted(): LayoutNode | null {
   const parsed = readJson<unknown>(STORAGE_KEY)
 

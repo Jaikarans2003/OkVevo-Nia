@@ -5,13 +5,18 @@ vi.hoisted(() => {
   Object.defineProperty(globalThis.navigator, 'platform', { configurable: true, value: 'MacIntel' })
 })
 
+import { $terminalTakeover, setTerminalTakeover } from '@/app/right-sidebar/store'
 import { $terminalFontFamily } from '@/app/right-sidebar/terminal/terminal-font'
+import { $layoutEditMode } from '@/components/pane-shell/edit-mode'
+import { group, split } from '@/components/pane-shell/tree/model'
+import { $activePresetId, $layoutTree, declareDefaultTree, markActivePreset } from '@/components/pane-shell/tree/store'
 import { $backdrop } from '@/store/backdrop'
 import { $composerPopoutGesturesEnabled } from '@/store/composer-popout'
 import { $disableF12, setDisableF12 } from '@/store/disable-f12'
 import { $embedMode, setEmbedMode } from '@/store/embed-consent'
 import { $introSplash } from '@/store/intro-splash'
 import { $keepAwake, setKeepAwake } from '@/store/keep-awake'
+import { $fileBrowserOpen, setFileBrowserOpen } from '@/store/layout'
 import { $petInfo, setPetInfo } from '@/store/pet'
 import { $petGallery } from '@/store/pet-gallery'
 import { $reactionsEnabled, setReactionsEnabled } from '@/store/reactions-enabled'
@@ -93,5 +98,35 @@ describe('applyLockedDesktopPrefs', () => {
     expect($translucencyBook.get().base.intensity).toBe(GLASS_SUPPORTED ? 100 : 0)
     expect($translucencyBook.get().base.scope).toBe('window')
     expect(setPercent).toHaveBeenCalledWith(110)
+    expect($layoutEditMode.get()).toBe(false)
+  })
+
+  it('resets a leftover layout tree to the declared default and closes the right rail', () => {
+    const lockedDefault = split(
+      'row',
+      [
+        group(['sessions'], { id: 'grp-sessions' }),
+        group(['workspace'], { id: 'grp-main' }),
+        group(['files'], { id: 'grp-files' })
+      ],
+      [1, 3, 1],
+      'spl-locked-default'
+    )
+    const leftover = split('row', [group(['workspace'], { id: 'grp-main' })], [1], 'spl-leftover')
+
+    declareDefaultTree(lockedDefault)
+    $layoutTree.set(leftover)
+    markActivePreset('focus')
+    $layoutEditMode.set(true)
+    setFileBrowserOpen(true)
+    setTerminalTakeover(true)
+
+    applyLockedDesktopPrefs()
+
+    expect($activePresetId.get()).toBe('default')
+    expect($layoutTree.get()?.id).toBe('spl-locked-default')
+    expect($fileBrowserOpen.get()).toBe(false)
+    expect($terminalTakeover.get()).toBe(false)
+    expect($layoutEditMode.get()).toBe(false)
   })
 })

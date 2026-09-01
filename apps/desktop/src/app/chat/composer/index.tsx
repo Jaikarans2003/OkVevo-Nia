@@ -4,7 +4,8 @@ import { type ClipboardEvent, type FormEvent, type KeyboardEvent, useCallback, u
 
 import { useTourMarker } from '@/app/chat/tour-marker'
 import { useHudComposerDrag } from '@/app/hud/composer-drag'
-import { composerFill, composerFloatingStrip, composerSurfaceGlass } from '@/components/chat/composer-dock'
+import { composerFill, composerFloatingStrip } from '@/components/chat/composer-dock'
+import { Intro } from '@/components/chat/intro'
 import { Button } from '@/components/ui/button'
 import { Slot as ContribSlot } from '@/contrib/react/slot'
 import { useI18n } from '@/i18n'
@@ -91,9 +92,12 @@ export function ChatBar({
   disabled,
   focusKey,
   gateway,
+  introPersonality,
+  introSeed,
   maxRecordingSeconds = 120,
   queueSessionKey,
   sessionId,
+  showIntro = false,
   state,
   onCancel,
   onAddUrl,
@@ -205,6 +209,7 @@ export function ChatBar({
     popoutPosition,
     poppedOut
   } = useComposerPopout({ composerRef })
+  const splashColumn = showIntro && !poppedOut
 
   // Coordinator-owned: the draft engine reads the live queue-edit snapshot off
   // this ref (to suppress its stash while editing a queued prompt) and the queue
@@ -1160,15 +1165,21 @@ export function ChatBar({
         <div
           className={cn(
             'z-30 flex flex-col',
-            poppedOut ? 'fixed max-w-[calc(100vw-1.5rem)]' : 'absolute bottom-0 left-1/2 max-w-full -translate-x-1/2'
+            poppedOut
+              ? 'fixed max-w-[calc(100vw-1.5rem)]'
+              : splashColumn
+                ? 'absolute inset-0 min-w-0 items-center justify-center overflow-y-auto px-4'
+                : 'absolute bottom-0 left-1/2 max-w-full -translate-x-1/2'
           )}
           data-popped-out={poppedOut ? '' : undefined}
           data-slot="composer-dock"
+          data-splash-column={splashColumn ? '' : undefined}
           data-thread-scrolled-up={scrolledUp ? '' : undefined}
-          // Measured for the thread's bottom clearance: the dock is the box
-          // that contains the strips, the status stack, AND the composer, so
-          // one measurement covers everything the thread must clear.
-          ref={composerDockRef}
+          // Measured for the thread's bottom clearance: the inner column is the
+          // box that contains the strips, the status stack, AND the composer, so
+          // one measurement covers everything the thread must clear. Intro sits
+          // outside that column so a splash dock filling the pane does not
+          // inflate --composer-measured-height.
           style={
             poppedOut
               ? {
@@ -1180,6 +1191,8 @@ export function ChatBar({
               : undefined
           }
         >
+          {splashColumn ? <Intro personality={introPersonality} seed={introSeed} /> : null}
+          <div className="flex w-full flex-col" data-slot="composer-column" ref={composerDockRef}>
           {/* Aligned to the composer SURFACE, which sits inside the composer's
               5px transparent grab margin — so both strips carry the same inset
               and share one left edge with it. */}
@@ -1299,7 +1312,7 @@ export function ChatBar({
                   // track past the surface — and every `w-full` child (the fade,
                   // the input/controls row) laid out against that phantom width
                   // and got clipped by overflow-hidden, send button first.
-                  'group/composer-surface relative z-4 isolate grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border border-[color-mix(in_srgb,var(--dt-composer-ring)_calc(18%*var(--composer-ring-strength)),var(--dt-input))]',
+                  'group/composer-surface relative z-4 isolate grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border border-border/65',
                   COMPOSER_DROP_FADE_CLASS,
                   dragActive && COMPOSER_DROP_ACTIVE_CLASS
                 )}
@@ -1308,11 +1321,7 @@ export function ChatBar({
               >
                 <div
                   aria-hidden
-                  className={cn(
-                    'pointer-events-none absolute inset-0 -z-10 rounded-[inherit]',
-                    composerFill,
-                    composerSurfaceGlass
-                  )}
+                  className={cn('pointer-events-none absolute inset-0 -z-10 rounded-[inherit]', composerFill)}
                 />
                 <CodingStatusRow
                   onBranchOff={handleBranchOff}
@@ -1399,6 +1408,7 @@ export function ChatBar({
           <div className={cn(composerFloatingStrip, 'px-[5px] pt-1.5 empty:hidden')}>
             <ContribSlot area={COMPOSER_AREAS.underside} />
           </div>
+          </div>
         </div>
       </ComposerPrimitive.Unstable_TriggerPopoverRoot>
 
@@ -1423,14 +1433,10 @@ export function ChatBarFallback() {
       )}
       data-slot="composer-root"
     >
-      <div className="composer-fallback-surface relative isolate h-(--composer-fallback-height) w-full rounded-[inherit] border border-[color-mix(in_srgb,var(--dt-composer-ring)_calc(18%*var(--composer-ring-strength)),var(--dt-input))]">
+      <div className="composer-fallback-surface relative isolate h-(--composer-fallback-height) w-full rounded-[inherit] border border-border/65">
         <div
           aria-hidden
-          className={cn(
-            'pointer-events-none absolute inset-0 -z-10 rounded-[inherit]',
-            composerFill,
-            composerSurfaceGlass
-          )}
+          className={cn('pointer-events-none absolute inset-0 -z-10 rounded-[inherit]', composerFill)}
         />
       </div>
     </div>

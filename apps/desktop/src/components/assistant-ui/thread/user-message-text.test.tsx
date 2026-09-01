@@ -46,6 +46,10 @@ describe('a sent reference renders as the chip the composer showed', () => {
 
     expect(root?.className.split(/\s+/)).not.toContain('wrap-anywhere')
     expect(inline?.className.split(/\s+/)).not.toContain('wrap-anywhere')
+    expect(root?.className.split(/\s+/)).toContain('w-max')
+    expect(root?.className.split(/\s+/)).toContain('max-w-full')
+    expect(inline?.className.split(/\s+/)).toContain('w-max')
+    expect(inline?.className.split(/\s+/)).toContain('max-w-full')
     expect(inline?.className.split(/\s+/)).toContain('break-words')
     expect(inline?.className.split(/\s+/)).toContain('whitespace-normal')
   })

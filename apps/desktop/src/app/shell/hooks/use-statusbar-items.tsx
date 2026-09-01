@@ -8,12 +8,12 @@ import { useApprovalModeStatusbarItem } from '@/app/shell/approval-mode-menu'
 import { ContextUsagePanel } from '@/app/shell/context-usage-panel'
 import { GatewayMenuPanel } from '@/app/shell/gateway-menu-panel'
 import { useContextBreakdown } from '@/app/shell/hooks/use-context-breakdown'
-import { $paneVisible, togglePaneVisible } from '@/components/pane-shell/tree/store'
+import { $paneVisible } from '@/components/pane-shell/tree/store'
 import { Codicon } from '@/components/ui/codicon'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { useI18n } from '@/i18n'
 import { displayPath, pathLeaf } from '@/lib/display-path'
-import { Activity, AlertCircle, Clock, Command, FolderOpen, Globe, Hash, Loader2, Terminal } from '@/lib/icons'
+import { Activity, AlertCircle, Clock, Command, FolderOpen, Globe, Hash, Loader2 } from '@/lib/icons'
 import { runtimeReadinessDisplay, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { contextBarLabel, LiveDuration, usageContextLabel } from '@/lib/statusbar'
 import { useStoreSelector } from '@/lib/use-session-slice'
@@ -73,7 +73,6 @@ interface StatusbarItemsOptions {
 
 export function useStatusbarItems({
   agentsOpen,
-  chatOpen,
   commandCenterOpen,
   extraLeftItems,
   extraRightItems,
@@ -90,10 +89,6 @@ export function useStatusbarItems({
   const fileMenu = t.fileMenu
   const primaryActiveSessionId = useStore($activeSessionId)
   const activeGatewayProfile = useStore($activeGatewayProfile)
-  // What the button paints and flips is whether the terminal is ON SCREEN —
-  // the takeover store alone stays true behind a stacked sibling tab or a
-  // minimized zone, which lit the button for a pane the user couldn't see.
-  const terminalShowing = useStore($paneVisible('terminal'))
   const sessionsShowing = useStore($paneVisible('sessions'))
   const botsShowing = useStore($paneVisible('hermes-bots:pane'))
   const primaryBusy = useStore($busy)
@@ -570,17 +565,6 @@ export function useStatusbarItems({
         hidden: gatewayState !== 'open',
         toggleLabel: copy.toggleApprovalMode
       },
-      {
-        actionId: 'view.showTerminal',
-        className: `w-7 justify-center px-0${terminalShowing ? ' bg-accent/55 text-foreground' : ''}`,
-        hidden: !chatOpen,
-        icon: <Terminal className="size-3.5" />,
-        id: 'terminal',
-        onSelect: () => togglePaneVisible('terminal'),
-        title: terminalShowing ? copy.hideTerminal : copy.showTerminal,
-        toggleLabel: copy.toggleTerminal,
-        variant: 'action'
-      },
       clientVersionItem,
       ...(backendVersionItem ? [backendVersionItem] : [])
     ],
@@ -588,7 +572,6 @@ export function useStatusbarItems({
       approvalModeItem,
       backendVersionItem,
       busy,
-      chatOpen,
       clientVersionItem,
       contextBar,
       contextBreakdown,
@@ -598,7 +581,6 @@ export function useStatusbarItems({
       gaugeUsage,
       sessionStartedAt,
       gatewayState,
-      terminalShowing,
       turnStartedAt
     ]
   )

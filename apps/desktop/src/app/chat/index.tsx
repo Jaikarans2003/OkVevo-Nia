@@ -12,7 +12,7 @@ import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
 import { Backdrop } from '@/components/Backdrop'
 import { COMPOSER_HEART_CONFIG, HeartField } from '@/components/chat/vibe-hearts'
-import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
+import { usePaneGroup, usePaneVisible } from '@/components/pane-shell/pane-visibility'
 import { $sessionTileDragging, $sessionTileEdgeHover } from '@/components/pane-shell/tree/store'
 import { PromptOverlays } from '@/components/prompt-overlays'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
 import { migrateSessionDraft } from '@/store/composer'
 import { migrateQueuedPrompts, parkQueuedPrompts } from '@/store/composer-queue'
+import { $composerPopoutGesturesEnabled, $composerPopoutZone } from '@/store/composer-popout'
 import { $introSplash } from '@/store/intro-splash'
 import { $pinnedSessionIds } from '@/store/layout'
 import { $petActive } from '@/store/pet'
@@ -50,7 +51,7 @@ import {
 } from '@/store/session'
 import { $focusedStoredSessionId, sessionTileDelegate } from '@/store/session-states'
 import { $transcriptTailBySessionId, transcriptTailState } from '@/store/transcript-tail'
-import { isAuxiliaryWindow, isWatchWindow } from '@/store/windows'
+import { isAuxiliaryWindow, isSecondaryWindow, isWatchWindow } from '@/store/windows'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
 import { primaryRouteSelectedSessionId, routeSessionId } from '../routes'
@@ -501,6 +502,10 @@ const ChatViewContent = memo(function ChatViewContent({
     routedSessionView: isRoutedSessionView,
     selectedSessionId
   })
+  const composerGroupId = usePaneGroup()
+  const popoutGesturesEnabled = useStore($composerPopoutGesturesEnabled)
+  const popoutZone = useStore(useMemo(() => $composerPopoutZone(composerGroupId), [composerGroupId]))
+  const composerPoppedOut = popoutZone.poppedOut && popoutGesturesEnabled && !isSecondaryWindow()
 
   // Session is still loading if the route references a session we haven't
   // resumed yet. Brand-new routed drafts are empty on purpose once a runtime
@@ -658,7 +663,9 @@ const ChatViewContent = memo(function ChatViewContent({
             clampToComposer={showChatBar}
             cwd={currentCwd}
             gateway={gateway}
-            intro={showIntro ? { personality: introPersonality, seed: introSeed } : undefined}
+            intro={
+              showIntro && composerPoppedOut ? { personality: introPersonality, seed: introSeed } : undefined
+            }
             loading={threadLoading}
             onBranchInNewChat={onBranchInNewChat}
             onCancel={haltRun}
@@ -719,6 +726,8 @@ const ChatViewContent = memo(function ChatViewContent({
               disabled={!gatewayOpen}
               focusKey={activeSessionId}
               gateway={gateway}
+              introPersonality={introPersonality}
+              introSeed={introSeed}
               maxRecordingSeconds={maxVoiceRecordingSeconds}
               onAddContextRef={onAddContextRef}
               onAddUrl={onAddUrl}
@@ -736,6 +745,7 @@ const ChatViewContent = memo(function ChatViewContent({
               onTranscribeAudio={onTranscribeAudio}
               queueSessionKey={queueSessionKey}
               sessionId={activeSessionId}
+              showIntro={showIntro}
               state={chatBarState}
             />
           </Suspense>

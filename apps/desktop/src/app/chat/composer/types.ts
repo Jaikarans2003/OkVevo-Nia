@@ -41,6 +41,10 @@ export interface ChatBarProps {
   queueSessionKey?: string | null
   sessionId?: string | null
   cwd?: string | null
+  /** Empty-session splash column lives on the docked composer, not the thread. */
+  showIntro?: boolean
+  introPersonality?: string
+  introSeed?: number
   onCancel: () => Promise<void> | void
   onAddContextRef?: (refText: string, label?: string, detail?: string) => void
   onAddUrl?: (url: string) => void

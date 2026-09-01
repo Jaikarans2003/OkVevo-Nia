@@ -5,7 +5,9 @@ import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } f
 import { SessionDraftTitle } from '@/app/chat/session-draft-title'
 import { SessionStatusDot } from '@/app/chat/session-status-dot'
 import { PALETTE_AREA, type PaletteContribution, paletteToggle } from '@/app/command-palette/contrib'
+import { applyLockedDesktopPrefs } from '@/app/settings/settings-ui-policy'
 import { type StatusbarItem } from '@/app/shell/statusbar-controls'
+import { SYSTEM_TOOL_COUNT } from '@/app/shell/titlebar'
 import { InlinePreviewDirective } from '@/components/assistant-ui/inline-preview-directive'
 import { IdleMount } from '@/components/idle-mount'
 import { $layoutEditMode, toggleLayoutEditMode } from '@/components/pane-shell/edit-mode'
@@ -26,7 +28,6 @@ import {
   registerPaneCloser,
   registerPaneOpener,
   removeTreePane,
-  resetLayoutTree,
   revealTreePane,
   setStripTabHidden,
   targetZoneTabStripVisible,
@@ -42,7 +43,7 @@ import { registry } from '@/contrib/registry'
 import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
 import { translateNow } from '@/i18n'
 import { NEW_SESSION_TITLE, sessionTitle as storedSessionTitle } from '@/lib/chat-runtime'
-import { Download, FileText, LayoutDashboard, PanelBottom, PanelTop, Terminal, Upload, Zap } from '@/lib/icons'
+import { Download, FileText, LayoutDashboard, PanelBottom, PanelTop, Upload, Zap } from '@/lib/icons'
 import { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
 import { TRANSCRIPT_DIRECTIVE_AREA, type TranscriptDirectiveContribution } from '@/lib/transcript-directives'
 import { setYoloEnabled } from '@/lib/yolo-session'
@@ -303,17 +304,6 @@ registry.registerMany([
       render: ({ attrs, streaming }) => <InlinePreviewDirective attrs={attrs} streaming={streaming} />
     } satisfies TranscriptDirectiveContribution
   },
-  {
-    id: 'layout.reset',
-    area: PALETTE_AREA,
-    data: {
-      id: 'layout.reset',
-      label: 'Reset layout',
-      icon: LayoutDashboard,
-      keywords: ['layout', 'reset', 'default', 'panes'],
-      run: resetLayoutTree
-    } satisfies PaletteContribution
-  },
   // Hiding the bar removes the surface that would otherwise offer it back, so
   // ⌘K is the guaranteed door in (alongside the rebindable ⌘⇧S).
   paletteToggle({
@@ -440,6 +430,7 @@ registry.registerMany([
 ])
 
 declareDefaultTree(DEFAULT_TREE)
+applyLockedDesktopPrefs()
 
 // Bundled plugins load AFTER core, so a same-id contribution from a plugin
 // deliberately overrides the core default (last writer wins). Third-party
@@ -614,22 +605,6 @@ bindToolPaneCollapse(
   $terminalTakeover,
   () => setTerminalTakeover(false),
   () => setTerminalTakeover(true)
-)
-// ⌘K door onto the same pane the keybind and statusbar pill flip — was a
-// one-way "open" row under Go to, so it never showed on/off and couldn't hide.
-// Reads the TREE like every other pane toggle: `$terminalTakeover` stays true
-// behind a stacked sibling tab or a minimized zone, which would light the row
-// "on" for a terminal that isn't on screen.
-registry.register(
-  paletteToggle({
-    id: 'view.showTerminal',
-    label: 'Toggle terminal',
-    action: 'view.showTerminal',
-    icon: Terminal,
-    keywords: ['terminal', 'shell', 'console', 'pty'],
-    get: () => isPaneVisible('terminal'),
-    set: () => togglePaneVisible('terminal')
-  })
 )
 
 // Logs are ⌘K-ONLY chrome: the pane contribution EXISTS only while $logsOpen
@@ -895,10 +870,9 @@ export function ContribController() {
               className="pointer-events-auto absolute z-10 flex w-max items-center gap-2 [-webkit-app-region:no-drag]"
               style={{
                 right:
-                  // Five static cluster buttons: four systemTools plus the
-                  // always-present right-sidebar toggle (titlebar-controls.tsx).
-                  // Keep in sync with wiring.tsx's SYSTEM_TOOL_COUNT.
-                  'max(calc(var(--workspace-right, 0px) + 0.5rem), calc(var(--titlebar-tools-right, 0.75rem) + 5 * var(--titlebar-control-size, 24px) + 0.5rem))'
+                  // Keep in sync with wiring.tsx / titlebar SYSTEM_TOOL_COUNT
+                  // (hud, haptics, settings).
+                  `max(calc(var(--workspace-right, 0px) + 0.5rem), calc(var(--titlebar-tools-right, 0.75rem) + ${SYSTEM_TOOL_COUNT} * var(--titlebar-control-size, 24px) + 0.5rem))`
               }}
             />
           </div>

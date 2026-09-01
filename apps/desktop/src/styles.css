@@ -1622,6 +1622,11 @@ body.guest-pointer-lock :is(webview, iframe) {
   text-align: center;
 }
 
+[data-slot='composer-dock'] [data-slot='aui_intro'] {
+  padding-bottom: 0.75rem;
+  padding-top: 0.5rem;
+}
+
 [data-slot='aui_intro'] > div {
   max-width: var(--composer-width);
 }
@@ -1699,6 +1704,16 @@ body.guest-pointer-lock :is(webview, iframe) {
 [data-slot='composer-dock'] {
   width: calc(min(var(--composer-width), calc(100% - 2rem)) + 10px);
   padding-bottom: var(--composer-shell-pad-block-end);
+}
+
+[data-slot='composer-dock'][data-splash-column] {
+  width: 100%;
+  max-width: none;
+}
+
+[data-slot='composer-dock'][data-splash-column] [data-slot='composer-column'] {
+  width: calc(min(var(--composer-width), calc(100% - 2rem)) + 10px);
+  max-width: 100%;
 }
 
 [data-slot='composer-root'] {
@@ -1799,23 +1814,20 @@ body.guest-pointer-lock :is(webview, iframe) {
 }
 
 /* ── Composer fill — ONE var painted by the surface AND anything docked to it
-   (slash·@ popover, `?` help). State ladder sets the var; consumers just paint
-   `background: var(--composer-fill)`, so every state matches by construction.
-   The :has() rule is last on purpose: while a completion drawer is open it
-   beats focus/scroll and forces an OPAQUE fill (both mix endpoints solid) —
-   translucent glass can never match across the two layers because they sample
-   different backdrops. */
+   (slash·@ popover, `?` help). Opaque always: rest and scrolled-up both use
+   solid `--dt-card`. Inner content still dims to opacity-30 while scrolled-up.
+   Consumers paint `background: var(--composer-fill)`. */
 :root {
   /* Fallback for drawers outside the main composer (e.g. edit-message). */
-  --composer-fill: color-mix(in srgb, var(--dt-card) 90%, var(--dt-background));
+  --composer-fill: var(--dt-card);
 }
 
 [data-slot='composer-root'] {
-  --composer-fill: color-mix(in srgb, var(--dt-card) 72%, transparent);
+  --composer-fill: var(--dt-card);
 }
 
 [data-slot='composer-root'][data-thread-scrolled-up] {
-  --composer-fill: color-mix(in srgb, var(--dt-card) 48%, transparent);
+  --composer-fill: var(--dt-card);
 }
 
 /* Tool/thinking blocks now live at message-text alignment (no leading

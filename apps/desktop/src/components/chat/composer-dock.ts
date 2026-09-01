@@ -2,13 +2,12 @@ import { cn } from '@/lib/utils'
 
 /**
  * The composer surface and the status/queue stack paint ONE shared
- * `--composer-fill` var. The state ladder (rest / scrolled) lives in styles.css
- * on `[data-slot='composer-root']`, so the layers can never disagree.
+ * `--composer-fill` var. Rest and scrolled-up are both opaque `--dt-card`
+ * (see styles.css on `[data-slot='composer-root']`).
  */
 export const composerFill = 'bg-(--composer-fill)'
 
-/** Backdrop treatment for the composer input surface. Harmless when the fill
- *  goes opaque (drawer open) — nothing shows through to blur. */
+/** Backdrop treatment for slash/`@` drawers. Not used on the input surface. */
 export const composerSurfaceGlass = cn(
   'backdrop-blur-[0.75rem] backdrop-saturate-[1.12] [-webkit-backdrop-filter:blur(0.75rem)_saturate(1.12)]',
   'transition-[background-color] duration-150 ease-out'

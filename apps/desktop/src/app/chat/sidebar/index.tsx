@@ -120,15 +120,12 @@ import {
   $sessionProfilesTruncated,
   $sessions,
   $sessionsLoading,
-  $unreadFinishedSessionIds,
-  markAllSessionsRead,
   sessionPinId,
   setCurrentCwd
 } from '@/store/session'
 import { $sessionDotStateById, sessionStatusBucket } from '@/store/session-dot-state'
 import { $unconfirmedPinWrites } from '@/store/session-pin-sync'
 import { $focusedStoredSessionId, $workingSessionIds, type SplitDir } from '@/store/session-states'
-import { ackAllSessionsRead } from '@/store/session-unread'
 import { markSessionUnread } from '@/store/session-unread-remote'
 import { $archivedSessions, loadArchivedSessions } from '@/store/sidebar-archive'
 import { $sidebarSessionRankIds } from '@/store/sidebar-sort'
@@ -145,7 +142,6 @@ import {
 import type { SidebarNavItem } from '../../types'
 
 import { SidebarCronJobsSection } from './cron-jobs-section'
-import { SidebarFilterMenu } from './filter-menu'
 import { SidebarLoadMoreRow } from './load-more-row'
 import { orderByIds, reconcileOrderIds, resolveManualSessionOrderIds, sameIds } from './order'
 import { filterSessionsByProfileScope } from './profile-scope'
@@ -159,14 +155,12 @@ import {
   overlayLivePreviews,
   PROJECT_PREVIEW_COUNT,
   ProjectBackRow,
-  ProjectMenu,
   projectTreeCwd,
   sessionRecency as sessionTime,
   type SidebarProjectTree,
   type SidebarSessionGroup,
   type SidebarWorkspaceTree,
   sortProjectsForOverview,
-  StartWorkButton,
   useRepoWorktreeMap
 } from './projects'
 import { WorktreeDialog } from './projects/worktree-dialog'
@@ -242,18 +236,6 @@ const SCROLL_GUTTER = '[scrollbar-gutter:stable]'
 
 // A non-session group's scroll body: own scroller when tall, flattened when compact.
 const GROUP_BODY = cn(SCROLL_Y, COMPACT_FLAT)
-
-// Section-header action icons stay hidden until the whole header row is hovered
-// (group/section lives on SidebarSectionHeader), mirroring the artifacts/file
-// browser header affordances. focus-visible keeps them keyboard-reachable.
-const HEADER_ACTION_BTN =
-  'text-(--ui-text-tertiary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground group-hover/section:opacity-100 focus-visible:opacity-100'
-
-// The view toggle (overview group toggle / in-project back) is the one control
-// that stays visible at all times — it's the stable navigation affordance, not
-// a hover-revealed action.
-const HEADER_NAV_BTN =
-  'text-(--ui-text-tertiary) opacity-70 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground hover:opacity-100 focus-visible:opacity-100'
 
 // FTS results cover sessions that aren't in the loaded page; synthesize a
 // minimal SessionInfo so they render in the same row component (resume works
@@ -386,7 +368,6 @@ export function ChatSidebar({
   const messagingTruncated = useStore($messagingTruncated)
   const sessionsLoading = useStore($sessionsLoading)
   const sessionProfilesTruncated = useStore($sessionProfilesTruncated)
-  const unreadCount = useStore($unreadFinishedSessionIds).length
   const profiles = useStore($profiles)
   const profileColors = useStore($profileColors)
   const profileScope = useStore($profileScope)
@@ -1713,89 +1694,6 @@ export function ChatSidebar({
                 // WORKING / DONE.
                 grouping={showArchived || rankedGlobally ? 'none' : grouping === 'status' ? 'status' : 'date'}
                 groups={displayAgentGroups}
-                headerAction={
-                  // One cluster, not a fragment: the header is justify-between,
-                  // so two children (mark-all + the rest) park the check-all in
-                  // the middle as a blank 24px hole until hover.
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    {unreadCount > 0 && (
-                      <Tip label={s.markAllRead}>
-                        <Button
-                          aria-label={s.markAllRead}
-                          className={HEADER_ACTION_BTN}
-                          onClick={event => {
-                            event.stopPropagation()
-                            markAllSessionsRead()
-                            // Ack the persisted layer too, or the next list
-                            // refresh repaints every dot just dismissed.
-                            ackAllSessionsRead()
-                          }}
-                          size="icon-xs"
-                          variant="ghost"
-                        >
-                          <Codicon name="check-all" size="0.75rem" />
-                        </Button>
-                      </Tip>
-                    )}
-                    {inProject && enteredProject ? (
-                      <div className="group/workspace flex shrink-0 items-center gap-0.5">
-                        {enteredProject.path && <StartWorkButton repoPath={enteredProject.path} />}
-                        {/* Home has no folder and no record to rename, theme, or delete. */}
-                        {!enteredProject.isNoProject && (
-                          <ProjectMenu
-                            isActive={enteredProject.id === activeProjectId}
-                            onExitScope={exitProjectScope}
-                            project={enteredProject}
-                            scoped
-                          />
-                        )}
-                        <div className="grid size-6 place-items-center">
-                          <Tip label={s.showProjects}>
-                            <Button
-                              aria-label={s.showProjects}
-                              className={HEADER_NAV_BTN}
-                              onClick={event => {
-                                event.stopPropagation()
-                                exitProjectScope()
-                              }}
-                              size="icon-xs"
-                              variant="ghost"
-                            >
-                              <Codicon name="list-unordered" size="0.75rem" />
-                            </Button>
-                          </Tip>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {!showAllProfiles ? (
-                          <Tip label={agentsGrouped ? s.projects.newButton : s.nav['new-session']}>
-                            <Button
-                              aria-label={agentsGrouped ? s.projects.newButton : s.nav['new-session']}
-                              className={HEADER_ACTION_BTN}
-                              onClick={event => {
-                                event.stopPropagation()
-
-                                if (agentsGrouped) {
-                                  openProjectCreate()
-                                } else {
-                                  onNewSessionInWorkspace(null)
-                                }
-                              }}
-                              size="icon-xs"
-                              variant="ghost"
-                            >
-                              <Codicon name="add" size="0.75rem" />
-                            </Button>
-                          </Tip>
-                        ) : null}
-                        <div className="grid size-6 place-items-center">
-                          <SidebarFilterMenu className={HEADER_NAV_BTN} />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                }
                 label={sessionsLabel}
                 labelMeta={
                   worktreeGroupingActive ? (

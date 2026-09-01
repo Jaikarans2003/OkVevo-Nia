@@ -4,7 +4,10 @@
  * cannot keep a hidden pref off-default.
  */
 
+import { setTerminalTakeover } from '@/app/right-sidebar/store'
 import { setTerminalFontFamilyFromConfig } from '@/app/right-sidebar/terminal/terminal-font'
+import { $layoutEditMode } from '@/components/pane-shell/edit-mode'
+import { hasDeclaredDefaultTree, resetLayoutTree } from '@/components/pane-shell/tree/store'
 import { isWindowsPlatform } from '@/lib/platform'
 import { setBackdrop } from '@/store/backdrop'
 import { setComposerPopoutGesturesEnabled } from '@/store/composer-popout'
@@ -12,6 +15,7 @@ import { setDisableF12 } from '@/store/disable-f12'
 import { setEmbedMode } from '@/store/embed-consent'
 import { setIntroSplash } from '@/store/intro-splash'
 import { setKeepAwake } from '@/store/keep-awake'
+import { setFileBrowserOpen } from '@/store/layout'
 import { $petInfo, setPetInfo } from '@/store/pet'
 import { $petGallery } from '@/store/pet-gallery'
 import { setReactionsEnabled } from '@/store/reactions-enabled'
@@ -134,5 +138,13 @@ export function applyLockedDesktopPrefs(): void {
 
   if (!helperWindowSkipsZoom()) {
     setZoomPercent(LOCKED_ZOOM_PERCENT)
+  }
+
+  $layoutEditMode.set(false)
+
+  if (hasDeclaredDefaultTree()) {
+    resetLayoutTree()
+    setFileBrowserOpen(false)
+    setTerminalTakeover(false)
   }
 }
