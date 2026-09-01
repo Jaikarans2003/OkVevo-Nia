@@ -692,7 +692,7 @@ export const ja = defineLocale({
       versionUnavailable: 'バージョンを取得できません',
       bundleOutOfSync: 'アプリのビルドが古くなっています',
       bundleOutOfSyncDesc:
-        'Hermes ランタイムは更新されましたが、デスクトップアプリ自体は古いビルドのままです。アプリを更新するまで、新しいインターフェース機能(Bot Mode など)は表示されません。下の更新を実行してアプリを再ビルドしてください。それでもこの警告が消えない場合は、最新のデスクトップインストーラーから再インストールしてください。',
+        'Nia ランタイムは更新されましたが、デスクトップアプリ自体は古いビルドのままです。アプリを更新するまで、新しいインターフェース機能は表示されません。下の更新を実行してください。それでもこの警告が消えない場合は、okvevo.com から最新のデスクトップアプリをインストールしてください。',
       bundleOutOfSyncAction: 'インストーラーを入手',
       updates: '更新',
       checkNow: '今すぐ確認',
@@ -2201,7 +2201,7 @@ export const ja = defineLocale({
     availableTitle: '新しい更新が利用可能',
     availableBody: '新しいバージョンの Nia をインストールする準備ができています。',
     availableTitleBackend: 'バックエンドの更新があります',
-    availableBodyBackend: '接続中の Hermes バックエンドの新しいバージョンをインストールできます。',
+    availableBodyBackend: '接続中の Nia バックエンドの新しいバージョンをインストールできます。',
     availableBodyNoChangelog:
       '新しいバージョンを利用できます。このインストール形式ではリリースノートは表示できません。',
     updateNow: '今すぐ更新',
@@ -2213,13 +2213,13 @@ export const ja = defineLocale({
     manualPickedUp: 'Nia は次回起動時に新しいバージョンを読み込みます。',
     guiSkewTitle: 'デスクトップアプリを更新してください',
     guiSkewBody:
-      'バックエンドは更新されましたが、このデスクトップアプリのパッケージは変更されていません。一致させるために Hermes デスクトップアプリ（AppImage / .deb / .rpm）を更新または再インストールしてください。',
+      'バックエンドは更新されましたが、このデスクトップアプリのパッケージは変更されていません。一致させるために Nia デスクトップアプリ（AppImage / .deb / .rpm）を更新または再インストールしてください。',
     copy: 'コピー',
     copied: 'コピーしました',
     done: '完了',
     applyingBody:
       'Nia アップデーターが独自のウィンドウで引き継ぎ、完了後に自動的に Nia を再度開きます。更新中はご自分で Nia を開き直さないでください。',
-    applyingBodyBackend: 'リモートバックエンドが更新を適用して再起動します。復帰すると Hermes が自動的に再接続します。',
+    applyingBodyBackend: 'リモートバックエンドが更新を適用して再起動します。復帰すると Nia が自動的に再接続します。',
     applyingClose: 'このウィンドウは更新中に閉じ、その後 Nia が自動的に再度開きます。',
     errorTitle: '更新が完了しませんでした',
     errorBody: 'ご安心ください。何も失われていません。今すぐ再試行できます。',

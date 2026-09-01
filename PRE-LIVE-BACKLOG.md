@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-08-31 (public-repo bootstrap retest — repo public by deliberate choice; do not re-private without auth or bundled path)
+**Last reviewed:** 2026-09-01 (update pipeline A/B + electron-updater scaffold; first signed tag still a hard gate)
 
 ---
 
@@ -33,16 +33,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Hard gates (block go-live)
 
-### [ ] Desktop auto-update still targets Nous releases
+### [ ] First tagged release must be signed (Mac notarize + Windows Authenticode)
 
 | Field | Value |
 |-------|-------|
 | **Gate** | Hard gate |
-| **Risk if skipped** | A **working** Nia install can silently check updates against `NousResearch/hermes-agent` releases and drift back toward Hermes — worse than a broken first install because it hits users who already succeeded. |
-| **Scope** | `apps/desktop/electron/update-remote.ts`, `apps/desktop/electron/update-remote.test.ts`, `apps/desktop/electron/update-count.test.ts` |
-| **Fix** | Repoint `OFFICIAL_REPO_HTTPS_URL` and `OFFICIAL_REPO_CANONICAL` to `https://github.com/Jaikarans2003/OkVevo-Nia.git` / `github.com/jaikarans2003/okvevo-nia`. Update all test fixtures that hardcode Nous URLs or compare API paths. |
-| **Verify** | `rg 'NousResearch/hermes-agent' apps/desktop/electron/update-remote.ts apps/desktop/electron/update-remote.test.ts apps/desktop/electron/update-count.test.ts` → 0 matches (except historical comments if any remain intentionally). Run desktop electron tests for those files. |
-| **Notes** | Out of scope for first-install bootstrap (already fixed: `install.sh`, `install.ps1`, `bootstrap-runner.ts`, `install_script.rs`). This is the **first-update** path. Source: installer identity rebrand plan, Cursor pass 2026-08-31. |
+| **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
+| **Scope** | `.github/workflows/desktop-release.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md` |
+| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` into GitHub Actions, then `git tag v0.21.0 && git push origin v0.21.0` (bump `apps/desktop/package.json` version to match first). Do not tag until secrets exist — missing certs fail the job on purpose. |
+| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. After secrets: workflow green, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist, test install picks up the update. |
+| **Notes** | Scaffolded 2026-09-01. Feed host is `releases.okvevo.com` (S3/R2 bucket), not www.okvevo.com. |
 
 ### [ ] Private repo breaks DMG first-install bootstrap
 
@@ -60,6 +60,28 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 ---
 
 ## Required before live
+
+### [ ] www.okvevo.com download page (Mac / Windows buttons)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | About → Get the installer opens the homepage; testers can still download if the homepage has the files, but there is no dedicated Mac/Windows download surface. |
+| **Scope** | Marketing site, not this repo. About already uses `https://www.okvevo.com`. |
+| **Fix** | Add `/download` (or equivalent) with arm64 DMG + Windows NSIS pointing at `releases.okvevo.com` artifacts. Then point `INSTALLER_URL` at that path. |
+| **Verify** | Opening Get the installer lands on Mac/Windows buttons, not a generic homepage. |
+| **Notes** | Deliberately not blocked on the www redesign: first tagged release can ship with homepage CTA. |
+
+### [ ] Pin packaged agent/runtime to the same release as the shell
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | electron-updater replaces the UI while `~/.hermes` is still a live git clone — new UI / old Python (or the reverse), the same skew About used to show. |
+| **Scope** | Packaged extraResources / gateway start path vs `~/.hermes` user data |
+| **Fix** | Ship agent code from the app (or a release-pinned snapshot). Keep `~/.hermes` for user data only. See plan Phase C agent pin. |
+| **Verify** | After an in-app update, Python/agent version matches the desktop tag; `git pull` in `~/.hermes` cannot change `apps/desktop`. |
+| **Notes** | Scaffold 2026-09-01 did not implement this. Do it before asking testers to rely on in-app update for backend fixes. |
 
 ### [ ] Clone-shipped TUI + web dashboard still say “Hermes” in many user-facing strings
 
@@ -125,6 +147,7 @@ _(Move items here when done.)_
 
 | Item | Closed | Commit / PR |
 |------|--------|-------------|
+| Desktop auto-update git remote Nous → OkVevo-Nia; packaged apps use electron-updater at releases.okvevo.com | 2026-09-01 | pending commit (see `docs/FINISH-SIGNED-RELEASE.md` for the first signed tag) |
 | First-install bootstrap clone/download URLs → OkVevo-Nia | 2026-08-31 | `07567979f4` |
 | Installer SOUL.md seed + legacy Hermes upgrade | 2026-08-31 | `07567979f4` |
 | Clone-shipped backend identity (Python, SOUL, locales, tests) | 2026-08-31 | `e23f5d5c05` |

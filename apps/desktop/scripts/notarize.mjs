@@ -77,6 +77,11 @@ export default async function notarize(context) {
   const issuer = String(process.env.APPLE_API_ISSUER || '').trim()
   const rawApiKey = process.env.APPLE_API_KEY
   if (!rawApiKey || !keyId || !issuer) {
+    if (process.env.NIA_REQUIRE_NOTARIZE === '1') {
+      throw new Error(
+        'Tagged releases require notarization. Set APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER (see docs/FINISH-SIGNED-RELEASE.md).'
+      )
+    }
     console.log(
       'Skipping notarization: APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER are not fully configured.'
     )

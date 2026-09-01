@@ -22,6 +22,7 @@
 import path from 'node:path'
 
 import { stampExeIdentity } from './set-exe-identity.mjs'
+import { signWindowsFile } from './sign-windows.mjs'
 
 export default async function afterPack(context) {
   if (context.electronPlatformName !== 'win32') {
@@ -38,4 +39,6 @@ export default async function afterPack(context) {
     // Never fail the build over a cosmetic stamp.
     console.warn(`[after-pack] exe identity stamp failed (${err.message}); Nia.exe keeps the stock Electron icon`)
   }
+
+  await signWindowsFile(exe)
 }

@@ -63,6 +63,11 @@ afterEach(() => {
 })
 
 describe('local desktop pack stays out of the publish path', () => {
+  test('package.json pins a generic releases.okvevo.com feed', () => {
+    assert.equal(desktopPkg.build.publish.provider, 'generic')
+    assert.equal(desktopPkg.build.publish.url, 'https://releases.okvevo.com')
+  })
+
   test('the pack script pins an explicit publish policy', () => {
     // electron-builder 26 infers `onTagOrDraft` from CI when --publish is
     // absent, and `hermes desktop` runs the pack with CI=1 (_npm_lifecycle_env).
@@ -88,8 +93,20 @@ describe('local desktop pack stays out of the publish path', () => {
 
     assert.ok(Array.isArray(configs) && configs.length > 0)
     assert.equal(configs[0].provider, 'github')
-    assert.equal(configs[0].owner, 'NousResearch')
-    assert.equal(configs[0].repo, 'hermes-agent')
+    assert.equal(configs[0].owner, 'Jaikarans2003')
+    assert.equal(configs[0].repo, 'OkVevo-Nia')
+  })
+
+  test('explicit generic publish wins over GITHUB_TOKEN inference', async () => {
+    process.env.GITHUB_TOKEN = 'x'
+    const packager = fakePackager(desktopPkg)
+    packager.config = { publish: desktopPkg.build.publish }
+    packager.info.config = packager.config
+
+    const configs = await getPublishConfigs(packager, null, null, true)
+
+    assert.equal(configs[0].provider, 'generic')
+    assert.equal(configs[0].url, 'https://releases.okvevo.com')
   })
 
   test('a package without the repository field is what breaks resolution', async () => {

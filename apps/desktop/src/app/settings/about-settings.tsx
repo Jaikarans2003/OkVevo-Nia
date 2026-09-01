@@ -21,8 +21,49 @@ import {
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
 
-const RELEASE_NOTES_URL = 'https://github.com/Jaikarans2003/OkVevo-Nia/releases'
-const INSTALLER_URL = 'https://github.com/Jaikarans2003/OkVevo-Nia'
+export const INSTALLER_URL = 'https://www.okvevo.com'
+export const RELEASE_NOTES_URL = 'https://www.okvevo.com'
+
+export type AboutStatusKind =
+  | 'available'
+  | 'bundleOutOfSync'
+  | 'cantReach'
+  | 'cantUpdate'
+  | 'installing'
+  | 'onLatest'
+  | 'tapCheck'
+
+/** About must not claim "latest" while the packaged shell is known stale. */
+export function resolveAboutStatusKind(input: {
+  applying: boolean
+  bundleOutOfSync?: boolean
+  error?: string
+  hasStatus: boolean
+  supported: boolean
+  updateAvailable: boolean
+}): AboutStatusKind {
+  if (!input.supported) {
+    return 'cantUpdate'
+  }
+
+  if (input.error) {
+    return 'cantReach'
+  }
+
+  if (input.applying) {
+    return 'installing'
+  }
+
+  if (input.updateAvailable) {
+    return 'available'
+  }
+
+  if (input.bundleOutOfSync) {
+    return 'bundleOutOfSync'
+  }
+
+  return input.hasStatus ? 'onLatest' : 'tapCheck'
+}
 
 function relativeTime(ms: number | undefined, a: Translations['settings']['about']) {
   if (!ms) {
@@ -76,22 +117,33 @@ export function AboutSettings() {
     setJustChecked(Boolean(next))
   }
 
+  const statusKind = resolveAboutStatusKind({
+    applying,
+    bundleOutOfSync: version?.bundleOutOfSync,
+    error: status?.error,
+    hasStatus: Boolean(status),
+    supported,
+    updateAvailable
+  })
+
   let statusLine: string
   let statusTone: 'idle' | 'available' | 'error' = 'idle'
 
-  if (!supported) {
+  if (statusKind === 'cantUpdate') {
     statusLine = status?.message ?? a.cantUpdate
     statusTone = 'error'
-  } else if (status?.error) {
+  } else if (statusKind === 'cantReach') {
     statusLine = a.cantReach
     statusTone = 'error'
-  } else if (applying) {
+  } else if (statusKind === 'installing') {
     statusLine = a.installing
     statusTone = 'available'
-  } else if (updateAvailable) {
+  } else if (statusKind === 'available') {
     statusLine = behind > 0 ? a.updateReady(behind) : a.updateReadyUnknown
     statusTone = 'available'
-  } else if (status) {
+  } else if (statusKind === 'bundleOutOfSync') {
+    statusLine = a.bundleOutOfSync
+  } else if (statusKind === 'onLatest') {
     statusLine = a.onLatest
   } else {
     statusLine = a.tapCheck
@@ -200,11 +252,7 @@ export function AboutSettings() {
           </div>
         </div>
 
-        <ListRow
-          description={a.automaticUpdatesDesc}
-          hint={a.branchCommit(status?.branch ?? 'unknown', status?.currentSha?.slice(0, 7) ?? 'unknown')}
-          title={a.automaticUpdates}
-        />
+        <ListRow description={a.automaticUpdatesDesc} title={a.automaticUpdates} />
 
         <UninstallSection />
       </div>

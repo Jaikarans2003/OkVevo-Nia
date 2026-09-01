@@ -38,6 +38,18 @@ describe('a sent reference renders as the chip the composer showed', () => {
     }
   })
 
+  it('wraps with break-words instead of wrap-anywhere', () => {
+    render(<UserMessageText text="Hi" />)
+
+    const root = document.querySelector('[data-slot="aui_user-message-text"]')
+    const inline = document.querySelector('[data-slot="aui_user-inline-text"]')
+
+    expect(root?.className.split(/\s+/)).not.toContain('wrap-anywhere')
+    expect(inline?.className.split(/\s+/)).not.toContain('wrap-anywhere')
+    expect(inline?.className.split(/\s+/)).toContain('break-words')
+    expect(inline?.className.split(/\s+/)).toContain('whitespace-normal')
+  })
+
   it('still renders a genuine code span as code', () => {
     render(<UserMessageText text="run `npm test` first" />)
 

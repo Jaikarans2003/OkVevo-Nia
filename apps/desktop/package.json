@@ -118,6 +118,7 @@
     "dnd-core": "14.0.1",
     "dompurify": "3.4.13",
     "driver.js": "1.8.0",
+    "electron-updater": "6.6.4",
     "emojibase-data": "16.0.3",
     "fflate": "0.8.3",
     "frimousse": "0.3.0",
@@ -212,6 +213,7 @@
     "beforeBuild": "scripts/before-build.mjs",
     "beforePack": "scripts/before-pack.mjs",
     "afterPack": "scripts/after-pack.mjs",
+    "afterAllArtifactBuild": "scripts/after-all-artifact-build.mjs",
     "extraResources": [
       {
         "from": "build/install-stamp.json",
@@ -223,6 +225,10 @@
       }
     ],
     "asar": true,
+    "publish": {
+      "provider": "generic",
+      "url": "https://releases.okvevo.com"
+    },
     "afterSign": "scripts/notarize.mjs",
     "asarUnpack": [
       "**/*.node",
@@ -279,6 +285,9 @@
     },
     "win": {
       "legalTrademarks": "Nia",
+      "publisherName": [
+        "OkVevo"
+      ],
       "target": [
         "nsis",
         "msi"

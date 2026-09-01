@@ -15,6 +15,7 @@ import { useIncrementalExternalStoreRuntime } from '@/lib/incremental-external-s
 
 import { assistantMessage, stubThreadEnvironment, stubThreadViewportSize, userMessage } from '../test-utils'
 
+import { USER_BUBBLE_BASE_CLASS } from './user-message'
 import { Thread } from '.'
 stubThreadEnvironment()
 
@@ -83,8 +84,18 @@ describe('click-to-edit user message', () => {
 
     expect(classes).toContain('self-end')
     expect(classes).toContain('ml-auto')
+    expect(classes).toContain('inline-flex')
+    expect(classes).toContain('w-fit')
     expect(classes).not.toContain('w-full')
+    expect(classes).not.toContain('flex')
     expect(classes).toContain('rounded-full')
+    expect(classes.some(name => name.startsWith('max-w-[min(75%'))).toBe(true)
+    expect(classes.some(name => name.startsWith('max-w-[min(85%'))).toBe(false)
+
+    const base = USER_BUBBLE_BASE_CLASS.split(/\s+/)
+    expect(base).toContain('inline-flex')
+    expect(base).not.toContain('pr-9')
+    expect(base).not.toContain('flex')
   })
 
   it('opens the edit composer with the incremental runtime', async () => {
