@@ -63,7 +63,7 @@ export function StickyHumanMessageContainer({
 // so without the carve-out, clicking a stuck bubble drags the window instead of
 // opening the edit composer.
 export const USER_BUBBLE_BASE_CLASS =
-  'composer-human-message relative inline-flex w-fit max-w-[min(75%,40rem)] flex-col gap-1.5 overflow-y-auto rounded-2xl border-0 bg-[#2f2f2f] px-4 py-2 text-left self-end ml-auto [-webkit-app-region:no-drag]'
+  'composer-human-message relative inline-flex w-fit max-w-[min(75%,40rem)] flex-col items-start gap-1.5 overflow-y-auto rounded-2xl border-0 bg-[#2f2f2f] px-4 py-2 text-left [-webkit-app-region:no-drag]'
 
 export const USER_ACTION_ICON_BUTTON_CLASS =
   'grid place-items-center rounded-md bg-transparent text-(--ui-text-secondary) transition-colors hover:bg-(--ui-control-active-background) hover:text-foreground disabled:cursor-default disabled:text-(--ui-text-quaternary) disabled:opacity-70'
@@ -442,8 +442,8 @@ export const UserMessage: FC<{
         }
         messageId={messageId}
       >
-        <ActionBarPrimitive.Root className="relative w-fit max-w-full ml-auto" data-slot="aui_user-bubble-actions">
-          <div className="human-message-with-todos-wrapper flex w-fit max-w-full flex-col gap-0 ml-auto">
+        <ActionBarPrimitive.Root className="relative flex w-full justify-end" data-slot="aui_user-bubble-actions">
+          <div className="human-message-with-todos-wrapper flex w-fit max-w-full flex-col gap-0">
             <ReactionPicker
               onOpenChange={setPickerOpen}
               onSelect={pickEmoji}
@@ -451,7 +451,7 @@ export const UserMessage: FC<{
               selected={shownReactions.find(reaction => reaction.author === 'user')?.emoji}
             >
               <div
-                className="relative w-fit ml-auto"
+                className="relative w-fit"
                 // The app context menu skips PLAIN right-clicks here (the
                 // attr below) so this handler keeps the picker gesture; a
                 // link/image/selection inside the bubble still gets the app

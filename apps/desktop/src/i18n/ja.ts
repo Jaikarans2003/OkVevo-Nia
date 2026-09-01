@@ -2029,6 +2029,7 @@ export const ja = defineLocale({
     commonCommands: '一般的なコマンド',
     hotkeys: 'ホットキー',
     helpFooter: 'フルパネルを開く · Backspace で閉じる',
+    disclaimer: 'Nia は誤りを含む場合があります。回答は必ずご確認ください。',
     commandDescs: {
       '/help': 'コマンドとホットキーの全リスト',
       '/clear': '新しいセッションを開始',

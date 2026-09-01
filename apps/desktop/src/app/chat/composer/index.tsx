@@ -40,6 +40,7 @@ import {
 import { ContextMenu } from './context-menu'
 import { COMPOSER_AREAS, runComposerMiddleware } from './contrib'
 import { ComposerControls } from './controls'
+import { ComposerDisclaimer } from './composer-disclaimer'
 import { ComposerDirectiveActions } from './directive-actions'
 import { COMPOSER_DROP_ACTIVE_CLASS, COMPOSER_DROP_FADE_CLASS } from './drop-affordance'
 import { markActiveComposer, onComposerAttachImagesRequest } from './focus'
@@ -1169,7 +1170,7 @@ export function ChatBar({
               ? 'fixed max-w-[calc(100vw-1.5rem)]'
               : splashColumn
                 ? 'absolute inset-0 min-w-0 items-center justify-center overflow-y-auto px-4'
-                : 'absolute bottom-0 left-1/2 max-w-full -translate-x-1/2'
+                : 'absolute bottom-0 left-0 right-0 mx-auto max-w-full'
           )}
           data-popped-out={poppedOut ? '' : undefined}
           data-slot="composer-dock"
@@ -1191,8 +1192,17 @@ export function ChatBar({
               : undefined
           }
         >
-          {splashColumn ? <Intro personality={introPersonality} seed={introSeed} /> : null}
-          <div className="flex w-full flex-col" data-slot="composer-column" ref={composerDockRef}>
+          <div
+            className={cn(
+              'flex w-full min-w-0 flex-col',
+              splashColumn &&
+                'w-[calc(min(var(--composer-width),calc(100%-2rem))+10px)] max-w-full items-center'
+            )}
+            data-slot={splashColumn ? 'composer-splash-stack' : undefined}
+          >
+            {splashColumn ? <Intro personality={introPersonality} seed={introSeed} /> : null}
+            <div className="flex w-full flex-col" ref={composerDockRef}>
+          <div className="flex w-full flex-col" data-slot="composer-column">
           {/* Aligned to the composer SURFACE, which sits inside the composer's
               5px transparent grab margin — so both strips carry the same inset
               and share one left edge with it. */}
@@ -1236,7 +1246,7 @@ export function ChatBar({
           />
           <ComposerPrimitive.Root
             className={cn(
-              'group/composer relative w-full overflow-visible rounded-2xl',
+              'group/composer relative w-full overflow-visible rounded-3xl',
               poppedOut && 'bg-transparent',
               dragging && 'cursor-grabbing select-none touch-none',
               // Native Wayland HUD: setBounds cannot position a top-level
@@ -1312,7 +1322,7 @@ export function ChatBar({
                   // track past the surface — and every `w-full` child (the fade,
                   // the input/controls row) laid out against that phantom width
                   // and got clipped by overflow-hidden, send button first.
-                  'group/composer-surface relative z-4 isolate grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border border-border/65',
+                  'group/composer-surface relative z-4 isolate grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr] overflow-hidden rounded-[inherit]',
                   COMPOSER_DROP_FADE_CLASS,
                   dragActive && COMPOSER_DROP_ACTIVE_CLASS
                 )}
@@ -1409,6 +1419,9 @@ export function ChatBar({
             <ContribSlot area={COMPOSER_AREAS.underside} />
           </div>
           </div>
+          <ComposerDisclaimer show={!poppedOut && !splashColumn} />
+          </div>
+          </div>
         </div>
       </ComposerPrimitive.Unstable_TriggerPopoverRoot>
 
@@ -1428,12 +1441,12 @@ export function ChatBarFallback() {
   return (
     <div
       className={cn(
-        'group/composer absolute bottom-0 left-1/2 z-30 w-[min(var(--composer-width),calc(100%-2rem))] max-w-full -translate-x-1/2 rounded-2xl pt-2 pb-[var(--composer-shell-pad-block-end)]',
+        'group/composer absolute bottom-0 left-0 right-0 z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full rounded-3xl pt-2 pb-[var(--composer-shell-pad-block-end)]',
         'bg-linear-to-b from-transparent to-background/55'
       )}
       data-slot="composer-root"
     >
-      <div className="composer-fallback-surface relative isolate h-(--composer-fallback-height) w-full rounded-[inherit] border border-border/65">
+      <div className="composer-fallback-surface relative isolate h-(--composer-fallback-height) w-full rounded-[inherit]">
         <div
           aria-hidden
           className={cn('pointer-events-none absolute inset-0 -z-10 rounded-[inherit]', composerFill)}

@@ -1813,6 +1813,7 @@ export const ar = defineLocale({
     commonCommands: 'الأوامر الشائعة',
     hotkeys: 'الاختصارات',
     helpFooter: 'استخدم الأسهم للتنقل و Enter للاختيار.',
+    disclaimer: 'قد ترتكب نيا أخطاء، يُرجى التحقق من الردود.',
     commandDescs: {
       '/help': 'قائمة كاملة بالأوامر + اختصارات لوحة المفاتيح',
       '/clear': 'بدء جلسة جديدة',

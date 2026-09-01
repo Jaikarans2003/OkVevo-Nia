@@ -2358,6 +2358,7 @@ export const en: Translations = {
     commonCommands: 'Common commands',
     hotkeys: 'Hotkeys',
     helpFooter: 'opens the full panel · backspace dismisses',
+    disclaimer: 'Nia can make mistakes, please double-check responses',
     commandDescs: {
       '/help': 'full list of commands + hotkeys',
       '/clear': 'start a new session',

@@ -2538,6 +2538,7 @@ export const zh: Translations = {
     commonCommands: '常用命令',
     hotkeys: '快捷键',
     helpFooter: '打开完整面板 · 退格键关闭',
+    disclaimer: 'Nia 可能会犯错，请仔细核对回复。',
     commandDescs: {
       '/help': '命令与快捷键的完整列表',
       '/clear': '开始新会话',

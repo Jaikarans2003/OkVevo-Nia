@@ -82,14 +82,15 @@ describe('click-to-edit user message', () => {
     const bubble = await screen.findByRole('button', { name: 'Edit message' })
     const classes = bubble.className.split(/\s+/)
 
-    expect(classes).toContain('self-end')
-    expect(classes).toContain('ml-auto')
     expect(classes).toContain('inline-flex')
     expect(classes).toContain('w-fit')
     expect(classes).not.toContain('w-full')
     expect(classes).not.toContain('flex')
+    expect(classes).toContain('items-start')
     expect(classes).toContain('rounded-2xl')
     expect(classes).not.toContain('rounded-full')
+    expect(classes).not.toContain('self-end')
+    expect(classes).not.toContain('ml-auto')
     expect(classes.some(name => name.startsWith('max-w-[min(75%'))).toBe(true)
     expect(classes.some(name => name.startsWith('max-w-[min(85%'))).toBe(false)
 

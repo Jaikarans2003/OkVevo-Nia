@@ -2,6 +2,8 @@ import { useState } from 'react'
 
 import { capitalize, normalize } from '@/lib/text'
 
+import { BrandMark } from '@/components/brand-mark'
+
 import introCopyJsonl from './intro-copy.jsonl?raw'
 
 type IntroCopy = {
@@ -164,11 +166,7 @@ export function Intro({ personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
-        <img
-          alt=""
-          className="mx-auto mb-3 size-16 overflow-hidden rounded-2xl object-cover sm:size-20"
-          src={`${import.meta.env.BASE_URL}okvevo-logo.svg`}
-        />
+        <BrandMark className="mx-auto mb-3 size-16 rounded-2xl sm:size-20" />
 
         <p className="m-0 text-center leading-normal tracking-tight">{copy.body}</p>
       </div>

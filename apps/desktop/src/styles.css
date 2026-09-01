@@ -485,7 +485,7 @@
        This is the default; each chat surface re-declares the calc against its own measurement (see below). */
     --thread-last-message-clearance: calc(var(--composer-measured-height) + 2rem);
 
-    --composer-shell-pad-block-end: 0.625rem;
+    --composer-shell-pad-block-end: 0.25rem;
     --message-text-indent: 0.75rem;
     --conversation-text-font-size: 0.8125rem;
     --conversation-tool-font-size: 0.6875rem;
@@ -513,15 +513,15 @@
     --sticky-human-top: 0.23rem;
     --file-tree-row-height: 1.375rem;
 
-    --composer-width: 100%;
+    --composer-width: 42rem;
     --composer-control-size: 1.5rem;
     --composer-control-primary-size: 1.625rem;
     --composer-control-gap: 0.25rem;
     --composer-row-gap: 0.25rem;
     --composer-ring-strength: 1;
     --composer-surface-pad-x: 0.5rem;
-    --composer-surface-pad-y: 0.3125rem;
-    --composer-input-min-height: 1.625rem;
+    --composer-surface-pad-y: 0.5rem;
+    --composer-input-min-height: 2.25rem;
     --composer-input-max-height: 9.375rem;
     --composer-input-inline-min-width: 8rem;
     --composer-fallback-height: 2.75rem;
@@ -1711,9 +1711,37 @@ body.guest-pointer-lock :is(webview, iframe) {
   max-width: none;
 }
 
-[data-slot='composer-dock'][data-splash-column] [data-slot='composer-column'] {
+[data-slot='composer-splash-stack'] {
   width: calc(min(var(--composer-width), calc(100% - 2rem)) + 10px);
   max-width: 100%;
+}
+
+[data-slot='composer-dock'][data-splash-column] [data-slot='composer-column'] {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Frost the dock footer so transcript text does not read through the disclaimer. */
+[data-slot='composer-dock']:not([data-splash-column]):not([data-popped-out])::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  z-index: -1;
+  width: 100vw;
+  height: 100%;
+  pointer-events: none;
+  transform: translateX(-50%);
+  -webkit-backdrop-filter: blur(0.75rem) saturate(1.08);
+  backdrop-filter: blur(0.75rem) saturate(1.08);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--ui-chat-surface-background) 55%, transparent) 42%,
+    color-mix(in srgb, var(--ui-chat-surface-background) 94%, transparent) 100%
+  );
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 38%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 38%);
 }
 
 [data-slot='composer-root'] {
@@ -1796,12 +1824,8 @@ body.guest-pointer-lock :is(webview, iframe) {
   ) !important;
 }
 
-[data-slot='composer-surface'] {
-  border-color: var(--ui-stroke-secondary) !important;
-}
-
 [data-slot='composer-fade'] {
-  min-height: 2.375rem;
+  min-height: 3rem;
 }
 
 [data-slot='composer-rich-input'] {

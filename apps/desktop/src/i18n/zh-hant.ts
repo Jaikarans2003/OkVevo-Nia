@@ -1964,6 +1964,7 @@ export const zhHant = defineLocale({
     commonCommands: '常用指令',
     hotkeys: '快捷鍵',
     helpFooter: '開啟完整面板 · 退格鍵關閉',
+    disclaimer: 'Nia 可能會犯錯，請仔細核對回覆。',
     commandDescs: {
       '/help': '指令與快捷鍵的完整清單',
       '/clear': '開始新工作階段',

@@ -2007,6 +2007,7 @@ export interface Translations {
     commonCommands: string
     hotkeys: string
     helpFooter: string
+    disclaimer: string
     commandDescs: Record<string, string>
     hotkeyDescs: Record<string, string>
     attachUrlTitle: string

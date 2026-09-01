@@ -519,14 +519,15 @@ export function TreeSplit({ node, root, rootRow }: { node: SplitNode; root?: boo
   // subtree, so resolve them ONCE here instead of per read below.
   const tracks = node.children.map((child, i) => {
     const minimized = isMinimized(child)
-    const collapsed = isCollapsed(child) || sideGone(i)
+    const sideCollapsed = Boolean(semanticSides && sideGone(i))
+    const collapsed = isCollapsed(child) || sideCollapsed
     const track = minimized || collapsed ? null : fixedTrackSize(child, axis, trackCtx)
     const sizing = minimized || collapsed ? null : sizingFor(child, track)
     // Narrow-collapse UNMOUNTS (the edge overlay owns the live instance) — but
     // only for panes the breakpoint collapsed, not ones a chrome toggle hid.
     const narrowCollapsed = narrow && collapsed && allPaneIds(child).some(id => !hiddenPanes.has(id))
 
-    return { child, collapsed, minimized, narrowCollapsed, sizing, track }
+    return { child, collapsed, sideCollapsed, minimized, narrowCollapsed, sizing, track }
   })
 
   const growable = tracks.map((_, i) => i).filter(i => !tracks[i].collapsed && !tracks[i].minimized)
@@ -578,37 +579,61 @@ export function TreeSplit({ node, root, rootRow }: { node: SplitNode; root?: boo
       data-tree-split={node.id}
       ref={containerRef}
     >
-      {tracks.map(({ child, collapsed, minimized, narrowCollapsed, sizing, track }, i) => {
+      {tracks.map(({ child, collapsed, sideCollapsed, minimized, narrowCollapsed, sizing, track }, i) => {
         const partner = collapsed ? -1 : seamPartner(i)
         const absorbs = i === absorberIndex
 
+        const trackStyle =
+          sideCollapsed && !minimized
+            ? horizontal
+              ? {
+                  flex: '0 0 0px',
+                  minWidth: 0,
+                  maxWidth: 0,
+                  overflow: 'hidden',
+                  opacity: 0,
+                  pointerEvents: 'none' as const
+                }
+              : {
+                  flex: '0 0 0px',
+                  minHeight: 0,
+                  maxHeight: 0,
+                  overflow: 'hidden',
+                  opacity: 0,
+                  pointerEvents: 'none' as const
+                }
+            : collapsed
+              ? { display: 'none' }
+              : minimized
+                ? { flex: `0 0 ${MINIMIZED_TRACK}` }
+                : {
+                    // One flexbox formula for everything: a sized zone is
+                    // grow-0 shrink-1 from its preferred basis (it yields
+                    // gracefully on tight windows, floored by min-width);
+                    // everything else splits the leftover by weight. In an
+                    // all-fixed run an UNCAPPED last track grows into the
+                    // leftover; capped sidebars stay at their declared size.
+                    flex: track ? `${absorbs ? 1 : 0} 1 ${track}` : `${grow(i)} ${grow(i)} 0px`,
+                    // Pane-declared clamps apply along THIS split's axis only
+                    // (a rail's width clamp shouldn't constrain its height).
+                    // The absorber is uncapped by selection, so dropping its
+                    // max is a no-op; capped tracks always keep theirs.
+                    minWidth: (horizontal && sizing?.minWidth) || 0,
+                    maxWidth: horizontal && !absorbs ? sizing?.maxWidth : undefined,
+                    minHeight: (!horizontal && sizing?.minHeight) || 0,
+                    maxHeight: horizontal || absorbs ? undefined : sizing?.maxHeight
+                  }
+
         return (
           <div
-            className="relative flex min-h-0 min-w-0"
+            className={cn(
+              'relative flex min-h-0 min-w-0',
+              sideCollapsed &&
+                !minimized &&
+                'transition-[flex-basis,max-width,max-height,opacity] duration-[220ms] ease-out'
+            )}
             key={child.id}
-            style={
-              collapsed
-                ? { display: 'none' }
-                : minimized
-                  ? { flex: `0 0 ${MINIMIZED_TRACK}` }
-                  : {
-                      // One flexbox formula for everything: a sized zone is
-                      // grow-0 shrink-1 from its preferred basis (it yields
-                      // gracefully on tight windows, floored by min-width);
-                      // everything else splits the leftover by weight. In an
-                      // all-fixed run an UNCAPPED last track grows into the
-                      // leftover; capped sidebars stay at their declared size.
-                      flex: track ? `${absorbs ? 1 : 0} 1 ${track}` : `${grow(i)} ${grow(i)} 0px`,
-                      // Pane-declared clamps apply along THIS split's axis only
-                      // (a rail's width clamp shouldn't constrain its height).
-                      // The absorber is uncapped by selection, so dropping its
-                      // max is a no-op; capped tracks always keep theirs.
-                      minWidth: (horizontal && sizing?.minWidth) || 0,
-                      maxWidth: horizontal && !absorbs ? sizing?.maxWidth : undefined,
-                      minHeight: (!horizontal && sizing?.minHeight) || 0,
-                      maxHeight: horizontal || absorbs ? undefined : sizing?.maxHeight
-                    }
-            }
+            style={trackStyle}
           >
             {partner >= 0 && (
               <Sash
