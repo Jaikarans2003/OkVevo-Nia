@@ -34,7 +34,7 @@ Repo: `Jaikarans2003/OkVevo-Nia` → Settings → Secrets and variables → Acti
 | `RELEASES_S3_SECRET_ACCESS_KEY` | Secret key |
 | `RELEASES_S3_ENDPOINT` | Optional. Required for R2, e.g. `https://<accountid>.r2.cloudflarestorage.com`. Omit for AWS S3. |
 
-Also confirm `apps/desktop/package.json` `build.win.publisherName` (`OkVevo`) matches the Authenticode subject CN. Change that string if the cert CN is different.
+Also confirm `apps/desktop/package.json` `build.win.signtoolOptions.publisherName` (`OkVevo`) matches the Authenticode subject CN. Change that string if the cert CN is different.
 
 Fail-closed check (must print the missing list and exit 1 until secrets are set in *your shell*; CI maps the GitHub secrets):
 

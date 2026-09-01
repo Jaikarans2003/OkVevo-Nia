@@ -285,14 +285,16 @@
     },
     "win": {
       "legalTrademarks": "Nia",
-      "publisherName": [
-        "OkVevo"
-      ],
       "target": [
         "nsis",
         "msi"
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "signtoolOptions": {
+        "publisherName": [
+          "OkVevo"
+        ]
+      }
     },
     "linux": {
       "category": "Development",

@@ -21,7 +21,7 @@ test('feed URL is the releases subdomain, not www.okvevo.com', () => {
   assert.equal(BINARY_UPDATE_FEED_URL, 'https://releases.okvevo.com')
   assert.equal(desktopPkg.build.publish.provider, 'generic')
   assert.equal(desktopPkg.build.publish.url, BINARY_UPDATE_FEED_URL)
-  assert.deepEqual(desktopPkg.build.win.publisherName, [BINARY_UPDATE_PUBLISHER_NAME])
+  assert.deepEqual(desktopPkg.build.win.signtoolOptions.publisherName, [BINARY_UPDATE_PUBLISHER_NAME])
   assert.doesNotMatch(BINARY_UPDATE_FEED_URL, /www\.okvevo\.com/)
 })
 
