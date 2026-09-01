@@ -3266,10 +3266,21 @@ button[data-slot='aui_msg-reactions'] svg {
    around it are ambient chrome for a full window, and in a bar a few lines
    tall they'd shove the input off screen.
 
+   Post-splash, composer-root nests inside composer-column (not a direct dock
+   child), so the hide rule targets column children — not dock children — or
+   the whole column wrapper disappears with the composer inside it.
+
    Written as "keep the composer, hide its siblings" rather than a list of
    selectors, because those siblings carry no data-slot of their own — a list
    would silently miss whatever gets added to the dock next. */
-[data-hud-shell] [data-slot='composer-dock'] > *:not([data-slot='composer-root']) {
+[data-hud-shell] [data-slot='composer-dock'] [data-slot='composer-column'] > *:not([data-slot='composer-root']) {
+  display: none !important;
+}
+
+/* Splash-only nodes: HUD never sets showIntro, but hide defensively if present. */
+[data-hud-shell] [data-slot='aui_intro'],
+[data-hud-shell] [data-slot='composer-splash-stack'],
+[data-hud-shell] [data-slot='composer-disclaimer'] {
   display: none !important;
 }
 
