@@ -1,0 +1,31 @@
+---
+description: Never push to upstream Hermes — only Jaikarans2003/OkVevo-Nia
+alwaysApply: true
+---
+
+# OkVevo-Nia is the only push target
+
+**HARD RULE.** This fork’s canonical GitHub remote is:
+
+- **Allowed:** `https://github.com/Jaikarans2003/OkVevo-Nia.git`
+- **Forbidden:** `https://github.com/NousResearch/hermes-agent.git`
+
+## Git remotes (this machine)
+
+| Remote   | URL                                              | Use                          |
+|----------|--------------------------------------------------|------------------------------|
+| `okvevo` | `Jaikarans2003/OkVevo-Nia.git`                   | **Only** remote for push     |
+| `origin` | `NousResearch/hermes-agent.git`                  | Fetch/reference only — **never push** |
+
+## Agent / CI must
+
+- Commit and push with `git push okvevo HEAD` (or `okvevo main`) — never `git push origin`.
+- Never set upstream to `origin`, never `git push --set-upstream origin …`.
+- Never open PRs against `NousResearch/hermes-agent` from OkVevo product work unless Karan explicitly asks.
+- If `okvevo` is missing: `git remote add okvevo https://github.com/Jaikarans2003/OkVevo-Nia.git` then push there.
+- If unsure which remote a push would hit: run `git remote -v` and `git status -sb` first and stop if the push target is Nous.
+
+## Do not
+
+- Push, force-push, or mirror this tree to Nous Research.
+- “Sync back” Nia/OkVevo commits to upstream Hermes without an explicit user request naming that repo.

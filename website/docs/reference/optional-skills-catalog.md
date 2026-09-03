@@ -31,6 +31,7 @@ hermes skills uninstall <skill-name>
 
 | Skill | Description |
 |-------|-------------|
+| [**agent-merge-conflict-arbiter**](/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-agent-merge-conflict-arbiter) | Neutral arbiter for merge conflicts between two agents. |
 | [**antigravity-cli**](/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-antigravity-cli) | Operate the Antigravity CLI (agy): plugins, auth, sandbox. |
 | [**blackbox**](/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox) | Delegate coding tasks to the Blackbox AI multi-model CLI. |
 | [**grok**](/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok) | Delegate coding to xAI Grok Build CLI (features, PRs). |
@@ -65,7 +66,6 @@ hermes skills uninstall <skill-name>
 | [**draw-your-font**](/docs/user-guide/skills/optional/creative/creative-draw-your-font) | Turn a handwriting photo into an installable TTF font. |
 | [**excalidraw**](/docs/user-guide/skills/optional/creative/creative-excalidraw) | Hand-drawn Excalidraw JSON diagrams (arch, flow, seq). |
 | [**heartmula**](/docs/user-guide/skills/optional/creative/creative-heartmula) | HeartMuLa: Suno-like song generation from lyrics + tags. |
-| [**hyperframes**](/docs/user-guide/skills/optional/creative/creative-hyperframes) | Render MP4/WebM videos from HTML compositions. |
 | [**impeccable**](/docs/user-guide/skills/optional/creative/creative-impeccable) | Frontend design guidance, upstream-maintained (impeccable). |
 | [**kanban-video-orchestrator**](/docs/user-guide/skills/optional/creative/creative-kanban-video-orchestrator) | Plan and run multi-agent video production pipelines. |
 | [**meme-generation**](/docs/user-guide/skills/optional/creative/creative-meme-generation) | Create meme PNGs from templates with Pillow text overlay. |

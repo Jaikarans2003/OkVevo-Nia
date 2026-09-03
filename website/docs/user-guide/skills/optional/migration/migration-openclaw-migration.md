@@ -15,7 +15,7 @@ Import an OpenClaw setup (memories, skills) into Hermes.
 | | |
 |---|---|
 | Source | Optional — install with `hermes skills install official/migration/openclaw-migration` |
-| Path | `optional-skills/migration\openclaw-migration` |
+| Path | `optional-skills/migration/openclaw-migration` |
 | Version | `1.0.0` |
 | Author | Hermes Agent (Nous Research) |
 | License | MIT |
@@ -31,7 +31,7 @@ The following is the complete skill definition that Hermes loads when this skill
 
 # OpenClaw -> Hermes Migration
 
-Use this skill when a user wants to move their OpenClaw setup into Hermes Agent with minimal manual cleanup.
+Use this skill when a user wants to move their OpenClaw setup into Nia with minimal manual cleanup.
 
 ## CLI Command
 

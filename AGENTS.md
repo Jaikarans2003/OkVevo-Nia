@@ -4,6 +4,11 @@ Instructions for AI coding assistants and developers working on the hermes-agent
 
 **Never give up on the right solution.**
 
+> **OkVevo / Nia fork — push target (hard rule)**  
+> Canonical product remote: **`Jaikarans2003/OkVevo-Nia`** only (`git push okvevo …`).  
+> **Never** push or open product PRs to **`NousResearch/hermes-agent`**. Local `origin` pointing at Nous is fetch/reference only.  
+> See `.cursor/rules/okvevo-nia-remote.mdc` and `.github/workflows/okvevo-nia-remote-guard.yml`.
+
 ## What Hermes Is
 
 Hermes is a personal AI agent that runs the same agent core across a CLI, a

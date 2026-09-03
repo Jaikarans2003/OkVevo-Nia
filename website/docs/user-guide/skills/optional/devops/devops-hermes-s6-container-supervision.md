@@ -15,7 +15,7 @@ Modify or debug s6 services in the Hermes Docker image.
 | | |
 |---|---|
 | Source | Optional — install with `hermes skills install official/devops/hermes-s6-container-supervision` |
-| Path | `optional-skills/devops\hermes-s6-container-supervision` |
+| Path | `optional-skills/devops/hermes-s6-container-supervision` |
 | Version | `1.0.0` |
 | Author | Hermes Agent |
 | License | MIT |
@@ -40,7 +40,7 @@ Load this skill when you're working on:
 - Modifying `cont-init.d` boot scripts (UID remap, volume seeding, profile reconciliation)
 - Changing the rendered run-script for per-profile gateways (Phase 4)
 
-If you're just running the Hermes Agent and want to use Docker, see `website/docs/user-guide/docker.md` instead.
+If you're just running Nia and want to use Docker, see `website/docs/user-guide/docker.md` instead.
 
 ## Architecture at a glance
 

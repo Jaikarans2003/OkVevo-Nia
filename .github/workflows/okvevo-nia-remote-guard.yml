@@ -1,0 +1,35 @@
+# Hard gate for the OkVevo Nia fork: this tree must never be treated as
+# NousResearch/hermes-agent for product pushes. Agents and humans push only to
+# Jaikarans2003/OkVevo-Nia (local remote name: `okvevo`).
+name: OkVevo-Nia remote guard
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assert-okvevo-nia:
+    name: Assert repository is OkVevo-Nia
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if this is upstream Hermes
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "github.repository=${REPO}"
+          if [ "${REPO}" = "NousResearch/hermes-agent" ]; then
+            echo "::error::Refusing to run OkVevo product CI on NousResearch/hermes-agent. Push target must be Jaikarans2003/OkVevo-Nia only."
+            exit 1
+          fi
+          if [ "${REPO}" != "Jaikarans2003/OkVevo-Nia" ]; then
+            echo "::error::Expected Jaikarans2003/OkVevo-Nia, got ${REPO}. Do not push Nia product commits elsewhere."
+            exit 1
+          fi
+          echo "OK: repository is Jaikarans2003/OkVevo-Nia"

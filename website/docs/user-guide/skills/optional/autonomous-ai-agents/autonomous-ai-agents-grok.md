@@ -15,7 +15,7 @@ Delegate coding to xAI Grok Build CLI (features, PRs).
 | | |
 |---|---|
 | Source | Optional — install with `hermes skills install official/autonomous-ai-agents/grok` |
-| Path | `optional-skills/autonomous-ai-agents\grok` |
+| Path | `optional-skills/autonomous-ai-agents/grok` |
 | Version | `0.1.1` |
 | Author | Matt Maximo (MattMaximo), Hermes Agent |
 | License | MIT |
@@ -308,7 +308,7 @@ Put global preferences in `~/.grok/config.toml` (not project-scoped
    `mktemp -d && git init` for scratch commit tasks.
 9. **Clean up tmux sessions** with `tmux kill-session -t <name>` when done.
 
-## Rules for Hermes Agents
+## Rules for Nia Agents
 
 1. **Prefer headless `-p`** for single tasks — cleanest integration, structured
    output via `--output-format json`.
