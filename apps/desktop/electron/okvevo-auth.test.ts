@@ -5,7 +5,9 @@ import { test } from 'vitest'
 import {
   AUTH_CALLBACK_KIND,
   buildOkvevoLoginUrl,
+  buildOkvevoPortalUrl,
   hermesProtocolForDev,
+  isAllowedOkvevoPortalPath,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
   refreshDelayMs,
@@ -19,13 +21,23 @@ test('dev protocol is hermes-dev; packaged is hermes', () => {
   assert.equal(hermesProtocolForDev(false), 'hermes')
 })
 
-test('web origin: env wins, else localhost in dev, else www', () => {
-  assert.equal(resolveOkvevoWebOrigin({}, { devServer: false }), 'https://www.okvevo.com')
+test('web origin: env wins, else localhost in dev, else empty', () => {
+  assert.equal(resolveOkvevoWebOrigin({}, { devServer: false }), '')
   assert.equal(resolveOkvevoWebOrigin({}, { devServer: true }), 'http://localhost:3000')
   assert.equal(
     resolveOkvevoWebOrigin({ OKVEVO_WEB_ORIGIN: 'https://staging.example/' }, { devServer: true }),
     'https://staging.example'
   )
+})
+
+test('portal path allowlist and Upgrade URL', () => {
+  assert.equal(isAllowedOkvevoPortalPath('/billing'), true)
+  assert.equal(isAllowedOkvevoPortalPath('/billing/plans'), true)
+  assert.equal(isAllowedOkvevoPortalPath('billing'), false)
+  assert.equal(isAllowedOkvevoPortalPath('https://evil.example/billing'), false)
+  assert.equal(isAllowedOkvevoPortalPath('/billing?x=1'), false)
+  assert.equal(buildOkvevoPortalUrl('https://staging.example/', '/billing'), 'https://staging.example/billing')
+  assert.equal(buildOkvevoPortalUrl('', '/billing'), null)
 })
 
 test('login URL carries allowlisted redirect + state', () => {

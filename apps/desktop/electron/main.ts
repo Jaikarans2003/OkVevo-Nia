@@ -268,14 +268,18 @@ import {
 import { runNativeLogin } from './native-oauth-login'
 import { loadNativeTokenSet, type NativeTokenStoreIo, persistNativeTokenSet } from './native-token-store'
 import {
+  buildOkvevoPortalUrl,
   hermesProtocolForDev,
   okvevoIdTokenFilePath,
+  OKVEVO_ORIGIN_MISSING_ERROR,
+  OKVEVO_ORIGIN_MISSING_TITLE,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
   refreshDelayMs,
   resolveOkvevoWebOrigin,
   shouldDeliverDeepLinkToRenderer
 } from './okvevo-auth'
+import { loadHermesDotenvIntoProcess } from './okvevo-env'
 import {
   completeOkvevoAuthCallback,
   refreshOkvevoAuth,
@@ -819,6 +823,11 @@ function resolveHermesHome() {
 }
 
 const HERMES_HOME = resolveHermesHome()
+
+loadHermesDotenvIntoProcess({
+  hermesHome: HERMES_HOME,
+  unpackagedRepoEnv: IS_PACKAGED ? null : path.join(APP_ROOT, '..', '..', '.env')
+})
 
 function pathWithHermesManagedNode(...entries) {
   const managed = hermesManagedNodePathEntries(HERMES_HOME).filter(directoryExists)
@@ -16765,7 +16774,33 @@ ipcMain.handle('hermes:openExternal', (_event, url) => {
 })
 
 ipcMain.handle('hermes:okvevo-auth:start', async () => {
+  const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
+
+  if (!origin) {
+    dialog.showErrorBox(OKVEVO_ORIGIN_MISSING_TITLE, OKVEVO_ORIGIN_MISSING_ERROR)
+
+    return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
+  }
+
   await startOkvevoSignIn(_okvevoAuthFlowDeps())
+
+  return { ok: true }
+})
+
+ipcMain.handle('hermes:okvevo-auth:open-portal', async (_event, portalPath) => {
+  const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
+
+  if (!origin) {
+    dialog.showErrorBox(OKVEVO_ORIGIN_MISSING_TITLE, OKVEVO_ORIGIN_MISSING_ERROR)
+
+    return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
+  }
+
+  const url = buildOkvevoPortalUrl(origin, typeof portalPath === 'string' ? portalPath : '')
+
+  if (!url || !openExternalUrl(url)) {
+    return { ok: false, error: 'invalid_path' }
+  }
 
   return { ok: true }
 })

@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from agent.okvevo_gateway import apply_okvevo_gateway, okvevo_gateway_base_url
+import pytest
+
+from agent.okvevo_gateway import (
+    OKVEVO_ORIGIN_MISSING,
+    OkvevoGatewayConfigError,
+    apply_okvevo_gateway,
+    okvevo_gateway_base_url,
+)
 
 
 def test_no_file_leaves_kwargs(monkeypatch, tmp_path):
@@ -45,15 +52,23 @@ def test_openrouter_rewrites_to_gateway(monkeypatch, tmp_path):
     assert kw["api_key"] == "idt-live"
 
 
-def test_default_origin_is_www(monkeypatch, tmp_path):
+def test_token_without_origin_is_fail_closed(monkeypatch, tmp_path):
     p = tmp_path / "tok"
     p.write_text("idt", encoding="utf-8")
     monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
     monkeypatch.delenv("OKVEVO_WEB_ORIGIN", raising=False)
-    assert okvevo_gateway_base_url() == "https://www.okvevo.com/api/gateway"
     kw = {"base_url": "https://openrouter.ai/api/v1", "api_key": "x"}
-    apply_okvevo_gateway(kw)
-    assert kw["base_url"] == "https://www.okvevo.com/api/gateway"
+    with pytest.raises(OkvevoGatewayConfigError, match=OKVEVO_ORIGIN_MISSING):
+        apply_okvevo_gateway(kw)
+    with pytest.raises(OkvevoGatewayConfigError) as excinfo:
+        okvevo_gateway_base_url()
+    assert str(excinfo.value) == OKVEVO_ORIGIN_MISSING
+
+
+def test_config_error_message_is_the_chat_string():
+    assert str(OkvevoGatewayConfigError(OKVEVO_ORIGIN_MISSING)) == OKVEVO_ORIGIN_MISSING
+    assert "traceback" not in OKVEVO_ORIGIN_MISSING.lower()
+    assert "www.okvevo.com" not in OKVEVO_ORIGIN_MISSING
 
 
 def test_token_is_reread_every_call(monkeypatch, tmp_path):

@@ -401,6 +401,7 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
     return () => ipcRenderer.removeListener('hermes:deep-link', listener)
   },
   startOkvevoSignIn: () => ipcRenderer.invoke('hermes:okvevo-auth:start'),
+  openOkvevoPortal: (portalPath: string) => ipcRenderer.invoke('hermes:okvevo-auth:open-portal', portalPath),
   signOutOkvevo: () => ipcRenderer.invoke('hermes:okvevo-auth:sign-out'),
   getOkvevoAuth: () => ipcRenderer.invoke('hermes:okvevo-auth:get'),
   onOkvevoAuth: callback => {

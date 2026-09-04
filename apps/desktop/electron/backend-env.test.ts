@@ -120,7 +120,7 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
 
   assert.equal(env.PYTHONPATH, '/repo/hermes-agent:/existing/pythonpath')
   assert.equal(env.OKVEVO_FIREBASE_ID_TOKEN_FILE, '/Users/test/.hermes/okvevo-firebase-id-token')
-  assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://www.okvevo.com')
+  assert.equal(env.OKVEVO_WEB_ORIGIN, '')
   assert.ok(
     env.PATH.startsWith(
       '/Users/test/.hermes/node/bin:/Users/test/.hermes/node:/Users/test/.hermes/hermes-agent/venv/bin:'
@@ -199,7 +199,7 @@ test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)
     platform: 'darwin',
     pathModule: path.posix
   })
-  assert.equal(packaged.OKVEVO_WEB_ORIGIN, 'https://www.okvevo.com')
+  assert.equal(packaged.OKVEVO_WEB_ORIGIN, '')
 
   const dev = buildDesktopBackendEnv({
     hermesHome: '/Users/test/.hermes',

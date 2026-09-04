@@ -452,7 +452,8 @@ declare global {
       onDeepLink?: (
         callback: (payload: { kind: string; name: string; params: Record<string, string> }) => void
       ) => () => void
-      startOkvevoSignIn?: () => Promise<{ ok: boolean }>
+      startOkvevoSignIn?: () => Promise<{ ok: boolean; error?: string }>
+      openOkvevoPortal?: (portalPath: string) => Promise<{ ok: boolean; error?: string }>
       signOutOkvevo?: () => Promise<{ signedIn: boolean; uid: string | null; email: string | null }>
       getOkvevoAuth?: () => Promise<{ signedIn: boolean; uid: string | null; email: string | null }>
       onOkvevoAuth?: (

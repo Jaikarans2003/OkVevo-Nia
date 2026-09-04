@@ -49,7 +49,6 @@ const BILLING_VIEWS = ['overview', 'plans'] as const
 type BillingSubView = (typeof BILLING_VIEWS)[number]
 
 const FEATURE_BILLING_INVOICES = false
-const OKVEVO_BILLING_URL = 'https://www.okvevo.com/billing'
 
 const BILLING_DEV_FIXTURE_NAMES = import.meta.env.DEV
   ? (Object.keys(billingDevFixtures) as BillingDevFixtureName[])
@@ -84,7 +83,12 @@ function OkvevoAccountChrome() {
                 Sign in
               </Button>
             )}
-            <Button onClick={() => openExternal(OKVEVO_BILLING_URL)} size="sm" type="button" variant="outline">
+            <Button
+              onClick={() => void window.hermesDesktop?.openOkvevoPortal?.('/billing')}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               Upgrade
               <ExternalLink className="size-3.5" />
             </Button>

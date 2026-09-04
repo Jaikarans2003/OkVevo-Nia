@@ -11,8 +11,15 @@ from typing import Optional
 
 from utils import base_url_host_matches
 
-DEFAULT_OKVEVO_WEB_ORIGIN = "https://www.okvevo.com"
 _OPENROUTER_HOST = "openrouter.ai"
+OKVEVO_ORIGIN_MISSING = (
+    "Nia is signed in but the OkVevo portal URL is not configured. "
+    "Set OKVEVO_WEB_ORIGIN in ~/.hermes/.env and restart Nia."
+)
+
+
+class OkvevoGatewayConfigError(Exception):
+    """User-visible config error; str() is the chat bubble."""
 
 
 def read_okvevo_id_token() -> Optional[str]:
@@ -30,7 +37,7 @@ def read_okvevo_id_token() -> Optional[str]:
 def okvevo_gateway_base_url() -> str:
     origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
     if not origin:
-        origin = DEFAULT_OKVEVO_WEB_ORIGIN
+        raise OkvevoGatewayConfigError(OKVEVO_ORIGIN_MISSING)
     return f"{origin}/api/gateway"
 
 

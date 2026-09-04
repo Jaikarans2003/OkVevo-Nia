@@ -37,6 +37,7 @@ from agent.conversation_compression import (
     conversation_history_after_compression,
 )
 from agent.context_engine import automatic_compaction_status_message
+from agent.okvevo_gateway import OkvevoGatewayConfigError
 from agent.display import KawaiiSpinner
 from agent.error_classifier import FailoverReason, classify_api_error
 from agent.message_metadata import append_message
@@ -4558,6 +4559,17 @@ def run_conversation(
                 agent._persist_session(messages, conversation_history)
                 break
 
+            except OkvevoGatewayConfigError as config_error:
+                if thinking_spinner:
+                    thinking_spinner.stop("")
+                    thinking_spinner = None
+                if agent.thinking_callback:
+                    agent.thinking_callback("")
+                final_response = str(config_error)
+                _turn_exit_reason = "okvevo_gateway_config"
+                agent._persist_session(messages, conversation_history)
+                break
+
             except Exception as api_error:
                 # Stop spinner silently — retry status is buffered and
                 # only flushed when every retry+fallback is exhausted.
@@ -6794,6 +6806,9 @@ def run_conversation(
             _turn_exit_reason = "interrupted_during_api_call"
             break
 
+        if _turn_exit_reason == "okvevo_gateway_config":
+            break
+
         if _retry.restart_with_compressed_messages:
             api_call_count -= 1
             agent.iteration_budget.refund()
@@ -8575,6 +8590,15 @@ def run_conversation(
                     agent._safe_print(f"🎉 Conversation completed after {api_call_count} OpenAI-compatible API call(s)")
                 break
             
+        except OkvevoGatewayConfigError as config_error:
+            final_response = str(config_error)
+            _turn_exit_reason = "okvevo_gateway_config"
+            try:
+                agent._persist_session(messages, conversation_history)
+            except Exception:
+                pass
+            break
+
         except Exception as e:
             # Count every escaped exception against the per-turn bound before
             # classification — permanent failures must terminate even when the

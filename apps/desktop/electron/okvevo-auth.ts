@@ -4,9 +4,12 @@
  */
 
 export const AUTH_CALLBACK_KIND = 'auth-callback'
-export const DEFAULT_OKVEVO_WEB_ORIGIN = 'https://www.okvevo.com'
 export const OKVEVO_ID_TOKEN_FILENAME = 'okvevo-firebase-id-token'
 export const PENDING_TTL_MS = 10 * 60 * 1000
+export const OKVEVO_ORIGIN_MISSING_TITLE = 'OkVevo portal URL missing'
+export const OKVEVO_ORIGIN_MISSING_ERROR =
+  'Nia is missing the OkVevo portal URL. Set OKVEVO_WEB_ORIGIN in ~/.hermes/.env and restart Nia.'
+const PORTAL_PATH_RE = /^\/[A-Za-z0-9/_-]*$/
 
 export type OkvevoAuthPublic = {
   signedIn: boolean
@@ -40,7 +43,21 @@ export function resolveOkvevoWebOrigin(
     return 'http://localhost:3000'
   }
 
-  return DEFAULT_OKVEVO_WEB_ORIGIN
+  return ''
+}
+
+export function isAllowedOkvevoPortalPath(portalPath: string): boolean {
+  return PORTAL_PATH_RE.test(portalPath)
+}
+
+export function buildOkvevoPortalUrl(origin: string, portalPath: string): string | null {
+  const trimmed = origin.replace(/\/$/, '')
+
+  if (!trimmed || !isAllowedOkvevoPortalPath(portalPath)) {
+    return null
+  }
+
+  return `${trimmed}${portalPath}`
 }
 
 export function buildOkvevoLoginUrl(opts: { origin: string; protocol: string; state: string }): string {

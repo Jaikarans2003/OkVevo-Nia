@@ -160,16 +160,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | For each offered model: a request that triggers cache and/or reasoning produces a debit ≥ OpenRouter’s billed USD × `MARGIN`. Models not in that set are not selectable for gateway traffic. |
 | **Notes** | Logged 2026-09-05 with Phase 3. Phase 3 meters prompt+completion only. **Do not build this pass.** |
 
-### [ ] Production LLM gateway SSE unbuffered through Firebase Hosting
+### [ ] CI must inject OKVEVO_WEB_ORIGIN before the first signed release
 
 | Field | Value |
 |-------|-------|
-| **Gate** | Required before live |
-| **Risk if skipped** | Local `next dev` streams token-by-token, but Firebase Hosting CDN in front of Cloud Run may buffer SSE. Desktop chat would stall then dump. |
-| **Scope** | `OkVevo-Web/src/app/api/gateway/chat/completions/route.ts`, `firebase.json` `frameworksBackend` |
-| **Fix** | Confirm a deployed `https://www.okvevo.com/api/gateway/chat/completions` (or the testing host) streams unbuffered to the desktop agent. If the CDN buffers, bypass it for this route (Cloud Run URL or Cloudflare). |
-| **Verify** | Signed-in streamed chat against the **deployed** portal, not only localhost:3000 — tokens appear incrementally. |
-| **Notes** | Logged 2026-09-04 with Phase 3. Local `next dev` is the Phase 3 correctness bar. |
+| **Gate** | Required before live (hard dependency of the first signed `v*` tag) |
+| **Risk if skipped** | After origin fail-closed (no hardcoded `www.okvevo.com`), a Dock/Start-Menu packaged build has no shell env. Sign In, Upgrade, and the LLM gateway show a missing-config error instead of opening the portal. Testers and customers cannot sign in. |
+| **Scope** | `.github/workflows/desktop-release.yml`, `apps/desktop/scripts/bundle-electron-main.mjs` (or extraResources written at pack time), [ENVIRONMENT.md](ENVIRONMENT.md) |
+| **Fix** | The signed-release job must set `OKVEVO_WEB_ORIGIN` from CI env/secrets at pack time so the packaged app has a portal URL without a source-code domain fallback. Missing secret fails the job (same posture as signing secrets). Do **not** hardcode `www.okvevo.com` in `okvevo-auth.ts` / `okvevo_gateway.py` to “help” this. Runtime `~/.hermes/.env` may still override for local testing. |
+| **Verify** | 1) Release workflow with `OKVEVO_WEB_ORIGIN` unset → job fails. 2) Packaged app from a successful signed job: Sign In / Upgrade open that origin; `rg 'www.okvevo.com' apps/desktop/electron/okvevo-auth.ts agent/okvevo_gateway.py` → 0. 3) Packaged app with the var stripped still shows the visible missing-config dialog, not a silent domain. |
+| **Notes** | Logged 2026-09-05 with the env-centralize pass. Blocks first tagged release together with Mac notarize + Windows Authenticode. The signed-release pipeline is not built yet — this row exists so the injection is not forgotten among other gates. Env layout: [ENVIRONMENT.md](ENVIRONMENT.md). |
 
 ### [ ] Razorpay webhook still seeds old subscription credits (not users.creditBalance)
 
@@ -235,6 +235,8 @@ _(Move items here when done.)_
 
 | Item | Closed | Commit / PR |
 |------|--------|-------------|
+| Next.js 16.3 vs App Hosting Cloud Build adapter | 2026-09-05 | pending commit. `okvevo-web` live at `https://okvevo-web--okvevo-testing.us-central1.hosted.app`. Adapter compiled Next **16.3.3**. First Cloud Build fail was Razorpay module-load, not the adapter. |
+| Production LLM gateway SSE / Phase 3 checklist on App Hosting | 2026-09-05 | pending commit. Grant 10000 → streamed POST 200 `text/event-stream` + debit amount 1 (`creditBalance` 10000→9999) → zero-balance **402** `insufficient_quota` in 661ms. Signed-out BYOK: `test_okvevo_gateway.py` 8 passed. Cloud Run 300s unused; `minInstances` stayed 0. |
 | Desktop auto-update git remote Nous → OkVevo-Nia; packaged apps use electron-updater at releases.okvevo.com | 2026-09-01 | pending commit (see `docs/FINISH-SIGNED-RELEASE.md` for the first signed tag) |
 | First-install bootstrap clone/download URLs → OkVevo-Nia | 2026-08-31 | `07567979f4` |
 | Installer SOUL.md seed + legacy Hermes upgrade | 2026-08-31 | `07567979f4` |
