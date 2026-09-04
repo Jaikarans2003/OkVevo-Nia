@@ -119,6 +119,8 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
   })
 
   assert.equal(env.PYTHONPATH, '/repo/hermes-agent:/existing/pythonpath')
+  assert.equal(env.OKVEVO_FIREBASE_ID_TOKEN_FILE, '/Users/test/.hermes/okvevo-firebase-id-token')
+  assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://www.okvevo.com')
   assert.ok(
     env.PATH.startsWith(
       '/Users/test/.hermes/node/bin:/Users/test/.hermes/node:/Users/test/.hermes/hermes-agent/venv/bin:'
@@ -188,4 +190,40 @@ test('Windows PATH casing and delimiter are preserved without POSIX sane entries
 
 test('appendUniquePathEntries drops empty entries and keeps first occurrence', () => {
   assert.equal(appendUniquePathEntries([':/a::/b', ['/a', '/c']], { delimiter: ':' }), '/a:/b:/c')
+})
+
+test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)', () => {
+  const packaged = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin' },
+    platform: 'darwin',
+    pathModule: path.posix
+  })
+  assert.equal(packaged.OKVEVO_WEB_ORIGIN, 'https://www.okvevo.com')
+
+  const dev = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin' },
+    platform: 'darwin',
+    pathModule: path.posix,
+    devServer: true
+  })
+  assert.equal(dev.OKVEVO_WEB_ORIGIN, 'http://localhost:3000')
+
+  const fromEnv = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin', OKVEVO_WEB_ORIGIN: 'https://staging.example/' },
+    platform: 'darwin',
+    pathModule: path.posix,
+    devServer: true
+  })
+  assert.equal(fromEnv.OKVEVO_WEB_ORIGIN, 'https://staging.example')
+
+  const fromDevServerEnv = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin', HERMES_DESKTOP_DEV_SERVER: 'http://127.0.0.1:5174' },
+    platform: 'darwin',
+    pathModule: path.posix
+  })
+  assert.equal(fromDevServerEnv.OKVEVO_WEB_ORIGIN, 'http://localhost:3000')
 })

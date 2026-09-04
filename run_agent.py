@@ -5439,6 +5439,8 @@ class AIAgent:
             return primary_client
         with self._openai_client_lock():
             request_kwargs = dict(self._client_kwargs)
+        from agent.okvevo_gateway import apply_okvevo_gateway
+        apply_okvevo_gateway(request_kwargs)
         # Per-request OpenAI-wire clients (used by both the non-streaming
         # chat-completions path and the streaming chat-completions path
         # in `_interruptible_api_call`) should not run the SDK's built-in

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { $hapticsMuted, toggleHapticsMuted } from '@/store/haptics'
 import { toggleHud } from '@/store/hud'
 import { $panesFlipped, $sidebarOpen, togglePanesFlipped, toggleSidebarOpen } from '@/store/layout'
+import { useOkvevoAuth } from '@/store/okvevo-auth'
 import { $unreadSessionCount } from '@/store/session-dot-state'
 
 import { appViewForPath, isOverlayView } from '../routes'
@@ -76,6 +77,7 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
   const panesFlipped = useStore($panesFlipped)
   const sidebarOpen = useStore($sidebarOpen)
   const unreadCount = useStore($unreadSessionCount)
+  const okvevoAuth = useOkvevoAuth()
   const unreadBadge = unreadCount > 0 ? unreadCount : undefined
   const unreadHint = unreadBadge ? ` · ${t.titlebar.unreadSessions(unreadBadge)}` : ''
 
@@ -140,6 +142,24 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
       id: 'haptics',
       label: hapticsMuted ? t.titlebar.unmuteHaptics : t.titlebar.muteHaptics,
       onSelect: toggleHaptics
+    },
+    {
+      icon: <TitlebarIcon name="account" />,
+      id: 'okvevo-auth',
+      label: okvevoAuth.signedIn ? t.titlebar.signOut : t.titlebar.signIn,
+      title: okvevoAuth.signedIn
+        ? okvevoAuth.email
+          ? t.titlebar.signedInAs(okvevoAuth.email)
+          : t.titlebar.signOut
+        : t.titlebar.signIn,
+      onSelect: () => {
+        triggerHaptic('tap')
+        if (okvevoAuth.signedIn) {
+          void window.hermesDesktop?.signOutOkvevo?.()
+        } else {
+          void window.hermesDesktop?.startOkvevoSignIn?.()
+        }
+      }
     },
     {
       actionId: 'nav.settings',

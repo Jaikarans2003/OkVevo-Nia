@@ -7,8 +7,9 @@ import { Progress } from '@/components/ui/progress'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { BarChart3, CreditCard, ExternalLink, Package, Wrench } from '@/lib/icons'
+import { BarChart3, CreditCard, ExternalLink, LogIn, Package, Wrench } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import { useOkvevoAuth } from '@/store/okvevo-auth'
 
 import { useRouteEnumParam } from '../../hooks/use-route-enum-param'
 import {
@@ -48,12 +49,57 @@ const BILLING_VIEWS = ['overview', 'plans'] as const
 type BillingSubView = (typeof BILLING_VIEWS)[number]
 
 const FEATURE_BILLING_INVOICES = false
+const OKVEVO_BILLING_URL = 'https://www.okvevo.com/billing'
 
 const BILLING_DEV_FIXTURE_NAMES = import.meta.env.DEV
   ? (Object.keys(billingDevFixtures) as BillingDevFixtureName[])
   : []
 
 type BillingFixtureSelection = 'live' | BillingDevFixtureName
+
+function OkvevoAccountChrome() {
+  const auth = useOkvevoAuth()
+
+  return (
+    <SettingsSection icon={LogIn} title="OkVevo">
+      <ListRow
+        action={
+          <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 @2xl:justify-end">
+            {auth.signedIn ? (
+              <Button
+                onClick={() => void window.hermesDesktop?.signOutOkvevo?.()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Sign out
+              </Button>
+            ) : (
+              <Button
+                onClick={() => void window.hermesDesktop?.startOkvevoSignIn?.()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                Sign in
+              </Button>
+            )}
+            <Button onClick={() => openExternal(OKVEVO_BILLING_URL)} size="sm" type="button" variant="outline">
+              Upgrade
+              <ExternalLink className="size-3.5" />
+            </Button>
+          </div>
+        }
+        description={
+          auth.signedIn
+            ? 'Nia credits will show here once billing is live. Nous credits below are unchanged.'
+            : 'Sign in with your OkVevo account. Nous billing below is unchanged.'
+        }
+        title={auth.signedIn ? auth.email || 'Signed in' : 'Not signed in'}
+      />
+    </SettingsSection>
+  )
+}
 
 function SummaryCard({ label, value, tone }: { label: string; tone?: 'muted' | 'primary'; value: string }) {
   return (
@@ -469,6 +515,7 @@ function BillingSettingsContent({
     return (
       <SettingsContent>
         <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
+        <OkvevoAccountChrome />
         <BillingSkeleton />
       </SettingsContent>
     )
@@ -495,6 +542,7 @@ function BillingSettingsContent({
     return (
       <SettingsContent>
         <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
+        <OkvevoAccountChrome />
         <BillingPlansView onBack={() => setSubView('overview')} tiers={view.tiers} />
       </SettingsContent>
     )
@@ -503,6 +551,7 @@ function BillingSettingsContent({
   return (
     <SettingsContent>
       <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
+      <OkvevoAccountChrome />
 
       {view.notice && <NoticeCard notice={view.notice} />}
 

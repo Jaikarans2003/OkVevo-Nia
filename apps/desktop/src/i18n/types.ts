@@ -281,6 +281,9 @@ export interface Translations {
     muteHaptics: string
     unmuteHaptics: string
     openSettings: string
+    signIn: string
+    signOut: string
+    signedInAs: (email: string) => string
     openStarmap: string
     enterHud: string
     exitHud: string
@@ -2756,6 +2759,8 @@ export interface Translations {
       readAloud: string
       editMessage: string
       expandMessage: string
+      seeMore: string
+      seeLess: string
       scrollToBottom: string
       stop: string
       restorePrevious: string

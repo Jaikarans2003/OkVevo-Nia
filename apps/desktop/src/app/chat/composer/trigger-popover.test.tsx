@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
 import { ComposerTriggerPopover } from './trigger-popover'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
 
 function renderPopover(kind: '@' | '/', loading = false) {
   const onHover = vi.fn()
@@ -198,5 +204,18 @@ describe('ComposerTriggerPopover keyboard scrolling', () => {
     rerender(popover(1, onHover, [...items, slashItem('/fourth')]))
 
     expect(drawer.scrollTop).toBe(30)
+  })
+})
+
+describe('composer-root overflow vs completion drawer', () => {
+  // The drawer is `absolute; bottom:100%` inside composer-root. Clipping the
+  // root to its radius (overflow-hidden) paints the list at zero height.
+  it('keeps composer-root overflow-visible so `/` and `@` can paint above it', () => {
+    const composer = readFileSync(join(HERE, 'index.tsx'), 'utf8')
+    const styles = readFileSync(join(HERE, '../../../styles.css'), 'utf8')
+    const rootRule = styles.match(/\[data-slot='composer-root'\] \{[^}]+\}/)?.[0] ?? ''
+
+    expect(composer).toMatch(/overflow-visible rounded-\[var\(--composer-corner-radius\)\]/)
+    expect(rootRule).not.toMatch(/overflow:\s*hidden/)
   })
 })

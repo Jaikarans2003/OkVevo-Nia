@@ -1246,7 +1246,10 @@ export function ChatBar({
           />
           <ComposerPrimitive.Root
             className={cn(
-              'group/composer relative w-full overflow-visible rounded-3xl',
+              // overflow-visible: the `/` `@` `:` drawer is `absolute; bottom:100%`
+              // and must paint above this box. overflow-hidden clips it to nothing.
+              // The inner surface still clips to the radius.
+              'group/composer relative w-full overflow-visible rounded-[var(--composer-corner-radius)]',
               poppedOut && 'bg-transparent',
               dragging && 'cursor-grabbing select-none touch-none',
               // Native Wayland HUD: setBounds cannot position a top-level
@@ -1312,8 +1315,7 @@ export function ChatBar({
                 onDoubleClick={handleComposerToggle}
               />
             )}
-            <div className="relative w-full rounded-[inherit]">
-              {hudMode && busy && <span aria-hidden className="arc-border arc-composer" />}
+            <div className="relative w-full overflow-hidden rounded-[inherit]">
               <div
                 className={cn(
                   // grid-cols-[minmax(0,1fr)]: the implicit `auto` column sized
@@ -1441,7 +1443,7 @@ export function ChatBarFallback() {
   return (
     <div
       className={cn(
-        'group/composer absolute bottom-0 left-0 right-0 z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full rounded-3xl pt-2 pb-[var(--composer-shell-pad-block-end)]',
+        'group/composer absolute bottom-0 left-0 right-0 z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full rounded-[var(--composer-corner-radius)] pt-2 pb-[var(--composer-shell-pad-block-end)]',
         'bg-linear-to-b from-transparent to-background/55'
       )}
       data-slot="composer-root"

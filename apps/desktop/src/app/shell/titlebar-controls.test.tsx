@@ -34,6 +34,7 @@ describe('TitlebarControls', () => {
     expect(buttons).toHaveLength(SYSTEM_TOOL_COUNT)
     expect(within(cluster).getByRole('button', { name: 'HUD mode' })).toBeTruthy()
     expect(within(cluster).getByRole('button', { name: 'Mute haptics' })).toBeTruthy()
+    expect(within(cluster).getByRole('button', { name: 'Sign in' })).toBeTruthy()
     expect(within(cluster).getByRole('button', { name: 'Open settings' })).toBeTruthy()
   })
 })

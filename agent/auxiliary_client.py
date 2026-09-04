@@ -3080,25 +3080,37 @@ def _try_openrouter(explicit_api_key: str = None, model: str = None) -> Tuple[Op
     if not _is_free_model(or_model):
         _warn_paid_lane_once(or_model)
 
+    from agent.okvevo_gateway import apply_okvevo_gateway
+
     pool_present, entry = _select_pool_entry("openrouter")
     if pool_present:
         or_key = explicit_api_key or _pool_runtime_api_key(entry)
         if or_key:
             base_url = _pool_runtime_base_url(entry, OPENROUTER_BASE_URL) or OPENROUTER_BASE_URL
+            pool_kwargs = {"api_key": or_key, "base_url": base_url}
+            apply_okvevo_gateway(pool_kwargs)
             logger.debug("Auxiliary client: OpenRouter via pool")
-            return _create_openai_client(api_key=or_key, base_url=base_url,
-                           default_headers=build_or_headers()), or_model
+            return _create_openai_client(
+                api_key=pool_kwargs["api_key"],
+                base_url=pool_kwargs["base_url"],
+                default_headers=build_or_headers(),
+            ), or_model
         # Pool exists but is exhausted (no usable runtime key) — fall through to
         # the OPENROUTER_API_KEY env-var path rather than failing outright.
         logger.debug("Auxiliary client: OpenRouter pool exhausted, trying OPENROUTER_API_KEY")
 
     or_key = explicit_api_key or _scoped_key_env("OPENROUTER_API_KEY")
-    if not or_key:
+    env_kwargs = {"api_key": or_key or "", "base_url": OPENROUTER_BASE_URL}
+    apply_okvevo_gateway(env_kwargs)
+    if not env_kwargs["api_key"]:
         _mark_provider_unhealthy("openrouter", ttl=60)
         return None, None
     logger.debug("Auxiliary client: OpenRouter")
-    return _create_openai_client(api_key=or_key, base_url=OPENROUTER_BASE_URL,
-                   default_headers=build_or_headers()), or_model
+    return _create_openai_client(
+        api_key=env_kwargs["api_key"],
+        base_url=env_kwargs["base_url"],
+        default_headers=build_or_headers(),
+    ), or_model
 
 
 def _describe_openrouter_unavailable(model: str = None) -> str:

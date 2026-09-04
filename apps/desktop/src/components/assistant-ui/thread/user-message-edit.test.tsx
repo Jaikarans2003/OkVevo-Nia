@@ -81,23 +81,29 @@ describe('click-to-edit user message', () => {
 
     const bubble = await screen.findByRole('button', { name: 'Edit message' })
     const classes = bubble.className.split(/\s+/)
+    const column = document.querySelector('.human-message-with-todos-wrapper')
 
-    expect(classes).toContain('inline-flex')
+    expect(column?.className).toContain('max-w-[min(100%,var(--composer-width))]')
+    expect(column?.className).toContain('items-end')
+    expect(column?.className).not.toContain('w-full')
     expect(classes).toContain('w-fit')
     expect(classes).not.toContain('w-full')
-    expect(classes).not.toContain('flex')
+    expect(classes).not.toContain('inline-flex')
     expect(classes).toContain('items-start')
-    expect(classes).toContain('rounded-2xl')
-    expect(classes).not.toContain('rounded-full')
+    expect(classes).toContain('rounded-[var(--composer-corner-radius)]')
+    expect(classes).toContain('overflow-x-hidden')
+    expect(classes).toContain('whitespace-pre-wrap')
+    expect(classes).toContain('break-words')
+    expect(classes).not.toContain('rounded-3xl')
     expect(classes).not.toContain('self-end')
     expect(classes).not.toContain('ml-auto')
-    expect(classes.some(name => name.startsWith('max-w-[min(75%'))).toBe(true)
+    expect(classes.some(name => name.startsWith('max-w-[min(75%'))).toBe(false)
     expect(classes.some(name => name.startsWith('max-w-[min(85%'))).toBe(false)
 
     const base = USER_BUBBLE_BASE_CLASS.split(/\s+/)
-    expect(base).toContain('inline-flex')
+    expect(base).toContain('w-fit')
     expect(base).not.toContain('pr-9')
-    expect(base).not.toContain('flex')
+    expect(base).not.toContain('w-full')
   })
 
   it('opens the edit composer with the incremental runtime', async () => {
@@ -110,6 +116,12 @@ describe('click-to-edit user message', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-slot="aui_edit-composer-root"]')).toBeTruthy()
     })
+
+    const editWrapper = container.querySelector('.composer-human-message-container')
+
+    expect(editWrapper?.className).toContain('items-end')
+    expect(editWrapper?.className).not.toContain('w-full')
+    expect(editWrapper?.className).not.toContain('bg-(--ui-chat-surface-background)')
   })
 
   it('does not submit an inline edit while IME composition is active', async () => {

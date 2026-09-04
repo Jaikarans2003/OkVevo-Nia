@@ -1,5 +1,5 @@
 import { ActionBarPrimitive, BranchPickerPrimitive, MessagePrimitive, useAuiState } from '@assistant-ui/react'
-import { type FC, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { type FC, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import { DirectiveContent } from '@/components/assistant-ui/directive-text'
 import { messageAttachmentRefs, messageContentText } from '@/components/assistant-ui/thread/content'
@@ -53,6 +53,9 @@ export function StickyHumanMessageContainer({
   )
 }
 
+export const USER_BUBBLE_COLUMN_CLASS =
+  'flex max-w-[min(100%,var(--composer-width))] flex-col items-end gap-1.5'
+
 // Shared "user bubble" base. Both the read-only message and the inline
 // edit composer render the same right-aligned pill; they only differ in
 // cursor and padding-right (the read-only view reserves room for restore).
@@ -63,7 +66,9 @@ export function StickyHumanMessageContainer({
 // so without the carve-out, clicking a stuck bubble drags the window instead of
 // opening the edit composer.
 export const USER_BUBBLE_BASE_CLASS =
-  'composer-human-message relative inline-flex w-fit max-w-[min(75%,40rem)] flex-col items-start gap-1.5 overflow-y-auto rounded-2xl border-0 bg-[#2f2f2f] px-4 py-2 text-left [-webkit-app-region:no-drag]'
+  'composer-human-message relative flex w-fit max-w-full min-w-0 flex-col items-start gap-1.5 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words rounded-[var(--composer-corner-radius)] border-0 bg-[#2f2f2f] px-4 py-3 text-left [-webkit-app-region:no-drag]'
+
+const HUMAN_BUBBLE_CLAMP_LINES = 6
 
 export const USER_ACTION_ICON_BUTTON_CLASS =
   'grid place-items-center rounded-md bg-transparent text-(--ui-text-secondary) transition-colors hover:bg-(--ui-control-active-background) hover:text-foreground disabled:cursor-default disabled:text-(--ui-text-quaternary) disabled:opacity-70'
@@ -317,22 +322,25 @@ export const UserMessage: FC<{
     [react]
   )
 
-  // Sticky human bubbles clamp to ~2 lines with a soft fade so a long prompt
-  // doesn't dominate the viewport while the response streams underneath; the
-  // clamp lifts on hover / focus (see styles.css). We measure the *unclamped*
-  // inner wrapper so the ResizeObserver only fires on real content / width
-  // changes, not on every frame while the outer max-height animates open.
+  // Sticky human bubbles clamp to ~6 lines with a soft fade; See more/less or
+  // the edit composer lifts the cap. We measure the *unclamped* inner wrapper
+  // so the ResizeObserver only fires on real content / width changes, not on
+  // every frame while the outer max-height animates open.
   const clampInnerRef = useRef<HTMLDivElement | null>(null)
   const [bodyClamped, setBodyClamped] = useState(false)
   const lastClampHeightRef = useRef(-1)
   const lineHeightRef = useRef(0)
 
   // Watch windows spectate a subagent run driven elsewhere — prompts can't be
-  // edited, restored, or stopped from here. The bubble stays a button that
-  // toggles the 2-line clamp so long prompts are still fully readable.
+  // edited, restored, or stopped from here. The bubble still toggles clamp via
+  // See more/less (or a click on the bubble body in read-only mode).
   const readOnly = isWatchWindow()
   const [expanded, setExpanded] = useState(false)
-  const clampActive = !(readOnly && expanded)
+  const clampActive = bodyClamped && !expanded
+
+  useEffect(() => {
+    setExpanded(false)
+  }, [messageId])
 
   const measureClamp = useCallback((entries: readonly ResizeObserverEntry[]) => {
     const inner = clampInnerRef.current
@@ -363,7 +371,7 @@ export const UserMessage: FC<{
     }
 
     outer.style.setProperty('--human-msg-full', `${fullHeight}px`)
-    setBodyClamped(fullHeight > lineHeightRef.current * 2 + 1)
+    setBodyClamped(fullHeight > lineHeightRef.current * HUMAN_BUBBLE_CLAMP_LINES + 1)
   }, [])
 
   useResizeObserver(measureClamp, clampInnerRef)
@@ -427,6 +435,24 @@ export const UserMessage: FC<{
     </div>
   )
 
+  const toggleExpanded = useCallback((event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    triggerHaptic('selection')
+    setExpanded(value => !value)
+  }, [])
+
+  const seeMoreControl = bodyClamped ? (
+    <button
+      aria-expanded={expanded}
+      className="self-end px-1 py-0.5 text-[0.6875rem] leading-none text-muted-foreground/65 hover:text-muted-foreground"
+      onClick={toggleExpanded}
+      type="button"
+    >
+      {expanded ? copy.seeLess : copy.seeMore}
+    </button>
+  ) : null
+
   return (
     <MessagePrimitive.Root asChild>
       <StickyHumanMessageContainer
@@ -443,7 +469,7 @@ export const UserMessage: FC<{
         messageId={messageId}
       >
         <ActionBarPrimitive.Root className="relative flex w-full justify-end" data-slot="aui_user-bubble-actions">
-          <div className="human-message-with-todos-wrapper flex w-fit max-w-full flex-col gap-0">
+          <div className={cn('human-message-with-todos-wrapper flex flex-col gap-0', USER_BUBBLE_COLUMN_CLASS)}>
             <ReactionPicker
               onOpenChange={setPickerOpen}
               onSelect={pickEmoji}
@@ -451,7 +477,7 @@ export const UserMessage: FC<{
               selected={shownReactions.find(reaction => reaction.author === 'user')?.emoji}
             >
               <div
-                className="relative w-fit"
+                className="relative flex w-fit flex-col items-end gap-0.5"
                 // The app context menu skips PLAIN right-clicks here (the
                 // attr below) so this handler keeps the picker gesture; a
                 // link/image/selection inside the bubble still gets the app
@@ -526,6 +552,7 @@ export const UserMessage: FC<{
                     </button>
                   </ActionBarPrimitive.Edit>
                 )}
+                {seeMoreControl}
                 {(showStop || showRestore) && (
                   <div className="pointer-events-none absolute right-2 bottom-2 z-10 flex items-center justify-center opacity-0 transition-opacity group-hover/user-message:opacity-100 group-focus-within/user-message:opacity-100">
                     {showStop ? (

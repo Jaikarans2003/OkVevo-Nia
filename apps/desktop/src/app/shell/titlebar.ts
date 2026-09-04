@@ -7,8 +7,8 @@ export const TITLEBAR_CONTROL_SIZE = 24
 /** Codicon glyph box in titlebar clusters — optical match to traffic-light row. */
 export const TITLEBAR_ICON_SIZE = 13.9
 export const TITLEBAR_ICON_BADGE_SCALE = 0.65
-/** Visible static cluster on the right: HUD, haptics, settings. */
-export const SYSTEM_TOOL_COUNT = 3
+/** Visible static cluster on the right: HUD, haptics, OkVevo sign-in, settings. */
+export const SYSTEM_TOOL_COUNT = 4
 export const TITLEBAR_CONTROL_OFFSET_X = 74
 export const TITLEBAR_CONTROL_HEIGHT = TITLEBAR_CONTROL_SIZE
 export const TITLEBAR_CONTROLS_TOP = (TITLEBAR_HEIGHT - TITLEBAR_CONTROL_HEIGHT) / 2

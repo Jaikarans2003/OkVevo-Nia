@@ -68,6 +68,7 @@ def _clean_env(monkeypatch):
         "OPENAI_MODEL", "LLM_MODEL", "NOUS_INFERENCE_BASE_URL",
         "ANTHROPIC_API_KEY", "ANTHROPIC_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN",
         "NVIDIA_API_KEY", "NVIDIA_BASE_URL",
+        "OKVEVO_FIREBASE_ID_TOKEN_FILE", "OKVEVO_WEB_ORIGIN",
     ):
         monkeypatch.delenv(key, raising=False)
     # Module-level unhealthy cache (10-min TTL) leaks between tests;
@@ -987,6 +988,20 @@ class TestExplicitProviderRouting:
         mock_openai.assert_called_once()
         assert mock_openai.call_args.kwargs["api_key"] == "sk-or-env-fallback"
         assert mock_openai.call_args.kwargs["base_url"] == OPENROUTER_BASE_URL
+
+    def test_try_openrouter_builds_without_env_key_when_gateway_token(self, monkeypatch, tmp_path):
+        tok = tmp_path / "tok"
+        tok.write_text("idt-aux", encoding="utf-8")
+        monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(tok))
+        monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "http://localhost:3000")
+        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)), \
+             patch("agent.auxiliary_client.OpenAI") as mock_openai:
+            mock_client = MagicMock(name="gateway_client")
+            mock_openai.return_value = mock_client
+            client, _model = _try_openrouter()
+        assert client is mock_client
+        assert mock_openai.call_args.kwargs["api_key"] == "idt-aux"
+        assert mock_openai.call_args.kwargs["base_url"] == "http://localhost:3000/api/gateway"
 
 
 class TestOpenRouterPaidLaneGuard:

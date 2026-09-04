@@ -38,7 +38,7 @@ describe('a sent reference renders as the chip the composer showed', () => {
     }
   })
 
-  it('wraps with break-words instead of wrap-anywhere', () => {
+  it('wraps with break-words on the bubble shell, not w-max width hacks', () => {
     render(<UserMessageText text="Hi" />)
 
     const root = document.querySelector('[data-slot="aui_user-message-text"]')
@@ -46,12 +46,30 @@ describe('a sent reference renders as the chip the composer showed', () => {
 
     expect(root?.className.split(/\s+/)).not.toContain('wrap-anywhere')
     expect(inline?.className.split(/\s+/)).not.toContain('wrap-anywhere')
-    expect(root?.className.split(/\s+/)).toContain('w-max')
-    expect(root?.className.split(/\s+/)).toContain('max-w-full')
-    expect(inline?.className.split(/\s+/)).toContain('w-max')
-    expect(inline?.className.split(/\s+/)).toContain('max-w-full')
+    expect(root?.className.split(/\s+/)).not.toContain('w-max')
+    expect(inline?.className.split(/\s+/)).not.toContain('w-max')
     expect(inline?.className.split(/\s+/)).toContain('break-words')
-    expect(inline?.className.split(/\s+/)).toContain('whitespace-normal')
+  })
+
+  it('breaks a long unspaced token without horizontal overflow', () => {
+    const longUrl =
+      'https://example.com/very/long/path/with/no/break/points?query=abcdef0123456789abcdef0123456789abcdef0123456789'
+
+    render(<UserMessageText text={longUrl} />)
+
+    const inline = document.querySelector('[data-slot="aui_user-inline-text"]')
+
+    expect(inline?.className.split(/\s+/)).toContain('break-words')
+
+    const host = document.createElement('div')
+    host.style.width = '320px'
+    host.append(inline!.cloneNode(true))
+    document.body.append(host)
+
+    const measured = host.firstElementChild as HTMLElement
+    expect(measured.scrollWidth).toBeLessThanOrEqual(measured.clientWidth + 1)
+
+    host.remove()
   })
 
   it('still renders a genuine code span as code', () => {

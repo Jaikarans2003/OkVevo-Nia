@@ -477,7 +477,11 @@
        root element at runtime (an ungated leva slider default), so this 0.6
        only ever applied to the windows that don't mount the backdrop. Pinned
        to the value the app actually renders at. */
+    /* Semantic Tailwind rounded-sm…rounded-4xl multiply by this (rounded-3xl →
+       6.4px at 16px root). Composer/bubbles/HUD use --composer-corner-radius
+       instead — unscaled, not tied to --radius-scalar. */
     --radius-scalar: 0.2;
+    --composer-corner-radius: 1.5rem;
 
     /* Space under last message vs overlay composer — driven by the measured composer DOCK height (see
        composer/index.tsx), which covers the micro-action strip, the status stack, the composer, and the
@@ -1179,7 +1183,7 @@
 :root.dark .arc-border.arc-composer {
   --arc-width: 2px;
   --arc-standoff: 0rem;
-  --arc-radius: 0.75rem;
+  --arc-radius: 1.5rem;
   --arc-c2: color-mix(in srgb, var(--arc-c1) 45%, transparent);
   z-index: 6;
 }
@@ -1583,13 +1587,12 @@ body.guest-pointer-lock :is(webview, iframe) {
   line-height: var(--human-msg-line-height);
 }
 
-/* Sticky human bubbles clamp to ~2 lines with a soft bottom fade so a long
-   prompt doesn't dominate the viewport. The clamp lifts only in the edit
-   composer; expanding on read-only :focus-within ran on mousedown (before the
-   swap) and fought stick-to-bottom when parked at the bottom. */
+/* Sticky human bubbles clamp to ~6 lines with a soft bottom fade so a long
+   prompt doesn't dominate the viewport. See more/less or the edit composer
+   lifts the cap; read-only watch windows toggle via expand state. */
 .sticky-human-clamp {
   cursor: pointer;
-  max-height: calc(4 * var(--human-msg-line-height) * var(--conversation-text-font-size) + 0.15rem);
+  max-height: calc(6 * var(--human-msg-line-height) * var(--conversation-text-font-size) + 0.15rem);
   overflow: hidden;
 }
 
@@ -1736,12 +1739,12 @@ body.guest-pointer-lock :is(webview, iframe) {
   backdrop-filter: blur(0.75rem) saturate(1.08);
   background: linear-gradient(
     to bottom,
-    transparent 0%,
-    color-mix(in srgb, var(--ui-chat-surface-background) 55%, transparent) 42%,
-    color-mix(in srgb, var(--ui-chat-surface-background) 94%, transparent) 100%
+    color-mix(in srgb, var(--ui-chat-surface-background) 35%, transparent) 0%,
+    color-mix(in srgb, var(--ui-chat-surface-background) 72%, transparent) 55%,
+    color-mix(in srgb, var(--ui-chat-surface-background) 98%, transparent) 100%
   );
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 38%);
-  mask-image: linear-gradient(to bottom, transparent 0%, black 38%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 18%);
 }
 
 [data-slot='composer-root'] {
@@ -1798,8 +1801,8 @@ body.guest-pointer-lock :is(webview, iframe) {
    the transparent grab margin on hover (and stays while dragging) to signal the
    composer is draggable. Inherits the root radius so it clips to the corners. */
 [data-slot='composer-drag-region'] {
-  /* Hatch frame radius (tuned by hand). */
-  border-radius: 0.4rem;
+  /* Match the pill — 0.4rem left square corners bleeding past rounded-full ends. */
+  border-radius: inherit;
   opacity: 0;
   transition: opacity 150ms ease;
   background-image: repeating-linear-gradient(
@@ -2712,7 +2715,7 @@ button[data-slot='aui_msg-reactions'] svg {
   flex: none !important;
   border: 0 !important;
   /* Rounded away from the bar, square where it meets it. */
-  border-radius: 0.75rem 0.75rem 0 0;
+  border-radius: 1.5rem 1.5rem 0 0;
   background: transparent !important;
   /* Three opacity states: gone at rest, half strength when a turn is recent or
      you've just let go of the composer (there to glance at, not to demand
@@ -2773,7 +2776,7 @@ button[data-slot='aui_msg-reactions'] svg {
   left: var(--hud-band-inset);
   z-index: 0;
   pointer-events: none;
-  border-radius: 0.75rem 0.75rem 0 0;
+  border-radius: 1.5rem 1.5rem 0 0;
   background: rgb(12 14 18 / 0.62);
   /* Slides down behind the bar as it fades. A TRANSFORM, not height: it is
      composited, so it stays smooth where animating height re-lays-out the panel
@@ -2781,7 +2784,7 @@ button[data-slot='aui_msg-reactions'] svg {
      because the one time the transcript's own container was collapsed the
      messages spilled out of a zero-height box. Translate rather than scale: the
      panel keeps its proportions on the way out instead of being squashed.
- 
+
      The height below still tracks the transcript; only the offset animates on
      exit, and it finishes ahead of the fade so the panel has left while the last
      of the text is still going. */
@@ -2845,11 +2848,11 @@ button[data-slot='aui_msg-reactions'] svg {
    radius set here unqualified wins everywhere and rounds the corners that meet
    the bar while squaring the free ones. */
 :root[data-hermes-glass-on] [data-hud-shell] [data-hud-glass] {
-  border-radius: 0.75rem 0.75rem 0 0;
+  border-radius: 1.5rem 1.5rem 0 0;
 }
 
 :root[data-hermes-glass-on] [data-hud-shell][data-hud-edge='top'] [data-hud-glass] {
-  border-radius: 0 0 0.75rem 0.75rem;
+  border-radius: 0 0 1.5rem 1.5rem;
 }
 
 /* Engaged, the field steps up the same way the docked thread's does — but
@@ -2874,7 +2877,7 @@ button[data-slot='aui_msg-reactions'] svg {
   top: var(--hud-bar-height, var(--composer-fallback-height));
   bottom: auto;
   --hud-exit-shift: -2.5rem;
-  border-radius: 0 0 0.75rem 0.75rem;
+  border-radius: 0 0 1.5rem 1.5rem;
 }
 
 /* WHAT ANSWERS THE CURSOR — and, because `useHudClickThrough` hands the window
@@ -2969,6 +2972,7 @@ button[data-slot='aui_msg-reactions'] svg {
      bar. With no sheet to end on, a hard edge reads as text sliced off; the
      fade says "there is more above" the way a game's chat log does. */
   --hud-top-fade: 3.5rem;
+  overflow: hidden !important;
 }
 
 /* The mask has to ride the SCROLLER, not the band. `composer-bounds` is a
@@ -3072,23 +3076,7 @@ button[data-slot='aui_msg-reactions'] svg {
    when engaged. ONE variable carries the fill so there is no specificity fight
    between rest/engaged rules — the states just move the var. */
 [data-hud-shell] {
-  /* At rest there is no bubble: unfocused, the band is bare text over someone
-     else's window, and a card around your own lines is the one thing in it
-     that still reads as an app. The words stay (they are the log); the
-     container stops being drawn. */
-  --hud-bubble-fill: transparent;
-  --hud-bubble-stroke: transparent;
-}
-
-/* ONE opacity law for the whole band: solid on focus, material otherwise.
-   Bubbles going solid on `recent` too made them opaque cards floating on the
-   62% band mid-stream — the band only steps solid on focus, so nothing inside
-   it may step earlier. */
-/* No bubble in the HUD, ever. The band's ink already distinguishes the two
-   voices (white agent / gold yours), and a light card behind gold text is the
-   one thing in here that fights the overlay's own contrast. */
-[data-hud-shell]:has([data-slot='composer-rich-input']:focus) {
-  --hud-bubble-fill: transparent;
+  --hud-bubble-fill: #2f2f2f;
   --hud-bubble-stroke: transparent;
 }
 
@@ -3099,6 +3087,20 @@ button[data-slot='aui_msg-reactions'] svg {
      like everything else (the app keeps its sticky behavior — this is the
      HUD's call, not a global one). */
   position: static !important;
+  /* The docked sticky row breaks out with w-[calc(100%+2rem)] -mx-4; in a
+     narrow band that spills past the rounded sheet (branch-picker chrome was
+     showing as stray "| true" off the right edge). */
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Checkpoint / branch-picker chrome is for the full transcript, not a
+   three-line HUD log — and its divider leaks when the band clips. */
+[data-hud-shell] .checkpoint-container {
+  display: none !important;
 }
 
 /* User bubbles: the ONE thing in the band that paints its own opaque fill
@@ -3113,6 +3115,7 @@ button[data-slot='aui_msg-reactions'] svg {
 [data-hud-shell] .composer-human-message {
   background: var(--hud-bubble-fill) !important;
   border-color: var(--hud-bubble-stroke) !important;
+  border-radius: var(--composer-corner-radius) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   transition:
@@ -3170,7 +3173,7 @@ button[data-slot='aui_msg-reactions'] svg {
 [data-hud-shell][data-hud-edge='top'] [data-slot='composer-bounds'] {
   top: var(--hud-bar-height, var(--composer-fallback-height)) !important;
   bottom: auto !important;
-  border-radius: 0 0 0.75rem 0.75rem;
+  border-radius: 0 0 1.5rem 1.5rem;
 }
 
 /* …so the edge it falls back from is the bar's, which is now above it. */
@@ -3283,6 +3286,12 @@ button[data-slot='aui_msg-reactions'] svg {
   pointer-events: auto;
 }
 
+/* Main-window dock frost is a 100vw gradient slab — on a transparent HUD window
+   it paints rectangular ears beside the pill. Composer-root is the only fill. */
+[data-hud-shell] [data-slot='composer-dock']::before {
+  content: none !important;
+}
+
 /* HUD mode is the input and the log — nothing else. The dock stacks
    [micro-action pills] · [status stack] · [composer] · [underside slot], and
    only the composer belongs here: the status stack (todos, subagents,
@@ -3333,8 +3342,8 @@ button[data-slot='aui_msg-reactions'] svg {
    stranded at the bottom. */
 [data-hud-shell] [data-slot='composer-dock'],
 [data-hud-shell] [data-slot='composer-dock'][data-popped-out] {
-  left: 0 !important;
-  right: 0 !important;
+  left: var(--hud-band-inset) !important;
+  right: var(--hud-band-inset) !important;
   bottom: 0 !important;
   top: auto !important;
   width: 100% !important;
@@ -3367,6 +3376,7 @@ button[data-slot='aui_msg-reactions'] svg {
      inside its own float. */
   padding: 0 !important;
   width: 100% !important;
+  border-radius: var(--composer-corner-radius) !important;
 }
 
 /* The composer surface paints TWO layers: the surface itself, plus an
@@ -3386,12 +3396,8 @@ button[data-slot='aui_msg-reactions'] svg {
    breathing belongs to the thread and the chat surface; the bar just sits
    there, solid, like Spotlight does. */
 [data-hud-shell] [data-slot='composer-surface'] {
-  border: 1px solid var(--ui-stroke-secondary) !important;
-  /* Same radius as the band's top and the window's own corners, so the HUD
-     reads as one object however the band is behaving. Its top corners let a
-     sliver of band through, which is the point — the glass wraps the bar's
-     shoulders instead of stopping in a straight line above it. */
-  border-radius: 0.75rem !important;
+  border: 1px solid color-mix(in srgb, var(--ui-stroke-secondary) 45%, transparent) !important;
+  border-radius: var(--composer-corner-radius) !important;
   background: var(--dt-card) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -3399,16 +3405,29 @@ button[data-slot='aui_msg-reactions'] svg {
      without it the HUD reads as pasted onto the other app — and tight enough
      that it never becomes a glow around a floating card. */
   box-shadow: 0 2px 2px -1px rgb(0 0 0 / 0.12) !important;
-  transition: border-color var(--hud-reveal) var(--hud-ease-enter);
+  transition:
+    border-color var(--hud-reveal) var(--hud-ease-enter),
+    box-shadow var(--hud-reveal) var(--hud-ease-enter);
 }
 
-/* Focus: the border the bar already has, in the accent. Everything with its own
-   geometry is out — the bar sits flush against the window, so a ring or a
-   shadow is sawn off by the window before any CSS can shape it, and paying for
-   the clearance moves the bar. Recolouring what is already drawn costs no
-   space, cannot be clipped, and leaves the working arc as the only ring. */
+/* HUD composer: same resting chrome when focused — no ring or stroke step. */
 [data-hud-shell]:has([data-slot='composer-rich-input']:focus) [data-slot='composer-surface'] {
-  border-color: var(--dt-primary) !important;
+  border-color: color-mix(in srgb, var(--ui-stroke-secondary) 45%, transparent) !important;
+  box-shadow: 0 2px 2px -1px rgb(0 0 0 / 0.12) !important;
+}
+
+/* Composer surface — neutral rest/focus skin (HUD overrides below with !important). */
+[data-slot='composer-surface'] {
+  border: 1px solid color-mix(in srgb, var(--ui-stroke-secondary) 45%, transparent);
+  transition:
+    border-color 200ms ease-out,
+    box-shadow 200ms ease-out;
+}
+
+/* Docked app: no focus chrome on the composer surface — caret is enough. */
+:not([data-hud-shell]) [data-slot='composer-surface']:has([data-slot='composer-rich-input']:focus) {
+  border-color: color-mix(in srgb, var(--ui-stroke-secondary) 45%, transparent);
+  box-shadow: none;
 }
 
 /* GAME OVERLAY — a fullscreen app owns the screen (data-hud-game, pushed by

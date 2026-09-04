@@ -24,20 +24,22 @@ function mountHudDock() {
   `
 }
 
-function hudComposerHideCss(full: string): string {
-  const start = full.indexOf('/* HUD mode is the input and the log')
-  const end = full.indexOf('/* The composer is the Spotlight bar')
+function hudComposerCss(full: string): string {
+  const hideStart = full.indexOf('/* HUD mode is the input and the log')
+  const hideEnd = full.indexOf('/* The composer is the Spotlight bar')
+  const dockStart = full.indexOf('[data-hud-shell] [data-slot=\'composer-dock\'] {')
+  const composerStart = full.indexOf('[data-hud-shell] [data-slot=\'composer-root\'] {')
 
-  if (start < 0 || end < 0) {
-    throw new Error('HUD composer hide rules not found in styles.css')
+  if (hideStart < 0 || hideEnd < 0 || dockStart < 0 || composerStart < 0) {
+    throw new Error('HUD composer rules not found in styles.css')
   }
 
-  return full.slice(start, end)
+  return `${full.slice(hideStart, hideEnd)}${full.slice(dockStart, composerStart + 400)}`
 }
 
 beforeAll(() => {
   const style = document.createElement('style')
-  style.textContent = hudComposerHideCss(readFileSync(STYLES, 'utf8'))
+  style.textContent = hudComposerCss(readFileSync(STYLES, 'utf8'))
   document.head.append(style)
 })
 
@@ -58,5 +60,13 @@ describe('HUD composer visibility', () => {
     expect(getComputedStyle(status).display).toBe('none')
     expect(getComputedStyle(underside).display).toBe('none')
     expect(getComputedStyle(disclaimer).display).toBe('none')
+  })
+
+  it('disables the dock frost pseudo-element in HUD mode', () => {
+    const css = readFileSync(STYLES, 'utf8')
+
+    expect(css).toMatch(
+      /\[data-hud-shell\] \[data-slot='composer-dock'\]::before[\s\S]*?content:\s*none\s*!important/
+    )
   })
 })

@@ -28,6 +28,7 @@ describe('normalizeHermesOpenString', () => {
   it('rejects reserved hermes kinds and unsafe paths', () => {
     expect(normalizeHermesOpenString('hermes://blueprint/morning-brief')).toBeNull()
     expect(normalizeHermesOpenString('hermes://plugin/install')).toBeNull()
+    expect(normalizeHermesOpenString('hermes://auth-callback?code=x&state=y')).toBeNull()
     expect(normalizeHermesOpenString('https://example.com/x')).toBeNull()
     expect(normalizeHermesOpenString('/../etc/passwd')).toBeNull()
     expect(normalizeHermesOpenString('index-network')).toBeNull()
@@ -59,5 +60,6 @@ describe('pathFromHermesDeepLink', () => {
   it('ignores reserved kinds', () => {
     expect(pathFromHermesDeepLink('blueprint', 'morning-brief')).toBeNull()
     expect(pathFromHermesDeepLink('plugin', 'install')).toBeNull()
+    expect(pathFromHermesDeepLink('auth-callback', 'unused', { code: 'x', state: 'y' })).toBeNull()
   })
 })

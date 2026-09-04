@@ -452,6 +452,12 @@ declare global {
       onDeepLink?: (
         callback: (payload: { kind: string; name: string; params: Record<string, string> }) => void
       ) => () => void
+      startOkvevoSignIn?: () => Promise<{ ok: boolean }>
+      signOutOkvevo?: () => Promise<{ signedIn: boolean; uid: string | null; email: string | null }>
+      getOkvevoAuth?: () => Promise<{ signedIn: boolean; uid: string | null; email: string | null }>
+      onOkvevoAuth?: (
+        callback: (snapshot: { signedIn: boolean; uid: string | null; email: string | null }) => void
+      ) => () => void
       signalDeepLinkReady?: () => Promise<{ ok: boolean }>
       probePluginRepo?: (payload: { identifier?: string; repo?: string }) => Promise<{
         ok: boolean

@@ -27,9 +27,9 @@ describe('titlebar sizing', () => {
     expect(titlebarToolsWidthCss(4)).toBe('calc(4 * var(--titlebar-control-size))')
   })
 
-  it('counts three visible system tools (hud, haptics, settings)', () => {
-    expect(SYSTEM_TOOL_COUNT).toBe(3)
-    expect(titlebarToolsWidthCss(SYSTEM_TOOL_COUNT)).toBe('calc(3 * var(--titlebar-control-size))')
+  it('counts four visible system tools (hud, haptics, sign-in, settings)', () => {
+    expect(SYSTEM_TOOL_COUNT).toBe(4)
+    expect(titlebarToolsWidthCss(SYSTEM_TOOL_COUNT)).toBe('calc(4 * var(--titlebar-control-size))')
   })
 })
 

@@ -258,6 +258,7 @@ import {
   resolveReadinessProbeAuth
 } from './native-auth-decisions'
 import {
+  generateState,
   nativeRefreshUrl,
   type NativeTokenSet,
   parseTokenResponse,
@@ -266,6 +267,30 @@ import {
 } from './native-oauth'
 import { runNativeLogin } from './native-oauth-login'
 import { loadNativeTokenSet, type NativeTokenStoreIo, persistNativeTokenSet } from './native-token-store'
+import {
+  hermesProtocolForDev,
+  okvevoIdTokenFilePath,
+  parseHermesAuthCallback,
+  publicOkvevoAuthSnapshot,
+  refreshDelayMs,
+  resolveOkvevoWebOrigin,
+  shouldDeliverDeepLinkToRenderer
+} from './okvevo-auth'
+import {
+  completeOkvevoAuthCallback,
+  refreshOkvevoAuth,
+  signOutOkvevo,
+  startOkvevoSignIn,
+  type OkvevoAuthFlowDeps
+} from './okvevo-auth-flow'
+import {
+  loadOkvevoAuthPending,
+  loadOkvevoAuthSession,
+  persistOkvevoAuthPending,
+  persistOkvevoAuthSession,
+  rewriteOkvevoAuthSecret,
+  type OkvevoAuthStoreIo
+} from './okvevo-auth-store'
 import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
 import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition'
 import { createParentStartMarkerResolver, parentWatchdogEnv } from './parent-process-identity'
@@ -2267,7 +2292,7 @@ function unwrapWindowsVenvHermesCommand(command, backendArgs) {
     canImportHermesCli,
     getVenvPython,
     getVenvSitePackagesEntries,
-    buildDesktopBackendEnv,
+    buildDesktopBackendEnv: opts => buildDesktopBackendEnv({ ...opts, devServer: Boolean(DEV_SERVER) }),
     hermesHome: HERMES_HOME,
     resolvePath: (...segments) => path.resolve(...segments),
     dirname: p => path.dirname(p),
@@ -4600,7 +4625,8 @@ function createPythonBackend(root, label, backendArgs, options: any = {}) {
     env: buildDesktopBackendEnv({
       hermesHome: HERMES_HOME,
       pythonPathEntries: [root, ...getVenvSitePackagesEntries(venvRoot)],
-      venvRoot
+      venvRoot,
+      devServer: Boolean(DEV_SERVER)
     }),
     root,
     bootstrap: Boolean(options.bootstrap),
@@ -4624,7 +4650,8 @@ function createActiveBackend(backendArgs) {
     env: buildDesktopBackendEnv({
       hermesHome: HERMES_HOME,
       pythonPathEntries: [ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
-      venvRoot: VENV_ROOT
+      venvRoot: VENV_ROOT,
+      devServer: Boolean(DEV_SERVER)
     }),
     root: ACTIVE_HERMES_ROOT,
     bootstrap: true,
@@ -7443,6 +7470,138 @@ function _clearNativeTokens(baseUrl: string) {
   _persistNativeTokens(baseUrl, null)
 }
 
+// ---------------------------------------------------------------------------
+// OkVevo portal sign-in (hermes://auth-callback). Tokens stay in main;
+// renderer sees uid/email/signedIn only.
+// ---------------------------------------------------------------------------
+
+function _okvevoAuthStorePath() {
+  return path.join(app.getPath('userData'), 'okvevo-auth.json')
+}
+
+function _okvevoAuthStoreIo(): OkvevoAuthStoreIo {
+  return {
+    encrypt: encryptDesktopSecret,
+    decrypt: decryptDesktopSecret,
+    readStoreText: () => fs.readFileSync(_okvevoAuthStorePath(), 'utf8'),
+    writeStoreText: text => writeSecretFileAtomic(_okvevoAuthStorePath(), text, { encoding: 'utf8' }),
+    rememberLog
+  }
+}
+
+function _okvevoIdTokenPath() {
+  return okvevoIdTokenFilePath(HERMES_HOME, (...parts) => path.join(...parts))
+}
+
+function _writeOkvevoIdTokenFile(idToken: string) {
+  const target = _okvevoIdTokenPath()
+
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  writeSecretFileAtomic(target, idToken, { encoding: 'utf8' })
+}
+
+function _clearOkvevoIdTokenFile() {
+  try {
+    fs.rmSync(_okvevoIdTokenPath(), { force: true })
+  } catch (error) {
+    rememberLog(`[okvevo-auth] clear token file failed: ${error.message}`)
+  }
+}
+
+function _notifyOkvevoAuth(snapshot) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('hermes:okvevo-auth', snapshot)
+  }
+}
+
+function _okvevoAuthFlowDeps(): OkvevoAuthFlowDeps {
+  const io = _okvevoAuthStoreIo()
+
+  return {
+    now: () => Date.now(),
+    generateState,
+    protocol: hermesProtocolForDev(Boolean(DEV_SERVER)),
+    webOrigin: resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) }),
+    postJson: (url, body) => postJsonNoAuth(url, body, { timeoutMs: 15_000 }),
+    openExternal: async url => {
+      if (!openExternalUrl(url)) {
+        throw new Error('Invalid external URL')
+      }
+    },
+    persistSession: session => persistOkvevoAuthSession(session, io),
+    loadSession: () => loadOkvevoAuthSession(io),
+    setPending: pending => persistOkvevoAuthPending(pending, io),
+    getPending: () => loadOkvevoAuthPending(io),
+    writeIdTokenFile: _writeOkvevoIdTokenFile,
+    clearIdTokenFile: _clearOkvevoIdTokenFile,
+    rememberLog,
+    onChange: _notifyOkvevoAuth
+  }
+}
+
+let _okvevoRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let _pendingAuthCallback: { code: string; state: string } | null = null
+
+function _scheduleOkvevoRefresh() {
+  if (_okvevoRefreshTimer) {
+    clearTimeout(_okvevoRefreshTimer)
+    _okvevoRefreshTimer = null
+  }
+
+  const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+  if (!session) {
+    return
+  }
+
+  _okvevoRefreshTimer = setTimeout(() => {
+    void refreshOkvevoAuth(_okvevoAuthFlowDeps())
+      .then(() => _scheduleOkvevoRefresh())
+      .catch(error => rememberLog(`[okvevo-auth] refresh failed: ${error instanceof Error ? error.message : String(error)}`))
+  }, refreshDelayMs(session.expiresAt))
+}
+
+function _hydrateOkvevoAuthFromDisk() {
+  const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+  if (!session?.idToken) {
+    return
+  }
+
+  try {
+    _writeOkvevoIdTokenFile(session.idToken)
+  } catch (error) {
+    rememberLog(`[okvevo-auth] write id token file failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  _scheduleOkvevoRefresh()
+}
+
+async function _finishOkvevoAuthCallback(code: string, state: string) {
+  try {
+    await completeOkvevoAuthCallback(code, state, _okvevoAuthFlowDeps())
+    _scheduleOkvevoRefresh()
+  } catch (error) {
+    rememberLog(`[okvevo-auth] callback failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+function _focusMainWindow() {
+  try {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return
+    }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+
+    mainWindow.focus()
+  } catch (err) {
+    rememberLog(`[okvevo-auth] focus failed: ${err.message}`)
+  }
+}
+
 // True when we hold native bearer tokens for this gateway (the native-flow
 // analogue of hasLiveOauthSession's cookie check).
 function hasNativeSession(baseUrl: string): boolean {
@@ -8504,6 +8663,14 @@ function rewriteAllStoredSecrets(shouldRewrite: (secret: any) => boolean, reenco
     }
   } catch {
     // Missing/corrupt native token store: nothing to rewrite.
+  }
+
+  try {
+    if (rewriteOkvevoAuthSecret(shouldRewrite, reencode, _okvevoAuthStoreIo())) {
+      touched = true
+    }
+  } catch {
+    // Missing/corrupt OkVevo auth store: nothing to rewrite.
   }
 
   return touched
@@ -16597,6 +16764,23 @@ ipcMain.handle('hermes:openExternal', (_event, url) => {
   }
 })
 
+ipcMain.handle('hermes:okvevo-auth:start', async () => {
+  await startOkvevoSignIn(_okvevoAuthFlowDeps())
+
+  return { ok: true }
+})
+
+ipcMain.handle('hermes:okvevo-auth:sign-out', () => {
+  if (_okvevoRefreshTimer) {
+    clearTimeout(_okvevoRefreshTimer)
+    _okvevoRefreshTimer = null
+  }
+
+  return signOutOkvevo(_okvevoAuthFlowDeps())
+})
+
+ipcMain.handle('hermes:okvevo-auth:get', () => publicOkvevoAuthSnapshot(loadOkvevoAuthSession(_okvevoAuthStoreIo())))
+
 // ── Find-in-page (Ctrl/Cmd+F) ─────────────────────────────────────────────
 // The desktop supports multiple BrowserWindows (one primary plus any
 // per-session secondary windows spawned via `hermes:window:openSession`).
@@ -17143,6 +17327,30 @@ function handleDeepLink(url) {
   })
   const payload = { kind, name, params }
 
+  // One-time login code never leaves main — do not queue or IPC it.
+  if (!shouldDeliverDeepLinkToRenderer(kind)) {
+    const cb = parseHermesAuthCallback(url)
+
+    if (!cb) {
+      rememberLog('[deeplink] auth-callback missing code/state')
+
+      return
+    }
+
+    rememberLog('[deeplink] auth-callback intercepted (not forwarded)')
+
+    if (!app.isReady()) {
+      _pendingAuthCallback = cb
+
+      return
+    }
+
+    void _finishOkvevoAuthCallback(cb.code, cb.state)
+    _focusMainWindow()
+
+    return
+  }
+
   if (!_rendererReadyForDeepLink || !mainWindow || mainWindow.isDestroyed()) {
     _pendingDeepLink = payload
 
@@ -17267,6 +17475,7 @@ app.whenReady().then(() => {
   // Settings → Gateway. Must run before createWindow() and the first
   // connection resolution.
   migrateLegacyEncryptedSecretsOnce()
+  _hydrateOkvevoAuthFromDisk()
 
   if (IS_MAC) {
     Menu.setApplicationMenu(buildApplicationMenu())
@@ -17313,6 +17522,12 @@ app.whenReady().then(() => {
   // captured by the original transaction before removing the journal entry.
   void resumeManagedSshRecoveries()
   createWindow()
+
+  if (_pendingAuthCallback) {
+    const cb = _pendingAuthCallback
+    _pendingAuthCallback = null
+    void _finishOkvevoAuthCallback(cb.code, cb.state)
+  }
 
   // Win/Linux cold start: the launching hermes:// URL is in our own argv.
   const _coldStartLink = _extractDeepLink(process.argv)

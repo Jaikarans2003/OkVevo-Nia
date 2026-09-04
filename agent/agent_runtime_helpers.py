@@ -2721,6 +2721,8 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
     # copy locks the contract so future transport/keepalive work can't reintroduce
     # the same class of bug.
     client_kwargs = dict(client_kwargs)
+    from agent.okvevo_gateway import apply_okvevo_gateway
+    apply_okvevo_gateway(client_kwargs)
     # The MoA virtual provider has no real OpenAI wire endpoint - the facade
     # *is* the client. Rebuilding a native OpenAI client while
     # agent.provider == "moa" (client replacement, stream-retry pool cleanup,

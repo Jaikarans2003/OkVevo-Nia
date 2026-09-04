@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-09-01 (update pipeline A/B + electron-updater scaffold; first signed tag still a hard gate)
+**Last reviewed:** 2026-09-02 (logged `--radius-scalar` / `rounded-*` audit; first signed tag still a hard gate)
 
 ---
 
@@ -116,9 +116,86 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Build DMG/installer; spot-check window title, icon, onboarding, uninstall strings. `rg -i 'hermes' apps/desktop/src --glob '!**/*.test.*'` — user-facing hits triaged. |
 | **Notes** | DMG-baked assets do not affect `git clone` bootstrap; separate from clone-shipped backend commit `e23f5d5c05`. |
 
+### [ ] OkVevo desktop sign-in verified on Mac and Windows
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Sign-in round trip (browser → `hermes://auth-callback` → main exchange) can work on one OS and fail on the other: Mac `open-url` vs Windows second-instance / cold-start argv. Testers cannot sign in. |
+| **Scope** | `apps/desktop/electron/main.ts` (`handleDeepLink` auth-callback intercept), `okvevo-auth*.ts`, OkVevo-Web `/login` + `/api/auth/desktop/*` |
+| **Fix** | Karan runs Sign in on both machines against the deployed portal (or `OKVEVO_WEB_ORIGIN`). Confirm titlebar + Settings → Billing show signed-in, `userData/okvevo-auth.json` exists, `~/.hermes/okvevo-firebase-id-token` is 0600. Replay of the same code fails. `hermes://mcp/install` still works. |
+| **Verify** | Manual on Mac + Windows before any tester build. Unit tests: `okvevo-auth.test.ts`, `okvevo-auth-flow.test.ts`; web: `npx tsx src/lib/auth/desktop-redirect.selfcheck.ts`. |
+| **Notes** | Deferred 2026-09-04 with Phase 2 implementation. This environment is macOS; Windows is Karan’s other machine. |
+
+### [ ] Phase 4: gateway-only for signed-in OkVevo subscribers (close BYOK bypass)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (after Razorpay plans / Phase 3.5) |
+| **Risk if skipped** | A paying subscriber can paste their own OpenRouter/OpenAI/Anthropic key (or point `base_url` at a proxy) and skip OkVevo credit metering. The subscription no longer gates hosted model access. |
+| **Scope** | Desktop: Settings → Providers sub-tabs `accounts` / `keys` / `custom-endpoints` ([`providers-settings.tsx`](apps/desktop/src/app/settings/providers-settings.tsx), [`settings/index.tsx`](apps/desktop/src/app/settings/index.tsx), locked-prefs). Python: [`agent/okvevo_gateway.py`](agent/okvevo_gateway.py) — apply gateway whenever a valid OkVevo ID token exists, not only when host is `openrouter.ai`. Local/loopback custom endpoints stay a separate labeled path. |
+| **Fix** | Hide BYOK Providers chrome for signed-in users (force + hide every launch). Do not ask onboarding for `OPENROUTER_API_KEY` when signed in. Rewrite wire client to the OkVevo gateway on token presence except allowlisted local endpoints. Does **not** block Phase 3 gateway shipping. |
+| **Verify** | Signed-in subscriber: Providers Accounts/Keys/Custom Endpoints hidden; leftover `OPENROUTER_API_KEY` + `config.yaml` base_url cannot reach OpenRouter; Firestore still receives a debit. Signed-out / no token: existing BYOK still works. Local Ollama/loopback still reachable via the labeled local path. |
+| **Notes** | Committed 2026-09-04 in Phase 3 plan. Do not implement until Razorpay plan grants exist (Phase 3.5) and Phase 3 gateway is reviewed. Dual-path BYOK in Phase 3 is a shipping concession only. |
+
+### [ ] Gateway balance-check race (reserve before stream)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (before accepting real payments) |
+| **Risk if skipped** | `creditBalance > 0` is a read; the debit is a later write after the stream. Two concurrent requests can both pass the gate before either debits, so a near-zero balance can overspend by one extra completion. |
+| **Scope** | `OkVevo-Web/src/lib/gateway/debit.ts`, `OkVevo-Web/src/app/api/gateway/chat/completions/route.ts` |
+| **Fix** | Make pre-check and reservation atomic: one Firestore transaction that reserves an estimated cost up front, then reconcile (debit remainder or refund unused) after real usage is known. Do not keep read-then-later-write as the paid path. |
+| **Verify** | Two parallel `/api/gateway/chat/completions` against `creditBalance` that only covers one request: only one is admitted (or the second is rejected / clamped without overspend). Ledger `balanceAfter` never goes negative. |
+| **Notes** | Logged 2026-09-05 with Phase 3. Phase 3 ships the race as a known ceiling (`ponytail` in debit.ts). **Do not build this pass.** |
+
+### [ ] Gateway metering misses cache / reasoning-token surcharges
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Debit uses only `prompt_tokens` + `completion_tokens`. OpenRouter bills extra for `prompt_tokens_details.cached_tokens` / `cache_write_tokens` and `completion_tokens_details.reasoning_tokens` on some models — OkVevo would undercharge (or eat the margin) on those SKUs. |
+| **Scope** | `OkVevo-Web/src/lib/gateway/pricing.ts`, `OkVevo-Web/src/lib/gateway/sse.ts`; catalog of models actually offered to subscribers |
+| **Fix** | Before go-live, list which offered models charge cache-write / cache-read / reasoning separately. Fold those unit prices into the debit calc **or** drop those models from the catalog until the calc includes them. |
+| **Verify** | For each offered model: a request that triggers cache and/or reasoning produces a debit ≥ OpenRouter’s billed USD × `MARGIN`. Models not in that set are not selectable for gateway traffic. |
+| **Notes** | Logged 2026-09-05 with Phase 3. Phase 3 meters prompt+completion only. **Do not build this pass.** |
+
+### [ ] Production LLM gateway SSE unbuffered through Firebase Hosting
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Local `next dev` streams token-by-token, but Firebase Hosting CDN in front of Cloud Run may buffer SSE. Desktop chat would stall then dump. |
+| **Scope** | `OkVevo-Web/src/app/api/gateway/chat/completions/route.ts`, `firebase.json` `frameworksBackend` |
+| **Fix** | Confirm a deployed `https://www.okvevo.com/api/gateway/chat/completions` (or the testing host) streams unbuffered to the desktop agent. If the CDN buffers, bypass it for this route (Cloud Run URL or Cloudflare). |
+| **Verify** | Signed-in streamed chat against the **deployed** portal, not only localhost:3000 — tokens appear incrementally. |
+| **Notes** | Logged 2026-09-04 with Phase 3. Local `next dev` is the Phase 3 correctness bar. |
+
+### [ ] Razorpay webhook still seeds old subscription credits (not users.creditBalance)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (portal billing SoT) |
+| **Risk if skipped** | After Phase 1, `/billing` reads `users.creditBalance` + top-level `creditTransactions`. Paid Razorpay invoices still write `users/{uid}/subscriptions.credits` only — portal shows **0** until Phase 3 rewires the webhook. |
+| **Scope** | `OkVevo-Web/src/app/api/razorpay/webhook/route.ts` (separate git tree from this repo) |
+| **Fix** | Phase 3.5 / Razorpay rework (not the LLM gateway pass): Admin grant to `users/{uid}.creditBalance` and top-level `creditTransactions` (`type: grant`). Stop treating subscription `credits` as SoT. No dual-read. |
+| **Verify** | `invoice.paid` increases `users/{uid}.creditBalance`; `/billing` history shows a grant row. Client cannot write `creditBalance`. |
+| **Notes** | Deferred 2026-09-04 with Phase 1 Firestore rules lock. Webhook intentionally untouched. |
+
 ---
 
 ## Should fix before live (lower severity)
+
+### [ ] Audit Tailwind rounded-* vs --radius-scalar 0.2
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live |
+| **Risk if skipped** | Semantic `rounded-sm`…`rounded-4xl` compute to 20% of Tailwind defaults (`rounded-3xl` = 6.4px, `rounded-2xl` = 4.8px at 16px root). Buttons, dialogs, cards, settings, attachments, and widget-shell look sharper than the class names imply; easy to miss until someone zooms a specific chrome piece. |
+| **Scope** | `apps/desktop/src/**` usages of `rounded-sm`/`md`/`lg`/`xl`/`2xl`/`3xl`/`4xl` (not `rounded-full` stadiums that rely on clamping, not `--composer-corner-radius` from the 2026-09 composer/bubble pass). First hits: `widget-shell.ts`, `composer-dock.ts` `composerPanelCard`, `attachments.tsx`, dialogs, settings, shadcn `components/ui/*`. |
+| **Fix** | Inventory intended vs computed px using packaged asar CSS + Chromium `getComputedStyle` (same method that proved `rounded-3xl` ≠ 24px). Then either (a) raise `--radius-scalar` so semantic utilities match design, or (b) keep the scalar and switch surfaces that need real 8–24px radii to unscaled tokens. Do not mix both without a written rule. |
+| **Verify** | Packaged CSS: sample 5 high-traffic surfaces; report computed `border-radius`. A 200×200 `.rounded-3xl` probe must match the chosen policy (today **6.4px**). |
+| **Notes** | Logged 2026-09-02 from bubble/composer/HUD polish. That pass uses `--composer-corner-radius: 1.5rem` (unscaled) for composer/bubbles/HUD only — do not expand it to widgets. |
 
 ### [ ] CLI update-check / release links still point at Nous
 

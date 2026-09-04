@@ -122,7 +122,7 @@ export const UserMessageText: FC<UserMessageTextProps> = ({ className, text }) =
   const top = useMemo(() => splitFences(text), [text])
 
   return (
-    <span className={cn('block w-max max-w-full whitespace-normal break-words', className)} data-slot="aui_user-message-text">
+    <span className={cn('block break-words', className)} data-slot="aui_user-message-text">
       {top.map((segment, segmentIndex) => {
         if (segment.kind === 'fence') {
           return (
@@ -152,7 +152,7 @@ const InlineSegmentView: FC<{ text: string }> = ({ text }) => {
   return (
     // overflow-wrap: break-word (break-words); not wrap-anywhere — that plus
     // flex stretched short pills to the max-width containing block.
-    <span className="block w-max max-w-full whitespace-normal break-words" data-slot="aui_user-inline-text">
+    <span className="block break-words" data-slot="aui_user-inline-text">
       {nodes.map((node, nodeIndex) =>
         node.kind === 'inline-code' ? (
           <code

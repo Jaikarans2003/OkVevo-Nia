@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import { resolveOkvevoWebOrigin } from './okvevo-auth'
+
 // Match the POSIX fallback surface used by the Python terminal environment.
 // macOS apps launched from Finder/Dock often inherit only /usr/bin:/bin:/usr/sbin:/sbin,
 // which misses Apple Silicon Homebrew and user-installed CLI tools such as codex.
@@ -124,13 +126,14 @@ function buildDesktopBackendEnv({
   venvRoot,
   currentEnv = process.env,
   platform = process.platform,
-  pathModule = pathModuleForPlatform(platform)
+  pathModule = pathModuleForPlatform(platform),
+  devServer = false
 }: any = {}) {
   const delimiter = delimiterForPlatform(platform)
   const currentPythonPath = currentEnv?.PYTHONPATH || ''
   const key = pathEnvKey(currentEnv, platform)
-
-  return {
+  const hermesHomeRoot = hermesHome ? normalizeHermesHomeRoot(hermesHome, { pathModule }) : ''
+  const env: Record<string, string> = {
     PYTHONPATH: appendUniquePathEntries([...pythonPathEntries, currentPythonPath], { delimiter }),
     // Force PEP 540 UTF-8 mode in the spawned Python backend so its stdio and
     // subprocess defaults are UTF-8 even on non-UTF-8 Windows locales (GBK,
@@ -147,6 +150,16 @@ function buildDesktopBackendEnv({
       pathModule
     })
   }
+
+  if (hermesHomeRoot) {
+    env.OKVEVO_FIREBASE_ID_TOKEN_FILE = pathModule.join(hermesHomeRoot, 'okvevo-firebase-id-token')
+  }
+
+  env.OKVEVO_WEB_ORIGIN = resolveOkvevoWebOrigin(currentEnv, {
+    devServer: Boolean(devServer || currentEnv?.HERMES_DESKTOP_DEV_SERVER)
+  })
+
+  return env
 }
 
 export {
