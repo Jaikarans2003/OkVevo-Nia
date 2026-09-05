@@ -922,7 +922,11 @@ const BOOT_FAKE_STEP_MS = (() => {
   return Math.max(120, raw)
 })()
 
-const APP_NAME = process.env.HERMES_DESKTOP_APP_NAME || 'Nia'
+const NIA_BUILD_CHANNEL =
+  typeof __NIA_BUILD_CHANNEL__ !== 'undefined' && __NIA_BUILD_CHANNEL__ === 'internal' ? 'internal' : 'public'
+const APP_NAME =
+  process.env.HERMES_DESKTOP_APP_NAME || (NIA_BUILD_CHANNEL === 'internal' ? 'NiaInternal' : 'Nia')
+const APP_USER_MODEL_ID = NIA_BUILD_CHANNEL === 'internal' ? 'com.okvevo.nia.internal' : 'com.okvevo.nia'
 const HUD_WINDOW_TITLE = `${APP_NAME} HUD`
 const TITLEBAR_HEIGHT = 34
 const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
@@ -1317,12 +1321,11 @@ app.setName(APP_NAME)
 // Windows toast notifications silently no-op unless an AppUserModelID is set:
 // `new Notification().show()` returns without error and nothing appears. The
 // AUMID must match the installed Start Menu shortcut's AUMID, which
-// electron-builder derives from the build `appId` (com.okvevo.nia) —
-// keep this string in sync with package.json `build.appId`. macOS/Linux don't
-// need this, so gate it on Windows. (Fixes: desktop approval/turn notifications
-// never firing on Windows.)
+// electron-builder derives from the build `appId` — public `com.okvevo.nia`,
+// internal `com.okvevo.nia.internal` (baked channel, not a runtime env read).
+// macOS/Linux don't need this, so gate it on Windows.
 if (IS_WINDOWS) {
-  app.setAppUserModelId('com.okvevo.nia')
+  app.setAppUserModelId(APP_USER_MODEL_ID)
 }
 
 // Seed the native About panel with the live Hermes version. This is refreshed

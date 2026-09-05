@@ -31,8 +31,8 @@ import {
   filterVisibleConfigKeys,
   HIDDEN_APPEARANCE_SETTING_IDS,
   isAppearanceSettingVisible,
-  isConfigKeyVisible,
-  isProvidersByokChromeVisible
+  isByokChromeVisible,
+  isConfigKeyVisible
 } from './settings-ui-policy'
 
 const setPercent = vi.fn()
@@ -64,9 +64,21 @@ describe('settings UI policy filters', () => {
     expect(HIDDEN_APPEARANCE_SETTING_IDS.has('appearance.embeds')).toBe(true)
   })
 
-  it('hides Providers BYOK chrome when signed in', () => {
-    expect(isProvidersByokChromeVisible(true)).toBe(false)
-    expect(isProvidersByokChromeVisible(false)).toBe(true)
+  it('shows BYOK chrome only on the internal baked channel', () => {
+    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+  })
+
+  it('does not read process.env.NIA_BUILD_CHANNEL at runtime', () => {
+    const prev = process.env.NIA_BUILD_CHANNEL
+    process.env.NIA_BUILD_CHANNEL = 'internal'
+    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+    process.env.NIA_BUILD_CHANNEL = 'public'
+    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+    if (prev === undefined) {
+      delete process.env.NIA_BUILD_CHANNEL
+    } else {
+      process.env.NIA_BUILD_CHANNEL = prev
+    }
   })
 })
 

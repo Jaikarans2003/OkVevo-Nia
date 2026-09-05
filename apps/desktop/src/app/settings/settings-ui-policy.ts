@@ -58,9 +58,9 @@ export function isAppearanceSettingVisible(id: string): boolean {
   return !HIDDEN_APPEARANCE_SETTING_IDS.has(id)
 }
 
-/** Settings → Providers Accounts / API Keys / Custom Endpoints is BYOK chrome. */
-export function isProvidersByokChromeVisible(signedIn: boolean): boolean {
-  return !signedIn
+/** BYOK chrome: baked build channel only. Missing define → public (fail closed). */
+export function isByokChromeVisible(): boolean {
+  return typeof __NIA_BUILD_CHANNEL__ !== 'undefined' && __NIA_BUILD_CHANNEL__ === 'internal'
 }
 
 function lockedTranslucencyValues(): TranslucencyValues {

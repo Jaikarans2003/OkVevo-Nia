@@ -38,6 +38,7 @@ import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 import { CONTROL_TEXT } from './constants'
 import { getNested, setNested } from './helpers'
 import { ListRow, Pill, SectionHeading } from './primitives'
+import { isByokChromeVisible } from './settings-ui-policy'
 import { useDeepLinkHighlight } from './use-deep-link-highlight'
 
 // Skeleton mirror of the Model settings DOM so the page keeps its shape while
@@ -627,7 +628,9 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
     const lower = slug.toLowerCase()
 
     if (lower === 'custom' || lower === 'local' || lower.startsWith('custom:')) {
-      startManualLocalEndpoint()
+      if (isByokChromeVisible()) {
+        startManualLocalEndpoint()
+      }
     } else if (rowSlug) {
       startManualProviderOAuth(rowSlug)
     } else {
@@ -816,7 +819,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
               ))}
             </SelectContent>
           </Select>
-          {needsSetup ? (
+          {needsSetup && isByokChromeVisible() ? (
             setupIsApiKey ? (
               <>
                 <Input
@@ -846,7 +849,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
                 Set up {selectedProviderRow?.name ?? 'provider'}
               </Button>
             )
-          ) : (
+          ) : !needsSetup ? (
             <>
               <Select onValueChange={setSelectedModel} value={selectedModel}>
                 <SelectTrigger className={cn('min-w-60', CONTROL_TEXT)}>
@@ -869,9 +872,9 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
                 {applying ? m.applying : t.common.apply}
               </Button>
             </>
-          )}
+          ) : null}
         </div>
-        {needsSetup && !setupIsApiKey && selectedProviderRow && (
+        {isByokChromeVisible() && needsSetup && !setupIsApiKey && selectedProviderRow && (
           <p className="mt-2 text-xs text-muted-foreground">
             {selectedProviderRow?.auth_type === 'api_key'
               ? `${selectedProviderRow?.name} needs an API key — set it up to choose a model.`

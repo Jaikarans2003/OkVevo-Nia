@@ -27,6 +27,13 @@ const startManualOnboarding = vi.fn()
 const startManualProviderOAuth = vi.fn()
 let profileSwitchHandler: (() => void) | null = null
 
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/app/settings/settings-ui-policy')>()
+  return { ...actual, isByokChromeVisible }
+})
+
 vi.mock('@/hermes', () => ({
   getGlobalModelInfo: (profile?: null | string) => getGlobalModelInfo(profile),
   getGlobalModelOptions: (opts?: unknown, profile?: null | string) => getGlobalModelOptions(opts, profile),
@@ -56,6 +63,7 @@ vi.mock('../hooks/use-on-profile-switch', () => ({
 }))
 
 beforeEach(() => {
+  isByokChromeVisible.mockReturnValue(true)
   getGlobalModelInfo.mockResolvedValue({ provider: 'nous', model: 'hermes-4' })
   getGlobalModelOptions.mockResolvedValue({
     providers: [
@@ -162,6 +170,29 @@ describe('ModelSettings', () => {
       expect(startManualProviderOAuth).not.toHaveBeenCalled()
     }
   )
+
+  it('hides local/custom setup and API-key paste when BYOK chrome is off', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    getGlobalModelInfo.mockResolvedValueOnce({ provider: 'local', model: '' })
+    getGlobalModelOptions.mockResolvedValueOnce({
+      providers: [
+        {
+          name: 'OpenRouter',
+          slug: 'openrouter',
+          models: [],
+          authenticated: false,
+          auth_type: 'api_key',
+          key_env: 'OPENROUTER_API_KEY'
+        }
+      ]
+    })
+
+    await renderModelSettings()
+
+    expect(screen.queryByRole('button', { name: 'Set up provider' })).toBeNull()
+    expect(screen.queryByPlaceholderText(/Paste/)).toBeNull()
+    expect(startManualLocalEndpoint).not.toHaveBeenCalled()
+  })
 
   it('opens the generic provider picker for an unknown provider with no inventory row', async () => {
     getGlobalModelInfo.mockResolvedValueOnce({ provider: 'retired-provider', model: '' })

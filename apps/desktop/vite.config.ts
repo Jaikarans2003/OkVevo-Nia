@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import babel from '@rolldown/plugin-babel'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import { resolveBuildChannel } from './scripts/resolve-build-channel.mjs'
 
 /** React Compiler preset scoped to modules that can actually contain
  *  components/hooks (JSX syntax or a react-ish import). The preset's default
@@ -103,6 +104,9 @@ const emojibaseAssets = () => ({
 
 export default defineConfig(({ command }) => ({
   base: './',
+  define: {
+    __NIA_BUILD_CHANNEL__: JSON.stringify(resolveBuildChannel({ isDev: command === 'serve' }))
+  },
   plugins: [react(), babel({ presets: [compilerPreset()] }), tailwindcss(), emojibaseAssets()],
   css: {
     // Pin an explicit (empty) PostCSS config. Tailwind is handled entirely by

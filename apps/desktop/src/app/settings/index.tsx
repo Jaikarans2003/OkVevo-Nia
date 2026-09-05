@@ -32,7 +32,6 @@ import { $commandPaletteOpen, openCommandPalettePage } from '@/store/command-pal
 import { confirm } from '@/store/confirm'
 import { bindingsFor } from '@/store/keybinds'
 import { notifyError } from '@/store/notifications'
-import { useOkvevoAuth } from '@/store/okvevo-auth'
 
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
 import { OverlayIconButton } from '../overlays/overlay-chrome'
@@ -52,7 +51,7 @@ import { NotificationsSettings } from './notifications-settings'
 import { PluginsSettings } from './plugins-settings'
 import { PROVIDER_VIEWS, ProvidersSettings, type ProviderView } from './providers-settings'
 import { SessionsSettings } from './sessions-settings'
-import { isProvidersByokChromeVisible } from './settings-ui-policy'
+import { isByokChromeVisible } from './settings-ui-policy'
 import type { SettingsPageProps, SettingsView as SettingsViewId } from './types'
 
 const SETTINGS_VIEWS: readonly SettingsViewId[] = [
@@ -91,8 +90,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   }, [navigate, search])
 
   const [activeView, setActiveView] = useRouteEnumParam('tab', SETTINGS_VIEWS, 'config:model' as SettingsViewId)
-  const { signedIn: okvevoSignedIn } = useOkvevoAuth()
-  const showProvidersByok = isProvidersByokChromeVisible(okvevoSignedIn)
+  const showProvidersByok = isByokChromeVisible()
 
   // Connections merged into the unified Gateways page: land old
   // `?tab=connections` routes/bookmarks there instead of a dead entry.
@@ -102,7 +100,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
     }
   }, [activeView, setActiveView])
 
-  // Signed-in: Providers Accounts/Keys/Custom Endpoints are BYOK chrome.
+  // Public channel: Providers Accounts/Keys/Custom Endpoints are BYOK chrome.
   // Bounce deep links so `?tab=providers` / `pview` cannot resurrect them.
   useEffect(() => {
     if (!showProvidersByok && activeView === 'providers') {
@@ -413,7 +411,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         view={providerView}
       />
     ) : activeView === 'providers' ? (
-      // Bounce frame: `?tab=providers` while signed in must not flash BYOK chrome.
+      // Bounce frame: `?tab=providers` on public must not flash BYOK chrome.
       <ConfigSettings
         activeSectionId="model"
         importInputRef={importInputRef}

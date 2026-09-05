@@ -3,6 +3,10 @@ import { defineConfig } from 'vitest/config'
 
 const reactUi: TestProjectConfiguration = {
   extends: './vite.config.ts',
+  define: {
+    // Match `npm run dev`: unit tests see internal BYOK chrome unless a test stubs the helper.
+    __NIA_BUILD_CHANNEL__: JSON.stringify('internal')
+  },
   test: {
     name: 'ui',
     environment: 'jsdom',

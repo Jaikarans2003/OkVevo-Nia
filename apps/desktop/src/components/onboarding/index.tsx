@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { isProvidersByokChromeVisible } from '@/app/settings/settings-ui-policy'
+import { isByokChromeVisible } from '@/app/settings/settings-ui-policy'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Input } from '@/components/ui/input'
@@ -27,7 +27,6 @@ import {
   setOnboardingMode,
   startProviderOAuth
 } from '@/store/onboarding'
-import { useOkvevoAuth } from '@/store/okvevo-auth'
 import type { ModelOptionProvider, OAuthProvider } from '@/types/hermes'
 
 import { DocsLink, FlowPanel, Status } from './flow'
@@ -117,7 +116,6 @@ const API_KEY_OPTIONS: ApiKeyOption[] = [
 // the OAuth picker / sign-in flow, not a pasted key.
 function useApiKeyCatalog(): ApiKeyOption[] {
   const [rows, setRows] = useState<ModelOptionProvider[]>([])
-  const { signedIn } = useOkvevoAuth()
 
   useEffect(() => {
     let cancelled = false
@@ -174,10 +172,8 @@ function useApiKeyCatalog(): ApiKeyOption[] {
     derived.sort((a, b) => a.name.localeCompare(b.name))
 
     const all = [...API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)), ...derived]
-    return isProvidersByokChromeVisible(signedIn)
-      ? all
-      : all.filter(o => o.envKey !== 'OPENROUTER_API_KEY')
-  }, [rows, signedIn])
+    return isByokChromeVisible() ? all : []
+  }, [rows])
 }
 
 // Exit choreography, mirroring the gateway "connecting" overlay's timing:
@@ -279,6 +275,10 @@ export function DesktopOnboardingOverlay({
   // way on every subsequent launch — they re-enter via Settings → Providers
   // (manual mode), which sets manual=true and bypasses this gate.
   if (onboarding.firstRunSkipped && !onboarding.manual) {
+    return null
+  }
+
+  if (!isByokChromeVisible()) {
     return null
   }
 
@@ -432,8 +432,6 @@ const persistShowAll = (value: boolean) => {
 
 export function Picker({ ctx }: { ctx: OnboardingContext }) {
   const { t } = useI18n()
-  const { signedIn: okvevoSignedIn } = useOkvevoAuth()
-  const showOpenRouterKey = isProvidersByokChromeVisible(okvevoSignedIn)
   const { localEndpoint, manual, mode, providers } = useStore($desktopOnboarding)
   const [showAll, setShowAll] = useState(readShowAll)
   // Which key-form option to preselect when we flip to 'apikey' mode. The
@@ -448,6 +446,10 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
   const ordered = useMemo(() => (providers ? sortProviders(providers) : []), [providers])
   const hasOauth = ordered.length > 0
   const apiKeyOptions = useApiKeyCatalog()
+
+  if (!isByokChromeVisible()) {
+    return null
+  }
 
   // localEndpoint forces the key form regardless of `mode` (which a manual
   // provider refresh may flip back to 'oauth'); it preselects the local option
@@ -498,9 +500,7 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
             {rest.map(p => (
               <ProviderRow key={p.id} onSelect={select} provider={p} />
             ))}
-            {showOpenRouterKey ? (
-              <OpenRouterProviderRow onClick={() => openKeyForm('OPENROUTER_API_KEY')} />
-            ) : null}
+            <OpenRouterProviderRow onClick={() => openKeyForm('OPENROUTER_API_KEY')} />
           </>
         ) : null}
       </div>

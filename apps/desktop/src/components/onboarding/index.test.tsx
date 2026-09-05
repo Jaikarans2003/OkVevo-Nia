@@ -1,10 +1,20 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { $desktopOnboarding, type DesktopOnboardingState, type OnboardingContext } from '@/store/onboarding'
 import { $okvevoAuth } from '@/store/okvevo-auth'
 import { makeOAuthProvider } from '@/test/oauth-provider'
 import type { OAuthProvider } from '@/types/hermes'
+
+let byokChromeVisible = true
+
+vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/app/settings/settings-ui-policy')>()
+  return {
+    ...actual,
+    isByokChromeVisible: () => byokChromeVisible
+  }
+})
 
 import { Picker } from '.'
 
@@ -26,6 +36,7 @@ const ctx: OnboardingContext = { requestGateway: async () => undefined as never 
 
 afterEach(() => {
   cleanup()
+  byokChromeVisible = true
 
   try {
     window.localStorage.clear()
@@ -121,13 +132,25 @@ describe('onboarding Picker', () => {
     expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
   })
 
-  it('hides OpenRouter key paste when OkVevo signed in', () => {
+  it('shows OpenRouter key paste when signed in on the internal channel', () => {
     $okvevoAuth.set({ signedIn: true, uid: 'u1', email: 'a@b.c' })
     setProviders([makeOAuthProvider('nous', 'Nous Portal')])
     render(<Picker ctx={ctx} />)
     fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
 
     expect(screen.getByText('Fireworks AI')).toBeTruthy()
+    expect(screen.getByText('OpenRouter')).toBeTruthy()
+  })
+
+  it('hides OAuth, keys, local form, and Fireworks on the public channel', () => {
+    byokChromeVisible = false
+    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    render(<Picker ctx={ctx} />)
+
+    expect(screen.queryByText('Nous Portal')).toBeNull()
+    expect(screen.queryByText('Fireworks AI')).toBeNull()
     expect(screen.queryByText('OpenRouter')).toBeNull()
+    expect(screen.queryByRole('button', { name: /API key/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
   })
 })
