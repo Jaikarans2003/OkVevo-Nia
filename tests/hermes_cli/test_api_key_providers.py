@@ -663,6 +663,14 @@ class TestHasAnyProviderConfigured:
             f"provider registry sweep ran before auth.json short-circuit: {calls}"
         )
 
+    def test_okvevo_signed_in_counts_as_configured(self, monkeypatch, tmp_path):
+        hermes_home = self._setup_home(monkeypatch, tmp_path)
+        monkeypatch.setattr("hermes_cli.auth.get_auth_status", lambda _pid: {})
+        monkeypatch.setattr("agent.okvevo_gateway.okvevo_signed_in", lambda: True)
+        from hermes_cli.main import _has_any_provider_configured
+        assert _has_any_provider_configured() is True
+        assert not (hermes_home / ".env").exists()
+
 
 # =============================================================================
 # Kimi Code auto-detection tests

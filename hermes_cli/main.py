@@ -992,6 +992,15 @@ def _has_any_provider_configured() -> bool:
     from hermes_cli.config import get_env_path, get_hermes_home, load_config
     from hermes_cli.auth import get_auth_status
 
+    # OkVevo portal sign-in meters OpenRouter via the gateway ID token —
+    # no personal OPENROUTER_API_KEY. Same cheap file read inventory uses.
+    try:
+        from agent.okvevo_gateway import okvevo_signed_in
+        if okvevo_signed_in():
+            return True
+    except Exception:
+        pass
+
     # Determine whether Hermes itself has been explicitly configured (model
     # in config that isn't the hardcoded default). Used below to gate external
     # tool credentials (Claude Code, Codex CLI) that shouldn't silently skip

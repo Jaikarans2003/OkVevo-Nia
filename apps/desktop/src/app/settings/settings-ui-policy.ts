@@ -58,6 +58,11 @@ export function isAppearanceSettingVisible(id: string): boolean {
   return !HIDDEN_APPEARANCE_SETTING_IDS.has(id)
 }
 
+/** Settings → Providers Accounts / API Keys / Custom Endpoints is BYOK chrome. */
+export function isProvidersByokChromeVisible(signedIn: boolean): boolean {
+  return !signedIn
+}
+
 function lockedTranslucencyValues(): TranslucencyValues {
   return {
     intensity: GLASS_SUPPORTED ? 100 : 0,

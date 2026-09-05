@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { isProvidersByokChromeVisible } from '@/app/settings/settings-ui-policy'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,7 @@ import {
   setOnboardingMode,
   startProviderOAuth
 } from '@/store/onboarding'
+import { useOkvevoAuth } from '@/store/okvevo-auth'
 import type { ModelOptionProvider, OAuthProvider } from '@/types/hermes'
 
 import { DocsLink, FlowPanel, Status } from './flow'
@@ -115,6 +117,7 @@ const API_KEY_OPTIONS: ApiKeyOption[] = [
 // the OAuth picker / sign-in flow, not a pasted key.
 function useApiKeyCatalog(): ApiKeyOption[] {
   const [rows, setRows] = useState<ModelOptionProvider[]>([])
+  const { signedIn } = useOkvevoAuth()
 
   useEffect(() => {
     let cancelled = false
@@ -170,8 +173,11 @@ function useApiKeyCatalog(): ApiKeyOption[] {
     // long tail is scannable.
     derived.sort((a, b) => a.name.localeCompare(b.name))
 
-    return [...API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)), ...derived]
-  }, [rows])
+    const all = [...API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)), ...derived]
+    return isProvidersByokChromeVisible(signedIn)
+      ? all
+      : all.filter(o => o.envKey !== 'OPENROUTER_API_KEY')
+  }, [rows, signedIn])
 }
 
 // Exit choreography, mirroring the gateway "connecting" overlay's timing:
@@ -426,6 +432,8 @@ const persistShowAll = (value: boolean) => {
 
 export function Picker({ ctx }: { ctx: OnboardingContext }) {
   const { t } = useI18n()
+  const { signedIn: okvevoSignedIn } = useOkvevoAuth()
+  const showOpenRouterKey = isProvidersByokChromeVisible(okvevoSignedIn)
   const { localEndpoint, manual, mode, providers } = useStore($desktopOnboarding)
   const [showAll, setShowAll] = useState(readShowAll)
   // Which key-form option to preselect when we flip to 'apikey' mode. The
@@ -490,7 +498,9 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
             {rest.map(p => (
               <ProviderRow key={p.id} onSelect={select} provider={p} />
             ))}
-            <OpenRouterProviderRow onClick={() => openKeyForm('OPENROUTER_API_KEY')} />
+            {showOpenRouterKey ? (
+              <OpenRouterProviderRow onClick={() => openKeyForm('OPENROUTER_API_KEY')} />
+            ) : null}
           </>
         ) : null}
       </div>

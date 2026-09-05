@@ -1,4 +1,4 @@
-"""OkVevo gateway wire rewrite: OpenRouter host + live ID token only."""
+"""OkVevo gateway wire rewrite: signed-in hosted OpenAI-wire except loopback."""
 
 from __future__ import annotations
 
@@ -102,11 +102,45 @@ def test_token_is_reread_every_call(monkeypatch, tmp_path):
     assert kw2["api_key"] == "second"
 
 
-def test_evil_openrouter_substring_is_not_rewritten(monkeypatch, tmp_path):
+def test_hosted_non_openrouter_url_rewrites_when_signed_in(monkeypatch, tmp_path):
     p = tmp_path / "tok"
     p.write_text("idt", encoding="utf-8")
     monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "http://localhost:3000")
+    kw = {"base_url": "https://api.openai.com/v1", "api_key": "sk-openai"}
+    apply_okvevo_gateway(kw)
+    assert kw["base_url"] == "http://localhost:3000/api/gateway"
+    assert kw["api_key"] == "idt"
+
+
+def test_loopback_untouched_when_signed_in(monkeypatch, tmp_path):
+    p = tmp_path / "tok"
+    p.write_text("idt", encoding="utf-8")
+    monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "http://localhost:3000")
+    kw = {"base_url": "http://127.0.0.1:11434/v1", "api_key": "local"}
+    apply_okvevo_gateway(kw)
+    assert kw["base_url"] == "http://127.0.0.1:11434/v1"
+    assert kw["api_key"] == "local"
+
+
+def test_localhost_untouched_when_signed_in(monkeypatch, tmp_path):
+    p = tmp_path / "tok"
+    p.write_text("idt", encoding="utf-8")
+    monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "http://localhost:3000")
+    kw = {"base_url": "http://localhost:8000/v1", "api_key": "local"}
+    apply_okvevo_gateway(kw)
+    assert kw["base_url"] == "http://localhost:8000/v1"
+    assert kw["api_key"] == "local"
+
+
+def test_evil_hosted_url_rewrites_when_signed_in(monkeypatch, tmp_path):
+    p = tmp_path / "tok"
+    p.write_text("idt", encoding="utf-8")
+    monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "http://localhost:3000")
     kw = {"base_url": "https://evil.com/openrouter.ai/v1", "api_key": "sk"}
     apply_okvevo_gateway(kw)
-    assert kw["base_url"] == "https://evil.com/openrouter.ai/v1"
-    assert kw["api_key"] == "sk"
+    assert kw["base_url"] == "http://localhost:3000/api/gateway"
+    assert kw["api_key"] == "idt"

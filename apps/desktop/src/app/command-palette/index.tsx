@@ -65,6 +65,7 @@ import {
 } from '@/store/command-palette'
 import { $bindings, bindingsFor } from '@/store/keybinds'
 import { $dismissedAutoProjectIds, filterVisibleProjects } from '@/store/layout'
+import { $okvevoAuth } from '@/store/okvevo-auth'
 import { openPetGenerate } from '@/store/pet-generate'
 import { openBrowserTab } from '@/store/preview'
 import { $projectTree, goToProject, openFolderAsProject, requestStartWorkSession } from '@/store/projects'
@@ -96,6 +97,7 @@ import {
 } from '../routes'
 import { SECTIONS } from '../settings/constants'
 import { type SettingsSearchEntry, settingsSearchTargetQuery } from '../settings/settings-search'
+import { isProvidersByokChromeVisible } from '../settings/settings-ui-policy'
 import { useSettingsSearchCatalog } from '../settings/use-settings-search'
 
 import { usePaletteContributions } from './contrib'
@@ -452,6 +454,16 @@ const NON_CONFIG_SETTINGS: ReadonlyArray<{
   { icon: Info, keywords: ['version', 'about'], labelKey: 'about', tab: 'about' }
 ]
 
+function nonConfigSettingsEntries(signedIn: boolean) {
+  if (isProvidersByokChromeVisible(signedIn)) {
+    return NON_CONFIG_SETTINGS
+  }
+
+  return NON_CONFIG_SETTINGS.filter(
+    entry => entry.labelKey !== 'providerAccounts' && entry.labelKey !== 'providerApiKeys'
+  )
+}
+
 /**
  * ⌘K is an overlay that is stateful to itself: pressing it must open a frame
  * immediately, and must not be held up by whatever else the shell is doing. So
@@ -520,6 +532,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
   const worktrees = useStore($repoWorktrees)
   const projectTree = useStore($projectTree)
   const dismissedAutoProjects = useStore($dismissedAutoProjectIds)
+  const okvevoSignedIn = useStore($okvevoAuth).signedIn
   const navigate = useNavigate()
 
   const [search, setSearch] = useState('')
@@ -927,7 +940,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             label: settingsSectionLabel(section),
             run: go(settingsTab(`config:${section.id}`))
           })),
-          ...NON_CONFIG_SETTINGS.map(entry => ({
+          ...nonConfigSettingsEntries(okvevoSignedIn).map(entry => ({
             icon: entry.icon,
             id: `set-${entry.tab}`,
             keywords: ['settings', ...(entry.keywords ?? [])],
@@ -945,6 +958,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
     contributedItems,
     dismissedAutoProjects,
     go,
+    okvevoSignedIn,
     projectTree,
     selectTick,
     settingsSectionLabel,
@@ -1160,7 +1174,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             label: settingsSectionLabel(section),
             run: go(settingsTab(`config:${section.id}`))
           })),
-          ...NON_CONFIG_SETTINGS.map(entry => ({
+          ...nonConfigSettingsEntries(okvevoSignedIn).map(entry => ({
             icon: entry.icon,
             id: `sp-${entry.tab}`,
             keywords: ['settings', ...(entry.keywords ?? [])],
@@ -1193,7 +1207,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
     }
 
     return result
-  }, [go, search, settingsCatalog, settingsEntryItem, settingsSectionLabel, t])
+  }, [go, okvevoSignedIn, search, settingsCatalog, settingsEntryItem, settingsSectionLabel, t])
 
   // Nested palette pages (VS Code-style submenus). Reusable: add an entry here
   // and point a root item at it via `to`.

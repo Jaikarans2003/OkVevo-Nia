@@ -429,11 +429,20 @@ def _(rid, params: dict) -> dict:
 
         api_key = runtime.get("api_key")
         api_key_text = "" if callable(api_key) else str(api_key or "").strip()
+        okvevo_openrouter = False
+        try:
+            from agent.okvevo_gateway import okvevo_signed_in
+            okvevo_openrouter = str(provider).lower() == "openrouter" and bool(
+                okvevo_signed_in()
+            )
+        except Exception:
+            okvevo_openrouter = False
         credential_ok = (
             callable(api_key)
             or api_key_text in {"aws-sdk", "no-key-required"}
             or has_usable_secret(api_key_text)
             or bool(runtime.get("command"))
+            or okvevo_openrouter
         )
 
         if not credential_ok:

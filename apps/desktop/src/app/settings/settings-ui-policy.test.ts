@@ -31,7 +31,8 @@ import {
   filterVisibleConfigKeys,
   HIDDEN_APPEARANCE_SETTING_IDS,
   isAppearanceSettingVisible,
-  isConfigKeyVisible
+  isConfigKeyVisible,
+  isProvidersByokChromeVisible
 } from './settings-ui-policy'
 
 const setPercent = vi.fn()
@@ -61,6 +62,11 @@ describe('settings UI policy filters', () => {
     expect(isAppearanceSettingVisible('appearance.language')).toBe(true)
     expect(isAppearanceSettingVisible('appearance.translucency')).toBe(false)
     expect(HIDDEN_APPEARANCE_SETTING_IDS.has('appearance.embeds')).toBe(true)
+  })
+
+  it('hides Providers BYOK chrome when signed in', () => {
+    expect(isProvidersByokChromeVisible(true)).toBe(false)
+    expect(isProvidersByokChromeVisible(false)).toBe(true)
   })
 })
 

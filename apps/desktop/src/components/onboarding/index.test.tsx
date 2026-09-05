@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { $desktopOnboarding, type DesktopOnboardingState, type OnboardingContext } from '@/store/onboarding'
+import { $okvevoAuth } from '@/store/okvevo-auth'
 import { makeOAuthProvider } from '@/test/oauth-provider'
 import type { OAuthProvider } from '@/types/hermes'
 
@@ -43,6 +44,7 @@ afterEach(() => {
     manual: false,
     localEndpoint: false
   })
+  $okvevoAuth.set({ signedIn: false, uid: null, email: null })
 })
 
 describe('onboarding Picker', () => {
@@ -117,5 +119,15 @@ describe('onboarding Picker', () => {
     render(<Picker ctx={ctx} />)
 
     expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
+  })
+
+  it('hides OpenRouter key paste when OkVevo signed in', () => {
+    $okvevoAuth.set({ signedIn: true, uid: 'u1', email: 'a@b.c' })
+    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    render(<Picker ctx={ctx} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
+
+    expect(screen.getByText('Fireworks AI')).toBeTruthy()
+    expect(screen.queryByText('OpenRouter')).toBeNull()
   })
 })

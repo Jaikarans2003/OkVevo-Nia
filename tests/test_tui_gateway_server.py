@@ -8633,8 +8633,35 @@ def test_probe_credentials_allows_keyless_custom_runtime():
     assert server._probe_credentials(agent) == ""
 
 
+def test_setup_status_okvevo_signed_in_is_configured(monkeypatch):
+    monkeypatch.setattr("agent.okvevo_gateway.okvevo_signed_in", lambda: True)
+
+    resp = server.handle_request({"id": "1", "method": "setup.status", "params": {}})
+
+    assert resp["result"]["provider_configured"] is True
+
+
+def test_setup_runtime_check_allows_empty_openrouter_when_okvevo_signed_in(monkeypatch):
+    monkeypatch.setattr("agent.okvevo_gateway.okvevo_signed_in", lambda: True)
+    monkeypatch.setattr(
+        "hermes_cli.runtime_provider.resolve_runtime_provider",
+        lambda requested=None: {
+            "provider": "openrouter",
+            "api_key": "",
+            "model": "openrouter/auto",
+            "source": "env/config",
+        },
+    )
+
+    resp = server.handle_request({"id": "1", "method": "setup.runtime_check", "params": {}})
+
+    assert resp["result"]["ok"] is True
+    assert resp["result"]["provider"] == "openrouter"
+
+
 def test_setup_runtime_check_rejects_empty_runtime_key(monkeypatch):
     monkeypatch.setattr("hermes_cli.main._has_any_provider_configured", lambda: True)
+    monkeypatch.setattr("agent.okvevo_gateway.okvevo_signed_in", lambda: False)
     monkeypatch.setattr(
         "hermes_cli.runtime_provider.resolve_runtime_provider",
         lambda requested=None: {

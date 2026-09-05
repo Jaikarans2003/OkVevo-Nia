@@ -127,16 +127,27 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Manual on Mac + Windows before any tester build. Unit tests: `okvevo-auth.test.ts`, `okvevo-auth-flow.test.ts`; web: `npx tsx src/lib/auth/desktop-redirect.selfcheck.ts`. |
 | **Notes** | Deferred 2026-09-04 with Phase 2 implementation. This environment is macOS; Windows is Karan’s other machine. |
 
-### [ ] Phase 4: gateway-only for signed-in OkVevo subscribers (close BYOK bypass)
+### [ ] Phase 4: gateway-only for signed-in OpenAI-wire (hide Providers BYOK chrome)
 
 | Field | Value |
 |-------|-------|
-| **Gate** | Required before live (after Razorpay plans / Phase 3.5) |
-| **Risk if skipped** | A paying subscriber can paste their own OpenRouter/OpenAI/Anthropic key (or point `base_url` at a proxy) and skip OkVevo credit metering. The subscription no longer gates hosted model access. |
-| **Scope** | Desktop: Settings → Providers sub-tabs `accounts` / `keys` / `custom-endpoints` ([`providers-settings.tsx`](apps/desktop/src/app/settings/providers-settings.tsx), [`settings/index.tsx`](apps/desktop/src/app/settings/index.tsx), locked-prefs). Python: [`agent/okvevo_gateway.py`](agent/okvevo_gateway.py) — apply gateway whenever a valid OkVevo ID token exists, not only when host is `openrouter.ai`. Local/loopback custom endpoints stay a separate labeled path. |
-| **Fix** | Hide BYOK Providers chrome for signed-in users (force + hide every launch). Do not ask onboarding for `OPENROUTER_API_KEY` when signed in. Rewrite wire client to the OkVevo gateway on token presence except allowlisted local endpoints. Does **not** block Phase 3 gateway shipping. |
-| **Verify** | Signed-in subscriber: Providers Accounts/Keys/Custom Endpoints hidden; leftover `OPENROUTER_API_KEY` + `config.yaml` base_url cannot reach OpenRouter; Firestore still receives a debit. Signed-out / no token: existing BYOK still works. Local Ollama/loopback still reachable via the labeled local path. |
-| **Notes** | Committed 2026-09-04 in Phase 3 plan. Do not implement until Razorpay plan grants exist (Phase 3.5) and Phase 3 gateway is reviewed. Dual-path BYOK in Phase 3 is a shipping concession only. |
+| **Gate** | Required before live |
+| **Risk if skipped** | A signed-in user can paste an OpenRouter key (or point `base_url` at an OpenRouter proxy) and skip OkVevo credit metering on the OpenAI-wire path. Status bar also lies (`Gateway · inference unavailable`) because readiness ignores the Firebase ID token. |
+| **Scope** | Desktop: Settings → Providers sub-tabs `accounts` / `keys` / `custom-endpoints` ([`providers-settings.tsx`](apps/desktop/src/app/settings/providers-settings.tsx), [`settings/index.tsx`](apps/desktop/src/app/settings/index.tsx), [`settings-ui-policy.ts`](apps/desktop/src/app/settings/settings-ui-policy.ts)). Onboarding OpenRouter key row. Python: [`agent/okvevo_gateway.py`](agent/okvevo_gateway.py), [`hermes_cli/main.py`](hermes_cli/main.py) `_has_any_provider_configured`, [`tui_gateway/methods_config.py`](tui_gateway/methods_config.py) `setup.runtime_check`. |
+| **Fix** | Hide Providers BYOK chrome when `$okvevoAuth.signedIn`. Do not ask onboarding for `OPENROUTER_API_KEY` when signed in. Rewrite OpenAI-wire client to the OkVevo gateway whenever an ID token exists, except loopback (and native-adapter hosts left as the ambient gap). `setup.status` / `setup.runtime_check` treat `okvevo_signed_in()` as configured/usable. |
+| **Verify** | Signed-in, no personal OpenRouter key: badge not `inference unavailable`; Providers Accounts/Keys/Custom Endpoints hidden; leftover OpenRouter/`base_url` cannot hit OpenRouter on the wire path; loopback local endpoint still works. Signed-out BYOK unchanged. |
+| **Notes** | Step 0 closed 2026-09-05. Razorpay is not a build gate. **Does not fully close BYOK** — see the ambient native-provider row below. Landed 2026-09-05: readiness (`okvevo_signed_in` → configured/usable OpenRouter), hide Providers BYOK chrome + OpenRouter onboarding paste when signed in, OpenAI-wire rewrite except loopback/native-adapter hosts. |
+
+### [ ] Signed-in ambient native-provider BYOK (Bedrock / env keys)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Hiding Settings → Providers does not stop a signed-in user from selecting Bedrock (or Anthropic, OpenAI, Vertex, Copilot, …) when credentials already exist in the process environment, `~/.hermes/.env`, AWS/SSO files, or leftover `config.yaml`. Those native adapters never call `apply_okvevo_gateway`. Metering is skipped. |
+| **Scope** | [`hermes_cli/model_switch.py`](hermes_cli/model_switch.py) `_has_fast_aws_sdk_signal` / `has_creds`; [`hermes_cli/auth.py`](hermes_cli/auth.py) `is_provider_explicitly_configured`; [`hermes_cli/inventory.py`](hermes_cli/inventory.py) `explicit_only`; Electron `process.env` inheritance + `~/.hermes/.env`; Settings → Model paste / picker Add provider |
+| **Fix** | Either detect OkVevo sign-in and refuse non-gateway providers outright, or accept this as residual risk until then. **Do not build in the Phase 4 UI/wire pass.** |
+| **Verify** | Signed-in, Providers tabs hidden, `AWS_ACCESS_KEY_ID`+secret (or `ANTHROPIC_API_KEY`) in env: Bedrock/Anthropic still listed in the model picker and a completion does not debit Firestore. After a real close: those rows gone (or blocked) when signed in. |
+| **Notes** | Confirmed 2026-09-05. `has_creds` reads ambient `os.environ`, not the Providers UI. Desktop `explicit_only` still treats an access-key pair / `AWS_BEARER_TOKEN_BEDROCK` as explicit. Accepted residual for now (no live users). Do not describe Phase 4 as “closes BYOK.” |
 
 ### [ ] Gateway balance-check race (reserve before stream)
 
