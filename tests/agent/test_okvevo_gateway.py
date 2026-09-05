@@ -9,12 +9,14 @@ from agent.okvevo_gateway import (
     OkvevoGatewayConfigError,
     apply_okvevo_gateway,
     okvevo_gateway_base_url,
+    okvevo_signed_in,
 )
 
 
 def test_no_file_leaves_kwargs(monkeypatch, tmp_path):
     monkeypatch.delenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", raising=False)
     monkeypatch.delenv("OKVEVO_WEB_ORIGIN", raising=False)
+    assert okvevo_signed_in() is False
     kw = {"base_url": "https://openrouter.ai/api/v1", "api_key": "sk-user"}
     apply_okvevo_gateway(kw)
     assert kw["base_url"] == "https://openrouter.ai/api/v1"
@@ -25,6 +27,7 @@ def test_empty_file_is_byok(monkeypatch, tmp_path):
     p = tmp_path / "tok"
     p.write_text("  \n", encoding="utf-8")
     monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
+    assert okvevo_signed_in() is False
     kw = {"base_url": "https://openrouter.ai/api/v1", "api_key": "sk-user"}
     apply_okvevo_gateway(kw)
     assert kw["api_key"] == "sk-user"
@@ -35,6 +38,7 @@ def test_non_openrouter_host_untouched(monkeypatch, tmp_path):
     p = tmp_path / "tok"
     p.write_text("idt", encoding="utf-8")
     monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
+    assert okvevo_signed_in() is True
     kw = {"base_url": "https://api.anthropic.com", "api_key": "sk-ant"}
     apply_okvevo_gateway(kw)
     assert kw["base_url"] == "https://api.anthropic.com"
@@ -46,10 +50,23 @@ def test_openrouter_rewrites_to_gateway(monkeypatch, tmp_path):
     p.write_text("idt-live", encoding="utf-8")
     monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
     monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "http://localhost:3000")
+    assert okvevo_signed_in() is True
     kw = {"base_url": "https://openrouter.ai/api/v1", "api_key": "sk-user"}
     apply_okvevo_gateway(kw)
     assert kw["base_url"] == "http://localhost:3000/api/gateway"
     assert kw["api_key"] == "idt-live"
+
+
+def test_empty_byok_key_still_rewrites_when_signed_in(monkeypatch, tmp_path):
+    """Subscription path: no personal OpenRouter key, ID token becomes api_key."""
+    p = tmp_path / "tok"
+    p.write_text("idt-sub", encoding="utf-8")
+    monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(p))
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "http://localhost:3000")
+    kw = {"base_url": "https://openrouter.ai/api/v1", "api_key": ""}
+    apply_okvevo_gateway(kw)
+    assert kw["base_url"] == "http://localhost:3000/api/gateway"
+    assert kw["api_key"] == "idt-sub"
 
 
 def test_token_without_origin_is_fail_closed(monkeypatch, tmp_path):

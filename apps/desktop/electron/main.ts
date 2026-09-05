@@ -7583,6 +7583,7 @@ function _hydrateOkvevoAuthFromDisk() {
     rememberLog(`[okvevo-auth] write id token file failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 
+  _notifyOkvevoAuth(publicOkvevoAuthSnapshot(session))
   _scheduleOkvevoRefresh()
 }
 

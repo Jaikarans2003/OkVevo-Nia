@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
 import { notifyError } from '@/store/notifications'
 import { startManualLocalEndpoint, startManualOnboarding, startManualProviderOAuth } from '@/store/onboarding'
+import { useOkvevoAuth } from '@/store/okvevo-auth'
 
 import { hermesConfigCacheWriter, invalidateHermesConfig, useHermesConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
@@ -284,6 +285,18 @@ export function ModelSettings({ onMainModelChanged, scopeProfile }: ModelSetting
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  const { signedIn: okvevoSignedIn } = useOkvevoAuth()
+  const prevOkvevoSignedIn = useRef(okvevoSignedIn)
+
+  useEffect(() => {
+    if (prevOkvevoSignedIn.current === okvevoSignedIn) {
+      return
+    }
+
+    prevOkvevoSignedIn.current = okvevoSignedIn
+    void refresh()
+  }, [okvevoSignedIn, refresh])
 
   // A profile switch swaps the backend under the mounted panel — reload for the
   // new profile (bumping the epoch first so any in-flight A request is discarded).

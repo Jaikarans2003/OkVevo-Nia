@@ -2885,7 +2885,20 @@ def list_authenticated_providers(
         if hermes_id.lower() in _excluded or mdev_id.lower() in _excluded:
             continue
         pdata = data.get(mdev_id)
-        if not isinstance(pdata, dict):
+
+        # OkVevo subscription unlocks OpenRouter without BYOK. Check before the
+        # models.dev row / env-var gates so a missing catalog entry cannot hide
+        # the provider when the user is signed in.
+        okvevo_openrouter = False
+        if hermes_id == "openrouter":
+            try:
+                from agent.okvevo_gateway import okvevo_signed_in
+                if okvevo_signed_in():
+                    okvevo_openrouter = True
+            except Exception:
+                pass
+
+        if not isinstance(pdata, dict) and not okvevo_openrouter:
             continue
 
         # Prefer auth.py PROVIDER_REGISTRY for env var names — it's our
@@ -2902,28 +2915,31 @@ def list_authenticated_providers(
         from hermes_cli.auth import is_runtime_provider_routable
         if not is_runtime_provider_routable(hermes_id):
             continue
-        if pconfig and pconfig.api_key_env_vars:
-            env_vars = list(pconfig.api_key_env_vars)
-        else:
-            env_vars = pdata.get("env", [])
-            if not isinstance(env_vars, list):
-                continue
 
-        # Check if any env var is set
-        has_creds = any(os.environ.get(ev) for ev in env_vars)
+        has_creds = okvevo_openrouter
         if not has_creds:
-            try:
-                from hermes_cli.auth import _load_auth_store
-                store = _load_auth_store()
-                raw_pool_present = bool(
-                    store and store.get("credential_pool", {}).get(hermes_id)
-                )
-                if raw_pool_present:
-                    has_creds = _credential_pool_is_usable(
-                        hermes_id, raw_pool_present=True
+            if pconfig and pconfig.api_key_env_vars:
+                env_vars = list(pconfig.api_key_env_vars)
+            else:
+                env_vars = pdata.get("env", []) if isinstance(pdata, dict) else []
+                if not isinstance(env_vars, list):
+                    continue
+
+            # Check if any env var is set
+            has_creds = any(os.environ.get(ev) for ev in env_vars)
+            if not has_creds:
+                try:
+                    from hermes_cli.auth import _load_auth_store
+                    store = _load_auth_store()
+                    raw_pool_present = bool(
+                        store and store.get("credential_pool", {}).get(hermes_id)
                     )
-            except Exception:
-                pass
+                    if raw_pool_present:
+                        has_creds = _credential_pool_is_usable(
+                            hermes_id, raw_pool_present=True
+                        )
+                except Exception:
+                    pass
         if not has_creds:
             continue
 
@@ -3075,6 +3091,15 @@ def list_authenticated_providers(
                     has_creds = True
             except Exception as exc:
                 logger.debug("Anthropic external creds check failed: %s", exc)
+        # OkVevo portal sign-in meters OpenRouter — unlock overlay path too
+        # when section 1 skipped the provider (e.g. missing models.dev row).
+        if not has_creds and hermes_slug == "openrouter":
+            try:
+                from agent.okvevo_gateway import okvevo_signed_in
+                if okvevo_signed_in():
+                    has_creds = True
+            except Exception as exc:
+                logger.debug("OkVevo OpenRouter unlock check failed: %s", exc)
         if not has_creds:
             continue
 

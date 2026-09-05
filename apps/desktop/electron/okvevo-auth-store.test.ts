@@ -66,3 +66,14 @@ test('null session drops the secret', () => {
   persistOkvevoAuthSession(null, disk.io)
   assert.equal(loadOkvevoAuthSession(disk.io), null)
 })
+
+test('persistSession throws when the store write fails', () => {
+  const disk = fakeIo()
+
+  disk.io.writeStoreText = () => {
+    throw new Error('ENOSPC')
+  }
+
+  assert.throws(() => persistOkvevoAuthSession(SESSION, disk.io), /ENOSPC/)
+  assert.equal(loadOkvevoAuthSession(disk.io), null)
+})

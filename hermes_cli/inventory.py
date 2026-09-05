@@ -758,9 +758,23 @@ def _filter_explicit_provider_rows(rows: list[dict], ctx: ConfigContext) -> list
             # just accepted those same credentials when building it.
             kept.append(row)
             continue
+        if slug == "openrouter" and _okvevo_signed_in():
+            # OkVevo portal sign-in meters OpenRouter via the gateway ID
+            # token — no personal OPENROUTER_API_KEY. Same shape as the
+            # Anthropic OAuth exemption above.
+            kept.append(row)
+            continue
         if is_provider_explicitly_configured(slug):
             kept.append(row)
     return kept
+
+
+def _okvevo_signed_in() -> bool:
+    try:
+        from agent.okvevo_gateway import okvevo_signed_in
+        return okvevo_signed_in()
+    except Exception:
+        return False
 
 
 def _provider_is_keyless(slug: str) -> bool:

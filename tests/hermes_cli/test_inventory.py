@@ -300,6 +300,92 @@ def test_explicit_only_drops_anthropic_row_without_oauth_credentials():
     assert "anthropic" not in [row["slug"] for row in payload["providers"]]
 
 
+def test_explicit_only_keeps_openrouter_when_okvevo_signed_in():
+    """OkVevo ID token unlocks OpenRouter without OPENROUTER_API_KEY."""
+    rows = [
+        {"slug": "openrouter", "name": "OpenRouter",
+         "models": ["anthropic/claude-sonnet-4.5"],
+         "total_models": 1, "is_current": False, "is_user_defined": False,
+         "source": "built-in"},
+        {"slug": "copilot", "name": "Copilot", "models": ["gpt-5.4"],
+         "total_models": 1, "is_current": False, "is_user_defined": False,
+         "source": "hermes"},
+    ]
+    ctx = _empty_ctx(provider="opencode-free", model="glm-4.7")
+    with (
+        _list_auth_returning(rows),
+        patch("hermes_cli.config.read_raw_config", return_value={}),
+        patch(
+            "hermes_cli.auth.is_provider_explicitly_configured",
+            return_value=False,
+        ),
+        patch("hermes_cli.inventory._okvevo_signed_in", return_value=True),
+    ):
+        payload = build_models_payload(ctx, explicit_only=True)
+
+    slugs = [row["slug"] for row in payload["providers"]]
+    assert "openrouter" in slugs
+    assert "copilot" not in slugs
+
+
+def test_explicit_only_drops_openrouter_without_okvevo_or_key():
+    """No OkVevo token and no explicit OpenRouter key -> row stays hidden."""
+    rows = [
+        {"slug": "openrouter", "name": "OpenRouter",
+         "models": ["anthropic/claude-sonnet-4.5"],
+         "total_models": 1, "is_current": False, "is_user_defined": False,
+         "source": "built-in"},
+    ]
+    ctx = _empty_ctx(provider="opencode-free", model="glm-4.7")
+    with (
+        _list_auth_returning(rows),
+        patch("hermes_cli.config.read_raw_config", return_value={}),
+        patch(
+            "hermes_cli.auth.is_provider_explicitly_configured",
+            return_value=False,
+        ),
+        patch("hermes_cli.inventory._okvevo_signed_in", return_value=False),
+    ):
+        payload = build_models_payload(ctx, explicit_only=True)
+
+    assert "openrouter" not in [row["slug"] for row in payload["providers"]]
+
+
+def test_list_authenticated_providers_includes_openrouter_when_okvevo_signed_in(
+    monkeypatch,
+):
+    """Discovery emits OpenRouter when signed in even without OPENROUTER_API_KEY.
+
+    Also survives a missing models.dev openrouter row (catalog fetch failure).
+    """
+    from hermes_cli.model_switch import list_authenticated_providers
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    def _cached(pid, **kwargs):
+        return ["anthropic/claude-sonnet-4.5"] if pid == "openrouter" else []
+
+    with (
+        patch("agent.okvevo_gateway.okvevo_signed_in", return_value=True),
+        patch("hermes_cli.models.cached_provider_model_ids", side_effect=_cached),
+        patch(
+            "hermes_cli.model_switch._credential_pool_is_usable",
+            return_value=False,
+        ),
+        patch("hermes_cli.auth._load_auth_store", return_value={}),
+        # Empty models.dev — OkVevo unlock must not depend on catalog env metadata.
+        patch("agent.models_dev.fetch_models_dev", return_value={}),
+    ):
+        rows = list_authenticated_providers(
+            current_provider="opencode-free",
+            current_model="glm-4.7",
+        )
+
+    openrouter = next((r for r in rows if r.get("slug") == "openrouter"), None)
+    assert openrouter is not None, "OkVevo sign-in must unlock OpenRouter discovery"
+    assert openrouter["models"] == ["anthropic/claude-sonnet-4.5"]
+
+
 def test_anthropic_oauth_presence_accepts_pool_only_oauth_entry():
     """A pool-only OAuth entry (auth.json credential_pool.anthropic) counts.
 

@@ -43,6 +43,7 @@ function writeFile(io: OkvevoAuthStoreIo, next: OkvevoAuthFile): void {
     const detail = error instanceof Error ? error.message : String(error)
 
     io.rememberLog?.(`[okvevo-auth] failed to persist store: ${detail}`)
+    throw error
   }
 }
 

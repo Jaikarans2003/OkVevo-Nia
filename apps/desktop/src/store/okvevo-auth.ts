@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { atom } from 'nanostores'
-import { useEffect } from 'react'
+
+import { queryClient } from '@/lib/query-client'
 
 export type OkvevoAuthPublic = {
   signedIn: boolean
@@ -10,18 +11,39 @@ export type OkvevoAuthPublic = {
 
 export const $okvevoAuth = atom<OkvevoAuthPublic>({ signedIn: false, uid: null, email: null })
 
-export function useOkvevoAuth(): OkvevoAuthPublic {
-  const state = useStore($okvevoAuth)
+let authGeneration = 0
 
-  useEffect(() => {
-    void window.hermesDesktop?.getOkvevoAuth?.().then(snap => {
-      if (snap) {
-        $okvevoAuth.set(snap)
+function applyOkvevoAuth(snap: OkvevoAuthPublic): void {
+  const wasSignedIn = $okvevoAuth.get().signedIn
+
+  $okvevoAuth.set(snap)
+
+  if (wasSignedIn !== snap.signedIn) {
+    void queryClient.invalidateQueries({ queryKey: ['model-options'] })
+  }
+}
+
+const desktop = typeof window !== 'undefined' ? window.hermesDesktop : undefined
+
+if (desktop) {
+  if (desktop.getOkvevoAuth) {
+    const started = ++authGeneration
+
+    void desktop.getOkvevoAuth().then(snap => {
+      if (!snap || started !== authGeneration) {
+        return
       }
+
+      applyOkvevoAuth(snap)
     })
+  }
 
-    return window.hermesDesktop?.onOkvevoAuth?.(snap => $okvevoAuth.set(snap))
-  }, [])
+  desktop.onOkvevoAuth?.(snap => {
+    authGeneration += 1
+    applyOkvevoAuth(snap)
+  })
+}
 
-  return state
+export function useOkvevoAuth(): OkvevoAuthPublic {
+  return useStore($okvevoAuth)
 }

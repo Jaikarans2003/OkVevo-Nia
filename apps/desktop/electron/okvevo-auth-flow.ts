@@ -30,8 +30,8 @@ export interface OkvevoAuthFlowDeps {
   onChange?: (snapshot: OkvevoAuthPublic) => void
 }
 
-function notify(deps: OkvevoAuthFlowDeps): OkvevoAuthPublic {
-  const snapshot = publicOkvevoAuthSnapshot(deps.loadSession())
+function notify(deps: OkvevoAuthFlowDeps, session: OkvevoAuthSession | null): OkvevoAuthPublic {
+  const snapshot = publicOkvevoAuthSnapshot(session)
 
   deps.onChange?.(snapshot)
 
@@ -74,7 +74,7 @@ export async function completeOkvevoAuthCallback(
   deps.writeIdTokenFile(session.idToken)
   deps.rememberLog?.(`[okvevo-auth] signed in ${session.uid}`)
 
-  return notify(deps)
+  return notify(deps, session)
 }
 
 export async function refreshOkvevoAuth(deps: OkvevoAuthFlowDeps): Promise<OkvevoAuthPublic> {
@@ -96,7 +96,7 @@ export async function refreshOkvevoAuth(deps: OkvevoAuthFlowDeps): Promise<Okvev
   deps.persistSession(session)
   deps.writeIdTokenFile(session.idToken)
 
-  return notify(deps)
+  return notify(deps, session)
 }
 
 export function signOutOkvevo(deps: OkvevoAuthFlowDeps): OkvevoAuthPublic {
@@ -105,5 +105,5 @@ export function signOutOkvevo(deps: OkvevoAuthFlowDeps): OkvevoAuthPublic {
   deps.clearIdTokenFile()
   deps.rememberLog?.('[okvevo-auth] signed out')
 
-  return notify(deps)
+  return notify(deps, null)
 }

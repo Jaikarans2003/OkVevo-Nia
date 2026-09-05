@@ -34,6 +34,11 @@ def read_okvevo_id_token() -> Optional[str]:
     return token or None
 
 
+def okvevo_signed_in() -> bool:
+    """True when a non-empty OkVevo Firebase ID token file is present."""
+    return bool(read_okvevo_id_token())
+
+
 def okvevo_gateway_base_url() -> str:
     origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
     if not origin:

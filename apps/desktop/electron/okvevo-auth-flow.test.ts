@@ -77,8 +77,20 @@ test('completeOkvevoAuthCallback exchanges matching state and hides tokens from 
   assert.deepEqual(d.posts[0].body, { code: 'one-time-code', state: 'csrf-state-value' })
   assert.equal(snap.signedIn, true)
   assert.equal(snap.uid, 'u1')
+  assert.equal(snap.email, 'a@b.c')
   assert.equal(JSON.stringify(snap).includes('rt'), false)
   assert.equal(d.loadSession()?.idToken, 'idt')
+})
+
+test('completeOkvevoAuthCallback notifies from the in-memory session even if loadSession returns null', async () => {
+  const d = deps({ loadSession: () => null })
+
+  await startOkvevoSignIn(d)
+  const snap = await completeOkvevoAuthCallback('one-time-code', 'csrf-state-value', d)
+
+  assert.equal(snap.signedIn, true)
+  assert.equal(snap.uid, 'u1')
+  assert.equal(snap.email, 'a@b.c')
 })
 
 test('mismatched state does not POST exchange', async () => {
