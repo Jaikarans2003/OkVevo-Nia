@@ -133,6 +133,7 @@ function buildDesktopBackendEnv({
   const currentPythonPath = currentEnv?.PYTHONPATH || ''
   const key = pathEnvKey(currentEnv, platform)
   const hermesHomeRoot = hermesHome ? normalizeHermesHomeRoot(hermesHome, { pathModule }) : ''
+
   const env: Record<string, string> = {
     PYTHONPATH: appendUniquePathEntries([...pythonPathEntries, currentPythonPath], { delimiter }),
     // Force PEP 540 UTF-8 mode in the spawned Python backend so its stdio and

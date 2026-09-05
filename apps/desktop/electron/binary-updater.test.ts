@@ -50,6 +50,7 @@ test('mapBinaryCheckResult uses updateAvailable + null behind, not a fake commit
 
 test('configureBinaryUpdater points at the generic feed and disables silent download', () => {
   const calls: unknown[] = []
+
   const updater = {
     autoDownload: true,
     autoInstallOnAppQuit: true,

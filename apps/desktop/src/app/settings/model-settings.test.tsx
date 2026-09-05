@@ -31,6 +31,7 @@ const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
 
 vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
   const actual = await importOriginal<typeof import('@/app/settings/settings-ui-policy')>()
+
   return { ...actual, isByokChromeVisible }
 })
 

@@ -4,6 +4,8 @@
  * cannot keep a hidden pref off-default.
  */
 
+import type { TranslucencyBook, TranslucencyValues } from '@hermes/shared/translucency'
+
 import { setTerminalTakeover } from '@/app/right-sidebar/store'
 import { setTerminalFontFamilyFromConfig } from '@/app/right-sidebar/terminal/terminal-font'
 import { $layoutEditMode } from '@/components/pane-shell/edit-mode'
@@ -25,7 +27,6 @@ import { setToursEnabled } from '@/store/tours'
 import { $translucencyBook, GLASS_SUPPORTED } from '@/store/translucency'
 import { setVibeHeartsEnabled } from '@/store/vibe-hearts-enabled'
 import { LOCKED_ZOOM_PERCENT, setZoomPercent } from '@/store/zoom'
-import type { TranslucencyBook, TranslucencyValues } from '@hermes/shared/translucency'
 
 export const HIDDEN_CONFIG_KEYS = new Set([
   'desktop.repo_scan_roots',

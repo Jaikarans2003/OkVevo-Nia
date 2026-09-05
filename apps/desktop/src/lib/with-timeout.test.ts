@@ -47,6 +47,7 @@ describe('withSuspendableTimeout', () => {
         isSuspended: () => false,
         pollMs: 50
       })
+
       const assertion = expect(result).rejects.toThrow('timed out')
 
       await vi.advanceTimersByTimeAsync(150)

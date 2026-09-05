@@ -62,6 +62,7 @@ describe('settings search index', () => {
       'desktop.repo_scan_roots': { type: 'array' },
       'browser.allow_private_urls': { type: 'boolean' }
     }
+
     const config = {
       terminal: { cwd: '/tmp' },
       desktop: { repo_scan_roots: [] },

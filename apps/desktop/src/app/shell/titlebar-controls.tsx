@@ -154,6 +154,7 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
         : t.titlebar.signIn,
       onSelect: () => {
         triggerHaptic('tap')
+
         if (okvevoAuth.signedIn) {
           void window.hermesDesktop?.signOutOkvevo?.()
         } else {

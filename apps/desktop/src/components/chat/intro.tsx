@@ -1,8 +1,7 @@
 import { useState } from 'react'
 
-import { capitalize, normalize } from '@/lib/text'
-
 import { BrandMark } from '@/components/brand-mark'
+import { capitalize, normalize } from '@/lib/text'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
 

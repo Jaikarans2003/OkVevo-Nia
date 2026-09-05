@@ -46,6 +46,7 @@ test('login URL carries allowlisted redirect + state', () => {
     protocol: 'hermes-dev',
     state: 'csrf-state-value'
   })
+
   const parsed = new URL(url)
 
   assert.equal(parsed.origin, 'https://www.okvevo.com')
@@ -82,6 +83,7 @@ test('public snapshot never includes tokens', () => {
     uid: 'uid-1',
     email: 'a@b.c'
   })
+
   const json = JSON.stringify(snap)
 
   assert.equal(snap.signedIn, true)
@@ -93,6 +95,7 @@ test('public snapshot never includes tokens', () => {
 
 test('sessionFromTokenResponse requires tokens + uid', () => {
   assert.equal(sessionFromTokenResponse({}), null)
+
   const session = sessionFromTokenResponse(
     { refreshToken: 'rt', idToken: 'idt', expiresIn: 3600, uid: 'u1', email: 'e' },
     1_000

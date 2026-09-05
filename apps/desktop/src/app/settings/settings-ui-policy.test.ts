@@ -74,6 +74,7 @@ describe('settings UI policy filters', () => {
     expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
     process.env.NIA_BUILD_CHANNEL = 'public'
     expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+
     if (prev === undefined) {
       delete process.env.NIA_BUILD_CHANNEL
     } else {
@@ -130,6 +131,7 @@ describe('applyLockedDesktopPrefs', () => {
       [1, 3, 1],
       'spl-locked-default'
     )
+
     const leftover = split('row', [group(['workspace'], { id: 'grp-main' })], [1], 'spl-leftover')
 
     declareDefaultTree(lockedDefault)
