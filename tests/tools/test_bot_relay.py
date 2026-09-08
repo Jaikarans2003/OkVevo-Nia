@@ -80,6 +80,7 @@ def test_resolve_remote_target_forms(root):
     roster = bot_relay.read_remote_roster(root)
     assert bot_relay.resolve_remote_target("researcher", roster)["connection_id"] == "ssh-vps"
     assert bot_relay.resolve_remote_target("@hermes", roster)["profile"] == "default"
+    assert bot_relay.resolve_remote_target("@nia", roster)["profile"] == "default"
     # profile name resolves too
     assert bot_relay.resolve_remote_target("default", roster)["connection_id"] == "cloud-1"
     # exact connection-qualified form
@@ -300,7 +301,7 @@ def test_relay_route_queues_envelope_and_spawns_waiter(tmp_path, monkeypatch):
     assert len(pending) == 1
     assert pending[0]["target_connection"] == "cloud-1"
     assert pending[0]["target_profile"] == "default"
-    assert pending[0]["message"].startswith("Message from 🤖 hermes (@hermes): ping")
+    assert pending[0]["message"].startswith("Message from 🤖 nia (@nia): ping")
     # waiter watches this envelope's reply file
     assert pending[0]["id"] in spawned["command"]
 

@@ -2239,6 +2239,7 @@ export interface Translations {
     connectExistingShort: string
     connectExistingDesc: string
     installLocalTitle: string
+    installNia: string
     installLocalDesc: string
     localStartUnavailable: string
     remoteSetupTitle: string
@@ -2268,6 +2269,7 @@ export interface Translations {
     backToSetup: string
     failedTitle: string
     settingUpTitle: string
+    settingUpNiaTitle: string
     finishingTitle: string
     failedDesc: string
     activeDesc: string

@@ -19,6 +19,7 @@ import { HighlightMatches } from '@/components/ui/highlight-matches'
 import { KbdCombo } from '@/components/ui/kbd'
 import { getHermesConfigRecord, listAllProfileSessions } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { sessionTitle } from '@/lib/chat-runtime'
 import {
   Activity,
@@ -96,7 +97,8 @@ import {
 } from '../routes'
 import { SECTIONS } from '../settings/constants'
 import { type SettingsSearchEntry, settingsSearchTargetQuery } from '../settings/settings-search'
-import { isByokChromeVisible } from '../settings/settings-ui-policy'
+import { isConfigSectionVisible, isSettingsViewVisible } from '../settings/settings-ui-policy'
+import type { SettingsView } from '../settings/types'
 import { useSettingsSearchCatalog } from '../settings/use-settings-search'
 
 import { usePaletteContributions } from './contrib'
@@ -454,13 +456,7 @@ const NON_CONFIG_SETTINGS: ReadonlyArray<{
 ]
 
 function nonConfigSettingsEntries() {
-  if (isByokChromeVisible()) {
-    return NON_CONFIG_SETTINGS
-  }
-
-  return NON_CONFIG_SETTINGS.filter(
-    entry => entry.labelKey !== 'providerAccounts' && entry.labelKey !== 'providerApiKeys'
-  )
+  return NON_CONFIG_SETTINGS.filter(entry => isSettingsViewVisible(entry.tab.split('&')[0] as SettingsView))
 }
 
 /**
@@ -816,7 +812,9 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             label: t.shell.statusbar.cron,
             run: go(CRON_ROUTE)
           },
-          { action: 'nav.profiles', icon: Users, id: 'nav-profiles', label: t.profiles.title, run: go(PROFILES_ROUTE) },
+          ...(isByokChromeVisible()
+            ? [{ action: 'nav.profiles', icon: Users, id: 'nav-profiles', label: t.profiles.title, run: go(PROFILES_ROUTE) }]
+            : []),
           { action: 'nav.agents', icon: Cpu, id: 'nav-agents', label: t.agents.title, run: go(AGENTS_ROUTE) },
           {
             icon: Starmap,
@@ -931,7 +929,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
       {
         heading: cc.settings,
         items: [
-          ...SECTIONS.map(section => ({
+          ...SECTIONS.filter(section => isConfigSectionVisible(section.id)).map(section => ({
             icon: section.icon,
             id: `set-config-${section.id}`,
             keywords: ['settings', section.label, settingsSectionLabel(section)],
@@ -1164,7 +1162,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
       {
         heading: cc.settings,
         items: [
-          ...SECTIONS.map(section => ({
+          ...SECTIONS.filter(section => isConfigSectionVisible(section.id)).map(section => ({
             icon: section.icon,
             id: `sp-config-${section.id}`,
             keywords: ['settings', section.label, settingsSectionLabel(section)],

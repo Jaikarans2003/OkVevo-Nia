@@ -7,9 +7,15 @@ export type OkvevoAuthPublic = {
   signedIn: boolean
   uid: string | null
   email: string | null
+  displayName: string | null
 }
 
-export const $okvevoAuth = atom<OkvevoAuthPublic>({ signedIn: false, uid: null, email: null })
+export const $okvevoAuth = atom<OkvevoAuthPublic>({
+  signedIn: false,
+  uid: null,
+  email: null,
+  displayName: null
+})
 
 let authGeneration = 0
 

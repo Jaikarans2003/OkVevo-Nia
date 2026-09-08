@@ -117,7 +117,11 @@ export function loadOkvevoAuthSession(io: OkvevoAuthStoreIo): OkvevoAuthSession 
       return null
     }
 
-    return parsed
+    return {
+      ...parsed,
+      email: parsed.email ?? null,
+      displayName: parsed.displayName ?? null
+    }
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
 

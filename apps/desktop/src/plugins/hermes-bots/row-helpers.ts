@@ -38,7 +38,7 @@ export function previewKind(preview: null | string | undefined): { fromBot: null
   if (match) {
     // The captured name is whatever the delivery prefix carried — a raw
     // profile name. Map it the way every other surface does so the primary
-    // profile reads @hermes, never @default (#89484).
+    // profile reads @nia, never @default (#89484).
     const sender = (match[1] || match[2] || '').trim().toLowerCase()
 
     return {

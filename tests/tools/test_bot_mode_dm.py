@@ -261,7 +261,7 @@ def test_local_delivery_command_and_ack(tmp_path, monkeypatch):
 
     # attribution prefix applied server-side; body verbatim inside the file
     content = Path(dm_file).read_text(encoding="utf-8")
-    assert content.startswith("Message from 🤖 hermes (@hermes): ")
+    assert content.startswith("Message from 🤖 nia (@nia): ")
     assert '$(and this is not shell)' in content
 
 
@@ -290,7 +290,7 @@ def test_peer_delivery_command(tmp_path, monkeypatch):
 
 
 def test_named_profile_sender_prefix(tmp_path, monkeypatch):
-    """A named-profile bot signs with its own handle, not @hermes."""
+    """A named-profile bot signs with its own handle, not @nia."""
     calls = _capture_spawn(monkeypatch)
     home = _managed_home(tmp_path, teammates=("researcher", "coder"))
     profile_home = home / "profiles" / "coder"

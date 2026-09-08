@@ -52,8 +52,8 @@ def _(rid, params: dict) -> dict:
         Multi-agent UIs (and the Bot Mode plugin) route `@<profile>` text to
         another agent profile; completing profile names alongside path refs
         makes that discoverable. Bare-word matches only — never for
-        `@kind:` directive queries. The primary profile is also offered
-        under the 'hermes' alias when no real profile claims that name.
+        `@kind:` directive queries. The primary profile is offered as
+        `@nia` (disk name stays `default`).
         """
         out: list[dict] = []
         try:
@@ -64,24 +64,24 @@ def _(rid, params: dict) -> dict:
                 name = (p.name or "").strip()
                 if not name:
                     continue
-                seen.add(name.lower())
+                handle = "nia" if name.lower() == "default" else name
+                key = handle.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
                 desc = (getattr(p, "description", "") or "").strip()
-                if name.lower().startswith(prefix.lower()):
+                if handle.lower().startswith(prefix.lower()):
                     out.append(
                         {
-                            "text": f"@{name}",
-                            "display": f"@{name}",
-                            "meta": desc or "agent profile",
+                            "text": f"@{handle}",
+                            "display": f"@{handle}",
+                            "meta": (
+                                "agent profile (primary)"
+                                if name.lower() == "default"
+                                else (desc or "agent profile")
+                            ),
                         }
                     )
-            if "hermes".startswith(prefix.lower()) and "hermes" not in seen:
-                out.append(
-                    {
-                        "text": "@hermes",
-                        "display": "@hermes",
-                        "meta": "agent profile (primary)",
-                    }
-                )
         except Exception:
             return []
         return out

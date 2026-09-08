@@ -750,6 +750,11 @@ def _resolve_managed_fal_gateway():
     Raises ``ValueError`` with the honest error contract when the stored
     selection cannot run.
     """
+    from agent.okvevo_gateway import resolve_okvevo_fal_gateway
+
+    okvevo = resolve_okvevo_fal_gateway()
+    if okvevo is not None:
+        return okvevo
     selected = read_selection("image_gen")
     if selected == NOUS_MANAGED_PROVIDER:
         gateway = resolve_managed_tool_gateway("fal-queue")
@@ -1418,6 +1423,10 @@ def check_fal_api_key() -> bool:
     the honest selection-naming error surfaces at call time from
     ``_resolve_managed_fal_gateway``.
     """
+    from agent.okvevo_gateway import okvevo_fal_available
+
+    if okvevo_fal_available():
+        return True
     selected = read_selection("image_gen")
     if selected == NOUS_MANAGED_PROVIDER:
         return bool(resolve_managed_tool_gateway("fal-queue"))

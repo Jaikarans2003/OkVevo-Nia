@@ -11,7 +11,7 @@ import { COMPOSER_AREAS, type ComposerAtCompletionSource } from '@/app/chat/comp
 import { registry } from '@/contrib/registry'
 import { queryClient } from '@/lib/query-client'
 
-import { useAtCompletions } from './use-at-completions'
+import { brandAtProfileEntries, useAtCompletions } from './use-at-completions'
 
 const disposers: Array<() => void> = []
 
@@ -117,5 +117,40 @@ describe('contributed @ completion sources', () => {
     const rows = await searchAndRead(result, 'rese')
     expect(rows[0]).toBe('@researcher')
     expect(rows.length).toBeGreaterThan(1)
+  })
+
+  it('never paints @hermes or @default in branded completion rows', async () => {
+    vi.useFakeTimers()
+
+    const gateway = gatewayStub([
+      { text: '@hermes', display: '@hermes', meta: 'agent profile' },
+      { text: '@default', display: '@default', meta: 'agent profile (primary)' },
+      { text: '@ops', display: '@ops', meta: 'agent profile' },
+      { text: '@diff', display: '@diff', meta: 'git diff' },
+      { text: '@file:src/main.tsx', display: 'main.tsx', meta: 'file' }
+    ])
+
+    const { result } = renderHook(() => useAtCompletions({ gateway: gateway as never, sessionId: 's1', cwd: '/repo' }))
+
+    const rows = await searchAndRead(result, '')
+    expect(rows).toContain('@nia')
+    expect(rows).toContain('@ops')
+    expect(rows).toContain('@diff')
+    expect(rows.some(label => label.includes('main.tsx'))).toBe(true)
+    expect(rows).not.toContain('@hermes')
+    expect(rows).not.toContain('@default')
+  })
+})
+
+describe('brandAtProfileEntries', () => {
+  it('rewrites leftover @hermes and @default to @nia', () => {
+    const branded = brandAtProfileEntries([
+      { text: '@hermes', display: '@hermes', meta: 'agent profile' },
+      { text: '@default', display: '@default', meta: 'agent profile (primary)' },
+      { text: '@file:src/hermes.ts', display: 'hermes.ts', meta: 'file' }
+    ])
+
+    expect(branded.map(entry => entry.text)).toEqual(['@nia', '@nia', '@file:src/hermes.ts'])
+    expect(branded.map(entry => entry.display)).toEqual(['@nia', '@nia', 'hermes.ts'])
   })
 })

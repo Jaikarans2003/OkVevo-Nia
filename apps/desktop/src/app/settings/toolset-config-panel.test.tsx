@@ -43,6 +43,11 @@ const getHermesConfigRecord = vi.fn()
 const getHermesConfigSchema = vi.fn()
 const saveHermesConfig = vi.fn()
 const getElevenLabsVoices = vi.fn()
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 
 vi.mock('@/hermes', () => ({
   getToolsetConfig: (name: string) => getToolsetConfig(name),
@@ -128,6 +133,7 @@ beforeEach(() => {
   )
 
   getToolsetConfig.mockResolvedValue(config())
+  isByokChromeVisible.mockReturnValue(true)
   getToolsetModels.mockResolvedValue({
     name: 'tts',
     has_models: false,
@@ -203,7 +209,7 @@ describe('ToolsetConfigPanel', () => {
     render(<ToolsetConfigPanel onConfiguredChange={vi.fn()} toolset="tts" />)
 
     await screen.findByText('Microsoft Edge TTS')
-    expect(screen.queryByText('Edge Voice')).toBeNull()
+    expect(screen.queryByText('Voices')).toBeNull()
     expect(screen.queryByText('OpenAI Voice')).toBeNull()
   })
 
@@ -303,6 +309,43 @@ describe('ToolsetConfigPanel', () => {
     // Picking a different model persists via the model endpoint.
     fireEvent.click(screen.getByRole('button', { name: /FLUX 2 Pro/ }))
     await waitFor(() => expect(selectToolsetModel).toHaveBeenCalledWith('image_gen', 'flux-2-pro', 'FAL.ai'))
+  })
+
+  it('hides FAL.ai and Nous Subscription rows on public', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    getToolsetConfig.mockResolvedValue(
+      config({
+        name: 'image_gen',
+        active_provider: 'FAL.ai',
+        providers: [
+          {
+            name: 'FAL.ai',
+            badge: 'paid',
+            tag: 'Multi-model image generation',
+            env_vars: [{ key: 'FAL_KEY', prompt: 'FAL.ai API key', url: 'https://x', default: null, is_set: false }],
+            post_setup: null,
+            requires_nous_auth: false,
+            is_active: true
+          },
+          {
+            name: 'Nous Subscription',
+            badge: 'paid',
+            tag: 'Managed FAL',
+            env_vars: [],
+            post_setup: null,
+            requires_nous_auth: true,
+            is_active: false
+          }
+        ]
+      })
+    )
+
+    const { ToolsetConfigPanel } = await import('./toolset-config-panel')
+    render(<ToolsetConfigPanel onConfiguredChange={vi.fn()} toolset="image_gen" />)
+
+    await waitFor(() => expect(getToolsetConfig).toHaveBeenCalled())
+    expect(screen.queryByText('FAL.ai')).toBeNull()
+    expect(screen.queryByText('Nous Subscription')).toBeNull()
   })
 
   it('does not fetch model catalogs for toolsets without them', async () => {
@@ -1059,6 +1102,55 @@ describe('ToolsetConfigPanel', () => {
       await waitFor(() => expect(selectToolsetProvider).toHaveBeenCalledWith('web', 'Firecrawl', 'search'))
       // Badge tracks the local write without a refetch.
       await waitFor(() => expect(screen.getByText('Search: firecrawl')).toBeTruthy())
+    })
+
+    it('hides Tavily row on public and keeps Firecrawl', async () => {
+      isByokChromeVisible.mockReturnValue(false)
+      getToolsetConfig.mockResolvedValue(
+        webConfig({
+          providers: [
+            {
+              name: 'Firecrawl',
+              badge: 'paid',
+              tag: 'Full search + extract',
+              env_vars: [],
+              post_setup: null,
+              requires_nous_auth: false,
+              is_active: true,
+              status: 'ready',
+              web_backend: 'firecrawl',
+              capabilities: ['search', 'extract']
+            },
+            {
+              name: 'Tavily',
+              badge: 'free · key optional',
+              tag: 'Search + extract',
+              env_vars: [
+                {
+                  key: 'TAVILY_API_KEY',
+                  prompt: 'Tavily API key',
+                  url: 'https://x',
+                  default: null,
+                  is_set: false
+                }
+              ],
+              post_setup: null,
+              requires_nous_auth: false,
+              is_active: false,
+              status: 'ready',
+              web_backend: 'tavily',
+              capabilities: ['search', 'extract']
+            }
+          ]
+        })
+      )
+
+      const { ToolsetConfigPanel } = await import('./toolset-config-panel')
+      render(<ToolsetConfigPanel onConfiguredChange={vi.fn()} toolset="web" />)
+
+      await waitFor(() => expect(getToolsetConfig).toHaveBeenCalled())
+      expect(screen.queryByText('Tavily')).toBeNull()
+      expect(screen.getByText('Firecrawl')).toBeTruthy()
     })
 
     it('does not render capability chrome for non-web toolsets', async () => {

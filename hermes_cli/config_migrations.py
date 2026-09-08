@@ -863,6 +863,72 @@ def _migrate_to_39(results: Dict[str, Any], quiet: bool) -> None:
             )
 
 
+def _aux_slot_is_inherit_main(slot: Any) -> bool:
+    """True when an aux task still inherits the main model (auto + empty)."""
+    if not isinstance(slot, dict):
+        return True
+    provider = str(slot.get("provider") or "").strip().lower() or "auto"
+    model = str(slot.get("model") or "").strip()
+    return provider == "auto" and model == ""
+
+
+def _migrate_to_40(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 39 → 40: pin compression + vision to OpenRouter GLM ──
+    # Existing installs have auxiliary.*.provider=auto / model="" on disk,
+    # which wins over DEFAULT_CONFIG via deep-merge. Rewrite inherit-main
+    # slots so compression uses z-ai/glm-5.2 and vision uses
+    # z-ai/glm-5.3-flash. Concrete user pins are left alone; missing slots
+    # inherit the new defaults at read time without a write.
+    from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+    _c = _cfg()
+    read_raw_config = _c.read_raw_config
+    _persist_migration = _c._persist_migration
+
+    pins = {
+        "compression": (
+            DEFAULT_CONFIG["auxiliary"]["compression"]["provider"],
+            DEFAULT_CONFIG["auxiliary"]["compression"]["model"],
+        ),
+        "vision": (
+            DEFAULT_CONFIG["auxiliary"]["vision"]["provider"],
+            DEFAULT_CONFIG["auxiliary"]["vision"]["model"],
+        ),
+    }
+
+    config = read_raw_config()
+    aux = config.get("auxiliary")
+    if not isinstance(aux, dict):
+        return
+
+    changed: List[str] = []
+    for task, (provider, model) in pins.items():
+        if task not in aux:
+            continue
+        slot = aux[task]
+        if not _aux_slot_is_inherit_main(slot):
+            continue
+        if not isinstance(slot, dict):
+            slot = {}
+            aux[task] = slot
+        slot["provider"] = provider
+        slot["model"] = model
+        changed.append(f"auxiliary.{task}={provider}/{model}")
+
+    if not changed:
+        return
+
+    config["auxiliary"] = aux
+    _persist_migration(config)
+    results["config_added"].extend(changed)
+    if not quiet:
+        print(
+            "  ✓ Pinned OpenRouter GLM auxiliary models for inherit-main "
+            "compression (z-ai/glm-5.2) and vision (z-ai/glm-5.3-flash). "
+            "Set either slot back to auto / empty to inherit the main model."
+        )
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: observe earlier steps' writes via read_raw_config() (filesystem state).
@@ -890,6 +956,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (37, _migrate_to_37),
     (38, _migrate_to_38),
     (39, _migrate_to_39),
+    (40, _migrate_to_40),
 )
 
 

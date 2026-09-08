@@ -563,7 +563,7 @@ export const ar = defineLocale({
       'stt.elevenlabs.tagAudioEvents': 'وسم أحداث الصوت',
       'stt.elevenlabs.diarize': 'تمييز المتحدثين',
       'tts.provider': 'مزود تحويل النص إلى كلام',
-      'tts.edge.voice': 'صوت Edge',
+      'tts.edge.voice': 'صوت',
       'tts.openai.model': 'نموذج OpenAI TTS',
       'tts.openai.voice': 'صوت OpenAI',
       'tts.elevenlabs.voiceId': 'صوت ElevenLabs',

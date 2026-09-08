@@ -7,6 +7,12 @@ import { $findInPage } from '@/store/find-in-page'
 
 import { ConnectionSwitcher } from './connection-switcher'
 
+let byokChromeVisible = true
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible: () => byokChromeVisible
+}))
+
 // Radix menus use pointer capture; jsdom does not implement it.
 Element.prototype.hasPointerCapture ??= () => false
 Element.prototype.setPointerCapture ??= () => undefined
@@ -116,6 +122,7 @@ afterEach(() => {
   $findInPage.set({ active: false, query: '', matchOrdinal: 0, matchCount: 0 })
   isAuxiliaryWindow.mockReturnValue(false)
   isPeerInstanceWindow.mockReturnValue(false)
+  byokChromeVisible = true
 })
 
 describe('ConnectionSwitcher', () => {
@@ -201,6 +208,24 @@ describe('ConnectionSwitcher', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Manage gateways…' }))
     expect(onConnect).toHaveBeenCalledTimes(1)
     expect(selectConnection).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides Manage gateways on the public pack', () => {
+    byokChromeVisible = false
+    $connectionsRegistry.set(
+      registry([
+        connection('local', 'This device', 'local'),
+        connection('homelab', 'Homelab')
+      ])
+    )
+    render(<ConnectionSwitcher onConnect={onConnect} />)
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Registered gateways: This device' }), {
+      button: 0,
+      pointerType: 'mouse'
+    })
+
+    expect(screen.queryByRole('menuitem', { name: 'Manage gateways…' })).toBeNull()
   })
 
   it('fits the shared statusbar slot without changing its gateway identity', () => {

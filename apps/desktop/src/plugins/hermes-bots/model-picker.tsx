@@ -7,6 +7,7 @@
  */
 
 import {
+  brandModelOptionsResponse,
   Button,
   GlyphSpinner,
   Input,
@@ -89,7 +90,7 @@ function useModelOptions(bot: null | RosterRow = null) {
           include_unconfigured: true,
           explicit_only: false
         }) as Promise<ModelOptionsResponse>
-      ),
+      ).then(brandModelOptionsResponse),
     enabled: !orphaned,
     staleTime: 120000,
     retry: false

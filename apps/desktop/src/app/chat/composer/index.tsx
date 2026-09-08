@@ -5,7 +5,7 @@ import { type ClipboardEvent, type FormEvent, type KeyboardEvent, useCallback, u
 import { useTourMarker } from '@/app/chat/tour-marker'
 import { useHudComposerDrag } from '@/app/hud/composer-drag'
 import { composerFill, composerFloatingStrip } from '@/components/chat/composer-dock'
-import { Intro } from '@/components/chat/intro'
+import { Intro, resolveIntroSubtitle } from '@/components/chat/intro'
 import { Button } from '@/components/ui/button'
 import { Slot as ContribSlot } from '@/contrib/react/slot'
 import { useI18n } from '@/i18n'
@@ -392,9 +392,15 @@ export function ChatBar({
     stashAt
   })
 
-  // Resting / reconnecting / starting placeholder text, re-rolled only on a real
-  // conversation change.
-  const placeholder = useComposerPlaceholder({ disabled, reconnecting, sessionId })
+  // Resting / reconnecting / starting placeholder. Normal window loops every
+  // sentence forward then back with an orange caret overlay; HUD stays static.
+  const { looping: placeholderLooping, text: placeholder } = useComposerPlaceholder({
+    disabled,
+    loop: !hudMode,
+    reconnecting,
+    sessionId
+  })
+  const introSubtitle = resolveIntroSubtitle(introPersonality, introSeed)
 
   // Trigger / completion engine: @// detection, the adapter-driven item list,
   // popover selection, and chip insertion. The keydown nav block below consumes
@@ -1056,7 +1062,8 @@ export function ChatBar({
           hudNativeDrag && '[-webkit-app-region:no-drag]'
         )}
         contentEditable={!inputDisabled}
-        data-placeholder={placeholder}
+        data-placeholder={placeholderLooping ? '' : placeholder}
+        data-placeholder-loop={placeholderLooping ? '' : undefined}
         data-slot={RICH_INPUT_SLOT}
         onBeforeInput={handleEditorBeforeInput}
         onBlur={() => {
@@ -1101,6 +1108,18 @@ export function ChatBar({
         spellCheck={false}
         suppressContentEditableWarning
       />
+      {placeholderLooping ? (
+        <div
+          aria-hidden
+          className={cn(
+            'composer-placeholder-loop pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center overflow-hidden pr-1 pt-1 pb-1 text-[length:inherit] leading-normal whitespace-nowrap',
+            stacked && 'pl-3'
+          )}
+        >
+          <span className="min-w-0 truncate">{placeholder}</span>
+          <span className="intro-splash-caret ml-0.5 inline-block h-[1.05em] w-[0.18em] shrink-0 translate-y-[0.08em]" />
+        </div>
+      ) : null}
       <ComposerDirectiveActions editorRef={editorRef} />
       {/* assistant-ui requires ComposerPrimitive.Input somewhere in the tree
         so the composer-state binding (text + IME + paste + form-submit hookup)
@@ -1398,7 +1417,7 @@ export function ChatBar({
                         : 'grid-cols-[auto_1fr_auto] items-center gap-(--composer-control-gap) [grid-template-areas:"menu_input_controls"]'
                     )}
                   >
-                    <div className="flex translate-y-[3px] items-start gap-(--composer-control-gap) self-start [grid-area:menu]">
+                    <div className="flex items-center gap-(--composer-control-gap) [grid-area:menu]">
                       {contextMenu}
                       <ContribSlot area={COMPOSER_AREAS.leading} />
                     </div>
@@ -1422,6 +1441,14 @@ export function ChatBar({
           </div>
           </div>
           <ComposerDisclaimer show={!poppedOut && !splashColumn} />
+          {splashColumn ? (
+            <p
+              className="mx-auto mt-4 w-full max-w-[34rem] px-2 pb-2 text-center text-[0.8125rem] leading-snug text-(--ui-text-tertiary) italic"
+              data-slot="intro-composer-subtitle"
+            >
+              {introSubtitle}
+            </p>
+          ) : null}
           </div>
           </div>
         </div>

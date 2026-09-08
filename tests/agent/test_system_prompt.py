@@ -7,6 +7,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from agent.system_prompt import build_system_prompt, build_system_prompt_parts
+from agent.user_facing_brand import sanitize_user_facing_brand
 
 
 def _make_agent(**overrides):
@@ -260,11 +261,13 @@ class TestNamedProfileHintIntegration:
             prompt = "\n\n".join(_prompt_parts(agent).values())
 
         assert "Active Nia profile: coder." in prompt
-        assert f"reads and writes {profile_home}/." in prompt
+        painted_home = sanitize_user_facing_brand(str(profile_home))
+        painted_root = sanitize_user_facing_brand(str(root))
+        assert f"reads and writes {painted_home}/." in prompt
         # The doubled form must not appear anywhere.
         assert f"{profile_home}/profiles/coder" not in prompt
         # Default-profile pointers belong at the root, not inside the profile.
-        assert f"The default profile's data lives at {root}/skills/" in prompt
+        assert f"The default profile's data lives at {painted_root}/skills/" in prompt
         assert f"{profile_home}/skills/" not in prompt
 
     def test_real_default_home_renders_default_branch(self, tmp_path, monkeypatch):
@@ -285,7 +288,7 @@ class TestNamedProfileHintIntegration:
             prompt = "\n\n".join(_prompt_parts(agent).values())
 
         assert "Active Nia profile: default." in prompt
-        assert f"under {root}/profiles/<name>/." in prompt
+        assert f"under {sanitize_user_facing_brand(str(root))}/profiles/<name>/." in prompt
 
 
 def test_build_system_prompt_records_stable_prefix():

@@ -19,6 +19,7 @@ import {
   startOAuthLogin
 } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { Check, Loader2, Save, Terminal } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { upsertDesktopActionTask } from '@/store/activity'
@@ -35,6 +36,7 @@ import type {
 
 import { EnvVarActionsMenu, EnvVarActionsTrigger, EnvVarContextMenu } from './env-var-actions-menu'
 import { Pill } from './primitives'
+import { isPublicHiddenToolProvider } from './settings-ui-policy'
 import { VoiceProviderFields } from './voice-provider-fields'
 
 interface ToolsetConfigPanelProps {
@@ -565,7 +567,11 @@ export function ToolsetConfigPanel({ toolset, onConfiguredChange, profile }: Too
     void refresh()
   }, [refresh])
 
-  const providers = useMemo(() => cfg?.providers ?? [], [cfg])
+  const providers = useMemo(() => {
+    const all = cfg?.providers ?? []
+    if (isByokChromeVisible()) return all
+    return all.filter(p => !isPublicHiddenToolProvider(toolset, p.name))
+  }, [cfg, toolset])
 
   // Default the expanded provider to the one actually active in config
   // (`is_active` / `cfg.active_provider`, mirroring the CLI picker), then the

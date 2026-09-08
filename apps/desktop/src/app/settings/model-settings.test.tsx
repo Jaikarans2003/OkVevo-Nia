@@ -3,6 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { brandProviderCatalog } from '@/lib/provider-branding'
+
 // Radix Select calls scrollIntoView on its items when the content opens; jsdom
 // doesn't implement it (nor hasPointerCapture / releasePointerCapture), so stub
 // them to let the dropdown open in tests.
@@ -29,8 +31,13 @@ let profileSwitchHandler: (() => void) | null = null
 
 const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
 
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
+
 vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
-  const actual = await importOriginal<typeof import('@/app/settings/settings-ui-policy')>()
+  const actual = await importOriginal()
+
   return { ...actual, isByokChromeVisible }
 })
 
@@ -192,6 +199,50 @@ describe('ModelSettings', () => {
     expect(screen.queryByRole('button', { name: 'Set up provider' })).toBeNull()
     expect(screen.queryByPlaceholderText(/Paste/)).toBeNull()
     expect(startManualLocalEndpoint).not.toHaveBeenCalled()
+  })
+
+  it('public channel brands OpenRouter as OkVevo on the aux line and catalog, and hides OpenCode', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    getGlobalModelInfo.mockResolvedValue({ provider: 'openrouter', model: 'anthropic/claude-opus-4.8' })
+    getGlobalModelOptions.mockResolvedValue({
+      providers: brandProviderCatalog([
+        {
+          name: 'OpenRouter',
+          slug: 'openrouter',
+          models: ['anthropic/claude-opus-4.8'],
+          authenticated: true
+        },
+        {
+          name: 'OpenCode Free',
+          slug: 'opencode-free',
+          models: ['kimi'],
+          authenticated: true
+        },
+        {
+          name: 'Nous',
+          slug: 'nous',
+          models: ['hermes-4'],
+          authenticated: true
+        }
+      ])
+    })
+    getAuxiliaryModels.mockResolvedValue({
+      main: { provider: 'openrouter', model: 'anthropic/claude-opus-4.8' },
+      tasks: [{ task: 'vision', provider: 'openrouter', model: 'anthropic/claude-opus-4.8', base_url: '' }]
+    })
+
+    await renderModelSettings()
+
+    const providerTrigger = (await screen.findAllByRole('combobox'))[0]
+    fireEvent.click(providerTrigger)
+
+    expect(await screen.findByRole('option', { name: 'OkVevo' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'OpenRouter' })).toBeNull()
+    expect(screen.queryByRole('option', { name: 'OpenCode Free' })).toBeNull()
+    expect(screen.queryByText(/OpenCode/)).toBeNull()
+
+    expect(screen.getByText('OkVevo · anthropic/claude-opus-4.8')).toBeTruthy()
+    expect(screen.queryByText(/openrouter ·/i)).toBeNull()
   })
 
   it('opens the generic provider picker for an unknown provider with no inventory row', async () => {

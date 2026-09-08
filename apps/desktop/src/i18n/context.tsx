@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getHermesConfigRecord, type HermesConfigRecord, saveHermesConfig } from '@/hermes'
+import { isByokChromeVisible } from '@/lib/build-channel'
 
 import { TRANSLATIONS } from './catalog'
 import { DEFAULT_LOCALE, localeConfigValue, normalizeLocale } from './languages'
@@ -120,9 +121,25 @@ export function I18nProvider({ children, configClient = defaultConfigClient, ini
     configClient
       .getConfig()
       .then(config => {
-        if (!cancelled) {
-          setLocaleState(normalizeLocale(getConfigDisplayLanguage(config)))
+        if (cancelled) {
+          return
         }
+
+        const locale = normalizeLocale(getConfigDisplayLanguage(config))
+
+        if (!isByokChromeVisible()) {
+          setLocaleState(DEFAULT_LOCALE)
+
+          if (locale !== DEFAULT_LOCALE) {
+            void configClient.saveConfig(withConfigDisplayLanguage(config, DEFAULT_LOCALE)).catch(() => {
+              // Gateway not ready — UI stays English; boot persist retries next launch.
+            })
+          }
+
+          return
+        }
+
+        setLocaleState(locale)
       })
       .catch(error => {
         if (!cancelled) {

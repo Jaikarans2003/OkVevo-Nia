@@ -16659,7 +16659,8 @@ function readPersistedKeepAwake() {
   try {
     return JSON.parse(fs.readFileSync(KEEP_AWAKE_CONFIG_PATH, 'utf8')).on === true
   } catch {
-    return false
+    // Missing file: default ON (matches the renderer store). A written `{ on: false }` stays off.
+    return true
   }
 }
 

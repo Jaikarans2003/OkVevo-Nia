@@ -540,7 +540,7 @@ export const zhHant = defineLocale({
       tts: {
         provider: '文字轉語音提供方',
         edge: {
-          voice: 'Edge 語音'
+          voice: '語音'
         },
         openai: {
           model: 'OpenAI TTS 模型',

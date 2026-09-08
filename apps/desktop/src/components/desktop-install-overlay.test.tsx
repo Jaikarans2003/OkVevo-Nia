@@ -7,6 +7,12 @@ import { LOCAL_ONLY_V1 } from '@/lib/product'
 
 import { DesktopInstallOverlay } from './desktop-install-overlay'
 
+let byokChromeVisible = true
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible: () => byokChromeVisible
+}))
+
 function bootstrapState(overrides: Partial<DesktopBootstrapState> = {}): DesktopBootstrapState {
   return {
     active: false,
@@ -82,11 +88,13 @@ function whenPresent(text: string): Promise<HTMLElement> {
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  Element.prototype.scrollIntoView ??= () => undefined
 })
 
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
+  byokChromeVisible = true
   Reflect.deleteProperty(window, 'hermesDesktop')
 })
 
@@ -574,5 +582,122 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     await waitFor(() => expect(screen.queryByText('Gateway URL')).toBeNull())
     expect(screen.queryByText('Nia needs a one-time install')).toBeNull()
+  })
+})
+
+const TEN_STAGES = [
+  { name: 'prerequisites' },
+  { name: 'uv' },
+  { name: 'clone' },
+  { name: 'venv' },
+  { name: 'deps' },
+  { name: 'models' },
+  { name: 'config' },
+  { name: 'gateway' },
+  { name: 'doctor' },
+  { name: 'done' }
+]
+
+function runningProgressState(): DesktopBootstrapState {
+  return bootstrapState({
+    active: true,
+    manifest: { type: 'manifest', protocolVersion: 1, stages: TEN_STAGES },
+    stages: {
+      prerequisites: {
+        state: 'succeeded',
+        durationMs: 1000,
+        startedAt: Date.now() - 2000,
+        json: null,
+        error: null
+      },
+      uv: { state: 'running', durationMs: null, startedAt: Date.now(), json: null, error: null }
+    }
+  })
+}
+
+describe('DesktopInstallOverlay public chrome', () => {
+  it('shows icon + Install Nia without title, path, or local-card copy', async () => {
+    byokChromeVisible = false
+    installDesktopMock(
+      bootstrapState({
+        setupChoice: { platform: 'win32', activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent' }
+      })
+    )
+
+    render(<DesktopInstallOverlay />)
+
+    expect(await screen.findByRole('button', { name: 'Install Nia' })).toBeTruthy()
+    expect(screen.queryByText('Set up Nia Desktop')).toBeNull()
+    expect(screen.queryByText('Install Nia locally')).toBeNull()
+    expect(screen.queryByText(/Will install to/i)).toBeNull()
+    expect(screen.queryByText(/nia-agent/)).toBeNull()
+    expect(document.querySelector('[data-glass-opaque]')).toBeTruthy()
+  })
+
+  it('starts local bootstrap from the public Install Nia button', async () => {
+    byokChromeVisible = false
+    const desktop = installDesktopMock(
+      bootstrapState({
+        setupChoice: { platform: 'darwin', activeRoot: '/Users/me/.hermes/hermes-agent' }
+      })
+    )
+
+    render(<DesktopInstallOverlay />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Install Nia' }))
+    expect(desktop.continueBootstrapLocal).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps count, percent, and bar on public progress and hides the stage list', async () => {
+    byokChromeVisible = false
+    installDesktopMock(runningProgressState())
+
+    render(<DesktopInstallOverlay />)
+
+    expect(await screen.findByText('Setting Up Nia')).toBeTruthy()
+    expect(screen.getByText('1 of 10 steps complete')).toBeTruthy()
+    expect(screen.getByText('15%')).toBeTruthy()
+    expect(screen.getByRole('progressbar')).toBeTruthy()
+    expect(screen.getByText('Cancel install')).toBeTruthy()
+    expect(screen.queryByText(/one-time setup/i)).toBeNull()
+    expect(screen.queryByText(/now:/i)).toBeNull()
+    expect(screen.queryByText('Prerequisites')).toBeNull()
+    expect(screen.queryByText('Show installer output')).toBeNull()
+    expect(document.querySelector('[data-glass-opaque]')).toBeTruthy()
+  })
+
+  it('keeps the full internal progress screen', async () => {
+    installDesktopMock(runningProgressState())
+
+    render(<DesktopInstallOverlay />)
+
+    expect(await screen.findByText('Setting up Nia Agent')).toBeTruthy()
+    expect(screen.getByText(/one-time setup/i)).toBeTruthy()
+    expect(screen.getByText('Prerequisites')).toBeTruthy()
+    expect(screen.getByText('Show installer output')).toBeTruthy()
+    expect(document.querySelector('[data-glass-opaque]')).toBeNull()
+  })
+
+  it('keeps error, log, and retry on public failure', async () => {
+    byokChromeVisible = false
+    installDesktopMock(
+      bootstrapState({
+        error: 'clone failed',
+        log: [{ ts: 1, stage: 'clone', line: 'fatal: could not clone', stream: 'stderr' }],
+        manifest: { type: 'manifest', protocolVersion: 1, stages: [{ name: 'clone' }] },
+        stages: {
+          clone: { state: 'failed', durationMs: 12, startedAt: 1, json: null, error: 'clone failed' }
+        }
+      })
+    )
+
+    render(<DesktopInstallOverlay />)
+
+    expect(await screen.findByText('Installation failed')).toBeTruthy()
+    expect(screen.getByText('Error')).toBeTruthy()
+    expect(screen.getAllByText('clone failed').length).toBeGreaterThan(0)
+    expect(screen.getByText('Hide installer output')).toBeTruthy()
+    expect(screen.getByText('fatal: could not clone')).toBeTruthy()
+    expect(screen.getByText('Reload and retry')).toBeTruthy()
   })
 })

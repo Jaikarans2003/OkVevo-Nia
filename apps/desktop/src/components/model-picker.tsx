@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { modelSearchText } from '@/lib/model-search-text'
 import { currentPickerSelection } from '@/lib/model-status-label'
+import { brandProviderSlug } from '@/lib/provider-branding'
 import { normalize } from '@/lib/text'
 import type { ModelOptionProvider, ModelPricing } from '@/types/hermes'
 
@@ -106,7 +107,9 @@ export function ModelPickerDialog({
           <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription className="font-mono text-xs leading-relaxed">
             {copy.current} {optionsModel || currentModel || copy.unknown}
-            {optionsProvider || currentProvider ? ` · ${optionsProvider || currentProvider}` : ''}
+            {optionsProvider || currentProvider
+              ? ` · ${brandProviderSlug(optionsProvider || currentProvider)}`
+              : ''}
           </DialogDescription>
         </DialogHeader>
 
@@ -357,11 +360,14 @@ function ProviderHeading({ provider }: { provider: ModelOptionProvider }) {
       </span>
     ) : null
 
+  const modelCount = provider.total_models ?? provider.models?.length ?? 0
+  const slugChip = isByokChromeVisible() ? `${brandProviderSlug(provider.slug)} · ${modelCount}` : String(modelCount)
+
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span className="truncate">{provider.name}</span>
       <span className="font-mono text-xs font-normal normal-case tracking-normal text-muted-foreground">
-        {provider.slug} · {provider.total_models ?? provider.models?.length ?? 0}
+        {slugChip}
       </span>
       {tierBadge}
     </span>

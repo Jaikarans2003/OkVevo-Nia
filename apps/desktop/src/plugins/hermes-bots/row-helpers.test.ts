@@ -66,8 +66,8 @@ describe('previewKind classifies a roster preview', () => {
     expect(fromBot("Message from agent 'researcher': here is the paper")).toBe('researcher')
   })
 
-  it('surfaces the primary profile as @hermes, never @default (#89484)', () => {
-    expect(fromBot("Message from agent 'default': deploy is green")).toBe('hermes')
+  it('surfaces the primary profile as @nia, never @default (#89484)', () => {
+    expect(fromBot("Message from agent 'default': deploy is green")).toBe('nia')
     expect(fromBot("Message from agent 'ops': deploy is green")).toBe('ops')
   })
 

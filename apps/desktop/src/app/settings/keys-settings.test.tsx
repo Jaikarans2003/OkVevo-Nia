@@ -7,8 +7,13 @@ import { stubResizeObserver } from '@/test/jsdom'
 import { envVar } from './test-utils'
 
 const getEnvVars = vi.fn()
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
 
 stubResizeObserver()
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 
 vi.mock('@/hermes', () => ({
   deleteEnvVar: vi.fn(),
@@ -20,6 +25,7 @@ vi.mock('@/hermes', () => ({
 
 beforeEach(() => {
   getEnvVars.mockResolvedValue({})
+  isByokChromeVisible.mockReturnValue(true)
   Object.defineProperty(Element.prototype, 'scrollIntoView', {
     configurable: true,
     value: vi.fn()
@@ -125,5 +131,20 @@ describe('KeysSettings', () => {
       expect(target?.classList).toContain('setting-field-highlight')
     })
     expect(screen.getByText('Crawl and extract websites.')).toBeTruthy()
+  })
+
+  it('hides FAL_KEY and TAVILY_API_KEY on public', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    getEnvVars.mockResolvedValue({
+      FAL_KEY: envVar('tool', { description: 'FAL.ai API key' }),
+      TAVILY_API_KEY: envVar('tool', { description: 'Tavily API key' }),
+      BRAVE_SEARCH_API_KEY: envVar('tool', { description: 'Search the web with Brave.' })
+    })
+
+    await renderKeysSettings('tools')
+
+    expect(screen.getByText('BRAVE SEARCH')).toBeTruthy()
+    expect(screen.queryByText('FAL.ai API key')).toBeNull()
+    expect(screen.queryByText('Tavily API key')).toBeNull()
   })
 })

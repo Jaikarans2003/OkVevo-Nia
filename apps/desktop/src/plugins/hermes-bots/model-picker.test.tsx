@@ -40,6 +40,7 @@ vi.mock('@hermes/plugin-sdk', async () => {
   return {
     Button: (props: React.ComponentProps<'button'>) => <button {...props} />,
     GlyphSpinner: () => <span data-testid="spinner" />,
+    brandModelOptionsResponse: <T,>(options: T) => options,
     host: hostMock,
     Input: (props: React.ComponentProps<'input'>) => <input {...props} />,
     Select: ({ children }: { children: ReactNode }) => <div>{children}</div>,

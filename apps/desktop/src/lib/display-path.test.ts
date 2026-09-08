@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { displayInstallPath, displayPath, normalizeDisplayPath, pathLeaf } from './display-path'
+import { displayInstallPath, displayPath, displayWakePhrase, normalizeDisplayPath, pathLeaf, sanitizeUserFacingBrand } from './display-path'
 
 describe('displayPath', () => {
   it('collapses a macOS home prefix to ~', () => {
@@ -56,5 +56,36 @@ describe('displayInstallPath', () => {
   it('leaves non-path strings and real commands alone', () => {
     expect(displayInstallPath('Hermes is ready')).toBe('Hermes is ready')
     expect(displayInstallPath('hermes desktop --force-build')).toBe('hermes desktop --force-build')
+  })
+})
+
+describe('displayWakePhrase', () => {
+  it('maps leftover hey hermes / hey nia / empty to ok nia', () => {
+    expect(displayWakePhrase('hey hermes')).toBe('ok nia')
+    expect(displayWakePhrase('hey nia')).toBe('ok nia')
+    expect(displayWakePhrase('')).toBe('ok nia')
+    expect(displayWakePhrase(undefined)).toBe('ok nia')
+    expect(displayWakePhrase('  Hey Hermes  ')).toBe('ok nia')
+  })
+
+  it('keeps a custom phrase', () => {
+    expect(displayWakePhrase('ok computer')).toBe('ok computer')
+    expect(displayWakePhrase('ok nia')).toBe('ok nia')
+  })
+})
+
+describe('sanitizeUserFacingBrand', () => {
+  it('rewrites install paths and leftover product phrases', () => {
+    expect(sanitizeUserFacingBrand('~/.hermes/profiles/default')).toBe('~/.nia/profiles/default')
+    expect(sanitizeUserFacingBrand('The Hermes desktop app lives here')).toBe('The Nia desktop app lives here')
+    expect(sanitizeUserFacingBrand('Hermes Agent can help')).toBe('Nia can help')
+    expect(sanitizeUserFacingBrand('Say hey hermes to wake')).toBe('Say ok nia to wake')
+    expect(sanitizeUserFacingBrand('Say hey nia to wake')).toBe('Say ok nia to wake')
+    expect(sanitizeUserFacingBrand('Ask @hermes later')).toBe('Ask @nia later')
+  })
+
+  it('leaves protocol and SDK identifiers', () => {
+    expect(sanitizeUserFacingBrand('open hermes://settings')).toBe('open hermes://settings')
+    expect(sanitizeUserFacingBrand('import from @hermes/plugin-sdk')).toBe('import from @hermes/plugin-sdk')
   })
 })

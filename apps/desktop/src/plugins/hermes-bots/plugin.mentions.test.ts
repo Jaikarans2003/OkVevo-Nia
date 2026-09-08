@@ -189,7 +189,7 @@ describe('@-mention completions', () => {
     expect(provide('').map(item => item.insert)).toContain('@default-vera')
   })
 
-  it('surfaces default as @hermes and prefix-filters on the handle', async () => {
+  it('surfaces default as @nia and prefix-filters on the handle', async () => {
     const { provide } = await contributions({
       focused: 'researcher',
       profiles: [
@@ -199,7 +199,7 @@ describe('@-mention completions', () => {
       ]
     })
 
-    expect(provide('').map(item => item.insert)).toEqual(expect.arrayContaining(['@hermes', '@writer-homelab']))
+    expect(provide('').map(item => item.insert)).toEqual(expect.arrayContaining(['@nia', '@writer-homelab']))
     expect(provide('wri').map(item => item.insert)).toEqual(['@writer-homelab'])
   })
 

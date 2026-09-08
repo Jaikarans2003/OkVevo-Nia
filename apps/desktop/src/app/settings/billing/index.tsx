@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { BarChart3, CreditCard, ExternalLink, LogIn, Package, Wrench } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { useOkvevoAuth } from '@/store/okvevo-auth'
@@ -58,6 +59,7 @@ type BillingFixtureSelection = 'live' | BillingDevFixtureName
 
 function OkvevoAccountChrome() {
   const auth = useOkvevoAuth()
+  const showNousBillingCopy = isByokChromeVisible()
 
   return (
     <SettingsSection icon={LogIn} title="OkVevo">
@@ -96,8 +98,12 @@ function OkvevoAccountChrome() {
         }
         description={
           auth.signedIn
-            ? 'Nia credits will show here once billing is live. Nous credits below are unchanged.'
-            : 'Sign in with your OkVevo account. Nous billing below is unchanged.'
+            ? showNousBillingCopy
+              ? 'Nia credits will show here once billing is live. Nous credits below are unchanged.'
+              : 'Nia credits will show here once billing is live.'
+            : showNousBillingCopy
+              ? 'Sign in with your OkVevo account. Nous billing below is unchanged.'
+              : 'Sign in with your OkVevo account.'
         }
         title={auth.signedIn ? auth.email || 'Signed in' : 'Not signed in'}
       />
@@ -557,7 +563,7 @@ function BillingSettingsContent({
       <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
       <OkvevoAccountChrome />
 
-      {view.notice && <NoticeCard notice={view.notice} />}
+      {view.notice && (isByokChromeVisible() || view.status !== 'logged_out') && <NoticeCard notice={view.notice} />}
 
       <div className="@container mb-6">
         <div className="grid gap-3 @2xl:grid-cols-3">

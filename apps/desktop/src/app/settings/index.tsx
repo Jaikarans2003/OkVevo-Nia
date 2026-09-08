@@ -51,7 +51,12 @@ import { NotificationsSettings } from './notifications-settings'
 import { PluginsSettings } from './plugins-settings'
 import { PROVIDER_VIEWS, ProvidersSettings, type ProviderView } from './providers-settings'
 import { SessionsSettings } from './sessions-settings'
-import { isByokChromeVisible } from './settings-ui-policy'
+import {
+  isByokChromeVisible,
+  isConfigSectionVisible,
+  isSettingsViewVisible,
+  PUBLIC_FALLBACK_SETTINGS_VIEW
+} from './settings-ui-policy'
 import type { SettingsPageProps, SettingsView as SettingsViewId } from './types'
 
 const SETTINGS_VIEWS: readonly SettingsViewId[] = [
@@ -89,24 +94,32 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
     }
   }, [navigate, search])
 
-  const [activeView, setActiveView] = useRouteEnumParam('tab', SETTINGS_VIEWS, 'config:model' as SettingsViewId)
   const showProvidersByok = isByokChromeVisible()
+
+  const [activeView, setActiveView] = useRouteEnumParam(
+    'tab',
+    SETTINGS_VIEWS,
+    (showProvidersByok ? 'config:model' : PUBLIC_FALLBACK_SETTINGS_VIEW) as SettingsViewId
+  )
+
+  const bounceToAppearance = !showProvidersByok && !isSettingsViewVisible(activeView)
 
   // Connections merged into the unified Gateways page: land old
   // `?tab=connections` routes/bookmarks there instead of a dead entry.
+  // Public bounces `connections` straight to Appearance — skip the alias.
   useEffect(() => {
-    if (activeView === 'connections') {
+    if (activeView === 'connections' && isSettingsViewVisible('connections')) {
       setActiveView('gateway')
     }
   }, [activeView, setActiveView])
 
-  // Public channel: Providers Accounts/Keys/Custom Endpoints are BYOK chrome.
-  // Bounce deep links so `?tab=providers` / `pview` cannot resurrect them.
+  // Public channel: hidden tabs (Providers, Gateways, Keyboard Shortcuts,
+  // Memory, Plugins, Model/Chat/Workspace) bounce to Appearance so deep links cannot resurrect them.
   useEffect(() => {
-    if (!showProvidersByok && activeView === 'providers') {
-      setActiveView('config:model')
+    if (bounceToAppearance) {
+      setActiveView(PUBLIC_FALLBACK_SETTINGS_VIEW)
     }
-  }, [activeView, setActiveView, showProvidersByok])
+  }, [bounceToAppearance, setActiveView])
   // Providers subnav (Accounts vs API keys) lives in its own param so each
   // sub-view is deep-linkable and survives a refresh.
   const [providerView, setProviderView] = useRouteEnumParam<ProviderView>('pview', PROVIDER_VIEWS, 'accounts')
@@ -179,7 +192,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
 
   const navGroups: OverlayNavGroup[] = useMemo(
     () => [
-      ...SECTIONS.map(s => {
+      ...SECTIONS.filter(s => isConfigSectionVisible(s.id)).map(s => {
         const view = `config:${s.id}` as SettingsViewId
 
         return {
@@ -204,7 +217,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         label: t.settings.nav.billing,
         onSelect: () => setActiveView('billing')
       },
-      ...(showProvidersByok
+      ...(isSettingsViewVisible('providers')
         ? [
             {
               active: activeView === 'providers',
@@ -239,20 +252,28 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
             }
           ]
         : []),
-      {
-        active: activeView === 'gateway',
-        icon: Globe,
-        id: 'gateway',
-        label: t.settings.nav.gateway,
-        onSelect: () => setActiveView('gateway')
-      },
-      {
-        active: activeView === 'keybinds',
-        icon: Keyboard,
-        id: 'keybinds',
-        label: t.settings.nav.keybinds,
-        onSelect: () => setActiveView('keybinds')
-      },
+      ...(isSettingsViewVisible('gateway')
+        ? [
+            {
+              active: activeView === 'gateway',
+              icon: Globe,
+              id: 'gateway',
+              label: t.settings.nav.gateway,
+              onSelect: () => setActiveView('gateway')
+            }
+          ]
+        : []),
+      ...(isSettingsViewVisible('keybinds')
+        ? [
+            {
+              active: activeView === 'keybinds',
+              icon: Keyboard,
+              id: 'keybinds',
+              label: t.settings.nav.keybinds,
+              onSelect: () => setActiveView('keybinds')
+            }
+          ]
+        : []),
       {
         active: activeView === 'keys',
         children: [
@@ -276,13 +297,17 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         label: t.settings.nav.apiKeys,
         onSelect: () => setActiveView('keys')
       },
-      {
-        active: activeView === 'plugins',
-        icon: Package,
-        id: 'plugins',
-        label: t.settings.nav.plugins,
-        onSelect: () => setActiveView('plugins')
-      },
+      ...(isSettingsViewVisible('plugins')
+        ? [
+            {
+              active: activeView === 'plugins',
+              icon: Package,
+              id: 'plugins',
+              label: t.settings.nav.plugins,
+              onSelect: () => setActiveView('plugins')
+            }
+          ]
+        : []),
       {
         active: activeView === 'sessions',
         icon: Archive,
@@ -299,7 +324,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         onSelect: () => setActiveView('about')
       }
     ],
-    [activeView, keysView, providerView, t, setActiveView, openProviderView, openKeysView, showProvidersByok]
+    [activeView, keysView, providerView, t, setActiveView, openProviderView, openKeysView]
   )
 
   // Type-to-search: printable keystrokes on the Settings surface (outside any
@@ -385,7 +410,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   )
 
   const activeSettingsContent =
-    activeView === 'config:appearance' ? (
+    bounceToAppearance || activeView === 'config:appearance' ? (
       <AppearanceSettings />
     ) : activeView === 'about' ? (
       <AboutSettings />
@@ -402,21 +427,13 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         onConfigSaved={onConfigSaved}
         onMainModelChanged={onMainModelChanged}
       />
-    ) : activeView === 'providers' && showProvidersByok ? (
+    ) : activeView === 'providers' ? (
       <ProvidersSettings
         onClose={onClose}
         onConfigSaved={onConfigSaved}
         onMainModelChanged={onMainModelChanged}
         onViewChange={setProviderView}
         view={providerView}
-      />
-    ) : activeView === 'providers' ? (
-      // Bounce frame: `?tab=providers` on public must not flash BYOK chrome.
-      <ConfigSettings
-        activeSectionId="model"
-        importInputRef={importInputRef}
-        onConfigSaved={onConfigSaved}
-        onMainModelChanged={onMainModelChanged}
       />
     ) : activeView === 'keys' ? (
       <KeysSettings view={keysView} />

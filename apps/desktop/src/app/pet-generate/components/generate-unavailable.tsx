@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { ExternalLink } from '@/lib/external-link'
 import { PawPrint, Settings2 } from '@/lib/icons'
 
@@ -10,6 +11,8 @@ interface GenerateUnavailableProps {
 // impossible, so we replace the prompt entirely with a friendly path to set one
 // up (in-app) plus where to grab a key.
 export function GenerateUnavailable({ onSetup }: GenerateUnavailableProps) {
+  const showByok = isByokChromeVisible()
+
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <span className="grid size-11 place-items-center rounded-full bg-primary/10 text-primary">
@@ -23,10 +26,13 @@ export function GenerateUnavailable({ onSetup }: GenerateUnavailableProps) {
           Hatching a custom pet needs a provider that can ground on a reference image.
         </p>
       </div>
-      <Button onClick={onSetup} size="sm">
-        <Settings2 className="size-4" />
-        Set up image generation
-      </Button>
+      {showByok ? (
+        <Button onClick={onSetup} size="sm">
+          <Settings2 className="size-4" />
+          Set up image generation
+        </Button>
+      ) : null}
+      {showByok ? (
       <p className="flex flex-wrap items-center justify-center gap-x-1.5 text-[0.6875rem] text-(--ui-text-tertiary)">
         <span>Grab a key from</span>
         <ExternalLink href="https://portal.nousresearch.com" showExternalIcon={false}>
@@ -49,6 +55,7 @@ export function GenerateUnavailable({ onSetup }: GenerateUnavailableProps) {
           OpenAI
         </ExternalLink>
       </p>
+      ) : null}
     </div>
   )
 }

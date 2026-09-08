@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
@@ -168,6 +169,7 @@ export function ModelVisibilityDialog({
           )}
         </div>
 
+        {isByokChromeVisible() ? (
         <div className="px-3 py-2">
           <Button
             className="-ml-2 text-(--ui-text-tertiary)"
@@ -182,6 +184,7 @@ export function ModelVisibilityDialog({
             {copy.addProvider}
           </Button>
         </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   )

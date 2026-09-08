@@ -12,6 +12,7 @@ import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ChevronDown } from '@/lib/icons'
 import { formatModelStatusLabel } from '@/lib/model-status-label'
+import { brandProviderSlug } from '@/lib/provider-branding'
 import { cn } from '@/lib/utils'
 import { $currentModelSource, $defaultReasoningEffort, setModelPickerOpen } from '@/store/session'
 
@@ -127,8 +128,9 @@ export function ModelPill({
       )
     : PILL
 
-  const baseTitle = currentProvider
-    ? copy.modelTitle(currentProvider, currentModel || copy.modelNone)
+  const brandedProvider = currentProvider ? brandProviderSlug(currentProvider) : ''
+  const baseTitle = brandedProvider
+    ? copy.modelTitle(brandedProvider, currentModel || copy.modelNone)
     : copy.switchModel
 
   const title = pinnedOverride ? `${baseTitle} — ${copy.modelPinned}` : baseTitle

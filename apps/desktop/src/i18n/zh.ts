@@ -716,7 +716,7 @@ export const zh: Translations = {
       tts: {
         provider: '文字转语音提供方',
         edge: {
-          voice: 'Edge 语音'
+          voice: '语音'
         },
         openai: {
           model: 'OpenAI TTS 模型',
@@ -2820,6 +2820,7 @@ export const zh: Translations = {
     connectExistingShort: '连接现有环境',
     connectExistingDesc: '使用会话令牌或浏览器登录连接远程后端。不会启动本地安装。',
     installLocalTitle: '本地安装 Nia',
+    installNia: '安装 Nia',
     installLocalDesc: '下载 Nia，创建 Python 环境，并在这台电脑上运行后端。',
     localStartUnavailable: '无法启动本地安装。请重启 Nia 后重试。',
     remoteSetupTitle: '连接到现有 Nia',
@@ -2849,6 +2850,7 @@ export const zh: Translations = {
     backToSetup: '返回',
     failedTitle: '安装失败',
     settingUpTitle: '正在设置 Nia',
+    settingUpNiaTitle: '正在设置 Nia',
     finishingTitle: '正在收尾',
     failedDesc:
       '某个安装步骤失败。在 Windows 上，如果另一个 Nia CLI 或桌面实例正在运行，可能会出现这种情况。请停止正在运行的 Nia 实例后重试。可查看下面的详情或 desktop 日志中的完整记录。',

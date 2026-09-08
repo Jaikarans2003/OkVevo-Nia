@@ -80,26 +80,50 @@ test('public snapshot never includes tokens', () => {
     idToken: 'idt-secret',
     expiresAt: 9,
     uid: 'uid-1',
-    email: 'a@b.c'
+    email: 'a@b.c',
+    displayName: 'Karan'
   })
   const json = JSON.stringify(snap)
 
   assert.equal(snap.signedIn, true)
   assert.equal(snap.uid, 'uid-1')
   assert.equal(snap.email, 'a@b.c')
+  assert.equal(snap.displayName, 'Karan')
   assert.equal(json.includes('rt-secret'), false)
   assert.equal(json.includes('idt-secret'), false)
+})
+
+test('public snapshot reads name claim from id token when displayName missing', () => {
+  const payload = Buffer.from(JSON.stringify({ name: 'From Token' })).toString('base64url')
+  const snap = publicOkvevoAuthSnapshot({
+    refreshToken: 'rt',
+    idToken: `hdr.${payload}.sig`,
+    expiresAt: 9,
+    uid: 'uid-1',
+    email: 'a@b.c',
+    displayName: null
+  })
+
+  assert.equal(snap.displayName, 'From Token')
 })
 
 test('sessionFromTokenResponse requires tokens + uid', () => {
   assert.equal(sessionFromTokenResponse({}), null)
   const session = sessionFromTokenResponse(
-    { refreshToken: 'rt', idToken: 'idt', expiresIn: 3600, uid: 'u1', email: 'e' },
+    {
+      refreshToken: 'rt',
+      idToken: 'idt',
+      expiresIn: 3600,
+      uid: 'u1',
+      email: 'e',
+      displayName: 'Ada'
+    },
     1_000
   )
 
   assert.equal(session?.expiresAt, 1_000 + 3600 * 1000)
   assert.equal(session?.uid, 'u1')
+  assert.equal(session?.displayName, 'Ada')
 })
 
 test('refreshDelayMs floors at 30s and wakes 5min before expiry', () => {

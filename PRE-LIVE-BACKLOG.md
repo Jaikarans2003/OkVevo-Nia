@@ -136,7 +136,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | Desktop: baked `NIA_BUILD_CHANNEL` (`apps/desktop/scripts/resolve-build-channel.mjs`, `isByokChromeVisible()` in [`settings-ui-policy.ts`](apps/desktop/src/app/settings/settings-ui-policy.ts)). Settings → Providers, onboarding OAuth+keys+local, Models paste/local, model picker Add provider. Python: [`agent/okvevo_gateway.py`](agent/okvevo_gateway.py), [`hermes_cli/main.py`](hermes_cli/main.py) `_has_any_provider_configured`, [`tui_gateway/methods_config.py`](tui_gateway/methods_config.py) `setup.runtime_check`. Standing doc: [`.cursor/NIA-BUILD-CHANNEL.md`](../.cursor/NIA-BUILD-CHANNEL.md). |
 | **Fix** | Hide all BYOK chrome when the **public** channel is baked (default `pack` / `dist` / CI `v*`). No signed-in exception, no runtime env re-enable. Internal pack (`pack:internal`) keeps full pre-Phase-4 chrome even when signed in. Rewrite OpenAI-wire client to the OkVevo gateway whenever an ID token exists, except loopback (and native-adapter hosts left as the ambient gap). `setup.status` / `setup.runtime_check` treat `okvevo_signed_in()` as configured/usable. Never publish internal artifacts to `releases.okvevo.com`. |
 | **Verify** | Public pack: Providers, palette provider entries, onboarding OAuth+keys+local, Models paste, Models local/custom absent; `NIA_BUILD_CHANNEL=internal` in the installed app’s env does nothing. Internal pack beside public: every surface works signed-in. Unit: `cd apps/desktop && npx vitest run scripts/resolve-build-channel.test.mjs src/app/settings/settings-ui-policy.test.ts src/components/onboarding/index.test.tsx src/app/settings/model-settings.test.tsx`. Signed-in, no personal OpenRouter key: badge not `inference unavailable`; leftover OpenRouter/`base_url` cannot hit OpenRouter on the wire path. |
-| **Notes** | Step 0 closed 2026-09-05. UI hide was signed-in; replaced 2026-09-06 by bake-time public/internal channel (not unpackaged env, not `HERMES_DESKTOP_DEV_BYOK`). Razorpay is not a build gate. **Does not fully close BYOK** — see the ambient native-provider row below. Python rewrite + readiness landed 2026-09-05. Gateway nav / OS keychain toggle is a parked follow-up (not this channel). |
+| **Notes** | Step 0 closed 2026-09-05. UI hide was signed-in; replaced 2026-09-06 by bake-time public/internal channel (not unpackaged env, not `HERMES_DESKTOP_DEV_BYOK`). Razorpay is not a build gate. **Does not fully close BYOK** — see the ambient native-provider row below. Python rewrite + readiness landed 2026-09-05. |
 
 ### [ ] Signed-in ambient native-provider BYOK (Bedrock / env keys)
 
@@ -148,17 +148,6 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Either detect OkVevo sign-in and refuse non-gateway providers outright, or accept this as residual risk until then. **Do not build in the Phase 4 UI/wire pass.** |
 | **Verify** | Signed-in, Providers tabs hidden, `AWS_ACCESS_KEY_ID`+secret (or `ANTHROPIC_API_KEY`) in env: Bedrock/Anthropic still listed in the model picker and a completion does not debit Firestore. After a real close: those rows gone (or blocked) when signed in. |
 | **Notes** | Confirmed 2026-09-05. `has_creds` reads ambient `os.environ`, not the Providers UI. Desktop `explicit_only` still treats an access-key pair / `AWS_BEARER_TOKEN_BEDROCK` as explicit. Accepted residual for now (no live users). Do not describe Phase 4 as “closes BYOK.” |
-
-### [ ] Gateway balance-check race (reserve before stream)
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Required before live (before accepting real payments) |
-| **Risk if skipped** | `creditBalance > 0` is a read; the debit is a later write after the stream. Two concurrent requests can both pass the gate before either debits, so a near-zero balance can overspend by one extra completion. |
-| **Scope** | `OkVevo-Web/src/lib/gateway/debit.ts`, `OkVevo-Web/src/app/api/gateway/chat/completions/route.ts` |
-| **Fix** | Make pre-check and reservation atomic: one Firestore transaction that reserves an estimated cost up front, then reconcile (debit remainder or refund unused) after real usage is known. Do not keep read-then-later-write as the paid path. |
-| **Verify** | Two parallel `/api/gateway/chat/completions` against `creditBalance` that only covers one request: only one is admitted (or the second is rejected / clamped without overspend). Ledger `balanceAfter` never goes negative. |
-| **Notes** | Logged 2026-09-05 with Phase 3. Phase 3 ships the race as a known ceiling (`ponytail` in debit.ts). **Do not build this pass.** |
 
 ### [ ] Gateway metering misses cache / reasoning-token surcharges
 
@@ -238,6 +227,39 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Repoint defaults to OkVevo-Nia where appropriate; keep overrides env-driven |
 | **Verify** | `rg 'NousResearch/hermes-agent' scripts/` — triage each hit (bootstrap paths already clean) |
 
+### [ ] Public Settings/cron still show vendor-prefixed model ids
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live |
+| **Risk if skipped** | Public Settings → Models and cron still print raw ids like `anthropic/claude-opus-4.8` even after the OpenRouter group is labeled OkVevo. Users see the upstream vendor in the model value. |
+| **Scope** | [`apps/desktop/src/app/settings/model-settings.tsx`](apps/desktop/src/app/settings/model-settings.tsx) model `<SelectItem>` (main ~L859, aux ~L1013); [`apps/desktop/src/app/cron/index.tsx`](apps/desktop/src/app/cron/index.tsx) ~L1353 |
+| **Fix** | Render the same prettified names `displayModelName` already uses in the composer pill. Keep wire ids as Select values. Do not invent a second per-model naming scheme. |
+| **Verify** | Public pack: Settings model dropdown and cron model items show `Opus 4.8` / `GPT-5.5`, not vendor-prefixed ids. OpenRouter group label remains OkVevo. |
+| **Notes** | Logged 2026-09-06 with public OpenRouter→OkVevo branding. That pass fixed the `openrouter` slug on the aux current line and ModelPickerDialog heading; this leftover is model ids, not the provider slug. |
+
+### [ ] Public Skills TTS panel still shows per-provider voice fields
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Nice-to-have before live |
+| **Risk if skipped** | Public Settings → Voice only shows Voices + Max Recording Length, but Skills → TTS `ToolsetConfigPanel` can still show ElevenLabs/OpenAI voice rows. Launch re-forces `tts.provider=edge`, so a leftover provider does not stick. |
+| **Scope** | `apps/desktop/src/app/settings/toolset-config-panel.tsx` |
+| **Fix** | Reuse `isByokChromeVisible()` / `isConfigKeyVisible` so public Skills TTS matches the Voice tab (Edge voice picker only). |
+| **Verify** | Public pack: Skills → TTS has no provider switcher; leftover `tts.provider=elevenlabs` becomes Edge after relaunch. |
+| **Notes** | Logged 2026-09-07 with Voice/Memory/Plugins public hide. Internal Voice Shortcut YAML (`voice.record_key`) still edits CLI, not desktop `composer.voice` — same ceiling, internal-only. |
+
+### [ ] Gateway reserved-job TTL sweeper
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Nice-to-have |
+| **Risk if skipped** | A Fal job that never webhooks and is never polled leaves `estimatedCredits` deducted until a later status/cancel. Chat and Tavily settle in the same request, so they do not stick. |
+| **Scope** | `OkVevo-Web/src/lib/gateway/debit.ts` (`reserveCredits` ponytail) |
+| **Fix** | Cron/TTL sweeper that `releaseCredits` on `gatewayJobs` still `reserved` past a timeout. |
+| **Verify** | Insert a reserved job older than the TTL, run the sweeper, `creditBalance` restored, job `released`, no debit row. |
+| **Notes** | Logged 2026-09-07 with Phase 6 reserve-then-reconcile. Out of scope for 6a/6b. |
+
 ---
 
 ## Closed
@@ -246,6 +268,8 @@ _(Move items here when done.)_
 
 | Item | Closed | Commit / PR |
 |------|--------|-------------|
+| Gateway balance-check race (reserve before stream) | 2026-09-07 | pending commit. `reserveCredits` txn + `applyReserve`; `npx tsx src/lib/gateway/reserve.selfcheck.ts` — balance 100, two 80 estimates, second insufficient; extra debit never negative. Chat/Fal/Tavily all reserve then reconcile. Stuck Fal reserve → Nice-to-have TTL sweeper. |
+| Settings → Gateway / OS keychain toggle | 2026-09-07 | pending commit. Public hides the whole Gateways tab (nav, palette, `?tab=gateway` / `connections` bounce to Appearance). Internal keeps the OS keychain toggle. |
 | Next.js 16.3 vs App Hosting Cloud Build adapter | 2026-09-05 | pending commit. `okvevo-web` live at `https://okvevo-web--okvevo-testing.us-central1.hosted.app`. Adapter compiled Next **16.3.3**. First Cloud Build fail was Razorpay module-load, not the adapter. |
 | Production LLM gateway SSE / Phase 3 checklist on App Hosting | 2026-09-05 | pending commit. Grant 10000 → streamed POST 200 `text/event-stream` + debit amount 1 (`creditBalance` 10000→9999) → zero-balance **402** `insufficient_quota` in 661ms. Signed-out BYOK: `test_okvevo_gateway.py` 8 passed. Cloud Run 300s unused; `minInstances` stayed 0. |
 | Desktop auto-update git remote Nous → OkVevo-Nia; packaged apps use electron-updater at releases.okvevo.com | 2026-09-01 | pending commit (see `docs/FINISH-SIGNED-RELEASE.md` for the first signed tag) |

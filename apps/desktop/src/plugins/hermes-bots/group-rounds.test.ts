@@ -347,7 +347,7 @@ describe('threads', () => {
 })
 
 describe('turn prompt', () => {
-  it('addresses the default profile as @hermes', async () => {
+  it('addresses the default profile as @nia', async () => {
     const { rounds } = await loadRoom()
 
     const members: GroupMember[] = [
@@ -362,7 +362,7 @@ describe('turn prompt', () => {
       viewer: { name: 'default', title: '' }
     })
 
-    expect(own).toMatch(/You are @hermes,/)
+    expect(own).toMatch(/You are @nia,/)
     expect(own).not.toMatch(/@default\b/)
 
     const peer = rounds.buildGroupChatTurnPrompt({
@@ -372,7 +372,7 @@ describe('turn prompt', () => {
       viewer: { name: 'builder', title: '' }
     })
 
-    expect(peer).toMatch(/group chat with @hermes/)
+    expect(peer).toMatch(/group chat with @nia/)
   })
 
   it('asks for full-quality results and short chatter, not short results', async () => {

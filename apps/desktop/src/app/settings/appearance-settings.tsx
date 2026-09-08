@@ -53,47 +53,57 @@ export function AppearanceSettings() {
     <SettingsContent>
       <div>
         <SectionHeading icon={Palette} title={a.title} />
-        <p className="max-w-2xl text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-          {a.intro}
-        </p>
+        {isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.intro) && (
+          <p className="max-w-2xl text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
+            {a.intro}
+          </p>
+        )}
 
         <div className="mt-2">
-          <ListRow
-            action={<LanguageSwitcher />}
-            description={isSavingLocale ? t.language.saving : t.language.description}
-            id={appearanceSettingElementId(APPEARANCE_SETTING_IDS.language)}
-            title={t.language.label}
-          />
+          {isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.language) && (
+            <ListRow
+              action={<LanguageSwitcher />}
+              description={isSavingLocale ? t.language.saving : t.language.description}
+              id={appearanceSettingElementId(APPEARANCE_SETTING_IDS.language)}
+              title={t.language.label}
+            />
+          )}
 
-          <ListRow
-            action={
-              <SegmentedControl
-                onChange={id => {
-                  triggerHaptic('selection')
-                  setSessionListDensity(id)
-                }}
-                options={sessionDensityOptions}
-                value={sessionListDensity}
-              />
-            }
-            description={a.sessionDensityDesc}
-            title={a.sessionDensityTitle}
-          />
+          {isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.sessionDensity) && (
+            <ListRow
+              action={
+                <SegmentedControl
+                  onChange={id => {
+                    triggerHaptic('selection')
+                    setSessionListDensity(id)
+                  }}
+                  options={sessionDensityOptions}
+                  value={sessionListDensity}
+                />
+              }
+              description={a.sessionDensityDesc}
+              id={appearanceSettingElementId(APPEARANCE_SETTING_IDS.sessionDensity)}
+              title={a.sessionDensityTitle}
+            />
+          )}
 
-          <ListRow
-            action={
-              <SegmentedControl
-                onChange={id => {
-                  triggerHaptic('selection')
-                  setTabStripDefault(id)
-                }}
-                options={tabStripOptions}
-                value={tabStripDefault}
-              />
-            }
-            description={a.tabStripDesc}
-            title={a.tabStripTitle}
-          />
+          {isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.tabStrip) && (
+            <ListRow
+              action={
+                <SegmentedControl
+                  onChange={id => {
+                    triggerHaptic('selection')
+                    setTabStripDefault(id)
+                  }}
+                  options={tabStripOptions}
+                  value={tabStripDefault}
+                />
+              }
+              description={a.tabStripDesc}
+              id={appearanceSettingElementId(APPEARANCE_SETTING_IDS.tabStrip)}
+              title={a.tabStripTitle}
+            />
+          )}
 
           <ListRow
             action={

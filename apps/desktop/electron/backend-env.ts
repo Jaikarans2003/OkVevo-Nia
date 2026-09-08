@@ -159,6 +159,12 @@ function buildDesktopBackendEnv({
     devServer: Boolean(devServer || currentEnv?.HERMES_DESKTOP_DEV_SERVER)
   })
 
+  env.NIA_BUILD_CHANNEL =
+    (typeof currentEnv?.NIA_BUILD_CHANNEL === 'string' && currentEnv.NIA_BUILD_CHANNEL.trim()) ||
+    (typeof __NIA_BUILD_CHANNEL__ !== 'undefined' && __NIA_BUILD_CHANNEL__ === 'internal'
+      ? 'internal'
+      : 'public')
+
   return env
 }
 

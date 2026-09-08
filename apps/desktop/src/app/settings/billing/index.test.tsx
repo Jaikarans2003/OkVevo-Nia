@@ -4,6 +4,8 @@ import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { $okvevoAuth } from '@/store/okvevo-auth'
+
 import { formatMoney } from './billing-amounts'
 import {
   billingDevFixtures,
@@ -18,6 +20,12 @@ import {
 } from './fixtures.test-util'
 
 import { BillingSettings } from './index'
+
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 
 const apiMocks = vi.hoisted(() => ({
   charge: vi.fn(),
@@ -63,6 +71,8 @@ function renderBilling(initialEntries: string[] = ['/settings?tab=billing']) {
 }
 
 beforeEach(() => {
+  isByokChromeVisible.mockReturnValue(true)
+  $okvevoAuth.set({ signedIn: false, uid: null, email: null, displayName: null })
   apiMocks.fetchBillingState.mockResolvedValue(okBilling(todayBillingState))
   apiMocks.fetchSubscriptionState.mockResolvedValue(okSubscription(todaySubscriptionState))
   Object.defineProperty(window, 'hermesDesktop', {
@@ -604,8 +614,32 @@ describe('BillingSettings', () => {
 
     expect(await screen.findByText('Connect your Nous account')).toBeTruthy()
     expect(screen.getByText('Run /portal in the TUI or open the Nous portal to connect your account.')).toBeTruthy()
+    expect(screen.getByText('Sign in with your OkVevo account. Nous billing below is unchanged.')).toBeTruthy()
     expect(screen.queryByText('Payment method')).toBeNull()
     expect(screen.queryByText('Usage')).toBeNull()
+  })
+
+  it('hides the Nous-connect notice and Nous captions on public', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    apiMocks.fetchBillingState.mockResolvedValue(okBilling(loggedOutBillingState))
+    apiMocks.fetchSubscriptionState.mockResolvedValue(okSubscription(loggedOutSubscriptionState))
+
+    renderBilling()
+
+    expect(await screen.findByText('Sign in with your OkVevo account.')).toBeTruthy()
+    expect(screen.queryByText('Connect your Nous account')).toBeNull()
+    expect(screen.queryByText(/Nous billing below is unchanged/)).toBeNull()
+    expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
+  })
+
+  it('keeps the Nia-credits placeholder without the Nous sentence on public when signed in', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
+
+    renderBilling()
+
+    expect(await screen.findByText('Nia credits will show here once billing is live.')).toBeTruthy()
+    expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
   })
 
   it('renders danger value text for overdrawn subscription credits', async () => {

@@ -15,6 +15,7 @@ import type {
   DesktopBootstrapState
 } from '@/global'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { displayInstallPath } from '@/lib/display-path'
 import { AlertCircle, ChevronDown, ChevronRight, Globe, iconSize, Loader2, Monitor } from '@/lib/icons'
 import { LOCAL_ONLY_V1 } from '@/lib/product'
@@ -362,6 +363,23 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
   const forActiveRoot = localStart.root === activeRoot
   const localStarting = forActiveRoot && localStart.starting
   const localStartError = forActiveRoot ? localStart.error : null
+  const publicChrome = !isByokChromeVisible()
+
+  const continueLocalInstall = async () => {
+    setLocalStart({ root: activeRoot, starting: true, error: null })
+
+    try {
+      const desktop = window.hermesDesktop
+
+      if (!desktop || typeof desktop.continueBootstrapLocal !== 'function') {
+        throw new Error(copy.localStartUnavailable)
+      }
+
+      await desktop.continueBootstrapLocal()
+    } catch (err) {
+      setLocalStart({ root: activeRoot, starting: false, error: errorMessage(err) })
+    }
+  }
 
   // Mount logic: show whenever a bootstrap is in flight, completed-with-error,
   // or actively running with a manifest. Hide entirely after a successful
@@ -399,6 +417,29 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
   }
 
   if (state.setupChoice) {
+    if (publicChrome) {
+      return (
+        <div
+          className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 p-4 backdrop-blur-md"
+          data-glass-opaque=""
+        >
+          <div className="flex flex-col items-center gap-6">
+            <BrandMark className="size-11 shrink-0" />
+            <Button disabled={localStarting} onClick={() => void continueLocalInstall()} size="lg" type="button">
+              {localStarting ? <Loader2 className="size-4 animate-spin" /> : null}
+              {copy.installNia}
+            </Button>
+            {localStartError ? (
+              <div className="flex items-start gap-2 text-sm text-destructive">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <span>{localStartError}</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 p-4 backdrop-blur-md">
         <div className="w-full max-w-2xl rounded-xl border border-(--stroke-nous) bg-card p-8 shadow-nous">
@@ -428,21 +469,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             <button
               className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 text-left transition hover:bg-(--chrome-action-hover) disabled:cursor-wait disabled:opacity-60"
               disabled={localStarting}
-              onClick={async () => {
-                setLocalStart({ root: activeRoot, starting: true, error: null })
-
-                try {
-                  const desktop = window.hermesDesktop
-
-                  if (!desktop || typeof desktop.continueBootstrapLocal !== 'function') {
-                    throw new Error(copy.localStartUnavailable)
-                  }
-
-                  await desktop.continueBootstrapLocal()
-                } catch (err) {
-                  setLocalStart({ root: activeRoot, starting: false, error: errorMessage(err) })
-                }
-              }}
+              onClick={() => void continueLocalInstall()}
               type="button"
             >
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -554,18 +581,29 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
   const progressPct = totalCount > 0 ? Math.round((progressUnits / totalCount) * 100) : 0
   const currentStartedAt = currentStage ? state.stages[currentStage]?.startedAt : null
   const currentElapsed = typeof currentStartedAt === 'number' ? formatElapsed(now - currentStartedAt) : ''
+  const publicHappy = publicChrome && !failed
+  const setupTitle = failed
+    ? copy.failedTitle
+    : state.active
+      ? publicChrome
+        ? copy.settingUpNiaTitle
+        : copy.settingUpTitle
+      : copy.finishingTitle
 
   return (
-    <div className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 backdrop-blur-md p-4">
+    <div
+      className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 backdrop-blur-md p-4"
+      data-glass-opaque={publicChrome ? '' : undefined}
+    >
       <div className="flex w-full max-w-2xl max-h-[90vh] flex-col rounded-xl border border-(--stroke-nous) bg-card shadow-nous">
         {/* Header -- always visible, never scrolls */}
         <div className="flex flex-shrink-0 items-start gap-4 p-8 pb-4">
           {!failed && <BrandMark className="size-11 shrink-0" />}
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight">
-              {failed ? copy.failedTitle : state.active ? copy.settingUpTitle : copy.finishingTitle}
-            </h2>
-            <p className="mt-1.5 text-sm text-muted-foreground">{failed ? copy.failedDesc : copy.activeDesc}</p>
+            <h2 className="text-xl font-semibold tracking-tight">{setupTitle}</h2>
+            {!publicHappy && (
+              <p className="mt-1.5 text-sm text-muted-foreground">{failed ? copy.failedDesc : copy.activeDesc}</p>
+            )}
           </div>
         </div>
 
@@ -576,8 +614,8 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {copy.progress(completedCount, totalCount)}
-                  {currentStage && copy.currentStage(formatStageName(currentStage))}
-                  {currentElapsed && ` (${currentElapsed})`}
+                  {!publicHappy && currentStage && copy.currentStage(formatStageName(currentStage))}
+                  {!publicHappy && currentElapsed && ` (${currentElapsed})`}
                 </span>
                 <span className="tabular-nums">{progressPct}%</span>
               </div>
@@ -590,7 +628,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </div>
           )}
 
-          {totalCount === 0 && state.active && (
+          {totalCount === 0 && state.active && !publicHappy && (
             <div className="mb-4 flex items-center gap-2.5 text-sm text-muted-foreground">
               <Loader className="size-5" type="fourier-flow" />
               <span>{copy.fetchingManifest}</span>
@@ -607,7 +645,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </div>
           )}
 
-          {stages.length > 0 && (
+          {!publicHappy && stages.length > 0 && (
             <ol className="mb-4 space-y-0.5">
               {stages.map(stage => (
                 <StageRow descriptor={stage} key={stage.name} now={now} result={state.stages[stage.name]} />
@@ -615,6 +653,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </ol>
           )}
 
+          {!publicHappy && (
           <div className="pt-3">
             <Button
               className="-ml-2 text-muted-foreground hover:text-foreground"
@@ -646,6 +685,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               </LogView>
             )}
           </div>
+          )}
         </div>
 
         {/* Active footer: let the user actually cancel a running install. */}

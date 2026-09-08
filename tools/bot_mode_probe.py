@@ -119,8 +119,8 @@ def _soul_has_protocol(profile_dir: Path) -> bool:
 
 
 def _handle(name: str) -> str:
-    # The mention middleware aliases the default profile as @hermes.
-    return "hermes" if name == "default" else name
+    # The mention middleware aliases the default profile as @nia.
+    return "nia" if name == "default" else name
 
 
 def _profile_role(profile_dir: Path) -> str:

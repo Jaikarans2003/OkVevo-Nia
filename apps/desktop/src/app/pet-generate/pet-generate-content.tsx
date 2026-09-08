@@ -10,6 +10,7 @@ import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { GenerateButton } from '@/components/ui/generate-button'
 import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { triggerHaptic } from '@/lib/haptics'
 import { Egg, ImageIcon } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -196,7 +197,13 @@ export function PetGenerateContent() {
 
   // Send the user to set up a key without closing — the overlay yields to the
   // settings route (useRouteOverlayActive) and reappears + re-checks on return.
-  const setupImageGen = () => navigate(`${SETTINGS_ROUTE}?tab=providers`)
+  const setupImageGen = () => {
+    if (!isByokChromeVisible()) {
+      return
+    }
+
+    navigate(`${SETTINGS_ROUTE}?tab=providers`)
+  }
 
   // Prompt input only belongs on the describe/draft screens (and never when
   // there's no backend to generate with).

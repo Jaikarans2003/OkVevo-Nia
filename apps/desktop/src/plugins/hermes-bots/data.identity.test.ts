@@ -71,8 +71,8 @@ beforeEach(() => {
 })
 
 describe('the @handle a bot answers to', () => {
-  it('presents the primary profile as @hermes — "default" never surfaces in the UI', () => {
-    expect(botHandle('default')).toBe('hermes')
+  it('presents the primary profile as @nia — "default" never surfaces in the UI', () => {
+    expect(botHandle('default')).toBe('nia')
     expect(botHandle('ops')).toBe('ops')
   })
 
@@ -92,6 +92,7 @@ describe('renamed bots stay taggable', () => {
 
   it('drops reserved tokens so a rename cannot hijack a built-in tag', () => {
     expect(mentionNameForms('Hermes')).toEqual([])
+    expect(mentionNameForms('Nia')).toEqual([])
     expect(mentionNameForms('@everyone')).toEqual([])
     expect(mentionNameForms('')).toEqual([])
   })
@@ -101,7 +102,7 @@ describe('renamed bots stay taggable', () => {
 
     expect(botMentionTag(row({ name: 'writer' }))).toBe('research-buddy')
     expect(botMentionTag(row({ name: 'ops' }))).toBe('ops')
-    expect(botMentionTag(row({ name: 'default' }))).toBe('hermes')
+    expect(botMentionTag(row({ name: 'default' }))).toBe('nia')
     // display_name (`hermes profile rename`) drives the tag too.
     expect(botMentionTag(row({ display_name: 'Deal Finder', name: 'scout' }))).toBe('deal-finder')
   })
@@ -138,11 +139,15 @@ describe('resolving @mentions against the roster', () => {
     expect(resolveRosterMentions('ping @bob-mac-mini', roster, live).map(bot => bot.name)).toEqual(['bob'])
   })
 
-  it('never treats @hermes in your own chat as a handoff to yourself', () => {
+  it('never treats @nia or leftover @hermes in your own chat as a handoff to yourself', () => {
+    expect(resolveRosterMentions('@nia do it', roster, { connectionId: 'local', name: 'default' })).toEqual([])
     expect(resolveRosterMentions('@hermes do it', roster, { connectionId: 'local', name: 'default' })).toEqual([])
     // From ANOTHER bot's chat the same tag is a real handoff.
     expect(
       resolveRosterMentions('@hermes do it', roster, { connectionId: 'mac-mini', name: 'dixie' }).map(bot => bot.name)
+    ).toEqual(['default'])
+    expect(
+      resolveRosterMentions('@nia do it', roster, { connectionId: 'mac-mini', name: 'dixie' }).map(bot => bot.name)
     ).toEqual(['default'])
   })
 
@@ -251,6 +256,7 @@ describe('roster search narrows without re-ranking', () => {
       'agency-ai-engineer'
     ])
     expect(filterBots(roster, meta, '@hermes').map(bot => bot.name)).toEqual(['default'])
+    expect(filterBots(roster, meta, '@nia').map(bot => bot.name)).toEqual(['default'])
     expect(filterBots(roster, meta, 'default').map(bot => bot.name)).toEqual(['default'])
   })
 

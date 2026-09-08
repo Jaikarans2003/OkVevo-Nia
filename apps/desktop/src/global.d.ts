@@ -454,10 +454,25 @@ declare global {
       ) => () => void
       startOkvevoSignIn?: () => Promise<{ ok: boolean; error?: string }>
       openOkvevoPortal?: (portalPath: string) => Promise<{ ok: boolean; error?: string }>
-      signOutOkvevo?: () => Promise<{ signedIn: boolean; uid: string | null; email: string | null }>
-      getOkvevoAuth?: () => Promise<{ signedIn: boolean; uid: string | null; email: string | null }>
+      signOutOkvevo?: () => Promise<{
+        signedIn: boolean
+        uid: string | null
+        email: string | null
+        displayName: string | null
+      }>
+      getOkvevoAuth?: () => Promise<{
+        signedIn: boolean
+        uid: string | null
+        email: string | null
+        displayName: string | null
+      }>
       onOkvevoAuth?: (
-        callback: (snapshot: { signedIn: boolean; uid: string | null; email: string | null }) => void
+        callback: (snapshot: {
+          signedIn: boolean
+          uid: string | null
+          email: string | null
+          displayName: string | null
+        }) => void
       ) => () => void
       signalDeepLinkReady?: () => Promise<{ ok: boolean }>
       probePluginRepo?: (payload: { identifier?: string; repo?: string }) => Promise<{

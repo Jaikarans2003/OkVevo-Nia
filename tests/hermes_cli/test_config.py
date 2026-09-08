@@ -1809,3 +1809,74 @@ class TestConfigCommandFailClosedSurface:
         assert excinfo.value.code == 1
         assert "not valid YAML" in capsys.readouterr().err
         assert config_path.read_text(encoding="utf-8") == original
+
+
+class TestV40GlmAuxiliaryPins:
+    """v39 → v40: pin inherit-main vision/compression to OpenRouter GLM."""
+
+    def _write(self, tmp_path, data):
+        (tmp_path / "config.yaml").write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    def test_default_config_pins_glm_aux_models(self):
+        assert DEFAULT_CONFIG["_config_version"] == 40
+        compression = DEFAULT_CONFIG["auxiliary"]["compression"]
+        vision = DEFAULT_CONFIG["auxiliary"]["vision"]
+        assert compression["provider"] == "openrouter"
+        assert compression["model"] == "z-ai/glm-5.2"
+        assert vision["provider"] == "openrouter"
+        assert vision["model"] == "z-ai/glm-5.3-flash"
+        assert DEFAULT_CONFIG["auxiliary"]["title_generation"]["provider"] == "auto"
+        assert DEFAULT_CONFIG["auxiliary"]["title_generation"]["model"] == ""
+
+    def test_v40_fills_auto_empty_slots(self, tmp_path):
+        self._write(
+            tmp_path,
+            {
+                "_config_version": 39,
+                "auxiliary": {
+                    "compression": {"provider": "auto", "model": ""},
+                    "vision": {"provider": "auto", "model": ""},
+                    "title_generation": {"provider": "auto", "model": ""},
+                },
+            },
+        )
+        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+            migrate_config(interactive=False, quiet=True)
+            loaded = load_config()
+            raw = yaml.safe_load((tmp_path / "config.yaml").read_text(encoding="utf-8"))
+
+        assert loaded["auxiliary"]["compression"]["provider"] == "openrouter"
+        assert loaded["auxiliary"]["compression"]["model"] == "z-ai/glm-5.2"
+        assert loaded["auxiliary"]["vision"]["provider"] == "openrouter"
+        assert loaded["auxiliary"]["vision"]["model"] == "z-ai/glm-5.3-flash"
+        assert loaded["auxiliary"]["title_generation"]["provider"] == "auto"
+        assert loaded["auxiliary"]["title_generation"]["model"] == ""
+        assert raw["_config_version"] == 40
+        compression_raw = (raw.get("auxiliary") or {}).get("compression") or {}
+        assert compression_raw.get("provider") != "auto"
+
+    def test_v40_leaves_explicit_pins(self, tmp_path):
+        self._write(
+            tmp_path,
+            {
+                "_config_version": 39,
+                "auxiliary": {
+                    "compression": {
+                        "provider": "anthropic",
+                        "model": "claude-sonnet-4",
+                    },
+                    "vision": {"provider": "auto", "model": ""},
+                },
+            },
+        )
+        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+            migrate_config(interactive=False, quiet=True)
+            loaded = load_config()
+            raw = yaml.safe_load((tmp_path / "config.yaml").read_text(encoding="utf-8"))
+
+        assert loaded["auxiliary"]["compression"]["provider"] == "anthropic"
+        assert loaded["auxiliary"]["compression"]["model"] == "claude-sonnet-4"
+        assert loaded["auxiliary"]["vision"]["provider"] == "openrouter"
+        assert loaded["auxiliary"]["vision"]["model"] == "z-ai/glm-5.3-flash"
+        assert raw["auxiliary"]["compression"]["provider"] == "anthropic"
+        assert raw["auxiliary"]["compression"]["model"] == "claude-sonnet-4"

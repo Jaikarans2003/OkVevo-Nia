@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { en } from '@/i18n/en'
 
 import { defaultBindings, KEYBIND_ACTIONS, keybindAction } from './actions'
+import { IS_MAC } from './combo'
+
+describe('composer.voice keybind action', () => {
+  it('defaults to Control+B on Mac and Control+Space otherwise', () => {
+    expect(keybindAction('composer.voice')?.defaults).toEqual(IS_MAC ? ['ctrl+b'] : ['ctrl+space'])
+    expect(defaultBindings()['composer.voice']).toEqual(IS_MAC ? ['ctrl+b'] : ['ctrl+space'])
+  })
+})
 
 describe('session.archive keybind action', () => {
   it('is registered under the session category', () => {

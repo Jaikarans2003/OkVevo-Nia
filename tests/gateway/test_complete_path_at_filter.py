@@ -263,3 +263,23 @@ def test_completion_ignores_real_terminal_cwd(tmp_path, monkeypatch):
     )
 
 
+def test_at_profile_mentions_primary_as_nia(tmp_path, monkeypatch):
+    class Prof:
+        def __init__(self, name, description=""):
+            self.name = name
+            self.description = description
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "hermes_cli.profiles.list_profiles",
+        lambda: [Prof("default"), Prof("writer")],
+    )
+
+    texts = [t for t, _, _ in _items("@")]
+
+    assert "@nia" in texts
+    assert "@writer" in texts
+    assert "@default" not in texts
+    assert "@hermes" not in texts
+
+

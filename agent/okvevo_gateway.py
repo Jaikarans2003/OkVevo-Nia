@@ -61,6 +61,51 @@ def okvevo_gateway_base_url() -> str:
     return f"{origin}/api/gateway"
 
 
+def nia_is_internal_channel() -> bool:
+    return (os.environ.get("NIA_BUILD_CHANNEL") or "").strip().lower() == "internal"
+
+
+def okvevo_fal_available() -> bool:
+    """Signed-in OkVevo Fal path (public always; internal only without FAL_KEY)."""
+    if not okvevo_signed_in():
+        return False
+    if nia_is_internal_channel():
+        from tools.tool_backend_helpers import fal_key_is_configured
+
+        if fal_key_is_configured():
+            return False
+    return True
+
+
+def okvevo_tavily_available() -> bool:
+    """Signed-in OkVevo Tavily path (public always; internal only without TAVILY_API_KEY)."""
+    if not okvevo_signed_in():
+        return False
+    if nia_is_internal_channel():
+        from agent.web_search_provider import get_provider_env
+
+        if (get_provider_env("TAVILY_API_KEY") or "").strip():
+            return False
+    return True
+
+
+def resolve_okvevo_fal_gateway():
+    """Queue origin + Firebase ID token, or None for the existing nous/FAL_KEY switch."""
+    if not okvevo_fal_available():
+        return None
+    token = read_okvevo_id_token()
+    if not token:
+        return None
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        vendor="okvevo-fal",
+        gateway_origin=f"{okvevo_gateway_base_url()}/fal/queue",
+        nous_user_token=token,
+        managed_mode=True,
+    )
+
+
 def _is_local_allowlisted(base_url: str) -> bool:
     raw = (base_url or "").strip()
     if not raw:

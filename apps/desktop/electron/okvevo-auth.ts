@@ -15,6 +15,7 @@ export type OkvevoAuthPublic = {
   signedIn: boolean
   uid: string | null
   email: string | null
+  displayName: string | null
 }
 
 export type OkvevoAuthSession = {
@@ -23,6 +24,26 @@ export type OkvevoAuthSession = {
   expiresAt: number
   uid: string
   email: string | null
+  displayName: string | null
+}
+
+/** Best-effort `name` claim from a Firebase ID token (existing sessions). */
+export function displayNameFromIdToken(idToken: string): string | null {
+  try {
+    const payload = idToken.split('.')[1]
+
+    if (!payload) {
+      return null
+    }
+
+    const json = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+    const claims = JSON.parse(json) as { name?: unknown }
+    const name = typeof claims.name === 'string' ? claims.name.trim() : ''
+
+    return name || null
+  } catch {
+    return null
+  }
 }
 
 export function hermesProtocolForDev(devServer: boolean): 'hermes' | 'hermes-dev' {
@@ -98,10 +119,12 @@ export function shouldDeliverDeepLinkToRenderer(kind: string): boolean {
 
 export function publicOkvevoAuthSnapshot(session: OkvevoAuthSession | null): OkvevoAuthPublic {
   if (!session?.uid) {
-    return { signedIn: false, uid: null, email: null }
+    return { signedIn: false, uid: null, email: null, displayName: null }
   }
 
-  return { signedIn: true, uid: session.uid, email: session.email }
+  const displayName = session.displayName?.trim() || displayNameFromIdToken(session.idToken)
+
+  return { signedIn: true, uid: session.uid, email: session.email, displayName }
 }
 
 export function okvevoIdTokenFilePath(
@@ -118,6 +141,7 @@ export function sessionFromTokenResponse(
     expiresIn?: number | string
     uid?: string
     email?: string | null
+    displayName?: string | null
   },
   now = Date.now()
 ): OkvevoAuthSession | null {
@@ -126,13 +150,15 @@ export function sessionFromTokenResponse(
   }
 
   const expiresIn = Number(body.expiresIn) || 3600
+  const fromBody = typeof body.displayName === 'string' ? body.displayName.trim() : ''
 
   return {
     refreshToken: body.refreshToken,
     idToken: body.idToken,
     expiresAt: now + expiresIn * 1000,
     uid: body.uid,
-    email: body.email ?? null
+    email: body.email ?? null,
+    displayName: fromBody || displayNameFromIdToken(body.idToken)
   }
 }
 

@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { $settingsRequestProfile } from '@/store/settings-scope'
 
 import { CredentialKeyCard, credentialPlaceholder, credentialRowLabel } from './credential-key-ui'
@@ -9,6 +10,7 @@ import { useEnvCredentials } from './env-credentials'
 import { asText } from './helpers'
 import { SettingsContent, SettingsSkeleton } from './primitives'
 import { SettingsProfileScope } from './profile-scope'
+import { PUBLIC_HIDDEN_TOOL_ENV_KEYS } from './settings-ui-policy'
 import { useDeepLinkHighlight } from './use-deep-link-highlight'
 
 // Sub-views surfaced as sidebar subnav under Tools & Keys (see settings/index.tsx).
@@ -55,6 +57,7 @@ export function KeysSettings({ view }: KeysSettingsProps) {
 
     return Object.entries(vars)
       .filter(([, info]) => !info.channel_managed && cats.includes(asText(info.category)))
+      .filter(([key]) => isByokChromeVisible() || !PUBLIC_HIDDEN_TOOL_ENV_KEYS.has(key))
       .sort(([a], [b]) => a.localeCompare(b))
   }, [vars, view])
 

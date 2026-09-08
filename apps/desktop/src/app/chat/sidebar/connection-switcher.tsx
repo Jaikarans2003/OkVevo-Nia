@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { DesktopRegistryConnection } from '@/global'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import {
   CONNECTION_SEARCH_THRESHOLD,
   connectionMatchesQuery,
@@ -236,10 +237,14 @@ export function ConnectionSwitcher({ compact = false, onConnect }: { compact?: b
               ))
             )}
           </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator className={searchable ? 'm-0' : undefined} />
-          <DropdownMenuItem className={searchable ? dropdownMenuRow : undefined} onSelect={onConnect}>
-            <ManageGatewaysLabel label={t.profiles.connectGateway} />
-          </DropdownMenuItem>
+          {isByokChromeVisible() && (
+            <>
+              <DropdownMenuSeparator className={searchable ? 'm-0' : undefined} />
+              <DropdownMenuItem className={searchable ? dropdownMenuRow : undefined} onSelect={onConnect}>
+                <ManageGatewaysLabel label={t.profiles.connectGateway} />
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

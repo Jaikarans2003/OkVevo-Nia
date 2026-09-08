@@ -81,8 +81,8 @@ _DEFAULTS: Dict[str, Any] = {
     #   "client" — desktop/TUI streams int16 frames via wake.feed
     #   "auto"   — local when a device exists, else client capture
     "capture": "auto",
-    "provider": "openwakeword",
-    "phrase": "hey hermes",
+    "provider": "sherpa",
+    "phrase": "ok nia",
     "sensitivity": 0.6,
     "confirmation_frames": _DEFAULT_CONFIRMATION_FRAMES,
     "start_new_session": True,
@@ -205,7 +205,7 @@ def _get(cfg: Dict[str, Any], key: str) -> Any:
 
 
 def _provider(cfg: Dict[str, Any]) -> str:
-    return str(_get(cfg, "provider")).strip().lower() or "openwakeword"
+    return str(_get(cfg, "provider")).strip().lower() or "sherpa"
 
 
 def _input_device(cfg: Dict[str, Any]) -> int | str | None:
@@ -246,7 +246,7 @@ def _confirmation_frames(cfg: Dict[str, Any]) -> int:
 def wake_phrase(cfg: Optional[Dict[str, Any]] = None) -> str:
     """Human-facing wake phrase label (purely cosmetic; engine keys detection)."""
     cfg = cfg if cfg is not None else load_wake_word_config()
-    return str(_get(cfg, "phrase")) or "hey hermes"
+    return str(_get(cfg, "phrase")) or "ok nia"
 
 
 def resolve_capture_mode(
@@ -686,7 +686,7 @@ class _SherpaKwsEngine(_Engine):
         # on — every other wake-enabled profile's phrase, so ONE listener can
         # wake any profile ("hey hermes" / "hey coder" / ...). display-name →
         # profile is kept for routing the match back.
-        phrase = str(_get(cfg, "phrase") or "hey hermes").strip()
+        phrase = str(_get(cfg, "phrase") or "ok nia").strip()
         own_profile = _active_profile_name()
         phrase_map: Dict[str, str] = {phrase: own_profile}
         if bool(cfg.get("profile_routing", True)):

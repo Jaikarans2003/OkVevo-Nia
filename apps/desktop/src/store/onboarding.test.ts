@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const isByokChromeVisibleMock = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible: isByokChromeVisibleMock
+}))
+
 import * as notifications from '@/store/notifications'
 import { makeOAuthProvider } from '@/test/oauth-provider'
 import type { OAuthProvider } from '@/types/hermes'
@@ -11,6 +17,9 @@ import {
   refreshOnboarding,
   requestDesktopOnboarding,
   saveOnboardingLocalEndpoint,
+  startManualLocalEndpoint,
+  startManualOnboarding,
+  startManualProviderOAuth,
   submitOnboardingCode
 } from './onboarding'
 
@@ -641,5 +650,38 @@ describe('saveOnboardingLocalEndpoint', () => {
     expect(result.ok).toBe(false)
     expect(result.message).toContain('No provider can serve the selected model.')
     expect($desktopOnboarding.get().configured).not.toBe(true)
+  })
+})
+
+describe('public BYOK store fail-closed', () => {
+  beforeEach(() => {
+    isByokChromeVisibleMock.mockReturnValue(false)
+    $desktopOnboarding.set(baseState())
+  })
+
+  afterEach(() => {
+    isByokChromeVisibleMock.mockReturnValue(true)
+    $desktopOnboarding.set(baseState())
+  })
+
+  it('no-ops startManualOnboarding on public', () => {
+    startManualOnboarding('Add a provider')
+
+    expect($desktopOnboarding.get().manual).toBe(false)
+    expect($desktopOnboarding.get().requested).toBe(false)
+  })
+
+  it('no-ops startManualLocalEndpoint on public', () => {
+    startManualLocalEndpoint()
+
+    expect($desktopOnboarding.get().localEndpoint).toBe(false)
+    expect($desktopOnboarding.get().manual).toBe(false)
+  })
+
+  it('no-ops startManualProviderOAuth on public', () => {
+    startManualProviderOAuth('openrouter')
+
+    expect($desktopOnboarding.get().manual).toBe(false)
+    expect($desktopOnboarding.get().requested).toBe(false)
   })
 })

@@ -901,9 +901,10 @@ export const UserEditComposer: FC<UserEditComposerProps> = ({ cwd, gateway, sess
                 {copy.attachingFile}
               </span>
             )}
+            <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
             <button
               aria-label={copy.sendEdited}
-              className={cn('absolute right-2 bottom-2 size-5', USER_ACTION_ICON_BUTTON_CLASS)}
+              className={cn('pointer-events-auto size-5', USER_ACTION_ICON_BUTTON_CLASS)}
               disabled={!canSubmit || submitting || staging}
               onClick={() => {
                 const editor = editorRef.current
@@ -924,6 +925,7 @@ export const UserEditComposer: FC<UserEditComposerProps> = ({ cwd, gateway, sess
             >
               {submitting ? StopGlyph : <Codicon name="arrow-up" size={USER_ACTION_ICON_SIZE} />}
             </button>
+            </div>
           </div>
         </div>
       </StickyHumanMessageContainer>

@@ -553,7 +553,7 @@ export const ja = defineLocale({
       tts: {
         provider: '音声合成プロバイダー',
         edge: {
-          voice: 'Edge 音声'
+          voice: '音声'
         },
         openai: {
           model: 'OpenAI TTS モデル',

@@ -592,6 +592,11 @@ def _resolve_managed_fal_video_gateway():
         read_selection,
         selection_error,
     )
+    from agent.okvevo_gateway import resolve_okvevo_fal_gateway
+
+    okvevo = resolve_okvevo_fal_gateway()
+    if okvevo is not None:
+        return okvevo
 
     selected = read_selection("video_gen")
     if selected == NOUS_MANAGED_PROVIDER:
@@ -688,6 +693,10 @@ def _check_fal_video_available() -> bool:
         fal_key_is_configured,
         read_selection,
     )
+    from agent.okvevo_gateway import okvevo_fal_available
+
+    if okvevo_fal_available():
+        return True
 
     selected = read_selection("video_gen")
     if selected == NOUS_MANAGED_PROVIDER:

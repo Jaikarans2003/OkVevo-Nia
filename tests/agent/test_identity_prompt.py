@@ -89,6 +89,8 @@ class TestProductIdentityGuidance:
             stable = build_system_prompt_parts(_make_agent())["stable"]
 
         assert PRODUCT_IDENTITY_GUIDANCE in stable
+        assert "Never say Hermes, Nous, or" in PRODUCT_IDENTITY_GUIDANCE
+        assert "`~/.nia`" in PRODUCT_IDENTITY_GUIDANCE
         assert stable.index("capability brochure") < stable.index(
             "Model:` and `Provider:`"
         )
@@ -115,6 +117,13 @@ class TestProductIdentityGuidance:
 
         assert "Active Nia profile: default." in prompt
         assert "Active Hermes profile" not in prompt
+        profile_block = next(
+            part
+            for part in prompt.split("\n\n")
+            if part.startswith("Active Nia profile: default.")
+        )
+        assert ".hermes" not in profile_block
+        assert ".nia" in profile_block
 
     def test_steer_channel_uses_nia_not_hermes(self):
         from agent.prompt_builder import STEER_CHANNEL_NOTE

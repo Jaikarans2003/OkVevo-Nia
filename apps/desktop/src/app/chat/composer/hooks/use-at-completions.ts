@@ -59,6 +59,20 @@ function mergeCompletionEntries(preferred: CompletionEntry[], fallback: Completi
   })
 }
 
+/** Stale clones still emit `@hermes` / `@default`. Paint the primary as `@nia`
+ *  (insert still resolves to profile `default`). File/diff/custom profiles stay. */
+export function brandAtProfileEntries(entries: CompletionEntry[]): CompletionEntry[] {
+  return entries.map(entry => {
+    const key = normalize(entry.text)
+
+    if (key === '@hermes' || key === '@default') {
+      return { ...entry, text: '@nia', display: '@nia' }
+    }
+
+    return entry
+  })
+}
+
 interface AtItemMetadata extends Record<string, string> {
   icon: string
   display: string
@@ -169,7 +183,7 @@ export function useAtCompletions(options: {
       const extras = contributedEntries(query)
 
       if (!gateway) {
-        return { items: mergeCompletionEntries(extras, starters), query }
+        return { items: mergeCompletionEntries(brandAtProfileEntries(extras), brandAtProfileEntries(starters)), query }
       }
 
       const word = REF_STARTERS.has(query) ? `@${query}:` : `@${query}`
@@ -196,9 +210,9 @@ export function useAtCompletions(options: {
         const items = result.items ?? []
         const base = items.length > 0 ? items : starters
 
-        return { items: mergeCompletionEntries(extras, base), query }
+        return { items: mergeCompletionEntries(brandAtProfileEntries(extras), brandAtProfileEntries(base)), query }
       } catch {
-        return { items: mergeCompletionEntries(extras, starters), query }
+        return { items: mergeCompletionEntries(brandAtProfileEntries(extras), brandAtProfileEntries(starters)), query }
       }
     },
     [cacheKey, contributedEntries, gateway, sessionId, cwd]

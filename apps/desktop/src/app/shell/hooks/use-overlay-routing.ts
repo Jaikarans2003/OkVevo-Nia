@@ -10,6 +10,7 @@ import {
   NEW_CHAT_ROUTE,
   STARMAP_ROUTE
 } from '@/app/routes'
+import { isByokChromeVisible } from '@/lib/build-channel'
 
 const SECTIONS = ['sessions', 'system', 'usage'] as const
 
@@ -23,7 +24,7 @@ export function useOverlayRouting() {
   const agentsOpen = currentView === 'agents'
   const starmapOpen = currentView === 'starmap'
   const cronOpen = currentView === 'cron'
-  const profilesOpen = currentView === 'profiles'
+  const profilesOpen = currentView === 'profiles' && isByokChromeVisible()
   const webhooksOpen = currentView === 'webhooks'
   const chatOpen = currentView === 'chat'
   const overlayOpen = isOverlayView(currentView)
@@ -38,6 +39,14 @@ export function useOverlayRouting() {
       returnPathRef.current = `${location.pathname}${location.search}${location.hash}`
     }
   }, [location.hash, location.pathname, location.search, overlayOpen])
+
+  useEffect(() => {
+    if (isByokChromeVisible() || currentView !== 'profiles') {
+      return
+    }
+
+    navigate(returnPathRef.current || NEW_CHAT_ROUTE, { replace: true })
+  }, [currentView, navigate])
 
   const commandCenterInitialSection = useMemo<CommandCenterSection | undefined>(
     () => SECTIONS.find(value => value === new URLSearchParams(location.search).get('section')),

@@ -11,6 +11,7 @@ import {
   submitOAuthCode,
   validateProviderCredential
 } from '@/hermes'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
@@ -436,6 +437,9 @@ export function consumePendingCredentialWarning(): null | string {
 // duplicating provider UI. Sets manual=true so the overlay shows the picker
 // even though configured===true, and refreshes the provider list.
 export function startManualOnboarding(reason: null | string = DEFAULT_MANUAL_ONBOARDING_REASON) {
+  if (!isByokChromeVisible()) {
+    return
+  }
   patch({
     manual: true,
     requested: true,
@@ -455,6 +459,9 @@ export function startManualOnboarding(reason: null | string = DEFAULT_MANUAL_ONB
 // (`custom` is not an OAuth provider, so the generic manual flow would just
 // re-show the picker — the original "booted back to the first screen" loop).
 export function startManualLocalEndpoint(reason: null | string = null) {
+  if (!isByokChromeVisible()) {
+    return
+  }
   pendingProviderOAuthId = null
   patch({
     manual: true,
@@ -475,6 +482,9 @@ export function startManualLocalEndpoint(reason: null | string = null) {
 let pendingProviderOAuthId: null | string = null
 
 export function startManualProviderOAuth(providerId: string, reason: null | string = null) {
+  if (!isByokChromeVisible()) {
+    return
+  }
   pendingProviderOAuthId = providerId
   startManualOnboarding(reason)
 }

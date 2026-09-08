@@ -124,7 +124,7 @@ def _normalize_roster_row(row: Any) -> Optional[dict]:
     if not profile or not connection_id:
         return None
     if not handle:
-        handle = "hermes" if profile == "default" else profile
+        handle = "nia" if profile == "default" else profile
     if (
         not _HANDLE_RE.match(handle)
         or not _HANDLE_RE.match(profile)
@@ -216,7 +216,10 @@ def resolve_remote_target(raw_target: str, roster: list[dict]) -> Any:
             return None
     matches = []
     for row in roster:
-        if want.lower() not in (row["handle"].lower(), row["profile"].lower()):
+        handle = row["handle"].lower()
+        profile = row["profile"].lower()
+        aliases = {"nia", "hermes"} if profile == "default" else set()
+        if want.lower() not in (handle, profile) and want.lower() not in aliases:
             continue
         if conn and row["connection_id"].lower() != conn.lower():
             continue

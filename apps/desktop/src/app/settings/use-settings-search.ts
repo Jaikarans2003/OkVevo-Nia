@@ -19,6 +19,7 @@ import {
   buildCredentialSearchEntries,
   type SettingsSearchEntry
 } from './settings-search'
+import { isAppearanceSettingVisible, isSettingsViewVisible } from './settings-ui-policy'
 
 /**
  * The granular settings-search catalog (appearance controls, config fields,
@@ -72,26 +73,28 @@ export function useSettingsSearchCatalog(enabled: boolean) {
 
   const pluginContext = t.settings.nav.plugins
 
-  const pluginEntries: SettingsSearchEntry[] = [
-    ...Object.values(desktopPluginRecords).map(record => ({
-      context: pluginContext,
-      description: record.description,
-      icon: Package,
-      id: `plugin:desktop:${record.id}`,
-      keywords: ['plugin', 'extension', record.id],
-      label: record.name,
-      target: { plugin: record.id, view: 'plugins' as const }
-    })),
-    ...agentPlugins.filter(isDesktopRelevantPlugin).map(row => ({
-      context: pluginContext,
-      description: row.description || undefined,
-      icon: Package,
-      id: `plugin:agent:${row.key ?? row.name}`,
-      keywords: ['plugin', 'extension', ...(row.key ? [row.key] : [])],
-      label: row.name,
-      target: { plugin: row.key ?? row.name, view: 'plugins' as const }
-    }))
-  ]
+  const pluginEntries: SettingsSearchEntry[] = isSettingsViewVisible('plugins')
+    ? [
+        ...Object.values(desktopPluginRecords).map(record => ({
+          context: pluginContext,
+          description: record.description,
+          icon: Package,
+          id: `plugin:desktop:${record.id}`,
+          keywords: ['plugin', 'extension', record.id],
+          label: record.name,
+          target: { plugin: record.id, view: 'plugins' as const }
+        })),
+        ...agentPlugins.filter(isDesktopRelevantPlugin).map(row => ({
+          context: pluginContext,
+          description: row.description || undefined,
+          icon: Package,
+          id: `plugin:agent:${row.key ?? row.name}`,
+          keywords: ['plugin', 'extension', ...(row.key ? [row.key] : [])],
+          label: row.name,
+          target: { plugin: row.key ?? row.name, view: 'plugins' as const }
+        }))
+      ]
+    : []
 
   // Never expose stale profile-scoped targets while a catalog is refreshing.
   // Field/key results wait for the current profile's data rather than briefly
@@ -127,7 +130,7 @@ export function useSettingsSearchCatalog(enabled: boolean) {
       label: appearance.toolViewTitle,
       target: { setting: APPEARANCE_SETTING_IDS.toolView, view: 'config:appearance' }
     }
-  ]
+  ].filter(entry => isAppearanceSettingVisible(entry.target.setting ?? ''))
 
   const credentialEntries = buildCredentialSearchEntries(
     envVarsFetching || envVarsError ? null : envVars,

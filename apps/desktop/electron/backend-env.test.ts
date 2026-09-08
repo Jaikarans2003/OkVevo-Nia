@@ -227,3 +227,21 @@ test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)
   })
   assert.equal(fromDevServerEnv.OKVEVO_WEB_ORIGIN, 'http://localhost:3000')
 })
+
+test('buildDesktopBackendEnv injects NIA_BUILD_CHANNEL for the Python backend', () => {
+  const fromEnv = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin', NIA_BUILD_CHANNEL: 'internal' },
+    platform: 'darwin',
+    pathModule: path.posix
+  })
+  assert.equal(fromEnv.NIA_BUILD_CHANNEL, 'internal')
+
+  const baked = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin' },
+    platform: 'darwin',
+    pathModule: path.posix
+  })
+  assert.ok(baked.NIA_BUILD_CHANNEL === 'public' || baked.NIA_BUILD_CHANNEL === 'internal')
+})

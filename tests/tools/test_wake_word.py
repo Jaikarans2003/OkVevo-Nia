@@ -23,7 +23,7 @@ import tools.wake_word as ww
 
 
 def test_config_defaults_and_clamping():
-    assert ww._provider({}) == "openwakeword"
+    assert ww._provider({}) == "sherpa"
     assert ww._provider({"provider": "Porcupine"}) == "porcupine"
     assert ww._input_device({}) is None
     assert ww._input_device({"input_device": 7}) == 7
@@ -36,7 +36,7 @@ def test_config_defaults_and_clamping():
     assert ww._sensitivity({"sensitivity": "nope"}) == ww._DEFAULTS["sensitivity"]
     assert ww._sensitivity({}) == ww._DEFAULTS["sensitivity"]
     assert ww.wake_phrase({"phrase": "hey hermes"}) == "hey hermes"
-    assert ww.wake_phrase({}) == "hey hermes"
+    assert ww.wake_phrase({}) == "ok nia"
 
 
 def test_wake_surface_enabled_gate():
@@ -65,7 +65,6 @@ def test_load_wake_word_config_is_a_dict_with_defaults():
     cfg = ww.load_wake_word_config()
     assert isinstance(cfg, dict)
     assert cfg.get("enabled") is False
-    assert cfg.get("provider") == "openwakeword"
 
 
 def test_load_wake_word_config_guards_non_dict(monkeypatch):

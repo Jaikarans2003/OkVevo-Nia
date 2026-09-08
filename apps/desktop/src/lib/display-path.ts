@@ -164,3 +164,29 @@ export function pathLeaf(raw: null | string | undefined): string {
 export function displayInstallPath(raw: string): string {
   return raw.replaceAll('hermes-agent', 'nia-agent').replaceAll('.hermes', '.nia')
 }
+
+const HERMES_DESKTOP_APP_RE = /\bHermes desktop app\b/g
+const HERMES_AGENT_RE = /\bHermes Agent\b/g
+const HEY_HERMES_RE = /\bhey hermes\b/gi
+const HEY_NIA_RE = /\bhey nia\b/gi
+const HERMES_PROFILE_AT_RE = /@hermes\b(?!\/)/g
+
+const LEGACY_WAKE_PHRASES = new Set(['', 'hey hermes', 'hey nia'])
+
+/** Paint-only: leftover YAML `hey hermes` / `hey nia` never reach the tooltip. */
+export function displayWakePhrase(phrase: string | null | undefined): string {
+  const raw = (phrase ?? '').trim()
+
+  return LEGACY_WAKE_PHRASES.has(raw.toLowerCase()) ? 'ok nia' : raw
+}
+
+/** Rewrite leftover Hermes product copy for assistant bubble paint. */
+export function sanitizeUserFacingBrand(raw: string): string {
+  // ponytail: naive phrase/path rewrite; upgrade later if code-fence exemptions are needed.
+  return displayInstallPath(raw)
+    .replace(HERMES_DESKTOP_APP_RE, 'Nia desktop app')
+    .replace(HERMES_AGENT_RE, 'Nia')
+    .replace(HEY_HERMES_RE, 'ok nia')
+    .replace(HEY_NIA_RE, 'ok nia')
+    .replace(HERMES_PROFILE_AT_RE, '@nia')
+}

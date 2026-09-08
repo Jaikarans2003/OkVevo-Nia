@@ -462,7 +462,7 @@ export const FIELD_LABELS: Record<string, string> = defineFieldCopy({
   tts: {
     provider: 'Text-To-Speech Provider',
     edge: {
-      voice: 'Edge Voice'
+      voice: 'Voices'
     },
     openai: {
       model: 'OpenAI TTS Model',
@@ -574,7 +574,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   },
   fileReadMaxChars: 'Maximum characters Hermes can read from one file request.',
   approvals: {
-    mode: 'How Hermes handles commands that need explicit approval.',
+    mode: 'How Nia handles commands that need explicit approval.',
     timeout: 'How long approval prompts wait before timing out.'
   },
   security: {

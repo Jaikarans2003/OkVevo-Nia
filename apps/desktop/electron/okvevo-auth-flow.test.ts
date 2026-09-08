@@ -30,7 +30,8 @@ function deps(overrides: Partial<OkvevoAuthFlowDeps> = {}): OkvevoAuthFlowDeps &
         idToken: 'idt',
         expiresIn: 3600,
         uid: 'u1',
-        email: 'a@b.c'
+        email: 'a@b.c',
+        displayName: 'Ada'
       }
     },
     openExternal: async url => {
@@ -78,6 +79,7 @@ test('completeOkvevoAuthCallback exchanges matching state and hides tokens from 
   assert.equal(snap.signedIn, true)
   assert.equal(snap.uid, 'u1')
   assert.equal(snap.email, 'a@b.c')
+  assert.equal(snap.displayName, 'Ada')
   assert.equal(JSON.stringify(snap).includes('rt'), false)
   assert.equal(d.loadSession()?.idToken, 'idt')
 })

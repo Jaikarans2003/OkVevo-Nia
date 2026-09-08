@@ -50,13 +50,39 @@ def _tavily_headers(api_key: str) -> Dict[str, str]:
 
 
 def _tavily_request(endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """POST to the Tavily API and return the parsed JSON response.
+    """POST to Tavily (or the OkVevo gateway) and return parsed JSON.
 
-    Keyed when ``TAVILY_API_KEY`` is set (Bearer auth); otherwise keyless.
-    Non-2xx responses raise ``ValueError`` with the response body so Tavily's
-    keyless rate-limit / upgrade text reaches the model.
+    Signed-in OkVevo path posts to ``/api/gateway/tavily/{search|extract}``
+    with the Firebase ID token — never keyless, never the user's Tavily key.
+    Otherwise keyed when ``TAVILY_API_KEY`` is set; else keyless.
+    Non-2xx responses raise ``ValueError`` with the response body.
     """
+    from agent.okvevo_gateway import (
+        OkvevoGatewayConfigError,
+        okvevo_gateway_base_url,
+        okvevo_tavily_available,
+        read_okvevo_id_token,
+    )
     from agent.web_search_provider import get_provider_env
+
+    if okvevo_tavily_available():
+        token = read_okvevo_id_token()
+        if not token:
+            raise ValueError("Nia is signed in but the OkVevo session token is missing.")
+        try:
+            url = f"{okvevo_gateway_base_url()}/tavily/{endpoint.lstrip('/')}"
+        except OkvevoGatewayConfigError as exc:
+            raise ValueError(str(exc)) from exc
+        headers = {
+            "X-Client-Name": _CLIENT_NAME,
+            "Authorization": f"Bearer {token}",
+        }
+        logger.info("Tavily %s request via OkVevo gateway", endpoint)
+        response = httpx.post(url, json=payload, timeout=60, headers=headers)
+        if response.status_code >= 400:
+            body = (response.text or "").strip()
+            raise ValueError(body or f"HTTP {response.status_code}")
+        return response.json()
 
     api_key = get_provider_env("TAVILY_API_KEY")
     base_url = get_provider_env("TAVILY_BASE_URL") or "https://api.tavily.com"
@@ -185,11 +211,14 @@ class TavilyWebSearchProvider(WebSearchProvider):
             if is_interrupted():
                 return {"success": False, "error": "Interrupted"}
 
+            from agent.okvevo_gateway import okvevo_tavily_available
             from agent.web_search_provider import get_provider_env
 
             from plugins.web.keyless_mcp import search_with_failover, use_keyless
 
-            if use_keyless("tavily", get_provider_env("TAVILY_API_KEY")):
+            if not okvevo_tavily_available() and use_keyless(
+                "tavily", get_provider_env("TAVILY_API_KEY")
+            ):
                 # Keyless free tier — ring dispatch with next-in-line
                 # failover on rate limits.
                 logger.info(
@@ -228,11 +257,14 @@ class TavilyWebSearchProvider(WebSearchProvider):
                     {"url": u, "error": "Interrupted", "title": ""} for u in urls
                 ]
 
+            from agent.okvevo_gateway import okvevo_tavily_available
             from agent.web_search_provider import get_provider_env
 
             from plugins.web.keyless_mcp import extract_with_failover, use_keyless
 
-            if use_keyless("tavily", get_provider_env("TAVILY_API_KEY")):
+            if not okvevo_tavily_available() and use_keyless(
+                "tavily", get_provider_env("TAVILY_API_KEY")
+            ):
                 # Keyless free tier — ring dispatch with next-in-line
                 # failover on rate limits.
                 logger.info("Tavily keyless extract: %d URL(s)", len(urls))

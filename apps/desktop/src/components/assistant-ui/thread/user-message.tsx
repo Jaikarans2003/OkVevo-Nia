@@ -74,7 +74,7 @@ export const USER_ACTION_ICON_BUTTON_CLASS =
   'grid place-items-center rounded-md bg-transparent text-(--ui-text-secondary) transition-colors hover:bg-(--ui-control-active-background) hover:text-foreground disabled:cursor-default disabled:text-(--ui-text-quaternary) disabled:opacity-70'
 
 export const USER_ACTION_ICON_SIZE = '0.6875rem'
-export const StopGlyph = <StopFilled aria-hidden className="size-3.5 -translate-y-px" />
+export const StopGlyph = <StopFilled aria-hidden className="size-3.5" />
 
 // Background-process notifications are injected into the conversation as user
 // messages (the agent must react to them, and message-role alternation forbids
@@ -554,7 +554,7 @@ export const UserMessage: FC<{
                 )}
                 {seeMoreControl}
                 {(showStop || showRestore) && (
-                  <div className="pointer-events-none absolute right-2 bottom-2 z-10 flex items-center justify-center opacity-0 transition-opacity group-hover/user-message:opacity-100 group-focus-within/user-message:opacity-100">
+                  <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center opacity-0 transition-opacity group-hover/user-message:opacity-100 group-focus-within/user-message:opacity-100">
                     {showStop ? (
                       <button
                         aria-label={copy.stop}

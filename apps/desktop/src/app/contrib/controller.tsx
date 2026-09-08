@@ -5,7 +5,7 @@ import type { CSSProperties, ReactElement, PointerEvent as ReactPointerEvent } f
 import { SessionDraftTitle } from '@/app/chat/session-draft-title'
 import { SessionStatusDot } from '@/app/chat/session-status-dot'
 import { PALETTE_AREA, type PaletteContribution, paletteToggle } from '@/app/command-palette/contrib'
-import { applyLockedDesktopPrefs } from '@/app/settings/settings-ui-policy'
+import { applyLockedDesktopPrefs, isByokChromeVisible } from '@/app/settings/settings-ui-policy'
 import { type StatusbarItem } from '@/app/shell/statusbar-controls'
 import { SYSTEM_TOOL_COUNT } from '@/app/shell/titlebar'
 import { InlinePreviewDirective } from '@/components/assistant-ui/inline-preview-directive'
@@ -304,17 +304,6 @@ registry.registerMany([
       render: ({ attrs, streaming }) => <InlinePreviewDirective attrs={attrs} streaming={streaming} />
     } satisfies TranscriptDirectiveContribution
   },
-  // Hiding the bar removes the surface that would otherwise offer it back, so
-  // ⌘K is the guaranteed door in (alongside the rebindable ⌘⇧S).
-  paletteToggle({
-    id: 'view.toggleStatusbar',
-    label: 'Toggle status bar',
-    action: 'view.toggleStatusbar',
-    icon: PanelBottom,
-    keywords: ['status bar', 'statusbar', 'bottom bar', 'hide', 'show', 'chrome'],
-    get: () => $statusbarVisible.get(),
-    set: enabled => $statusbarVisible.set(enabled)
-  }),
   paletteToggle({
     id: 'view.toggleTabStrip',
     label: 'Toggle tabs',
@@ -327,17 +316,33 @@ registry.registerMany([
     get: () => Boolean(targetZoneTabStripVisible()),
     set: () => void toggleTargetZoneTabStrip()
   }),
-  // The keybind panel's non-titlebar door (the keyboard icon is gone).
-  {
-    id: 'keybinds.panel',
-    area: PALETTE_AREA,
-    data: {
-      id: 'keybinds.panel',
-      label: 'Keyboard shortcuts',
-      keywords: ['keybinds', 'shortcuts', 'hotkeys', 'keyboard'],
-      run: () => window.dispatchEvent(new CustomEvent('hermes:open-keybinds'))
-    } satisfies PaletteContribution
-  },
+  // Internal-only chrome doors: status bar toggle (public locks the bar off)
+  // and the keybind panel (Keyboard Shortcuts settings are public-hidden).
+  ...(isByokChromeVisible()
+    ? [
+        // Hiding the bar removes the surface that would otherwise offer it back, so
+        // ⌘K is the guaranteed door in (alongside the rebindable ⌘⇧S).
+        paletteToggle({
+          id: 'view.toggleStatusbar',
+          label: 'Toggle status bar',
+          action: 'view.toggleStatusbar',
+          icon: PanelBottom,
+          keywords: ['status bar', 'statusbar', 'bottom bar', 'hide', 'show', 'chrome'],
+          get: () => $statusbarVisible.get(),
+          set: enabled => $statusbarVisible.set(enabled)
+        }),
+        {
+          id: 'keybinds.panel',
+          area: PALETTE_AREA,
+          data: {
+            id: 'keybinds.panel',
+            label: 'Keyboard shortcuts',
+            keywords: ['keybinds', 'shortcuts', 'hotkeys', 'keyboard'],
+            run: () => window.dispatchEvent(new CustomEvent('hermes:open-keybinds'))
+          } satisfies PaletteContribution
+        }
+      ]
+    : []),
   // Profile sharing: bundle the active profile (config, skills, theme, layout)
   // into a portable archive, or adopt someone else's. Both open native dialogs,
   // so the palette closing on select is correct.
@@ -885,8 +890,8 @@ export function ContribController() {
           {/* The REAL statusbar (model pill, command center, agents, …) with
               statusBar.left/right contributions merged in. Unmounted — not
               just hidden — while toggled off, so its 15s status poll and the
-              per-turn readouts stop with it. */}
-          {statusbarVisible && <WiredPane part="statusbar" />}
+              per-turn readouts stop with it. Public packs never mount it. */}
+          {isByokChromeVisible() && statusbarVisible && <WiredPane part="statusbar" />}
         </div>
       </ContribWiring>
     </SidebarProvider>

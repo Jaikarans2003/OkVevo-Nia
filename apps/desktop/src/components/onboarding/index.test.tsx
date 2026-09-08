@@ -55,7 +55,7 @@ afterEach(() => {
     manual: false,
     localEndpoint: false
   })
-  $okvevoAuth.set({ signedIn: false, uid: null, email: null })
+  $okvevoAuth.set({ signedIn: false, uid: null, email: null, displayName: null })
 })
 
 describe('onboarding Picker', () => {
@@ -133,7 +133,7 @@ describe('onboarding Picker', () => {
   })
 
   it('shows OpenRouter key paste when signed in on the internal channel', () => {
-    $okvevoAuth.set({ signedIn: true, uid: 'u1', email: 'a@b.c' })
+    $okvevoAuth.set({ signedIn: true, uid: 'u1', email: 'a@b.c', displayName: null })
     setProviders([makeOAuthProvider('nous', 'Nous Portal')])
     render(<Picker ctx={ctx} />)
     fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))

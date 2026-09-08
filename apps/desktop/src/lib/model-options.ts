@@ -1,4 +1,5 @@
 import { getGlobalModelOptions, type HermesGateway, type ModelOptionsResponse } from '@/hermes'
+import { brandModelOptionsResponse } from '@/lib/provider-branding'
 import type { ModelOptionProvider } from '@/types/hermes'
 
 /**
@@ -165,7 +166,7 @@ export async function requestModelOptions({
     }
 
     if (gatewayOptions && hasSelectableModels(gatewayOptions)) {
-      return gatewayOptions
+      return brandModelOptionsResponse(gatewayOptions)
     }
 
     // A connected Desktop gateway can occasionally return only the current
@@ -176,11 +177,11 @@ export async function requestModelOptions({
       const restOptions = await restModelOptions(explicitOnly, refresh, profile)
 
       if (hasSelectableModels(restOptions)) {
-        return {
+        return brandModelOptionsResponse({
           ...restOptions,
           ...(gatewayOptions?.provider ? { provider: gatewayOptions.provider } : {}),
           ...(gatewayOptions?.model ? { model: gatewayOptions.model } : {})
-        }
+        })
       }
     } catch {
       // Preserve the gateway result (or its original error) when the recovery
@@ -188,11 +189,11 @@ export async function requestModelOptions({
     }
 
     if (gatewayOptions) {
-      return gatewayOptions
+      return brandModelOptionsResponse(gatewayOptions)
     }
 
     throw gatewayError
   }
 
-  return restModelOptions(explicitOnly, refresh, profile)
+  return restModelOptions(explicitOnly, refresh, profile).then(brandModelOptionsResponse)
 }

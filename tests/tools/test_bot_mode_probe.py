@@ -48,8 +48,8 @@ def test_emits_for_default_when_any_profile_is_managed(tmp_path):
 
     section = bot_mode_probe.get_bot_mode_protocol_section(home)
     assert section.startswith("## Messaging other agents")
-    # default's callable alias is @hermes, never @default
-    assert "@hermes" in section
+    # default's callable alias is @nia, never @default
+    assert "@nia" in section
     assert "@default" not in section
     assert "@researcher" in section
     assert "message_agent" in section
@@ -62,9 +62,9 @@ def test_emits_for_named_profile_with_own_handle(tmp_path):
 
     section = bot_mode_probe.get_bot_mode_protocol_section(profile_dir)
     assert "@coder" in section
-    # teammate roster excludes self, includes default (as @hermes)
+    # teammate roster excludes self, includes default (as @nia)
     roster_block = section.split("Your teammates")[1]
-    assert "`@hermes`" in roster_block
+    assert "`@nia`" in roster_block
     assert "`@coder`" not in roster_block
 
 

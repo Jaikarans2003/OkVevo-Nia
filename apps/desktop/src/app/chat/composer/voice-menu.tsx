@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
+import { displayWakePhrase } from '@/lib/display-path'
 import { triggerHaptic } from '@/lib/haptics'
 import { AudioLines, Ear, EarOff, iconSize, Loader2, Square, Volume2, VolumeX } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -33,7 +34,7 @@ export interface VoiceMenuProps {
 
 /**
  * Every voice control behind one trigger: dictation, spoken replies, the
- * "hey hermes" wake word, and starting a full conversation.
+ * "ok nia" wake word, and starting a full conversation.
  *
  * The bar carried four separate icon buttons — mic, speaker, ear, and the
  * voice-conversation primary — which is most of a Spotlight-width composer
@@ -59,7 +60,7 @@ export function VoiceMenu({
   const c = t.composer
   const wake = useStore($wakeWord)
 
-  const phrase = wake.phrase || 'hey hermes'
+  const phrase = displayWakePhrase(wake.phrase)
   const dictating = state.voice.active || voiceStatus !== 'idle'
   const wakeListening = wake.listening
   // Anything live keeps the trigger lit, so a folded menu can never look idle

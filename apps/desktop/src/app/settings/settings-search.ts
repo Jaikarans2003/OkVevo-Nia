@@ -6,13 +6,16 @@ import { FIELD_LABELS, SECTIONS } from './constants'
 import { credentialRowLabel } from './credential-key-ui'
 import { fieldCopyForSchemaKey } from './field-copy'
 import { prettyName, sectionFieldEntries, voiceFieldVisible } from './helpers'
-import { isConfigKeyVisible } from './settings-ui-policy'
+import { isConfigKeyVisible, isConfigSectionVisible } from './settings-ui-policy'
 import type { DesktopConfigSection, SettingsView } from './types'
 
 export type CredentialSettingsView = 'settings' | 'tools'
 
 export const APPEARANCE_SETTING_IDS = {
+  intro: 'appearance.intro',
   language: 'appearance.language',
+  sessionDensity: 'appearance.session-density',
+  tabStrip: 'appearance.tab-strip',
   toolView: 'appearance.tool-view'
 } as const
 
@@ -88,6 +91,10 @@ export function buildConfigSearchEntries(
   const sectionFields = sectionFieldEntries(schema, config)
 
   return sections.flatMap(section => {
+    if (!isConfigSectionVisible(section.id)) {
+      return []
+    }
+
     const context = copy.sections[section.id] ?? section.label
     const fields = sectionFields.get(section.id) ?? []
     const visibleFields = (section.id === 'voice' ? fields.filter(([key]) => voiceFieldVisible(key, config)) : fields)

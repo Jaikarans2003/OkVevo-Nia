@@ -1138,8 +1138,8 @@ DEFAULT_CONFIG = {
         # copilot.tencent.com is always treated as stream-only.
         "stream_only_base_urls": [],
         "vision": {
-            "provider": "auto",    # auto | openrouter | nous | codex | custom
-            "model": "",           # e.g. "google/gemini-2.5-flash", "gpt-4o"
+            "provider": "openrouter",
+            "model": "z-ai/glm-5.3-flash",  # text+image+video; not z-ai/glm-5.3 (text-only)
             "base_url": "",        # direct OpenAI-compatible endpoint (takes precedence over provider)
             "api_key": "",         # API key for base_url (falls back to OPENAI_API_KEY)
             "timeout": 120,        # seconds — LLM API call timeout; vision payloads need generous timeout
@@ -1153,8 +1153,8 @@ DEFAULT_CONFIG = {
         # ``auxiliary.web_extract.*`` block was removed here. Existing
         # values in user config.yaml files are harmless leftovers and ignored.
         "compression": {
-            "provider": "auto",
-            "model": "",
+            "provider": "openrouter",
+            "model": "z-ai/glm-5.2",  # text-only 1M context; not glm-5.3 / :batch
             "base_url": "",
             "api_key": "",
             "timeout": 120,        # seconds — compression summarises large contexts; increase for local models
@@ -1969,7 +1969,7 @@ DEFAULT_CONFIG = {
         "stop_phrases": ["stop"],
     },
 
-    # "Hey Hermes" hands-free wake word. Always-on, on-device hotword
+    # "Ok Nia" hands-free wake word. Always-on, on-device hotword
     # detection that starts a fresh voice session — the "Hey Siri" pattern.
     # Off by default; toggle with /wake or `wake_word.enabled: true`.
     "wake_word": {
@@ -1977,8 +1977,8 @@ DEFAULT_CONFIG = {
         "surface": "auto",            # eligible surface: "auto" (first claimant) | "cli" | "tui" | "gui"
         "input_device": None,          # PortAudio input device index/name; null uses the process default
         "capture": "auto",            # auto | local | client — where PCM is captured (client = desktop streams mic via wake.feed)
-        "provider": "openwakeword",   # "openwakeword" (free, local) | "sherpa" (free, ANY phrase, no training) | "porcupine" (premium; needs PORCUPINE_ACCESS_KEY)
-        "phrase": "hey hermes",       # for "sherpa" this IS the detected phrase (any text works); for other engines it's a cosmetic label — detection is keyed by the model/keyword below
+        "provider": "sherpa",         # "sherpa" (free, ANY typed phrase, no training) | "openwakeword" (free, local) | "porcupine" (premium; needs PORCUPINE_ACCESS_KEY)
+        "phrase": "ok nia",           # for "sherpa" this IS the detected phrase (any text works); for other engines it's a cosmetic label — detection is keyed by the model/keyword below
         "sensitivity": 0.6,           # 0.0-1.0 detection threshold, consistent across engines (higher = stricter, fewer false triggers)
         "confirmation_frames": 3,     # openWakeWord only: consecutive over-threshold frames required to fire (higher = fewer false triggers on ambient speech, slightly more latency; 1 = old single-frame behavior)
         "start_new_session": True,    # start a fresh session on wake vs. continue the current one
@@ -3937,7 +3937,7 @@ DEFAULT_CONFIG = {
     },
 
     # Config schema version - bump this when adding new required fields
-    "_config_version": 39,
+    "_config_version": 40,
 }
 
 # Optional environment variables that enhance functionality

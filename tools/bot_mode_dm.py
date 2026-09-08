@@ -107,7 +107,7 @@ def message_agent_tool_schema() -> dict:
                         "type": "string",
                         "description": (
                             "Who to message: a teammate profile name from your roster "
-                            "('researcher', 'hermes' for the default agent), or "
+                            "('researcher', 'nia' for the default agent), or "
                             "'<peer>' / '<peer>/<agent>' for a registered peer gateway."
                         ),
                     },
@@ -208,15 +208,15 @@ def _peers(root: Path) -> list[str]:
 
 
 def _handle(name: str) -> str:
-    return "hermes" if name == "default" else name
+    return "nia" if name == "default" else name
 
 
 def _resolve_local_name(target: str, roster: list[str]) -> Optional[str]:
-    """Map a target handle to a profile name ('hermes' → 'default')."""
+    """Map a target handle to a profile name ('nia' / leftover 'hermes' → 'default')."""
     want = target.strip()
     if not want:
         return None
-    if want.lower() == "hermes":
+    if want.lower() in ("nia", "hermes"):
         return "default" if "default" in roster else None
     for name in roster:
         if name.lower() == want.lower():

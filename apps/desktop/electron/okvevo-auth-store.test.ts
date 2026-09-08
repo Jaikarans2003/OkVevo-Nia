@@ -30,7 +30,8 @@ const SESSION: OkvevoAuthSession = {
   idToken: 'idt',
   expiresAt: 9,
   uid: 'u1',
-  email: 'a@b.c'
+  email: 'a@b.c',
+  displayName: null
 }
 
 test('session survives persist then a fresh load', () => {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-const signedOut = { signedIn: false, uid: null, email: null }
-const signedIn = { signedIn: true, uid: 'u1', email: 'a@b.c' }
+const signedOut = { signedIn: false, uid: null, email: null, displayName: null }
+const signedIn = { signedIn: true, uid: 'u1', email: 'a@b.c', displayName: 'Ada' }
 
 beforeEach(() => {
   vi.resetModules()

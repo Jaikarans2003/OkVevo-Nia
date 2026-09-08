@@ -2,8 +2,10 @@ import {
   type ReasoningMessagePartComponent,
   type TextMessagePartProps,
   type ToolCallMessagePartProps,
+  TextMessagePartProvider,
   useAuiState,
-  useMessagePartReasoning
+  useMessagePartReasoning,
+  useMessagePartText
 } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { type ComponentProps, type FC, type ReactNode, useEffect, useRef, useState } from 'react'
@@ -20,6 +22,7 @@ import { ActivityTimerText } from '@/components/chat/activity-timer-text'
 import { GeneratedImage } from '@/components/chat/generated-image-result'
 import { SCAFFOLD_LABEL_CLASS, SCAFFOLD_META_CLASS, ScaffoldRow } from '@/components/chat/scaffold-row'
 import { useI18n } from '@/i18n'
+import { sanitizeUserFacingBrand } from '@/lib/display-path'
 import { generatedImageFromResult } from '@/lib/generated-images'
 import { separateGluedReasoningBlocks } from '@/lib/reasoning-blocks'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
@@ -113,12 +116,18 @@ const ChainToolFallback: FC<TimelineToolCallProps> = props => {
 
 type TimelineTextPartProps = TextMessagePartProps & { completedAt?: number; timestamp?: number }
 
-const TimelineMarkdownText: FC<TimelineTextPartProps> = ({ completedAt, timestamp }) => (
-  <>
-    <TimelineTimestamp className="mb-0.5 block" completedAt={completedAt} timestamp={timestamp} />
-    <MarkdownText />
-  </>
-)
+const TimelineMarkdownText: FC<TimelineTextPartProps> = ({ completedAt, timestamp }) => {
+  const { status, text } = useMessagePartText()
+
+  return (
+    <>
+      <TimelineTimestamp className="mb-0.5 block" completedAt={completedAt} timestamp={timestamp} />
+      <TextMessagePartProvider isRunning={status.type === 'running'} text={sanitizeUserFacingBrand(text)}>
+        <MarkdownText />
+      </TextMessagePartProvider>
+    </>
+  )
+}
 
 const ThinkingDisclosure: FC<{
   children: ReactNode

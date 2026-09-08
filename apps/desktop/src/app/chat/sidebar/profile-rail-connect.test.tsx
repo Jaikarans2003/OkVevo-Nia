@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ProfileRail } from './profile-switcher'
 
+let byokChromeVisible = true
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible: () => byokChromeVisible
+}))
+
 // The rail's discoverability pills are navigation, not identity — assert the
 // multi-gateway entry point deep-links to Settings → Connections instead of
 // relying on someone finding the pane three levels into Settings (the exact
@@ -96,6 +102,7 @@ afterEach(() => {
   cleanup()
   hasMultipleConnections.set(false)
   profiles.set([{ is_default: true, name: 'default' }])
+  byokChromeVisible = true
 })
 
 describe('ProfileRail multi-gateway entry point', () => {
@@ -115,6 +122,15 @@ describe('ProfileRail multi-gateway entry point', () => {
     // gated behind multiProfile the way the default↔all toggle is.
     expect(screen.getByRole('button', { name: 'Manage gateways…' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Manage profiles…' })).toBeTruthy()
+  })
+
+  it('omits Manage Profiles and Manage Gateways on the public pack', () => {
+    byokChromeVisible = false
+    render(<ProfileRail />)
+
+    expect(screen.queryByRole('button', { name: 'Manage gateways…' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Manage profiles…' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'New profile' })).toBeTruthy()
   })
 
   it('keeps the active profile explicit when gateway identity moves to the statusbar', () => {

@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { type Translations, useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { hostPathLabel, hudForcesNativeLinks, normalizeExternalUrl, openExternalLink } from '@/lib/external-link'
 import { formatCombo } from '@/lib/keybinds/combo'
 import { isRemoteGateway } from '@/lib/media'
@@ -567,12 +568,14 @@ function shellSections({ navigate, t }: ShellVerbs): ReactNode[][] {
       <Item icon="search" key="shell-palette" label={t.commandCenter.paletteTitle} onSelect={openCommandPalette} />
     ].filter(Boolean),
     [
-      <Item
-        icon="layout-statusbar"
-        key="shell-statusbar"
-        label={t.keybinds.actions['view.toggleStatusbar']}
-        onSelect={toggleStatusbarVisible}
-      />,
+      isByokChromeVisible() ? (
+        <Item
+          icon="layout-statusbar"
+          key="shell-statusbar"
+          label={t.keybinds.actions['view.toggleStatusbar']}
+          onSelect={toggleStatusbarVisible}
+        />
+      ) : null,
       // The pointer-only way back to a hidden tab strip: right-clicking the
       // shell reaches this menu from anywhere, including a zone that has no
       // chrome left to right-click.
@@ -588,7 +591,7 @@ function shellSections({ navigate, t }: ShellVerbs): ReactNode[][] {
         label={t.commandCenter.settings}
         onSelect={() => navigateToWorkspacePage(navigate, SETTINGS_ROUTE)}
       />
-    ],
+    ].filter(Boolean),
     [
       <Item
         icon="cloud-download"

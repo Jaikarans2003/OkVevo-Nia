@@ -1,15 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Settings2, Wrench } from '@/lib/icons'
 import type { ConfigFieldSchema, HermesConfigRecord } from '@/types/hermes'
 
 import {
+  APPEARANCE_SETTING_IDS,
   buildConfigSearchEntries,
   buildCredentialSearchEntries,
   credentialSettingsView,
   filterSettingsSearchEntries
 } from './settings-search'
+import { isAppearanceSettingVisible } from './settings-ui-policy'
 import { envVar } from './test-utils'
+
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 
 const searchCopy = {
   fieldDescriptions: {
@@ -28,6 +36,10 @@ const searchCopy = {
 }
 
 describe('settings search index', () => {
+  beforeEach(() => {
+    isByokChromeVisible.mockReturnValue(true)
+  })
+
   it('builds config results from renderable schema fields with exact deep links', () => {
     const schema: Record<string, ConfigFieldSchema> = {
       'display.personality': { type: 'select' },
@@ -62,6 +74,7 @@ describe('settings search index', () => {
       'desktop.repo_scan_roots': { type: 'array' },
       'browser.allow_private_urls': { type: 'boolean' }
     }
+
     const config = {
       terminal: { cwd: '/tmp' },
       desktop: { repo_scan_roots: [] },
@@ -129,5 +142,94 @@ describe('settings search index', () => {
     expect(filterSettingsSearchEntries(entries, 'brave tools')[0]?.id).toBe('credential:BRAVE_SEARCH_API_KEY')
     expect(filterSettingsSearchEntries(entries, 'firecrawl extract')[0]?.id).toBe('credential:FIRECRAWL_API_KEY')
     expect(filterSettingsSearchEntries(entries, 'brave extract')).toEqual([])
+  })
+
+  it('drops Model, Chat, and Workspace fields from the public search catalog', () => {
+    isByokChromeVisible.mockReturnValue(false)
+
+    const schema: Record<string, ConfigFieldSchema> = {
+      'display.personality': { type: 'select' },
+      'terminal.cwd': { type: 'string' },
+      'approvals.mode': { type: 'select' }
+    }
+
+    const config = {
+      display: { personality: 'default' },
+      terminal: { cwd: '/tmp' },
+      approvals: { mode: 'manual' }
+    } as unknown as HermesConfigRecord
+
+    const entries = buildConfigSearchEntries(schema, config, {
+      ...searchCopy,
+      sections: { ...searchCopy.sections, workspace: 'Workspace', safety: 'Safety' }
+    })
+
+    expect(entries.map(entry => entry.id)).toEqual(['config-field:approvals.mode'])
+  })
+
+  it('keeps Approval Mode and drops Command Allowlist and Enabled Toolsets on public', () => {
+    isByokChromeVisible.mockReturnValue(false)
+
+    const schema: Record<string, ConfigFieldSchema> = {
+      'approvals.mode': { type: 'select' },
+      command_allowlist: { type: 'list' },
+      'security.redact_secrets': { type: 'boolean' },
+      toolsets: { type: 'list' }
+    }
+
+    const config = {
+      approvals: { mode: 'smart' },
+      command_allowlist: [],
+      security: { redact_secrets: true },
+      toolsets: ['hermes-cli']
+    } as unknown as HermesConfigRecord
+
+    const entries = buildConfigSearchEntries(schema, config, {
+      ...searchCopy,
+      sections: { ...searchCopy.sections, safety: 'Safety', advanced: 'Advanced' }
+    })
+
+    expect(entries.map(entry => entry.label)).toEqual(['Approval Mode'])
+    expect(entries.some(entry => entry.label === 'Command Allowlist')).toBe(false)
+    expect(entries.some(entry => entry.label === 'Enabled Toolsets')).toBe(false)
+  })
+
+  it('keeps Voices and Max Recording Length and drops TTS Provider and Memory fields on public', () => {
+    isByokChromeVisible.mockReturnValue(false)
+
+    const schema: Record<string, ConfigFieldSchema> = {
+      'tts.provider': { type: 'select' },
+      'tts.edge.voice': { type: 'string' },
+      'voice.max_recording_seconds': { type: 'number' },
+      'memory.memory_enabled': { type: 'boolean' }
+    }
+
+    const config = {
+      tts: { provider: 'edge', edge: { voice: 'en-US-AriaNeural' } },
+      voice: { max_recording_seconds: 120 },
+      memory: { memory_enabled: true }
+    } as unknown as HermesConfigRecord
+
+    const entries = buildConfigSearchEntries(schema, config, {
+      ...searchCopy,
+      fieldLabels: {
+        ...searchCopy.fieldLabels,
+        'tts.edge.voice': 'Voices',
+        'tts.provider': 'Text-To-Speech Provider',
+        'voice.max_recording_seconds': 'Max Recording Length',
+        'memory.memory_enabled': 'Persistent Memory'
+      },
+      sections: { ...searchCopy.sections, memory: 'Memory & Context' }
+    })
+
+    expect(entries.map(entry => entry.label)).toEqual(['Voices', 'Max Recording Length'])
+    expect(entries.some(entry => entry.label === 'Text-To-Speech Provider')).toBe(false)
+  })
+
+  it('keeps Tool Call Display searchable and hides Language on public', () => {
+    isByokChromeVisible.mockReturnValue(false)
+
+    expect(isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.toolView)).toBe(true)
+    expect(isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.language)).toBe(false)
   })
 })
