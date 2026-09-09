@@ -1776,9 +1776,14 @@ def _load_local_whisper_model(model_name: str, device: str = "auto", compute_typ
     any CUDA library load failure fall back to CPU + int8.
 
     On Windows, ``device="auto"`` is rewritten to CPU before WhisperModel is
-    constructed: ctranslate2's CUDA autodetection can hard-abort the process
+    constructed: ctranslate2's device autodetection can hard-abort the process
     (same class as Darwin Apple Silicon/Rosetta). Explicit ``cuda`` / ``cpu``
     are left alone so users with a working NVIDIA stack can still opt in.
+
+    Note: the dominant Windows crash is a separate ctranslate2 4.6.1+ wheel
+    regression (oneAPI 2025.3, #1931) that aborts on CPU model construction
+    regardless of device; it is handled by pinning ``ctranslate2==4.6.0`` on
+    win32 in pyproject/lazy_deps/tools_config, not by this device rewrite.
     """
     force_cpu = _should_force_faster_whisper_cpu()
     # Windows auto → CPU: never hand "auto" to ctranslate2 here; its probe

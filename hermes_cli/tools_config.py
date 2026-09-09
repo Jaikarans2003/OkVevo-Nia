@@ -2184,9 +2184,13 @@ def _run_post_setup(post_setup_key: str):
             pass
         _print_info("    Installing faster-whisper (model ~150MB downloads on first use)...")
         try:
-            # Pin ctranslate2: 4.6.1+ Windows wheels hard-crash (0xC0000005)
-            # on CPUs without AVX512 when constructing a Whisper model.
-            result = _pip_install(["-U", "faster-whisper", "ctranslate2==4.6.0", "--quiet"], timeout=300)
+            # Pin ctranslate2 on Windows: 4.6.1+ wheels hard-crash (0xC0000005)
+            # constructing a Whisper model since the oneAPI 2025.3 bump (#1931);
+            # 4.6.0 is the last working build. Mac/Linux resolve normally.
+            _fw_specs = ["-U", "faster-whisper"]
+            if sys.platform == "win32":
+                _fw_specs.append("ctranslate2==4.6.0")
+            result = _pip_install([*_fw_specs, "--quiet"], timeout=300)
             if result.returncode == 0:
                 _print_success("    faster-whisper installed")
                 _print_info("    Model sizes: tiny, base (default), small, medium, large-v3")
@@ -3673,7 +3677,14 @@ def _module_installed(module_name: str) -> bool:
 # old site-packages disappears and restored afterward. Keep these install
 # arguments in sync with the corresponding ``_run_post_setup`` branches.
 _RESTORABLE_PYTHON_TOOL_DEPENDENCIES: dict[str, tuple[str, tuple[str, ...]]] = {
-    "faster_whisper": ("faster_whisper", ("-U", "faster-whisper", "ctranslate2==4.6.0")),
+    # ctranslate2 pinned to 4.6.0 on Windows only: 4.6.1+ wheels hard-crash
+    # (0xC0000005) constructing a Whisper model since the oneAPI 2025.3 bump.
+    "faster_whisper": (
+        "faster_whisper",
+        ("-U", "faster-whisper", "ctranslate2==4.6.0")
+        if sys.platform == "win32"
+        else ("-U", "faster-whisper"),
+    ),
     "kittentts": (
         "kittentts",
         (

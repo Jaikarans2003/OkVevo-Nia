@@ -145,9 +145,12 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     "stt.mistral": ("mistralai==2.4.8",),
     "stt.faster_whisper": (
         "faster-whisper==1.2.1",
-        # ctranslate2 4.6.1+ Windows wheels hard-crash (0xC0000005) on CPUs
-        # without AVX512 when constructing a Whisper model — pin 4.6.0.
-        "ctranslate2==4.6.0",
+        # ctranslate2 4.6.1+ Windows wheels hard-crash (0xC0000005) constructing
+        # a Whisper model since the oneAPI 2025.3 bump (#1931); 4.6.0 is the
+        # last working build. Windows-only (Mac uses Accelerate, not MKL/oneDNN).
+        # Lazy-dep specs cannot carry PEP 508 markers (_spec_is_safe rejects
+        # ";"), so the platform gate is applied here in code.
+        *(("ctranslate2==4.6.0",) if sys.platform == "win32" else ()),
         "sounddevice==0.5.5",
         "numpy==2.4.3",
     ),

@@ -211,9 +211,10 @@ tts-premium = ["elevenlabs==1.59.0"]
 voice = [
   # Local STT pulls in wheel-only transitive deps (ctranslate2, onnxruntime).
   "faster-whisper==1.2.1",
-  # ctranslate2 4.6.1+ Windows wheels hard-crash (0xC0000005) on CPUs without
-  # AVX512 when constructing a Whisper model — pin the last working build.
-  "ctranslate2==4.6.0",
+  # ctranslate2 4.6.1+ Windows wheels hard-crash (0xC0000005) constructing a
+  # Whisper model since the oneAPI 2025.3 bump (#1931); 4.6.0 is the last
+  # working build. Windows-only: Mac uses Accelerate, not MKL/oneDNN.
+  "ctranslate2==4.6.0; sys_platform=='win32'",
   "sounddevice==0.5.5",
   "numpy==2.4.3",
 ]
