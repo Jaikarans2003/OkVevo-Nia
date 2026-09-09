@@ -995,6 +995,31 @@ class FALVideoGenProvider(VideoGenProvider):
             seed=seed,
         )
 
+        # OkVevo spend gate: quote + human approval before the gateway
+        # submit. Only fires when the resolved submit path is the OkVevo
+        # gateway; approvals.mode off / yolo skip inside the helper; denial
+        # returns before any reserve exists (the hold is created inside
+        # submit). The SeedVR upscale pass below is metered separately and
+        # is not gated again (one prompt per tool call).
+        if getattr(_resolve_managed_fal_video_gateway(), "vendor", "") == "okvevo-fal":
+            from agent.okvevo_gateway import okvevo_fal_spend_gate
+
+            denial = okvevo_fal_spend_gate(
+                "video_generate",
+                endpoint,
+                payload,
+                extra_note=(
+                    " The upscale pass is metered separately and is not in "
+                    "this estimate." if upscale else ""
+                ),
+            )
+            if denial:
+                return error_response(
+                    error=denial,
+                    error_type="approval_denied",
+                    provider="fal", model=family_id, prompt=prompt,
+                )
+
         try:
             handle = _submit_fal_video_request(endpoint, payload)
             source_request_id = getattr(handle, "request_id", None)

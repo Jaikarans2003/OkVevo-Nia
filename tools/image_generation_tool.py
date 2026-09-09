@@ -205,7 +205,7 @@ FAL_MODELS: Dict[str, Dict[str, Any]] = {
         "defaults": {
             "num_images": 1,
             "output_format": "png",
-            "safety_tolerance": "5",
+            "safety_tolerance": "6",
             # "1K" is the cheapest tier; 4K doubles the per-image cost.
             # Users on Nous Subscription should stay at 1K for predictable billing.
             "resolution": "1K",
@@ -1213,6 +1213,7 @@ def image_generate_tool(
     image_url: Optional[str] = None,
     reference_image_urls: Optional[list] = None,
     upscale: Optional[bool] = None,
+    model: Optional[str] = None,
 ) -> str:
     """Generate an image from a text prompt, or edit a source image, via FAL.
 
@@ -1229,7 +1230,27 @@ def image_generate_tool(
     Returns a JSON string with ``{"success": bool, "image": url | None,
     "modality": "text" | "image", "error": str, "error_type": str}``.
     """
-    model_id, meta = _resolve_fal_model()
+    explicit_model = (model or "").strip() or None
+    if explicit_model:
+        # Fail-closed: an explicit model= must be a shipped catalog id —
+        # never silently fall back to the configured default (Klein).
+        from tools import media_catalog
+        row = media_catalog.find_shipped("photos", explicit_model)
+        resolved = media_catalog.resolve_image_model(row) if row else None
+        if resolved is None:
+            valid = ", ".join(media_catalog.shipped_ids("photos")) or "(none shipped)"
+            return json.dumps({
+                "success": False,
+                "image": None,
+                "error": (
+                    f"Unknown or unshipped image model '{explicit_model}'. "
+                    f"Valid shipped model ids: {valid}"
+                ),
+                "error_type": "unknown_model",
+            }, indent=2, ensure_ascii=False)
+        model_id, meta = resolved, FAL_MODELS[resolved]
+    else:
+        model_id, meta = _resolve_fal_model()
 
     # Collect any source images (primary + references) into one ordered list.
     source_images: list = []
@@ -1327,6 +1348,29 @@ def image_generate_tool(
                 "Generating image with %s (%s) — prompt: %s",
                 meta.get("display", model_id), model_id, prompt[:80],
             )
+
+        # OkVevo spend gate: quote + human approval before the gateway submit.
+        # Only fires when the resolved submit path is the OkVevo gateway;
+        # approvals.mode off / yolo skip inside the helper; denial raises
+        # before any reserve exists (the hold is created inside submit).
+        if getattr(_resolve_managed_fal_gateway(), "vendor", "") == "okvevo-fal":
+            from agent.okvevo_gateway import okvevo_fal_spend_gate
+
+            will_upscale = (
+                bool(upscale) if upscale is not None
+                else bool(meta.get("upscale", False)) and not use_edit
+            )
+            denial = okvevo_fal_spend_gate(
+                "image_generate",
+                endpoint,
+                arguments,
+                extra_note=(
+                    " The upscale pass is metered separately and is not in "
+                    "this estimate." if will_upscale else ""
+                ),
+            )
+            if denial:
+                raise ValueError(denial)
 
         handler = _submit_fal_request(endpoint, arguments=arguments)
         result = _wait_fal_result(handler)
@@ -1478,6 +1522,11 @@ def _build_no_backend_setup_message() -> str:
 
 def check_image_generation_requirements() -> bool:
     """True if FAL or the explicitly configured image backend is available."""
+    from agent.okvevo_gateway import nia_is_internal_channel
+    if not nia_is_internal_channel():
+        # Public builds: stay visible even signed out so a call earns the
+        # handler's sign-in error instead of the tool silently vanishing.
+        return True
     try:
         if check_fal_api_key():
             # Trigger the lazy fal_client import here as the SDK presence
@@ -1932,6 +1981,22 @@ def _handle_image_generate(args, **kw):
     if not isinstance(upscale, bool):
         upscale = None
     task_id = kw.get("task_id")
+    model = args.get("model")
+    if not isinstance(model, str):
+        model = None
+
+    # Public channel lockdown: image generation is the OkVevo Fal path only.
+    # A stale ``image_gen.provider`` pick (xAI / Nous Portal / Krea / …) in
+    # config.yaml must not resurrect a BYOK backend — same principle as
+    # applyLockedDesktopPrefs. Signed-out gets a clear sign-in error, no
+    # BYOK fallback.
+    from agent.okvevo_gateway import nia_is_internal_channel, okvevo_signed_in
+    public_channel = not nia_is_internal_channel()
+    if public_channel and not okvevo_signed_in():
+        return tool_error(
+            "Sign in to Nia to generate images — on this build image "
+            "generation runs through your OkVevo account."
+        )
 
     # Terminal-backend confinement chokepoint: convert path-like sources to
     # data: URLs via the shared resolver BEFORE any provider dispatch, so
@@ -1942,31 +2007,32 @@ def _handle_image_generate(args, **kw):
     if confine_error is not None:
         return confine_error
 
-    # Route to a plugin-registered provider if one is active (and it's
-    # not the in-tree FAL path). When ``image_gen.provider == "krea"`` this
-    # already reaches the Krea plugin's managed gateway path.
-    dispatched = _dispatch_to_plugin_provider(
-        prompt, aspect_ratio,
-        image_url=image_url,
-        reference_image_urls=reference_image_urls,
-        upscale=upscale,
-    )
-    if dispatched is not None:
-        return _postprocess_image_generate_result(dispatched, task_id=task_id)
+    if not public_channel:
+        # Route to a plugin-registered provider if one is active (and it's
+        # not the in-tree FAL path). When ``image_gen.provider == "krea"`` this
+        # already reaches the Krea plugin's managed gateway path.
+        dispatched = _dispatch_to_plugin_provider(
+            prompt, aspect_ratio,
+            image_url=image_url,
+            reference_image_urls=reference_image_urls,
+            upscale=upscale,
+        )
+        if dispatched is not None:
+            return _postprocess_image_generate_result(dispatched, task_id=task_id)
 
-    # Managed-mode Krea routing: when no explicit plugin provider is configured
-    # but the selected model is a native ``krea-2-*`` id, a portal user routes to
-    # the dedicated Krea managed gateway. ``fal-ai/krea/v2/*`` models stay on the
-    # FAL path below. Runs after plugin dispatch (which returns None when no
-    # provider is set) so the BYO/direct FAL path stays untouched.
-    krea_routed = _maybe_route_managed_krea(
-        prompt, aspect_ratio,
-        image_url=image_url,
-        reference_image_urls=reference_image_urls,
-        upscale=upscale,
-    )
-    if krea_routed is not None:
-        return _postprocess_image_generate_result(krea_routed, task_id=task_id)
+        # Managed-mode Krea routing: when no explicit plugin provider is configured
+        # but the selected model is a native ``krea-2-*`` id, a portal user routes to
+        # the dedicated Krea managed gateway. ``fal-ai/krea/v2/*`` models stay on the
+        # FAL path below. Runs after plugin dispatch (which returns None when no
+        # provider is set) so the BYO/direct FAL path stays untouched.
+        krea_routed = _maybe_route_managed_krea(
+            prompt, aspect_ratio,
+            image_url=image_url,
+            reference_image_urls=reference_image_urls,
+            upscale=upscale,
+        )
+        if krea_routed is not None:
+            return _postprocess_image_generate_result(krea_routed, task_id=task_id)
 
     raw = image_generate_tool(
         prompt=prompt,
@@ -1974,6 +2040,7 @@ def _handle_image_generate(args, **kw):
         image_url=image_url,
         reference_image_urls=reference_image_urls,
         upscale=upscale,
+        model=model,
     )
     return _postprocess_image_generate_result(raw, task_id=task_id)
 
@@ -2014,6 +2081,14 @@ def _active_image_capabilities() -> Dict[str, Any]:
     }
 
     configured_provider = _read_configured_image_provider()
+    # Public channel: the handler forces the OkVevo Fal path regardless of a
+    # stale provider pick — the schema must describe that same path.
+    try:
+        from agent.okvevo_gateway import nia_is_internal_channel
+        if not nia_is_internal_channel():
+            configured_provider = None
+    except Exception:  # noqa: BLE001
+        pass
     if configured_provider and configured_provider != "fal":
         try:
             from agent.image_gen_registry import get_provider
@@ -2137,6 +2212,12 @@ def _build_dynamic_image_schema() -> Dict[str, Any]:
 
     if info.get("supports_upscale"):
         properties["upscale"] = _UPSCALE_PARAM
+
+    from tools import media_catalog
+    properties["model"] = {
+        "type": "string",
+        "description": media_catalog.model_param_description("photos"),
+    }
 
     description = base_desc.format(edit_clause=edit_clause)
 

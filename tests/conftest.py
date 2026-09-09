@@ -516,6 +516,13 @@ def _hermetic_environment(tmp_path, monkeypatch):
             hermes_state_mod, "DEFAULT_DB_PATH", fake_hermes_home / "state.db"
         )
 
+    # 3c. Build channel: default the suite to the internal (BYOK) channel.
+    #     The public-channel media gates (OkVevo Fal lockdown in
+    #     image_generate / video_generate) change dispatch behavior when
+    #     NIA_BUILD_CHANNEL is unset; tests of the public paths set the
+    #     channel explicitly (e.g. tests/agent/test_okvevo_fal_gateway.py).
+    monkeypatch.setenv("NIA_BUILD_CHANNEL", "internal")
+
     # 4. Deterministic locale / timezone / hashseed. CI runs in UTC with
     #    C.UTF-8 locale; local dev often doesn't. Pin everything.
     monkeypatch.setenv("TZ", "UTC")

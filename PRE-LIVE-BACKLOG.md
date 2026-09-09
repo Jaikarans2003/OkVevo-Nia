@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-09-02 (logged `--radius-scalar` / `rounded-*` audit; first signed tag still a hard gate)
+**Last reviewed:** 2026-09-09 (media catalog pass: `video_generate` core, `model=` fail-closed, public OkVevo Fal gate, credit-quote approval; deferred rows logged below)
 
 ---
 
@@ -259,6 +259,50 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Cron/TTL sweeper that `releaseCredits` on `gatewayJobs` still `reserved` past a timeout. |
 | **Verify** | Insert a reserved job older than the TTL, run the sweeper, `creditBalance` restored, job `released`, no debit row. |
 | **Notes** | Logged 2026-09-07 with Phase 6 reserve-then-reconcile. Out of scope for 6a/6b. |
+
+### [ ] Fal `units`-priced models unmetered (GPT Image, Seedream Pro, Gemini Omni, …)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live |
+| **Risk if skipped** | Catalog rows whose live Fal price unit is `units`/`credits` (GPT Image `units` @ 1.0, Seedream Pro, Gemini Omni Flash, …) stay `shipped: false` — the `model=` schema and the gateway allowlist cannot offer them, so the photo/video menu is narrower than the catalog Karan maintains. |
+| **Scope** | `OkVevo-Web/src/lib/fal/quantity.ts` (`refusing to guess quantity for unit=...`), `OkVevo-Web/src/lib/fal/allowlist.ts`, `OkVevo-Web/src/lib/fal/media-catalog.json` + `hermes-agent/okvevo/media-catalog.json` (flip `shipped` together, bytes identical) |
+| **Fix** | Map each `units`-priced endpoint's real per-unit price (Fal pricing API `unit_price` × verified conversion), extend `quantity()` for the unit or pin a per-endpoint conversion, add to `METERABLE_ENDPOINTS`, then flip `shipped: true` in BOTH catalog copies. |
+| **Verify** | `node --experimental-strip-types src/lib/fal/mediaCatalog.selfcheck.ts` stays green; a quote + submit for a newly shipped id debits ≥ Fal cost × `MARGIN`; `scripts/check_media_catalog.py` green. |
+| **Notes** | Logged 2026-09-09 with the media catalog pass. Drift between the two catalog copies is fail-closed by design (gateway 400s, tool errors) — never silent unmetered spend. |
+
+### [ ] Seedream layerize output pipeline (layer PNGs / compositor)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Nice-to-have |
+| **Risk if skipped** | `bytedance/seedream/v5/pro/layerize` stays `shipped: false`; users cannot get editable-layers output (base + up to 16 transparent PNGs, z_index, bounding boxes) even though the catalog keeps Karan's product-shoot note verbatim. |
+| **Scope** | `tools/image_generation_tool.py` (single-`image` result shape), `apps/desktop/src/lib/generated-images.ts` (single-still render), catalog row `shipped` flag |
+| **Fix** | Either dump layer PNGs as files (no compositor) or build a layer UI; then flip `shipped: true`. Do not advertise layerize as a working `image_generate` mode until one of those exists. |
+| **Verify** | A layerize call returns usable layer files (or renders layers in the desktop UI); catalog selfchecks stay green. |
+| **Notes** | Logged 2026-09-09. `.psd` today is only a binary-extension allowlist entry — no PSD writing exists. |
+
+### [ ] Missing Fal plugin video modes (r2v / director / v2v / a2v / LTX 2.5 / Kling o3, turbo/fast families)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live |
+| **Risk if skipped** | Catalog rows for minimax h3-max `reference-to-video`/`director`, kling v3 turbo/pro + o3 (incl. v2v/r2v), seedance r2v + `/fast`, grok r2v, gemini-omni-flash v1.1, ltx-2.5 pro/fast (incl. a2v) stay `shipped: false` — the Fal plugin speaks t2v/i2v only, so those rows are catalog memory, not runnable models. |
+| **Scope** | `plugins/video_gen/fal/__init__.py` (`FAL_FAMILIES`, modality routing, `max_reference_images`), `OkVevo-Web/src/lib/fal/allowlist.ts`, both catalog copies |
+| **Fix** | Per family: add the endpoint + payload shape to the plugin (reference images, video-in, audio-in as applicable), verify live `unit` metering, add to `METERABLE_ENDPOINTS`, flip `shipped: true` in both catalog copies. JSON cannot invent HTTP shapes — each new family is a code change. |
+| **Verify** | For each flipped row: `video_generate` with that `model=` + matching mode inputs succeeds through the OkVevo gateway and `/billing` shows the debit; both catalog selfchecks green. |
+| **Notes** | Logged 2026-09-09. Plan's "Out of this pass" list is the source of truth for the full set. |
+
+### [ ] xAI edit/extend tools still registered inside the `video_gen` toolset
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Nice-to-have (internal channel only — public hides xAI rows) |
+| **Risk if skipped** | `xai_video_edit` / `xai_video_extend` merge into the `video_gen` toolset via the plugin registry, so the toolset toggle and the unified `video_generate` surface are not independent of xAI-specific edit/extend workflows. |
+| **Scope** | `toolsets.py` (`video_gen` static membership), `tools/xai_video_tools.py` (registry toolset target) |
+| **Fix** | Split xAI edit/extend into their own toolset (or document the merge as final). Static membership stays `["video_generate"]` for subset inference (issue #49622). |
+| **Verify** | `hermes tools` shows the split; disabling `video_gen` does not remove xAI edit/extend and vice versa; `tests/plugins/video_gen/test_xai_plugin_integration.py` green. |
+| **Notes** | Logged 2026-09-09 with the media catalog pass. Runtime merge (`include_registry=True`) + xAI credential `check_fn` keep current behavior correct, just not separable. |
 
 ---
 

@@ -271,6 +271,11 @@ class TestDefaults:
     def test_klein_default_steps_is_4(self, image_tool):
         p = image_tool._build_fal_payload("fal-ai/flux-2/klein/9b", "hi", "square")
         assert p["num_inference_steps"] == 4
+        assert p["enable_safety_checker"] is False
+
+    def test_nano_banana_safety_tolerance_is_max(self, image_tool):
+        p = image_tool._build_fal_payload("fal-ai/nano-banana-pro", "hi", "square")
+        assert p["safety_tolerance"] == "6"
 
 
     def test_none_override_does_not_replace_default(self, image_tool):

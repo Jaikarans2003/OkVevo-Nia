@@ -73,7 +73,12 @@ export const PUBLIC_HIDDEN_TOOL_ENV_KEYS = new Set(['FAL_KEY', 'TAVILY_API_KEY']
 
 export function isPublicHiddenToolProvider(toolset: string, name: string): boolean {
   if (toolset === 'image_gen' || toolset === 'video_gen') {
-    return name === 'FAL.ai' || name === 'FAL' || name === 'Nous Subscription'
+    // Public image/video generation is the OkVevo Fal path only — a runtime
+    // rewrite, not a picker row. Every listed provider (FAL.ai/FAL, Nous
+    // Subscription, Nous Portal, OpenRouter, xAI, Krea, DeepInfra, OpenAI) is
+    // a leftover BYOK surface and stays hidden so a stale pick cannot
+    // resurrect off-gateway generation.
+    return true
   }
   if (toolset === 'web') {
     return name === 'Tavily'

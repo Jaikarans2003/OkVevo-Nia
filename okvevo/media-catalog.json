@@ -1,0 +1,384 @@
+{
+  "_readme": "Karan-maintained model catalog. TWO identical copies exist: hermes-agent/okvevo/media-catalog.json (tool schema notes) and OkVevo-Web/src/lib/fal/media-catalog.json (gateway allowlist selfcheck). Edit both together and keep the bytes identical — each repo's selfcheck verifies its own copy, and drift is fail-closed (clear errors, never silent unmetered spend). To add a model: add a row with the exact Fal endpoint id, a verbatim one-line note, tier (expensive|standard), modes, shipped:false. Flip shipped:true only after the Fal plugin/FAL_MODELS can run it AND the OkVevo gateway meters it (selfchecks enforce both). notes are copied verbatim into the tool schema — write them for an LLM reader.",
+  "version": 1,
+  "photos_summary": "Currently strongest for photos: GPT Image and Nano Banana Pro/2.",
+  "photos": [
+    {
+      "id": "fal-ai/nano-banana-pro",
+      "notes": "Expensive, characters, realistic photos.",
+      "tier": "expensive",
+      "modes": ["text"],
+      "shipped": true
+    },
+    {
+      "id": "fal-ai/nano-banana-pro/edit",
+      "notes": "Edit photos.",
+      "tier": "expensive",
+      "modes": ["edit"],
+      "shipped": true
+    },
+    {
+      "id": "fal-ai/nano-banana-2",
+      "notes": "Less expensive than Pro.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": true
+    },
+    {
+      "id": "fal-ai/nano-banana-2/edit",
+      "notes": "",
+      "tier": "standard",
+      "modes": ["edit"],
+      "shipped": true
+    },
+    {
+      "id": "google/nano-banana-2-lite",
+      "notes": "Less expensive and comparatively fast vs Pro and 2.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "google/nano-banana-lite/edit",
+      "notes": "",
+      "tier": "standard",
+      "modes": ["edit"],
+      "shipped": false,
+      "aliases": ["google/nano-banana-2-lite/edit"]
+    },
+    {
+      "id": "fal-ai/gpt-image-1.5",
+      "notes": "Expensive, ultra-realistic characters, typography, product images.",
+      "tier": "expensive",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/gpt-image-1.5/edit",
+      "notes": "",
+      "tier": "expensive",
+      "modes": ["edit"],
+      "shipped": false
+    },
+    {
+      "id": "openai/gpt-image-2",
+      "notes": "Expensive, ultra-realistic, characters with very good precision, products, mockups, typography, text, spelling.",
+      "tier": "expensive",
+      "modes": ["text"],
+      "shipped": false,
+      "aliases": ["fal-ai/gpt-image-2"]
+    },
+    {
+      "id": "openai/gpt-image-2/edit",
+      "notes": "",
+      "tier": "expensive",
+      "modes": ["edit"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedream/v5/pro/text-to-image",
+      "notes": "Less expensive, good.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedream/v5/pro/layerize",
+      "notes": "Product shoots; generates in editable layers (e.g. a drink's table, glass, background, ice cubes are each separate movable layers).",
+      "tier": "standard",
+      "modes": ["layerize"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedream/v5/pro/edit",
+      "notes": "Good for non-ultra-realistic photos.",
+      "tier": "standard",
+      "modes": ["edit"],
+      "shipped": false
+    },
+    {
+      "id": "xai/grok-imagine-image/v2.0/text-to-image",
+      "notes": "Good for typography.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "xai/grok-imagine-image/v2.0/edit",
+      "notes": "Fine, not great.",
+      "tier": "standard",
+      "modes": ["edit"],
+      "shipped": false
+    }
+  ],
+  "videos_summary": "Seedance 2.5 is the longest-duration video model. Only Kling, Gemini Omni Flash, LTX, and Seedance currently reach 4K. Currently strongest for video: Gemini Omni Flash and Seedance.",
+  "videos": [
+    {
+      "id": "minimax/h3-max/text-to-video",
+      "notes": "Fast, good, slightly expensive.",
+      "tier": "expensive",
+      "modes": ["text"],
+      "shipped": true
+    },
+    {
+      "id": "minimax/h3-max/image-to-video",
+      "notes": "",
+      "tier": "expensive",
+      "modes": ["image"],
+      "shipped": true
+    },
+    {
+      "id": "minimax/h3-max/reference-to-video",
+      "notes": "Good but not ultra-realistic, ~90% reference accuracy.",
+      "tier": "expensive",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "minimax/h3-max/director",
+      "notes": "Templates, start/last frame + target audio; cartoon storytelling.",
+      "tier": "expensive",
+      "modes": ["director"],
+      "shipped": false
+    },
+    {
+      "id": "minimax/h3-max-turbo/text-to-video",
+      "notes": "Very fast generations.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "minimax/h3-max-turbo/image-to-video",
+      "notes": "Good, fast.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/kling-video/v3/turbo/pro/text-to-video",
+      "notes": "Good multi-prompt/multi-scene, slightly expensive.",
+      "tier": "expensive",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/kling-video/v3/turbo/pro/image-to-video",
+      "notes": "95% accurate character, single image only.",
+      "tier": "expensive",
+      "modes": ["image"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/kling-video/o3/4k/text-to-video",
+      "notes": "Good, expensive.",
+      "tier": "expensive",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/kling-video/o3/4k/video-to-video/edit",
+      "notes": "Works well.",
+      "tier": "expensive",
+      "modes": ["video_edit"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/kling-video/o3/4k/image-to-video",
+      "notes": "Very good.",
+      "tier": "expensive",
+      "modes": ["image"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/kling-video/o3/4k/reference-to-video",
+      "notes": "Very good.",
+      "tier": "expensive",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/kling-video/o3/4k/video-to-video/reference",
+      "notes": "Motion control + editing: upload a video and a reference, swap a person for the reference person. Good.",
+      "tier": "expensive",
+      "modes": ["video_edit", "reference"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedance-2.0/text-to-video",
+      "notes": "Good, slightly less expensive than Kling v3, up to 4K.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": true
+    },
+    {
+      "id": "bytedance/seedance-2.0/image-to-video",
+      "notes": "Very good accuracy/precision, up to 4K.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": true
+    },
+    {
+      "id": "bytedance/seedance-2.0/reference-to-video",
+      "notes": "Very good physics/lighting, up to 4K.",
+      "tier": "standard",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedance-2.0/fast/text-to-video",
+      "notes": "Good, slightly less expensive than 2.0.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedance-2.0/fast/image-to-video",
+      "notes": "Good for products.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedance-2.0/fast/reference-to-video",
+      "notes": "Very good for UGC content.",
+      "tier": "standard",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedance-2.0/mini/text-to-video",
+      "notes": "Fine, slightly less expensive than 2.0 fast.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": true
+    },
+    {
+      "id": "bytedance/seedance-2.0/mini/image-to-video",
+      "notes": "Good.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": true
+    },
+    {
+      "id": "bytedance/seedance-2.0/mini/reference-to-video",
+      "notes": "OK.",
+      "tier": "standard",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "bytedance/seedance-2.5/text-to-video",
+      "notes": "Best overall, very expensive; action scenes, cinematic, accurate/precise, complex camera movement, strong physics.",
+      "tier": "expensive",
+      "modes": ["text"],
+      "shipped": true
+    },
+    {
+      "id": "bytedance/seedance-2.5/image-to-video",
+      "notes": "Very good, longest-duration video model.",
+      "tier": "expensive",
+      "modes": ["image"],
+      "shipped": true
+    },
+    {
+      "id": "bytedance/seedance-2.5/reference-to-video",
+      "notes": "Hollywood-grade, very expensive; UGC, social, movies, ads — everything.",
+      "tier": "expensive",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "xai/grok-imagine-video/v1.5/image-to-video",
+      "notes": "Good characters.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": true
+    },
+    {
+      "id": "xai/grok-imagine-video/v1.5/reference-to-video",
+      "notes": "",
+      "tier": "standard",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "xai/grok-imagine-video/v1.5/text-to-video",
+      "notes": "Good.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": true
+    },
+    {
+      "id": "google/gemini-omni-flash/v1.1/image-to-video",
+      "notes": "Very good for UGC, close to Seedance.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": false,
+      "aliases": ["google/gemini-omni-flash/image-to-video"]
+    },
+    {
+      "id": "google/gemini-omni-flash/v1.1/text-to-video",
+      "notes": "Ultra-realistic; explainers, education, style-copying.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "google/gemini-omni-flash/v1.1/reference-to-video",
+      "notes": "Up to 4K, very good, cinematic.",
+      "tier": "standard",
+      "modes": ["reference"],
+      "shipped": false
+    },
+    {
+      "id": "google/gemini-omni-flash/v1.1/edit",
+      "notes": "Very good.",
+      "tier": "standard",
+      "modes": ["video_edit"],
+      "shipped": false
+    },
+    {
+      "id": "lightricks/ltx-2.5/text-to-video/pro",
+      "notes": "Good, less expensive, good cinematic results.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "lightricks/ltx-2.5/image-to-video/pro",
+      "notes": "Very good, B-rolls, cinematic.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": false
+    },
+    {
+      "id": "lightricks/ltx-2.5/audio-to-video/pro",
+      "notes": "Good.",
+      "tier": "standard",
+      "modes": ["audio"],
+      "shipped": false
+    },
+    {
+      "id": "lightricks/ltx-2.5/text-to-video/fast",
+      "notes": "Very good, up to 4K.",
+      "tier": "standard",
+      "modes": ["text"],
+      "shipped": false
+    },
+    {
+      "id": "lightricks/ltx-2.5/image-to-video/fast",
+      "notes": "Good, up to 4K.",
+      "tier": "standard",
+      "modes": ["image"],
+      "shipped": false
+    },
+    {
+      "id": "lightricks/ltx-2.5/audio-to-video/fast",
+      "notes": "Fine.",
+      "tier": "standard",
+      "modes": ["audio"],
+      "shipped": false
+    }
+  ]
+}

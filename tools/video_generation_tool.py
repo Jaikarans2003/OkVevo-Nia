@@ -157,6 +157,11 @@ def check_video_generation_requirements() -> bool:
     Triggers plugin discovery (idempotent) so user-installed plugins are
     visible to the toolset gate.
     """
+    from agent.okvevo_gateway import nia_is_internal_channel
+    if not nia_is_internal_channel():
+        # Public builds: stay visible even signed out so a call earns the
+        # handler's sign-in error instead of the tool silently vanishing.
+        return True
     try:
         from agent.video_gen_registry import list_providers
         from hermes_cli.plugins import _ensure_plugins_discovered
@@ -196,6 +201,20 @@ def _resolve_active_provider():
         return provider
     except Exception as exc:
         logger.debug("video_gen provider resolution failed: %s", exc)
+        return None
+
+
+def _resolve_fal_plugin_provider():
+    """Return the FAL plugin provider object, or None. Used by the public
+    channel gate, which bypasses the configured provider entirely."""
+    try:
+        from agent.video_gen_registry import get_provider
+        from hermes_cli.plugins import _ensure_plugins_discovered
+
+        _ensure_plugins_discovered()
+        return get_provider("fal")
+    except Exception as exc:
+        logger.debug("video_gen fal provider resolution failed: %s", exc)
         return None
 
 
@@ -297,14 +316,49 @@ def _handle_video_generate(args: Dict[str, Any], **_kw: Any) -> str:
             "reference-to-video; use a provider-specific tool for video edit/extend"
         )
 
-    # Resolve the active provider.
-    configured = _read_configured_video_provider()
-    provider = _resolve_active_provider()
+    # Resolve the active provider. Public channel lockdown: video generation
+    # is the OkVevo Fal path only — a stale ``video_gen.provider: xai`` pick
+    # in config.yaml must not resurrect a BYOK backend (same principle as
+    # applyLockedDesktopPrefs). Signed-out gets a clear sign-in error.
+    from agent.okvevo_gateway import nia_is_internal_channel, okvevo_signed_in
+    public_channel = not nia_is_internal_channel()
+    if public_channel:
+        if not okvevo_signed_in():
+            return json.dumps(error_response(
+                error=(
+                    "Sign in to Nia to generate video — on this build video "
+                    "generation runs through your OkVevo account."
+                ),
+                error_type="auth_required",
+            ))
+        configured = "fal"
+        provider = _resolve_fal_plugin_provider()
+    else:
+        configured = _read_configured_video_provider()
+        provider = _resolve_active_provider()
     if provider is None:
         return _missing_provider_error(configured)
 
     # Resolve model: explicit arg wins, then config, then provider default.
     model = model_override or _read_configured_video_model() or provider.default_model()
+
+    # Fail-closed: an explicit model= on the Fal path must be a shipped
+    # catalog id — never silently fall back to the configured default
+    # (Pixverse). The plugin resolves the catalog endpoint id to its family.
+    if model_override and getattr(provider, "name", "") == "fal":
+        from tools import media_catalog
+        if media_catalog.find_shipped("videos", model_override) is None:
+            valid = ", ".join(media_catalog.shipped_ids("videos")) or "(none shipped)"
+            return json.dumps(error_response(
+                error=(
+                    f"Unknown or unshipped video model '{model_override}'. "
+                    f"Valid shipped model ids: {valid}"
+                ),
+                error_type="unknown_model",
+                provider="fal",
+                model=model_override,
+                prompt=prompt,
+            ))
 
     kwargs: Dict[str, Any] = {
         "model": model,
@@ -390,8 +444,10 @@ _GENERIC_DESCRIPTION = (
     "Pass `image_url` to animate an image or `reference_image_urls` for "
     "reference-to-video. Video edit/extend workflows are not part of this "
     "unified surface; use a dedicated provider-specific tool when one is "
-    "available. The backend and model family are user-configured via "
-    "`hermes tools` → Video Generation; the agent does not pick them. "
+    "available. The backend is user-configured; the model can be chosen per "
+    "call from the shipped catalog in the `model` param — pass the exact id "
+    "when the request (or a skill) clearly points at one, and call clarify "
+    "first when vibe/budget/duration is genuinely ambiguous. "
     "Long-running generations may take 30 seconds to several minutes — "
     "the call blocks until the video is ready. Returns the result in the "
     "`video` field — either an HTTP URL or an absolute file path. To show "
@@ -443,7 +499,14 @@ def _build_dynamic_video_schema() -> Dict[str, Any]:
     parts: List[str] = [_GENERIC_DESCRIPTION]
 
     configured_model = _read_configured_video_model()
-    provider = _resolve_active_provider()
+    # Mirror the handler's public gate: on public builds the schema describes
+    # the OkVevo Fal path regardless of a stale configured provider.
+    try:
+        from agent.okvevo_gateway import nia_is_internal_channel
+        public_channel = not nia_is_internal_channel()
+    except Exception:  # noqa: BLE001
+        public_channel = False
+    provider = _resolve_fal_plugin_provider() if public_channel else _resolve_active_provider()
 
     if provider is None:
         parts.append(
@@ -584,7 +647,11 @@ def _build_dynamic_video_schema() -> Dict[str, Any]:
             ),
         }
 
-    properties["model"] = static_props["model"]
+    model_param = dict(static_props["model"])
+    if getattr(provider, "name", "") == "fal":
+        from tools import media_catalog
+        model_param["description"] = media_catalog.model_param_description("videos")
+    properties["model"] = model_param
 
     return {
         "description": "\n".join(parts),

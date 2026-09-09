@@ -42,8 +42,8 @@ _HERMES_CORE_TOOLS = [
     # blind to a desktop client talking to a remote/cloud backend.
     # File manipulation
     "read_file", "write_file", "patch", "search_files",
-    # Vision + image generation
-    "vision_analyze", "image_generate",
+    # Vision + image/video generation
+    "vision_analyze", "image_generate", "video_generate",
     # Skills
     "skills_list", "skill_view", "skill_manage",
     # Browser automation
@@ -153,7 +153,14 @@ TOOLSETS = {
             "extend workflows may appear as separate tools. Configure via "
             "``hermes tools`` → Video Generation."
         ),
-        "tools": ["video_generate", "xai_video_edit", "xai_video_extend"],
+        # Static membership is the subset-inference view (issue #49622): with
+        # ``video_generate`` in _HERMES_CORE_TOOLS, keeping this to just the
+        # core tool lets the toolset auto-enable on every platform composite.
+        # xai_video_edit / xai_video_extend stay registered into this toolset
+        # via the registry (tools/xai_video_tools.py) and merge back in at
+        # runtime (include_registry=True), gated by their xAI-credential
+        # check_fn.
+        "tools": ["video_generate"],
         "includes": []
     },
 
