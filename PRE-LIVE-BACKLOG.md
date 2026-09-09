@@ -114,7 +114,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | ~50 unstaged files under `apps/desktop/**`, `apps/bootstrap-installer/**` (icons, `brand-mark.tsx`, i18n, `product.ts`, etc.). Local-only as of 2026-08-31; not on `okvevo/main`. |
 | **Fix** | Review unstaged desktop work, complete rebrand, commit as dedicated desktop identity pass. Include `install.ps1` shortcut names (`Hermes.lnk` → `Nia.lnk`) if desktop product name is Nia. |
 | **Verify** | Build DMG/installer; spot-check window title, icon, onboarding, uninstall strings. `rg -i 'hermes' apps/desktop/src --glob '!**/*.test.*'` — user-facing hits triaged. |
-| **Notes** | DMG-baked assets do not affect `git clone` bootstrap; separate from clone-shipped backend commit `e23f5d5c05`. |
+| **Notes** | DMG-baked assets do not affect `git clone` bootstrap; separate from clone-shipped backend commit `e23f5d5c05`. **Progress 2026-09-09 (public-build privacy layer):** desktop i18n public-reachable values swept to Nia across all 5 locales (boot errors, `gatewayDisconnected`, update/backend-out-of-date, config loading, projects/worktree `staleBackend`, pet `staleBackend`, preview restart); hardcoded `'Hermes reported an error'` / `'Hermes error'` toast titles → Nia; `sanitizeUserFacingBrand` now rewrites standalone Hermes/Nous/OpenRouter/fal.ai in error+notice paths; Send-diagnostics error action is internal-only (uploads to Nous storage). Remaining Hermes strings in `apps/desktop/src` are hidden cloud/SSH/connections/providers/plugins UI (not reachable on public builds) or protocol identifiers — triage before checking this box. |
 
 ### [ ] OkVevo desktop sign-in verified on Mac and Windows
 

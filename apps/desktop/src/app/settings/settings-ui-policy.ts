@@ -107,7 +107,9 @@ export const PUBLIC_HIDDEN_APPEARANCE_SETTING_IDS = new Set([
   'appearance.intro',
   'appearance.language',
   'appearance.session-density',
-  'appearance.tab-strip'
+  'appearance.tab-strip',
+  // Raw commands/stdout (Technical tool view) is internal-build chrome.
+  'appearance.tool-view'
 ])
 
 export function isConfigKeyVisible(key: string): boolean {

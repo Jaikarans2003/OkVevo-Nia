@@ -2694,6 +2694,7 @@ WRITE_FILE_SCHEMA = {
         "properties": {
             "path": {"type": "string", "description": "Path to the file to write (will be created if it doesn't exist, overwritten if it does)"},
             "content": {"type": "string", "description": "Complete content to write to the file"},
+            "intent": {"type": "string", "description": "One plain-language sentence for the user: what this write does and why. Optional — the filename usually says it."},
             # NOTE: the handler still accepts `cross_profile` (bool) — it now
             # bypasses only the #32049 sandbox-mirror lost-write guards, whose
             # rejection error teaches it. Unadvertised: the cross-PROFILE
@@ -2726,6 +2727,10 @@ PATCH_SCHEMA = {
             "path": {
                 "type": "string",
                 "description": "File path to edit.",
+            },
+            "intent": {
+                "type": "string",
+                "description": "One plain-language sentence for the user: what this edit does and why. Optional — the filename usually says it.",
             },
             "old_string": {
                 "type": "string",

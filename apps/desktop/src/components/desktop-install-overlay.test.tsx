@@ -696,7 +696,9 @@ describe('DesktopInstallOverlay public chrome', () => {
     expect(await screen.findByText('Installation failed')).toBeTruthy()
     expect(screen.getByText('Error')).toBeTruthy()
     expect(screen.getAllByText('clone failed').length).toBeGreaterThan(0)
-    expect(screen.getByText('Hide installer output')).toBeTruthy()
+    // The log auto-opens in an effect off `state.error`; await it rather than
+    // assuming the effect flushed in the same frame as the failure title.
+    expect(await screen.findByText('Hide installer output')).toBeTruthy()
     expect(screen.getByText('fatal: could not clone')).toBeTruthy()
     expect(screen.getByText('Reload and retry')).toBeTruthy()
   })

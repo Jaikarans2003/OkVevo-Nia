@@ -868,6 +868,17 @@ def _submit_fal_request(model: str, arguments: Dict[str, Any]):
         # of a raw HTTP error from httpx.
         status = _extract_http_status(exc)
         if status is not None and 400 <= status < 500:
+            # Public builds never name the vendor gateway: map the rejection
+            # to the OkVevo copy deck (402 → credits, 401/403 → session,
+            # anything else → generic friendly).
+            from agent.okvevo_gateway import nia_is_internal_channel
+
+            if not nia_is_internal_channel():
+                from agent.user_facing_errors import public_error_message
+
+                raise ValueError(
+                    public_error_message(str(exc), status=status)
+                ) from exc
             gateway_message = ""
             if status in {401, 402, 403}:
                 gateway_message = (
@@ -1442,6 +1453,20 @@ def image_generate_tool(
             modality,
         )
 
+        # Materialise the delivery URL locally before returning (the xAI /
+        # OpenAI / Krea providers already do): fal CDN links are ephemeral,
+        # and chat renders the local file, never the remote URL. On any
+        # download failure we keep the bare URL rather than fail the turn.
+        if formatted_images:
+            try:
+                from agent.image_gen_provider import save_url_image
+
+                formatted_images[0]["url"] = str(
+                    save_url_image(formatted_images[0]["url"])
+                )
+            except Exception as exc:  # noqa: BLE001 — bare-URL fallback
+                logger.warning("Could not cache generated image locally: %s", exc)
+
         response_data = {
             "success": True,
             "image": formatted_images[0]["url"] if formatted_images else None,
@@ -1462,10 +1487,15 @@ def image_generate_tool(
         error_msg = f"Error generating image: {str(e)}"
         logger.error("%s", error_msg, exc_info=True)
 
+        # Public builds: recognized categories (credits/rate-limit/auth/…)
+        # surface as friendly OkVevo copy; everything else (incl. approval
+        # denials) passes through so the model keeps the real reason.
+        from agent.user_facing_errors import map_public_error
+
         response_data = {
             "success": False,
             "image": None,
-            "error": str(e),
+            "error": map_public_error(str(e)) or str(e),
             "error_type": type(e).__name__,
         }
 
@@ -1505,7 +1535,18 @@ def _build_no_backend_setup_message() -> str:
       - managed-gateway status (if Nous tools are enabled)
       - plugin alternative pointer (so users on a stale ``image_gen.provider``
         know the registry exists and how to inspect it)
+
+    Public builds never name vendors/keys: the only real backend there is the
+    OkVevo gateway, so the honest guidance is sign-in / connectivity / support.
     """
+    from agent.okvevo_gateway import nia_is_internal_channel
+
+    if not nia_is_internal_channel():
+        return (
+            "Image generation isn't available right now. Make sure you're "
+            "signed in to Nia, check your internet, and try again. If it "
+            "keeps failing, contact OkVevo support."
+        )
     lines = ["Image generation is unavailable in this environment.", ""]
     lines.append("Missing requirements:")
     if managed_nous_tools_enabled():

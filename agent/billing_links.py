@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+import os
+
 from utils import base_url_host_matches
 
 
@@ -116,6 +118,21 @@ def build_billing_block(
     """
     slug = (provider or "").strip().lower()
     model = (model or "").strip()
+
+    # Public Nia builds: a billing wall is virtually always the OkVevo
+    # gateway (a signed-out public build has no billable route), so the
+    # descriptor always speaks OkVevo copy and points at the OkVevo portal —
+    # never a third-party provider's billing page.
+    from agent.okvevo_gateway import nia_is_internal_channel
+
+    if not nia_is_internal_channel():
+        from agent.user_facing_errors import CREDITS_COPY
+
+        origin = (
+            (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
+            or "https://www.okvevo.com"
+        )
+        return BillingBlock("okvevo", "OkVevo", model, origin, False, CREDITS_COPY)
 
     if is_nous_inference_route(slug, base_url):
         return BillingBlock(slug or "nous", "Nous Portal", model, _nous_billing_url(), True, message or "")

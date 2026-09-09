@@ -659,6 +659,7 @@ export interface SessionResumeResponse {
     choices?: string[]
     command?: string
     description?: string
+    intent?: string
     request_id?: string
     smart_denied?: boolean
   }

@@ -3759,6 +3759,7 @@ def _run_approval_gate(
     autoapprove_log_prefix: str,
     fail_closed_when_no_human: bool = False,
     no_human_block_message: str = "",
+    intent: Optional[str] = None,
 ) -> dict:
     """Shared human-approval gate for a flagged action (command or tool).
 
@@ -3923,6 +3924,8 @@ def _run_approval_gate(
                 "allow_permanent": True,
                 "allow_session": True,
             }
+            if intent:
+                approval_data["intent"] = intent
             decision = _await_gateway_decision(
                 session_key, notify_cb, approval_data, surface="gateway"
             )
@@ -4719,7 +4722,8 @@ def _await_gateway_decision(session_key: str, notify_cb, approval_data: dict,
 
 def check_all_command_guards(command: str, env_type: str,
                              approval_callback=None,
-                             has_host_access: bool = False) -> dict:
+                             has_host_access: bool = False,
+                             intent: Optional[str] = None) -> dict:
     """Run all pre-exec security checks and return a single approval decision.
 
     Gathers findings from tirith and dangerous-command detection, then
@@ -4730,6 +4734,10 @@ def check_all_command_guards(command: str, env_type: str,
     ``has_host_access`` is True when a Docker sandbox bind-mounts host paths;
     such a session is no longer isolated, so it goes through the normal flow
     instead of the container fast-path.
+
+    ``intent`` is the model's own plain-language one-liner for the user
+    (terminal schema param); it rides the approval payload so Product-mode
+    surfaces can show what the command is FOR without showing the command.
     """
     # Skip isolated container backends for both checks. Docker stops skipping
     # once host paths are bind-mounted into the sandbox.
@@ -5223,6 +5231,8 @@ def check_all_command_guards(command: str, env_type: str,
                 # a session tier independently of the permanent tier.
                 "allow_session": not smart_denied_for_owner,
             }
+            if intent:
+                approval_data["intent"] = intent
             if smart_denied_for_owner:
                 approval_data["smart_denied"] = True
             decision = _await_gateway_decision(
@@ -5320,6 +5330,8 @@ def check_all_command_guards(command: str, env_type: str,
                 "pattern_keys": all_keys,
                 "description": _disp_combined_desc,
             }
+            if intent:
+                pending_data["intent"] = intent
             if smart_denied_for_owner:
                 pending_data.update(smart_denied=True, allow_permanent=False)
             submit_pending(session_key, pending_data)
@@ -5428,7 +5440,8 @@ def check_all_command_guards(command: str, env_type: str,
 
 
 def check_execute_code_guard(code: str, env_type: str,
-                             has_host_access: bool = False) -> dict:
+                             has_host_access: bool = False,
+                             intent: Optional[str] = None) -> dict:
     """Approve an execute_code script before its child process is spawned.
 
     execute_code runs arbitrary local Python — the script can call
@@ -5775,6 +5788,8 @@ def check_execute_code_guard(code: str, env_type: str,
             "pattern_keys": [pattern_key],
             "description": display_description,
         }
+        if intent:
+            pending_data["intent"] = intent
         if smart_denied_for_owner:
             pending_data.update(smart_denied=True, allow_permanent=False)
         submit_pending(session_key, pending_data)
@@ -5806,6 +5821,8 @@ def check_execute_code_guard(code: str, env_type: str,
         "allow_permanent": not smart_denied_for_owner,
         "allow_session": not smart_denied_for_owner,
     }
+    if intent:
+        approval_data["intent"] = intent
     if smart_denied_for_owner:
         approval_data["smart_denied"] = True
     decision = _await_gateway_decision(

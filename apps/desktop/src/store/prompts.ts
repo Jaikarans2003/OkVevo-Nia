@@ -76,6 +76,9 @@ export interface ApprovalRequest extends KeyedPrompt {
   choices?: string[]
   command: string
   description: string
+  // The model's own plain-language one-liner (terminal/execute_code `intent`
+  // param). Product/public surfaces headline this instead of the raw command.
+  intent?: string
   requestId?: string
   smartDenied?: boolean
 }
@@ -89,6 +92,7 @@ interface PendingApprovalPayload {
   choices?: unknown
   command?: unknown
   description?: unknown
+  intent?: unknown
   request_id?: unknown
   smart_denied?: boolean
 }

@@ -373,10 +373,12 @@ def error_response(
     aspect_ratio: str = "",
 ) -> Dict[str, Any]:
     """Build a uniform error response dict."""
+    from agent.user_facing_errors import map_public_error
+
     return {
         "success": False,
         "video": None,
-        "error": error,
+        "error": map_public_error(error, error_type=error_type) or error,
         "error_type": error_type,
         "model": model,
         "prompt": prompt,

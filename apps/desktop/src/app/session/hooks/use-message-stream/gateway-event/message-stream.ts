@@ -6,6 +6,7 @@ import { coerceGatewayText, coerceThinkingText } from '@/lib/chat-runtime'
 import { playCompletionSound } from '@/lib/completion-sound'
 import { parseErrorSurface } from '@/lib/error-surface'
 import { triggerHaptic } from '@/lib/haptics'
+import { publicErrorText } from '@/lib/user-facing-error'
 import { billingCtaLabel, clearBillingBlock, runBillingRecovery, setBillingBlock } from '@/store/billing-block'
 import { clearClarifyRequest } from '@/store/clarify'
 import { setSessionCompacting } from '@/store/compaction'
@@ -41,7 +42,7 @@ function surfaceBillingBlock(sessionId: string, raw: unknown): void {
     return
   }
 
-  setBillingBlock(sessionId, block)
+  setBillingBlock(sessionId, { ...block, message: publicErrorText(block.message || '') })
 
   const ctaCopy = {
     addCredits: translateNow('billingBlock.addCredits'),
@@ -56,7 +57,9 @@ function surfaceBillingBlock(sessionId: string, raw: unknown): void {
     title: block.is_nous
       ? translateNow('billingBlock.titleNous')
       : translateNow('billingBlock.titleProvider', block.provider_label),
-    message: firstBillingLine(block.message) || translateNow('billingBlock.fallbackMessage'),
+    // Public builds: the Python billing block already speaks OkVevo copy;
+    // publicErrorText is the idempotent belt-and-suspenders pass.
+    message: publicErrorText(firstBillingLine(block.message) || translateNow('billingBlock.fallbackMessage')),
     // Sticky: a credit wall blocks every turn until resolved.
     durationMs: 0,
     action: { label: billingCtaLabel(block, ctaCopy), onClick: () => runBillingRecovery(block) }
@@ -342,7 +345,7 @@ export function handleMessageStreamEvent(ctx: GatewayEventContext): boolean {
     const failure =
       payload?.status === 'error'
         ? {
-            error: coerceGatewayText(payload.error).trim() || finalText || 'Hermes reported an error',
+            error: coerceGatewayText(payload.error).trim() || finalText || 'Nia reported an error',
             partial: Boolean(payload.partial),
             surface: parseErrorSurface(payload.error_surface)
           }

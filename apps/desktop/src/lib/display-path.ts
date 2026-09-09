@@ -167,6 +167,11 @@ export function displayInstallPath(raw: string): string {
 
 const HERMES_DESKTOP_APP_RE = /\bHermes desktop app\b/g
 const HERMES_AGENT_RE = /\bHermes Agent\b/g
+const HERMES_WORD_RE = /\bHermes\b/g
+const NOUS_RESEARCH_RE = /\bNous Research\b/g
+const NOUS_WORD_RE = /\bNous\b/g
+const OPENROUTER_WORD_RE = /\bOpenRouter\b/g
+const FAL_WORD_RE = /\bfal\.ai\b/g
 const HEY_HERMES_RE = /\bhey hermes\b/gi
 const HEY_NIA_RE = /\bhey nia\b/gi
 const HERMES_PROFILE_AT_RE = /@hermes\b(?!\/)/g
@@ -186,6 +191,11 @@ export function sanitizeUserFacingBrand(raw: string): string {
   return displayInstallPath(raw)
     .replace(HERMES_DESKTOP_APP_RE, 'Nia desktop app')
     .replace(HERMES_AGENT_RE, 'Nia')
+    .replace(HERMES_WORD_RE, 'Nia')
+    .replace(NOUS_RESEARCH_RE, 'OkVevo')
+    .replace(NOUS_WORD_RE, 'OkVevo')
+    .replace(OPENROUTER_WORD_RE, 'OkVevo')
+    .replace(FAL_WORD_RE, 'OkVevo')
     .replace(HEY_HERMES_RE, 'ok nia')
     .replace(HEY_NIA_RE, 'ok nia')
     .replace(HERMES_PROFILE_AT_RE, '@nia')

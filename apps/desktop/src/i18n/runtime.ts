@@ -64,3 +64,23 @@ export function getRuntimeI18nLocale(): Locale {
 export function translateNow(key: string, ...args: unknown[]): string {
   return translateFrom(locale => TRANSLATIONS[locale], runtimeLocale, key, args)
 }
+
+/** Array-valued messages (WS3 phrasing sets). Active → DEFAULT → []. */
+export function translateNowArray(key: string): string[] {
+  const resolve = (locale: Locale): unknown => resolvePath(TRANSLATIONS[locale], key)
+  const active = resolve(runtimeLocale)
+
+  if (Array.isArray(active) && active.every(value => typeof value === 'string')) {
+    return active
+  }
+
+  if (runtimeLocale !== DEFAULT_LOCALE) {
+    const fallback = resolve(DEFAULT_LOCALE)
+
+    if (Array.isArray(fallback) && fallback.every(value => typeof value === 'string')) {
+      return fallback
+    }
+  }
+
+  return []
+}

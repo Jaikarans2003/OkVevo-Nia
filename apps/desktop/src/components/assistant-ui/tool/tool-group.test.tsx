@@ -6,7 +6,7 @@ import { $displayTimestamps } from '@/store/display-timestamps'
 import { clearAllPrompts, setApprovalRequest } from '@/store/prompts'
 import { $activeSessionId } from '@/store/session'
 import { clearDismissedToolRows } from '@/store/tool-dismiss'
-import { $toolDisclosureStates } from '@/store/tool-view'
+import { $toolDisclosureStates, $toolViewMode } from '@/store/tool-view'
 
 import { stubThreadEnvironment, stubThreadViewportSize, ThreadRuntime } from '../test-utils'
 import { Thread } from '../thread'
@@ -397,6 +397,7 @@ afterEach(() => {
   clearAllPrompts()
   $activeSessionId.set(null)
   clearDismissedToolRows()
+  $toolViewMode.set('product')
 })
 
 describe('settled tool run', () => {
@@ -503,7 +504,11 @@ describe('live tool run', () => {
   // The ticker is a one-line window, so a row opened inside it had its output
   // sliced to that line and then ticked away by the next call. Opening a row
   // is a request to read it: the run gives up the window until it settles.
+  // (Expandable rows are Technical-mode chrome — Product rows don't disclose
+  // raw output, so this pins the mode the interaction exists in.)
   it('drops the one-line window when a row inside it is opened', async () => {
+    $toolViewMode.set('technical')
+
     const { container } = render(<GroupHarness message={betweenSequentialCallsMessage()} />)
 
     await screen.findByText('Running 2 commands')

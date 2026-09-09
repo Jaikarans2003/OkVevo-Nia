@@ -115,7 +115,7 @@ describe('settings UI policy filters', () => {
     expect(isAppearanceSettingVisible('appearance.session-density')).toBe(false)
     expect(isAppearanceSettingVisible('appearance.tab-strip')).toBe(false)
     expect(isAppearanceSettingVisible('appearance.intro')).toBe(false)
-    expect(isAppearanceSettingVisible('appearance.tool-view')).toBe(true)
+    expect(isAppearanceSettingVisible('appearance.tool-view')).toBe(false)
     expect(isAppearanceSettingVisible('appearance.translucency')).toBe(false)
   })
 

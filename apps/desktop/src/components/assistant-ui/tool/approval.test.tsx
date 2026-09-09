@@ -5,6 +5,7 @@ import type { HermesGateway } from '@/hermes'
 import { $gateway } from '@/store/gateway'
 import { $approvalRequest, clearAllPrompts, setApprovalRequest } from '@/store/prompts'
 import { $activeSessionId } from '@/store/session'
+import { $toolViewMode } from '@/store/tool-view'
 
 import { PendingApprovalFallback, PendingToolApproval } from './approval'
 import type { ToolPart } from './fallback-model'
@@ -51,6 +52,7 @@ afterEach(() => {
   clearAllPrompts()
   $activeSessionId.set(null)
   $gateway.set(null)
+  $toolViewMode.set('product')
 })
 
 describe('PendingToolApproval', () => {
@@ -97,6 +99,9 @@ describe('PendingToolApproval', () => {
   })
 
   it('reveals the full command inline when the Command toggle is clicked', () => {
+    // The raw-command reveal is Technical-mode chrome.
+    $toolViewMode.set('technical')
+
     const longCommand = 'python -c "' + 'x'.repeat(400) + '"'
     setRequest(longCommand)
     render(<PendingToolApproval part={part('terminal')} />)
@@ -107,6 +112,22 @@ describe('PendingToolApproval', () => {
     fireEvent.click(screen.getByRole('button', { name: /Command/ }))
 
     expect(screen.getByText(longCommand)).toBeTruthy()
+  })
+
+  it('product mode headlines the intent and never offers the raw command', () => {
+    const longCommand = 'python -c "' + 'x'.repeat(400) + '"'
+    $activeSessionId.set('sess-1')
+    setApprovalRequest({
+      command: longCommand,
+      description: 'dangerous command',
+      intent: 'Running a cleanup script',
+      sessionId: 'sess-1'
+    })
+    render(<PendingToolApproval part={part('terminal')} />)
+
+    expect(screen.getByText('Running a cleanup script')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Command/ })).toBeNull()
+    expect(screen.queryByText(longCommand)).toBeNull()
   })
 
   it('sends choice "deny" on Reject', async () => {

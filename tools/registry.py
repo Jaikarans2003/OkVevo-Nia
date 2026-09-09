@@ -1314,7 +1314,16 @@ def tool_error(message, **extra) -> str:
     '{"error": "bad input", "success": false}'
     """
     # Bound the context-bound copy so a raw exception can't bloat history across retries.
-    result = {"error": _bound_error_text(str(message))}
+    text = _bound_error_text(str(message))
+    # Public builds: recognized failure categories (credits, rate limit, auth,
+    # 5xx, network) get the friendly OkVevo copy here at the source, so the
+    # model never echoes vendor wording into chat. Unrecognized messages pass
+    # through — the model needs them to self-correct, and the renderer's
+    # default-deny net owns the display guarantee.
+    from agent.user_facing_errors import map_public_error
+
+    mapped = map_public_error(text)
+    result = {"error": mapped or text}
     if extra:
         result.update(extra)
     return json.dumps(result, ensure_ascii=False)

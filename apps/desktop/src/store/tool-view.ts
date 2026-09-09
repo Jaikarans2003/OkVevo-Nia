@@ -1,5 +1,6 @@
 import { atom, computed, type ReadableAtom } from 'nanostores'
 
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { persistBoolean, storedBoolean } from '@/lib/storage'
 
 export type ToolViewMode = 'product' | 'technical'
@@ -10,8 +11,10 @@ const TOOL_VIEW_TECHNICAL_STORAGE_KEY = 'hermes.desktop.toolView.technical'
 const TOOL_DISCLOSURE_STORAGE_KEY = 'hermes.desktop.toolDisclosure.v1'
 const MAX_DISCLOSURE_STATES = 240
 
+// Technical mode (raw commands/stdout/stderr) is internal-build chrome; public
+// builds are pinned to Product no matter what a stale localStorage flag says.
 export const $toolViewMode = atom<ToolViewMode>(
-  storedBoolean(TOOL_VIEW_TECHNICAL_STORAGE_KEY, false) ? 'technical' : 'product'
+  isByokChromeVisible() && storedBoolean(TOOL_VIEW_TECHNICAL_STORAGE_KEY, false) ? 'technical' : 'product'
 )
 export const $toolDisclosureStates = atom<ToolDisclosureStates>(loadToolDisclosureStates())
 const disclosureOpenCache = new Map<string, ReadableAtom<boolean | undefined>>()
@@ -21,7 +24,7 @@ $toolViewMode.subscribe(mode => persistBoolean(TOOL_VIEW_TECHNICAL_STORAGE_KEY, 
 $toolDisclosureStates.subscribe(persistToolDisclosureStates)
 
 export function setToolViewMode(mode: ToolViewMode) {
-  $toolViewMode.set(mode)
+  $toolViewMode.set(isByokChromeVisible() ? mode : 'product')
 }
 
 export function $toolDisclosureOpen(id: string): ReadableAtom<boolean | undefined> {

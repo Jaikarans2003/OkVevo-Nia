@@ -9,6 +9,16 @@ import type { TipId } from '@/lib/tips/catalog'
 
 export type Locale = 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar'
 
+/** WS3 rotating Product-mode phrasing sets (tone deck approved 2026-09-09). */
+export type ProductPhrasingKey =
+  | 'web_search'
+  | 'read_file'
+  | 'file_edit'
+  | 'image_generate'
+  | 'video_generate'
+  | 'vision_analyze'
+  | 'fallback'
+
 export type ToolTitleKey =
   | 'browser_click'
   | 'browser_fill'
@@ -29,6 +39,7 @@ export type ToolTitleKey =
   | 'session_search_recall'
   | 'terminal'
   | 'todo'
+  | 'video_generate'
   | 'vision_analyze'
   | 'web_extract'
   | 'web_search'
@@ -2832,6 +2843,7 @@ export interface Translations {
     tool: {
       copyCode: string
       renderingImage: string
+      renderingVideo: string
       copyOutput: string
       copyCommand: string
       copyContent: string
@@ -2879,6 +2891,9 @@ export interface Translations {
         runningTool: (action: string) => string
       }
       titles: Record<ToolTitleKey, ToolTitleCopy>
+      // WS3: rotating Product-mode pending phrasings, one per row picked
+      // deterministically by toolCallId. `{query}`/`{file}` interpolate.
+      phrasing: Record<ProductPhrasingKey, string[]>
     }
   }
 

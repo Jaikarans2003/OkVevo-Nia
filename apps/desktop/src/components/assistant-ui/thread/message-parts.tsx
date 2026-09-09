@@ -20,10 +20,11 @@ import { ToolFallback, ToolGroupSlot } from '@/components/assistant-ui/tool/fall
 import { formatElapsed, useElapsedSeconds, useMeasuredDuration } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
 import { GeneratedImage } from '@/components/chat/generated-image-result'
+import { GeneratedVideo } from '@/components/chat/generated-video-result'
 import { SCAFFOLD_LABEL_CLASS, SCAFFOLD_META_CLASS, ScaffoldRow } from '@/components/chat/scaffold-row'
 import { useI18n } from '@/i18n'
 import { sanitizeUserFacingBrand } from '@/lib/display-path'
-import { generatedImageFromResult } from '@/lib/generated-images'
+import { generatedImageFromResult, generatedVideoFromResult } from '@/lib/generated-images'
 import { separateGluedReasoningBlocks } from '@/lib/reasoning-blocks'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,22 @@ const ImageGenerateTool: FC<TimelineToolCallProps> = props => {
     <div className="mt-1.5">
       <TimelineTimestamp className="mb-0.5 block" completedAt={completedAt} timestamp={timestamp} />
       <GeneratedImage aspectRatio={aspectRatio} result={result} />
+    </div>
+  )
+}
+
+const VideoGenerateTool: FC<TimelineToolCallProps> = props => {
+  const { completedAt, result, timestamp } = props
+
+  // Same contract as the image card: failures render as the normal tool row.
+  if (result !== undefined && !generatedVideoFromResult(result)) {
+    return <ToolFallback {...props} />
+  }
+
+  return (
+    <div className="mt-1.5">
+      <TimelineTimestamp className="mb-0.5 block" completedAt={completedAt} timestamp={timestamp} />
+      <GeneratedVideo result={result} />
     </div>
   )
 }
@@ -96,6 +113,10 @@ const ChainToolFallback: FC<TimelineToolCallProps> = props => {
 
   if (props.toolName === 'image_generate') {
     return <ImageGenerateTool {...props} />
+  }
+
+  if (props.toolName === 'video_generate') {
+    return <VideoGenerateTool {...props} />
   }
 
   if (props.toolName === 'clarify') {

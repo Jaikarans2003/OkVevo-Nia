@@ -387,10 +387,15 @@ def error_response(
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
 ) -> Dict[str, Any]:
     """Build a uniform error response dict."""
+    from agent.user_facing_errors import map_public_error
+
     return {
         "success": False,
         "image": None,
-        "error": error,
+        # Public builds: recognized categories surface as friendly OkVevo copy
+        # at the source; unrecognized detail passes through for the model (the
+        # renderer default-deny net owns what the user sees).
+        "error": map_public_error(error, error_type=error_type) or error,
         "error_type": error_type,
         "model": model,
         "prompt": prompt,

@@ -298,6 +298,7 @@ function restorePendingApproval(response: SessionResumeResponse, sessionId: stri
     choices: pending.choices,
     command: pending.command ?? '',
     description: pending.description ?? 'dangerous command',
+    intent: typeof pending.intent === 'string' && pending.intent.trim() ? pending.intent.trim() : undefined,
     requestId: typeof pending.request_id === 'string' ? pending.request_id : undefined,
     sessionId,
     smartDenied: pending.smart_denied === true

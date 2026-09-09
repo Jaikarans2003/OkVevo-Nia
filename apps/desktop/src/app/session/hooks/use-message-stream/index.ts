@@ -20,10 +20,11 @@ import {
 import type { ErrorSurface } from '@/lib/error-surface'
 import {
   dedupeGeneratedImageEchoesInParts,
-  generatedImageEchoSources,
+  generatedMediaEchoSources,
   stripGeneratedImageEchoes
 } from '@/lib/generated-images'
 import { nextTodosFromToolEvent, parseTodoRevision } from '@/lib/todos'
+import { publicErrorText } from '@/lib/user-facing-error'
 import { dispatchNativeNotification } from '@/store/native-notifications'
 import { isDiskFullErrorMessage, notifyError } from '@/store/notifications'
 import { broadcastSessionsChanged } from '@/store/session-sync'
@@ -507,7 +508,7 @@ export function useMessageStream({
         const streamId = state.streamId
 
         const replaceTextPart = (parts: ChatMessagePart[]) => {
-          const visibleText = stripGeneratedImageEchoes(authoritativeText, generatedImageEchoSources(parts)).trim()
+          const visibleText = stripGeneratedImageEchoes(authoritativeText, generatedMediaEchoSources(parts)).trim()
 
           return mergeFinalAssistantText(parts, visibleText, occurredAt)
         }
@@ -589,7 +590,9 @@ export function useMessageStream({
         const finalText = renderMediaTags(text).trim()
         // Structured failure from the terminal frame wins over the legacy text
         // heuristic ("Error: <provider detail>" texts don't match the regexes).
-        const completionError = failure?.error ?? completionErrorText(finalText)
+        // Public builds default-deny sanitize whatever lands in the bubble.
+        const rawCompletionError = failure?.error ?? completionErrorText(finalText)
+        const completionError = rawCompletionError ? publicErrorText(rawCompletionError) : rawCompletionError
         // A partial failure's `text` is streamed output the user should keep,
         // not the error string — settle it like a normal reply AND mark the
         // bubble failed, instead of stripping the text.
@@ -603,7 +606,7 @@ export function useMessageStream({
           : undefined
 
         const replaceTextPart = (parts: ChatMessagePart[]) => {
-          const visibleFinalText = stripGeneratedImageEchoes(finalText, generatedImageEchoSources(parts)).trim()
+          const visibleFinalText = stripGeneratedImageEchoes(finalText, generatedMediaEchoSources(parts)).trim()
 
           return mergeFinalAssistantText(parts, visibleFinalText, occurredAt)
         }
@@ -800,7 +803,9 @@ export function useMessageStream({
         const streamId = state.streamId ?? `assistant-error-${Date.now()}`
         const groupId = state.pendingBranchGroup ?? undefined
         const prev = state.messages
-        const error = errorMessage.trim() || 'Hermes reported an error'
+        // Public builds: default-deny sanitize (category copy or generic
+        // fallback, never raw provider text). Internal keeps the raw message.
+        const error = publicErrorText(errorMessage.trim() || 'Nia reported an error')
 
         const durationS = state.turnStartedAt
           ? Math.max(1, Math.round((Date.now() - state.turnStartedAt) / 1000))

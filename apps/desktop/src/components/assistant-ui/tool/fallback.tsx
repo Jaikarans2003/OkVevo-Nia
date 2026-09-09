@@ -417,60 +417,20 @@ function ToolEntry({ part }: ToolEntryProps) {
     }
   }, [$sessionCwd, $sessionRuntimeId, isPending, previewTarget])
 
-  const detailSections = useMemo(() => {
-    if (!view.detail) {
-      return { body: '', summary: '' }
-    }
-
-    if (view.status !== 'error') {
-      return { body: view.detail, summary: '' }
-    }
-
-    const chunks = view.detail
-      .split(/\n\s*\n+/)
-      .map(chunk => chunk.trim())
-      .filter(Boolean)
-
-    const [summary = '', ...rest] = chunks
-    const subtitleNorm = normalize(view.subtitle)
-    const summaryDuplicatesSubtitle = summary && summary.toLowerCase() === subtitleNorm
-
-    if (summaryDuplicatesSubtitle) {
-      return { body: rest.join('\n\n').trim(), summary: '' }
-    }
-
-    return { body: rest.join('\n\n').trim(), summary }
-  }, [view.detail, view.status, view.subtitle])
-
-  // `looksRedundant` normalizes the FULL (uncapped) detail payload — a
-  // read_file / terminal result can be huge. Memoize on the view fields so it
-  // recomputes only when the tool's content changes, not on every parent
-  // re-render (tool rows re-render on every stream tick of the running message).
-  const detailMatchesSubtitle = useMemo(() => looksRedundant(view.subtitle, view.detail), [view.subtitle, view.detail])
-  const detailMatchesTitle = useMemo(() => looksRedundant(view.title, view.detail), [view.title, view.detail])
-
-  const showDetail =
-    !view.inlineDiff &&
-    (Boolean(view.stdout || view.stderr) ||
-      (view.status === 'error' && Boolean(detailSections.summary || detailSections.body)) ||
-      (view.status !== 'error' && Boolean(view.detail) && !detailMatchesTitle && !detailMatchesSubtitle))
-
-  const renderDetailAsCode =
-    view.status !== 'error' &&
-    (part.toolName === 'terminal' || part.toolName === 'execute_code' || part.toolName === 'read_file')
-
   const hasSearchHits = Boolean(view.searchHits?.length)
   const searchResultsLabel = part.toolName === 'web_search' ? 'Search results' : view.detailLabel
 
+  // Product mode: expansion is for user-facing artifacts only (image, diff,
+  // search hits) plus the one friendly error line on failure — raw commands,
+  // stdout/stderr, and detail dumps are Technical-mode chrome
+  // (ToolPayloadDisclosure covers them there).
+  const friendlyErrorLine =
+    toolViewMode !== 'technical' && view.status === 'error' ? view.subtitle.trim() : ''
   const hasExpandableContent = Boolean(
     view.imageUrl ||
     view.inlineDiff ||
-    showDetail ||
     hasSearchHits ||
-    view.stdout ||
-    view.stderr ||
-    view.terminalCommand ||
-    view.terminalExitCode !== undefined ||
+    friendlyErrorLine ||
     toolViewMode === 'technical'
   )
 
@@ -613,9 +573,6 @@ function ToolEntry({ part }: ToolEntryProps) {
               text={copyAction.text}
             />
           )}
-          {part.toolName === 'terminal' && toolViewMode !== 'technical' && (
-            <TerminalTranscript command={view.terminalCommand} exitCode={view.terminalExitCode} />
-          )}
           {view.imageUrl && (
             <div className="max-w-72 overflow-hidden rounded-[0.25rem] border border-(--ui-stroke-tertiary)">
               <ZoomableImage alt={copy.outputAlt} className="h-auto w-full object-cover" src={view.imageUrl} />
@@ -636,113 +593,11 @@ function ToolEntry({ part }: ToolEntryProps) {
           {view.inlineDiff && (
             <FileDiffPanel className="-mt-1.5" diff={view.inlineDiff} path={isFileEdit ? view.subtitle : undefined} />
           )}
-          {showDetail &&
-            toolViewMode !== 'technical' &&
-            (view.status === 'error' ? (
-              detailSections.summary || detailSections.body ? (
-                <div className="max-w-full text-xs leading-relaxed text-destructive">
-                  {detailSections.summary && (
-                    <LinkifiedText className="block font-medium" text={detailSections.summary} />
-                  )}
-                  {detailSections.body && (
-                    <pre
-                      className={cn(
-                        'max-h-56 overflow-auto whitespace-pre-wrap wrap-anywhere font-mono text-[0.7rem] leading-[1.55] text-destructive/90',
-                        detailSections.summary && 'mt-1.5'
-                      )}
-                    >
-                      {clampForDisplay(detailSections.body)}
-                    </pre>
-                  )}
-                </div>
-              ) : null
-            ) : view.stdout || view.stderr ? (
-              // Stdout + stderr split: render both as labeled blocks. stderr
-              // is intentionally NOT painted destructive — many CLIs log
-              // informational output there.
-              <div className="max-w-full text-xs leading-relaxed text-(--ui-text-secondary)">
-                {view.detailLabel && <p className={TOOL_SECTION_LABEL_CLASS}>{view.detailLabel}</p>}
-                {view.stdout && (
-                  <div className="space-y-0.5">
-                    {view.stderr && <p className={TOOL_SECTION_LABEL_CLASS}>stdout</p>}
-                    <pre className={cn(TOOL_SECTION_PRE_CLASS, 'whitespace-pre-wrap wrap-anywhere')}>
-                      {view.rendersAnsi ? (
-                        <AnsiText text={clampForDisplay(view.stdout)} />
-                      ) : (
-                        clampForDisplay(view.stdout)
-                      )}
-                    </pre>
-                  </div>
-                )}
-                {view.stderr && (
-                  <div className={cn('space-y-0.5', view.stdout && 'mt-1.5')}>
-                    <p className={TOOL_SECTION_LABEL_CLASS}>stderr</p>
-                    <pre
-                      className={cn(
-                        TOOL_SECTION_PRE_CLASS,
-                        'whitespace-pre-wrap wrap-anywhere text-(--ui-text-tertiary)'
-                      )}
-                    >
-                      {view.rendersAnsi ? (
-                        <AnsiText text={clampForDisplay(view.stderr)} />
-                      ) : (
-                        clampForDisplay(view.stderr)
-                      )}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="max-w-full text-xs leading-relaxed text-(--ui-text-secondary)">
-                {view.detailLabel && <p className={TOOL_SECTION_LABEL_CLASS}>{view.detailLabel}</p>}
-                {renderDetailAsCode ? (
-                  <pre className={cn(TOOL_SECTION_PRE_CLASS, 'whitespace-pre-wrap wrap-anywhere')}>
-                    {view.rendersAnsi ? <AnsiText text={clampForDisplay(view.detail)} /> : clampForDisplay(view.detail)}
-                  </pre>
-                ) : (
-                  <CompactMarkdown
-                    className={cn(TOOL_SECTION_SURFACE_CLASS, 'wrap-anywhere')}
-                    text={clampForDisplay(view.detail)}
-                  />
-                )}
-              </div>
-            ))}
+          {friendlyErrorLine && (
+            <p className="max-w-full text-xs leading-relaxed text-destructive">{friendlyErrorLine}</p>
+          )}
           {toolViewMode === 'technical' && <ToolPayloadDisclosure args={part.args} result={part.result} />}
         </div>
-      )}
-    </div>
-  )
-}
-
-interface TerminalTranscriptProps {
-  command?: string
-  exitCode?: number
-}
-
-function TerminalTranscript({ command, exitCode }: TerminalTranscriptProps) {
-  if (!command && exitCode === undefined) {
-    return null
-  }
-
-  return (
-    <div className="flex min-w-0 items-center gap-2 rounded-[0.25rem] border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) px-2 py-1.5 font-mono text-[0.7rem] leading-relaxed">
-      {command && (
-        <code className="min-w-0 flex-1 whitespace-pre-wrap wrap-anywhere text-(--ui-text-secondary)">
-          <span aria-hidden className="select-none text-(--ui-accent-secondary)">
-            ${' '}
-          </span>
-          {command}
-        </code>
-      )}
-      {exitCode !== undefined && (
-        <span
-          className={cn(
-            'shrink-0 rounded bg-(--ui-bg-tertiary) px-1 py-px text-[0.6rem] tabular-nums',
-            exitCode === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-          )}
-        >
-          exit {exitCode}
-        </span>
       )}
     </div>
   )

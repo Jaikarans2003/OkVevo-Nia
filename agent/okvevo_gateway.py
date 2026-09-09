@@ -148,18 +148,35 @@ def okvevo_fal_spend_gate(
 
     credits = _quote_okvevo_fal_credits(endpoint, args)
     what = "image" if tool_name == "image_generate" else "video"
-    if credits is not None:
-        cost_text = f"estimated ≈ {credits} OkVevo credits"
-    else:
-        cost_text = (
-            f"credit quote unavailable — catalog tier: "
-            f"{_catalog_tier_label(tool_name, endpoint)}"
+    if nia_is_internal_channel():
+        if credits is not None:
+            cost_text = f"estimated ≈ {credits} OkVevo credits"
+        else:
+            cost_text = (
+                f"credit quote unavailable — catalog tier: "
+                f"{_catalog_tier_label(tool_name, endpoint)}"
+            )
+        description = (
+            f"Generate {what} with {endpoint} — {cost_text}. "
+            "Charged to your OkVevo balance; the final amount settles after completion."
+            f"{extra_note}"
         )
-    description = (
-        f"Generate {what} with {endpoint} — {cost_text}. "
-        "Charged to your OkVevo balance; the final amount settles after completion."
-        f"{extra_note}"
-    )
+    else:
+        # Public builds: the approval headline never names the model endpoint.
+        article = "an" if what == "image" else "a"
+        if credits is not None:
+            description = (
+                f"Generate {article} {what} — estimated ≈ {credits} OkVevo "
+                "credits. Charged to your OkVevo balance; the final amount "
+                f"settles after completion.{extra_note}"
+            )
+        else:
+            tier = _catalog_tier_label(tool_name, endpoint)
+            premium = " with a premium model" if tier == "expensive model" else ""
+            description = (
+                f"Generate {article} {what}{premium} — charged to your "
+                f"OkVevo balance.{extra_note}"
+            )
     verdict = request_tool_approval(
         tool_name,
         description,

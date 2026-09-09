@@ -226,10 +226,10 @@ describe('settings search index', () => {
     expect(entries.some(entry => entry.label === 'Text-To-Speech Provider')).toBe(false)
   })
 
-  it('keeps Tool Call Display searchable and hides Language on public', () => {
+  it('hides Tool Call Display (technical mode is internal-only) and Language on public', () => {
     isByokChromeVisible.mockReturnValue(false)
 
-    expect(isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.toolView)).toBe(true)
+    expect(isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.toolView)).toBe(false)
     expect(isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.language)).toBe(false)
   })
 })

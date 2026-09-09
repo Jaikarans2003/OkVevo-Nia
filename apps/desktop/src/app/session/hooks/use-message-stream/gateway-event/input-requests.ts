@@ -1,6 +1,8 @@
 import { pendingClarifyToolPayload } from '@/app/session/hooks/use-session-actions/restore-pending-clarify'
 import { translateNow } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { restorePendingClarifyToolCall, settlePendingClarifyToolCall } from '@/lib/chat-messages'
+import { scrubUserFacingText } from '@/lib/user-facing-error'
 import {
   $clarifyRequests,
   clearClarifyRequest,
@@ -235,6 +237,7 @@ export function handleInputRequestEvent(ctx: GatewayEventContext): boolean {
     // surfaces once the user focuses that chat.
     const command = typeof payload?.command === 'string' ? payload.command : ''
     const description = typeof payload?.description === 'string' ? payload.description : 'dangerous command'
+    const intent = typeof payload?.intent === 'string' && payload.intent.trim() ? payload.intent.trim() : undefined
 
     void receiveApprovalRequest($gateway.get(), {
       // false only when a tirith warning forbids it; backend omits the field otherwise.
@@ -244,6 +247,7 @@ export function handleInputRequestEvent(ctx: GatewayEventContext): boolean {
         : undefined,
       command,
       description,
+      intent,
       requestId: typeof payload?.request_id === 'string' ? payload.request_id : undefined,
       sessionId: sessionId ?? null,
       smartDenied: payload?.smart_denied === true
@@ -258,7 +262,9 @@ export function handleInputRequestEvent(ctx: GatewayEventContext): boolean {
         { id: 'approve', text: translateNow('notifications.native.approveAction') },
         { id: 'reject', text: translateNow('notifications.native.rejectAction') }
       ],
-      body: command || description,
+      // Public builds headline the model's intent (or the guard's plain
+      // label), never the raw command; internal keeps the command first.
+      body: isByokChromeVisible() ? command || description : scrubUserFacingText(intent || description),
       kind: 'approval',
       sessionId,
       title: translateNow('notifications.native.approvalTitle')

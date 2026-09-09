@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { setRuntimeI18nLocale } from '@/i18n'
+import { $toolViewMode } from '@/store/tool-view'
 
 import {
   buildToolView,
@@ -24,6 +25,7 @@ const part = (overrides: Partial<ToolPart>): ToolPart => ({
 
 afterEach(() => {
   setRuntimeI18nLocale('en')
+  $toolViewMode.set('product')
 })
 
 describe('buildToolView image handling', () => {
@@ -181,6 +183,9 @@ describe('buildToolView browser_navigate title', () => {
 describe('buildToolView file edit diffs', () => {
   const patchDiff = '--- a/src/demo.ts\n+++ b/src/demo.ts\n@@ -1 +1 @@\n-old\n+new'
 
+  // Full-path subtitles are Technical-mode chrome; Product shows basenames.
+  beforeEach(() => $toolViewMode.set('technical'))
+
   it('reads inline_diff and diff fields from patch results', () => {
     expect(inlineDiffFromResult({ inline_diff: patchDiff })).toBe(patchDiff)
     expect(inlineDiffFromResult({ diff: patchDiff })).toBe(patchDiff)
@@ -219,6 +224,9 @@ describe('buildToolView file edit diffs', () => {
 })
 
 describe('buildToolView title actions', () => {
+  // Commands in titles are Technical-mode chrome; Product headlines intent.
+  beforeEach(() => $toolViewMode.set('technical'))
+
   it('marks the pending action separately from the rest of the title', () => {
     const read = buildToolView(part({ args: { path: '/tmp/demo.txt' }, result: undefined, toolName: 'read_file' }), '')
 
@@ -455,6 +463,9 @@ describe('countDiffLineStats', () => {
 })
 
 describe('buildToolView memory status', () => {
+  // Raw result.error text in the subtitle is Technical-mode chrome.
+  beforeEach(() => $toolViewMode.set('technical'))
+
   const memory = (overrides: Partial<Parameters<typeof part>[0]> = {}) =>
     buildToolView(part({ toolName: 'memory', ...overrides }), '')
 
@@ -486,5 +497,145 @@ describe('buildToolView memory status', () => {
     expect(view.status).toBe('warning')
     expect(view.title).toBe('Memory write noted')
     expect(view.subtitle).toContain('Memory is full')
+  })
+})
+
+// Product mode (the public-build default) must never leak commands, full
+// paths, or raw provider/tool error text into a row.
+describe('buildToolView product mode', () => {
+  it('headlines the model intent for terminal rows, never the command', () => {
+    const view = buildToolView(
+      part({
+        args: { command: 'rm -rf /private/tmp/staging && curl https://api.fal.ai/x', intent: 'Cleaning up the staging folder' },
+        result: { exit_code: 0, output: 'done' },
+        toolName: 'terminal'
+      }),
+      ''
+    )
+
+    expect(view.title).toBe('Cleaning up the staging folder')
+    expect(view.subtitle).toBe('')
+    expect(view.title).not.toContain('rm -rf')
+    expect(view.title).not.toContain('fal.ai')
+  })
+
+  it('falls back to the generic title when no intent was provided', () => {
+    const view = buildToolView(
+      part({ args: { command: 'cat /etc/secret' }, result: { exit_code: 0, output: 'x' }, toolName: 'terminal' }),
+      ''
+    )
+
+    expect(view.title).toBe('Ran command')
+    expect(view.subtitle).toBe('')
+  })
+
+  it('shows basenames only for file edits', () => {
+    const view = buildToolView(
+      part({
+        args: { mode: 'replace', new_string: 'new', path: 'src/deep/nested/demo.ts' },
+        result: { success: true },
+        toolName: 'patch'
+      }),
+      ''
+    )
+
+    expect(view.title).toBe('demo.ts')
+    expect(view.subtitle).toBe('demo.ts')
+  })
+
+  it('maps recognized provider errors to the friendly copy', () => {
+    const view = buildToolView(
+      part({
+        isError: true,
+        result: { error: 'HTTP 402: insufficient credits. Add credit at https://nousresearch.com/portal' },
+        toolName: 'image_generate'
+      }),
+      ''
+    )
+
+    expect(view.status).toBe('error')
+    expect(view.subtitle).toContain('OkVevo credits')
+    expect(view.subtitle).not.toContain('nousresearch')
+  })
+
+  it('default-denies unrecognized raw errors to the generic fallback', () => {
+    const view = buildToolView(
+      part({
+        isError: true,
+        result: { error: 'Memory is full (2,200/2,200). Consolidate before adding more.' },
+        toolName: 'memory'
+      }),
+      ''
+    )
+
+    expect(view.subtitle).toBe('Something went wrong on my end — give that another try.')
+  })
+
+  it('rotates web_search pending titles from the phrasing deck with the real query', () => {
+    const pending = part({
+      args: { search_term: 'okra recipes' },
+      result: undefined,
+      toolCallId: 'call_1',
+      toolName: 'web_search'
+    })
+    const view = buildToolView(pending, '')
+
+    expect(view.title).toContain('okra recipes')
+    expect(view.title).toMatch(/hunt|dig/i)
+    // Deterministic per toolCallId — no flicker across re-renders.
+    expect(buildToolView(pending, '').title).toBe(view.title)
+  })
+
+  it('rotates read_file and file-edit pending titles with the basename only', () => {
+    const read = buildToolView(
+      part({ args: { path: 'src/deep/nested/notes.md' }, result: undefined, toolName: 'read_file' }),
+      ''
+    )
+    const edit = buildToolView(
+      part({ args: { mode: 'replace', path: 'src/deep/nested/demo.ts' }, result: undefined, toolName: 'patch' }),
+      ''
+    )
+
+    expect(read.title).toContain('notes.md')
+    expect(read.title).toMatch(/peeking|read|checking/i)
+    expect(read.title).not.toContain('src/deep')
+    expect(edit.title).toContain('demo.ts')
+    expect(edit.title).toMatch(/tweaking|glow-up|patching/i)
+    expect(edit.title).not.toContain('src/deep')
+  })
+
+  it('rotates media and vision pending titles from their decks', () => {
+    const image = buildToolView(part({ result: undefined, toolName: 'image_generate' }), '')
+    const video = buildToolView(part({ result: undefined, toolName: 'video_generate' }), '')
+    const vision = buildToolView(part({ result: undefined, toolName: 'vision_analyze' }), '')
+
+    expect(image.title).toMatch(/cooking|painting|whipping/i)
+    expect(video.title).toMatch(/rolling|cooking|rendering/i)
+    expect(vision.title).toMatch(/taking a look|eyes on|studying/i)
+  })
+
+  it('uses the generic rotating deck for pending tools without their own set', () => {
+    const view = buildToolView(part({ result: undefined, toolName: 'memory' }), '')
+
+    expect(['Working on it…', 'Doing the thing…', 'On it…']).toContain(view.title)
+  })
+
+  it('keeps the static done titles once the tool completes', () => {
+    const view = buildToolView(
+      part({ args: { search_term: 'okra recipes' }, result: { results: [] }, toolName: 'web_search' }),
+      ''
+    )
+
+    expect(view.title).toBe('Searched “okra recipes”')
+  })
+
+  it('leaves technical-mode pending titles untouched', () => {
+    $toolViewMode.set('technical')
+    const view = buildToolView(
+      part({ args: { search_term: 'okra recipes' }, result: undefined, toolName: 'web_search' }),
+      ''
+    )
+
+    expect(view.title).toBe('Searching “okra recipes”')
   })
 })

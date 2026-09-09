@@ -86,13 +86,13 @@ export const ar = defineLocale({
       connectingGateway: 'جار الاتصال ببوابة سطح المكتب',
       loadingSettings: 'جار تحميل إعدادات Nia',
       loadingSessions: 'جار تحميل الجلسات الأخيرة',
-      retryingRemoteBackend: 'جارٍ إعادة الاتصال بخادم Hermes البعيد…',
+      retryingRemoteBackend: 'جارٍ إعادة الاتصال بخادم Nia البعيد…',
       startingDesktopConnection: 'جار بدء اتصال سطح المكتب',
       startingHermesDesktop: 'جار تشغيل Nia...'
     },
     errors: {
-      backgroundExited: 'خرجت عملية Hermes الخلفية.',
-      backgroundExitedDuringStartup: 'خرجت عملية Hermes الخلفية أثناء بدء التشغيل.',
+      backgroundExited: 'خرجت عملية Nia الخلفية.',
+      backgroundExitedDuringStartup: 'خرجت عملية Nia الخلفية أثناء بدء التشغيل.',
       backendStopped: 'توقف الخلفية',
       desktopBootFailed: 'فشل تشغيل سطح المكتب',
       gatewayConnectionLost: 'انقطع الاتصال بالبوابة',
@@ -102,7 +102,7 @@ export const ar = defineLocale({
       ipcBridgeUnavailable: 'جسر IPC لسطح المكتب غير متاح.'
     },
     failure: {
-      title: 'تعذر تشغيل Hermes',
+      title: 'تعذر تشغيل Nia',
       description: 'لم تعمل البوابة الخلفية. جرب إحدى خطوات الاسترداد أدناه. لن يحذف ذلك محادثاتك أو إعداداتك.',
       remoteTitle: 'تسجيل الدخول للبوابة البعيدة مطلوب',
       remoteDescription: 'انتهت جلسة البوابة البعيدة. سجل الدخول مرة أخرى لإعادة الاتصال.',
@@ -143,8 +143,8 @@ export const ar = defineLocale({
     copyDetail: 'نسخ التفاصيل',
     copyDetailFailed: 'تعذر نسخ تفاصيل الإشعار',
     backendOutOfDateTitle: 'الخلفية قديمة',
-    backendOutOfDateMessage: 'خلفية Hermes أقدم من إصدار سطح المكتب الحالي وقد لا تعمل كما يجب. حدثهما ليتوافقا.',
-    updateHermes: 'تحديث Hermes',
+    backendOutOfDateMessage: 'خلفية Nia أقدم من إصدار سطح المكتب الحالي وقد لا تعمل كما يجب. حدثهما ليتوافقا.',
+    updateHermes: 'تحديث Nia',
     updateReadyTitle: 'التحديث جاهز',
     updateReadyMessage: count => `${count} تغيير جديد متاح.`,
     updateReadyMessageUnknown: 'يتوفر تحديث جديد.',
@@ -370,7 +370,7 @@ export const ar = defineLocale({
         'إشعارات سطح المكتب الأصلية، منفصلة عن التنبيهات داخل التطبيق. هذه محلية على الجهاز — كل حاسوب يحتفظ بإعداداته الخاصة.',
       enableAll: 'تفعيل الإشعارات',
       enableAllDesc: 'إيقافه يصمت كل الإشعارات أدناه.',
-      focusedHint: 'تنبيهات الاكتمال تظهر فقط عندما يكون Hermes في الخلفية.',
+      focusedHint: 'تنبيهات الاكتمال تظهر فقط عندما يكون Nia في الخلفية.',
       kinds: {
         approval: {
           label: 'يلزم الموافقة',
@@ -382,7 +382,7 @@ export const ar = defineLocale({
         },
         turnDone: {
           label: 'الرد جاهز',
-          description: 'انتهى دور بينما كان Hermes في الخلفية.'
+          description: 'انتهى دور بينما كان Nia في الخلفية.'
         },
         turnError: {
           label: 'فشل الدور',
@@ -1038,7 +1038,7 @@ export const ar = defineLocale({
       placeholder: 'البحث في الحيوانات الأليفة...',
       loading: 'جار تحميل معرض petdex...',
       error: 'تعذّر الوصول إلى معرض petdex.',
-      staleBackend: 'أعد تشغيل Hermes لاستخدام الحيوانات الأليفة — الخادم الخلفي أقدم من هذه الميزة.',
+      staleBackend: 'أعد تشغيل Nia لاستخدام الحيوانات الأليفة — الخادم الخلفي أقدم من هذه الميزة.',
       empty: 'لا توجد حيوانات أليفة مطابقة.',
       turnOff: 'إيقاف التشغيل',
       turnOn: 'تشغيل',
@@ -1065,7 +1065,7 @@ export const ar = defineLocale({
       hatchComposing: 'جار تجميع الأجزاء...',
       hatchSaving: 'أوشكنا على الانتهاء...',
       namePlaceholder: 'سمِّ حيوانك الأليف',
-      staleBackend: 'حدّث Hermes لتوليد الحيوانات الأليفة.',
+      staleBackend: 'حدّث Nia لتوليد الحيوانات الأليفة.',
       backgroundHint: 'يمكنك إغلاق هذا — سيُعلِمك Nia عند الانتهاء.',
       slowProviderHint: 'قد يستغرق هذا عدة دقائق',
       remix: 'إعادة مزج',
@@ -1139,11 +1139,11 @@ export const ar = defineLocale({
     noSessions: 'لا توجد جلسات',
     gatewayRunning: 'البوابة تعمل',
     gatewayStopped: 'البوابة متوقفة',
-    hermesActiveSessions: (version, count) => `Hermes ${version} لديه ${count} جلسة نشطة`,
+    hermesActiveSessions: (version, count) => `Nia ${version} لديه ${count} جلسة نشطة`,
     restartGateway: 'إعادة تشغيل البوابة',
     openBrowser: 'فتح المتصفح',
     gatewayRestartFailed: 'فشل إعادة تشغيل البوابة.',
-    updateHermes: 'تحديث Hermes',
+    updateHermes: 'تحديث Nia',
     reloadWindow: 'إعادة تحميل النافذة',
     actionRunning: 'الإجراء قيد التشغيل',
     actionDone: 'اكتمل الإجراء',
@@ -2349,11 +2349,11 @@ export const ar = defineLocale({
         'يشير هذا العنوان إلى الجهاز الذي يشغّل الوكيل، وليس هذا الجهاز. تحمّل لوحة المتصفح الصفحات محليًا، لذا يحتاج خادم التطوير البعيد إلى إعادة توجيه منفذ أو اسم مضيف يمكن الوصول إليه.',
       failedToLoad: 'فشل تحميل المعاينة',
       tryAgain: 'إعادة المحاولة',
-      restarting: 'جار إعادة تشغيل Hermes...',
+      restarting: 'جار إعادة تشغيل Nia...',
       askRestart: 'اطلب من Nia إعادة تشغيل الخادم',
       lookingRestart: taskId => `يبحث Nia عن خادم معاينة لإعادة تشغيله (${taskId})`,
       restartingTitle: 'جار إعادة تشغيل خادم المعاينة',
-      restartingMessage: 'يعمل Hermes في الخلفية. راقب كونسول المعاينة لمتابعة التقدم.',
+      restartingMessage: 'يعمل Nia في الخلفية. راقب كونسول المعاينة لمتابعة التقدم.',
       startRestartFailed: message => `تعذّر بدء إعادة تشغيل الخادم: ${message}`,
       restartFailed: 'فشلت إعادة تشغيل الخادم',
       hideConsole: 'إخفاء كونسول المعاينة',
@@ -2545,6 +2545,7 @@ export const ar = defineLocale({
     tool: {
       copyCode: 'نسخ الكود',
       renderingImage: 'جار عرض الصورة...',
+      renderingVideo: 'Rendering video',
       copyOutput: 'نسخ الإخراج',
       copyCommand: 'نسخ الأمر',
       copyContent: 'نسخ المحتوى',
@@ -2690,6 +2691,8 @@ export const ar = defineLocale({
           pending: 'جار تحليل الصورة',
           pendingAction: 'جار التحليل'
         },
+        // ponytail: English copy until a native pass — see en.ts.
+        video_generate: { done: 'Generated video', pending: 'Generating video', pendingAction: 'Generating' },
         web_extract: {
           done: 'تمت قراءة صفحة الويب',
           pending: 'جار قراءة صفحة الويب',
@@ -2705,6 +2708,17 @@ export const ar = defineLocale({
           pending: 'جار تحرير الملف',
           pendingAction: 'جار التحرير'
         }
+      },
+      // ponytail: WS3 Product-mode phrasing deck is English-only until a
+      // native-tone pass; translateNowArray would fall back to en anyway.
+      phrasing: {
+        web_search: ['Hunting down "{query}"', 'Digging into "{query}"', 'On the hunt for "{query}"'],
+        read_file: ['Peeking at {file}', 'Giving {file} a read', 'Checking out {file}'],
+        file_edit: ['Tweaking {file}', 'Giving {file} a glow-up', 'Patching up {file}'],
+        image_generate: ['Cooking up your image', 'Painting pixels…', 'Whipping up the visual'],
+        video_generate: ['Rolling the cameras…', 'Cooking up your video', 'Rendering the magic'],
+        vision_analyze: ['Taking a look', 'Eyes on the image', 'Studying the visual'],
+        fallback: ['Working on it…', 'Doing the thing…', 'On it…']
       }
     }
   },

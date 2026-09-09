@@ -2734,6 +2734,24 @@ class AIAgent:
 
     @staticmethod
     def _summarize_api_error(error: Exception) -> str:
+        """Display-ready one-liner for an API error.
+
+        Public builds route the technical summary through the OkVevo copy
+        deck (agent/user_facing_errors.py) so recognized categories (credits,
+        rate limit, auth, 5xx, network) never reach chat with vendor wording;
+        unrecognized summaries pass through here and meet the renderer's
+        default-deny net at display time. Internal builds stay raw.
+        """
+        summary = AIAgent._summarize_api_error_raw(error)
+        from agent.user_facing_errors import map_public_error
+
+        mapped = map_public_error(
+            summary, status=getattr(error, "status_code", None)
+        )
+        return mapped or summary
+
+    @staticmethod
+    def _summarize_api_error_raw(error: Exception) -> str:
         """Extract a human-readable one-liner from an API error.
 
         Handles Cloudflare HTML error pages (502, 503, etc.) by pulling the

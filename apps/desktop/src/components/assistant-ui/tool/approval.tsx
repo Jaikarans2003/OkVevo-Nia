@@ -20,6 +20,7 @@ import { AlertCircle, ChevronDown, Loader2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $gateway } from '@/store/gateway'
 import { notifyError } from '@/store/notifications'
+import { $toolViewMode } from '@/store/tool-view'
 import {
   type ApprovalRequest,
   clearApprovalRequest,
@@ -77,10 +78,15 @@ export const PendingApprovalFallback: FC = () => {
   const $inlineVisible = useMemo(() => sessionApprovalInlineVisible(sessionId), [sessionId])
   const request = useStore($request)
   const inlineVisible = useStore($inlineVisible)
+  const toolViewMode = useStore($toolViewMode)
 
   if (!request || inlineVisible) {
     return null
   }
+
+  // Product mode headlines the intent; Technical shows the guard description.
+  const summary =
+    toolViewMode === 'product' && request.intent?.trim() ? request.intent.trim() : request.description
 
   return (
     <div
@@ -92,9 +98,7 @@ export const PendingApprovalFallback: FC = () => {
         <div className="flex min-w-0 items-center gap-2 text-sm text-primary">
           <AlertCircle className="size-4 shrink-0" />
           <span className="shrink-0 font-medium">{t.assistant.approval.jumpToApproval}</span>
-          {request.description && (
-            <span className="min-w-0 truncate text-(--ui-text-tertiary)">{request.description}</span>
-          )}
+          {summary && <span className="min-w-0 truncate text-(--ui-text-tertiary)">{summary}</span>}
         </div>
         <ApprovalBar request={request} surface="floating" />
       </div>
@@ -108,6 +112,7 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
   const { t } = useI18n()
   const copy = t.assistant.approval
   const gateway = useStore($gateway)
+  const toolViewMode = useStore($toolViewMode)
   const [submitting, setSubmitting] = useState<ApprovalChoice | null>(null)
   // "Always allow" persists the pattern to ~/.hermes/config.yaml permanently, so
   // it goes through a confirm step rather than firing straight from the menu.
@@ -125,6 +130,11 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
   const allowAlways = choices ? choices.includes('always') : allowPermanent
   const hasMoreOptions = allowSession || allowAlways
   const hasCommand = request.command.trim().length > 0
+  // Product mode headlines the model's plain-language intent (falling back to
+  // the guard's description) and never exposes the raw command; Technical
+  // keeps the command reveal.
+  const productMode = toolViewMode === 'product'
+  const intentText = (request.intent || request.description).trim()
 
   const respond = useCallback(
     async (choice: ApprovalChoice) => {
@@ -260,7 +270,11 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
           {submitting !== 'deny' && <span className="text-[0.625rem] opacity-55">Esc</span>}
         </Button>
 
-        {hasCommand && (
+        {productMode && intentText && (
+          <span className="min-w-0 truncate text-xs text-(--ui-text-secondary)">{intentText}</span>
+        )}
+
+        {hasCommand && !productMode && (
           <Button
             aria-expanded={showCommand}
             className="h-6 gap-1 rounded-md px-1.5 text-xs font-normal text-(--ui-text-tertiary) hover:text-foreground"
@@ -274,7 +288,7 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
         )}
       </div>
 
-      {showCommand && hasCommand && (
+      {showCommand && hasCommand && !productMode && (
         <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-(--ui-stroke-tertiary) bg-(--ui-chat-surface-background) px-2.5 py-1.5 font-mono text-xs leading-snug text-foreground">
           {request.command.trim()}
         </pre>
@@ -284,10 +298,12 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{copy.alwaysTitle}</DialogTitle>
-            <DialogDescription>{copy.alwaysDescription(request.description)}</DialogDescription>
+            <DialogDescription>
+              {copy.alwaysDescription(productMode && intentText ? intentText : request.description)}
+            </DialogDescription>
           </DialogHeader>
 
-          {request.command.trim() && (
+          {request.command.trim() && !productMode && (
             <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-md border border-(--ui-stroke-tertiary) bg-(--ui-chat-surface-background) px-2.5 py-1.5 font-mono text-xs leading-snug text-foreground">
               {request.command.trim()}
             </pre>

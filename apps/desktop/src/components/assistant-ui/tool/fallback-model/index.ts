@@ -4,6 +4,9 @@ import { summarizeShellCommand } from '@/lib/summarize-command'
 import { capitalize, firstStringField, normalize } from '@/lib/text'
 import { isCardTool, isFileEditTool, isSilentTool } from '@/lib/tool-render-class'
 import { extractToolErrorMessage, formatToolResultSummary } from '@/lib/tool-result-summary'
+import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
+import { friendlyErrorText } from '@/lib/user-facing-error'
+import { $toolViewMode } from '@/store/tool-view'
 
 import {
   browserExecStepLabel,
@@ -179,6 +182,10 @@ const TOOL_META: Record<ToolTitleKey, ToolMetaSpec> = {
     tone: 'terminal'
   },
   image_generate: {
+    icon: 'file-media',
+    tone: 'image'
+  },
+  video_generate: {
     icon: 'file-media',
     tone: 'image'
   },
@@ -936,7 +943,8 @@ function cronjobDetail(argsRecord: Record<string, unknown>, resultRecord: Record
 function toolSubtitle(
   part: ToolPart,
   argsRecord: Record<string, unknown>,
-  resultRecord: Record<string, unknown>
+  resultRecord: Record<string, unknown>,
+  productMode = false
 ): string {
   const toolName = part.toolName
 
@@ -982,6 +990,12 @@ function toolSubtitle(
   }
 
   if (toolName === 'terminal' || toolName === 'execute_code') {
+    // Product mode: no stdout/stderr preview under the row — the title carries
+    // the intent and failures surface through the (sanitized) error line.
+    if (productMode) {
+      return ''
+    }
+
     const output = firstStringField(resultRecord, ['output', 'stdout', 'stderr'])
 
     const lines = Array.isArray(resultRecord.lines)
@@ -1014,7 +1028,8 @@ function toolSubtitle(
       : firstStringField(argsRecord, ['path', 'file', 'filepath'])
 
     if (path) {
-      return path
+      // Product mode shows basenames, never full paths.
+      return productMode ? fileEditBasename(path) : path
     }
 
     if (!isEdit) {
@@ -1299,12 +1314,35 @@ function dynamicTitle(
   part: ToolPart,
   args: Record<string, unknown>,
   result: Record<string, unknown>,
-  fallback: ToolTitleParts
+  fallback: ToolTitleParts,
+  productMode = false
 ): ToolTitleParts {
   const verb = (gerund: string, past: string) => (part.result === undefined ? gerund : past)
 
   const titledAction = (action: string, title: string): ToolTitleParts =>
     titlePartsFromAction(title, part.result === undefined ? action : undefined)
+
+  // WS3: Product-mode PENDING rows get the rotating on-brand phrasing deck
+  // (deterministic per toolCallId — no flicker). Done rows keep the static
+  // done titles; technical mode is untouched. terminal/execute_code and
+  // browser_exec keep their own branches below (intent / step label).
+  const productPending = productMode && part.result === undefined
+
+  if (productPending) {
+    const detail =
+      part.toolName === 'web_search'
+        ? compactPreview(firstStringField(args, ['search_term', 'query']) || contextValue(args), 48)
+        : part.toolName === 'read_file'
+          ? readFileDisplayTarget(args, result)
+          : isFileEditTool(part.toolName)
+            ? fileEditBasename(fileEditPath(args, result))
+            : ''
+    const listed = listedProductPhrasing(part.toolName, part.toolCallId || '', detail)
+
+    if (listed) {
+      return { title: listed }
+    }
+  }
 
   if (part.toolName === 'web_extract') {
     const url = findFirstUrl(args, result)
@@ -1365,6 +1403,14 @@ function dynamicTitle(
   }
 
   if (part.toolName === 'terminal' || part.toolName === 'execute_code') {
+    // Product mode never shows the command: the model's own intent one-liner
+    // (WS2 `intent` param) is the "I'm doing this" line, verbatim.
+    if (productMode) {
+      const intent = firstStringField(args, ['intent'])
+
+      return intent ? { title: intent } : fallback
+    }
+
     const command = shellCommand(args)
 
     if (command) {
@@ -1405,6 +1451,16 @@ function dynamicTitle(
     }
   }
 
+  // WS3: tools with no title logic of their own get the generic rotating
+  // pending line in Product mode instead of the static factory title.
+  if (productPending) {
+    const generic = genericProductPhrasing(part.toolCallId || '')
+
+    if (generic) {
+      return { title: generic }
+    }
+  }
+
   return fallback
 }
 
@@ -1415,7 +1471,13 @@ export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
   const status = toolStatus(part, resultRecord)
   // Skip residual error-heuristic text once status is success (stale isError
   // envelope over a landed memory write would otherwise foul the subtitle).
-  const error = status === 'success' ? '' : toolErrorText(part, resultRecord)
+  const rawError = status === 'success' ? '' : toolErrorText(part, resultRecord)
+  // Product mode never shows raw tool/provider error text: recognized
+  // categories get the friendly copy, anything else the generic fallback.
+  // Technical mode keeps the raw detail.
+  const error =
+    rawError && $toolViewMode.get() === 'product' ? friendlyErrorText(rawError) : rawError
+  const productMode = $toolViewMode.get() === 'product'
   // Over-budget memory refusals stay amber — don't claim "Saved".
   const memoryMissed = part.toolName === 'memory' && part.result !== undefined && status !== 'success'
 
@@ -1430,12 +1492,13 @@ export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
     part,
     argsRecord,
     resultRecord,
-    titlePartsFromAction(baseTitle, part.result === undefined ? meta.pendingAction : undefined)
+    titlePartsFromAction(baseTitle, part.result === undefined ? meta.pendingAction : undefined),
+    productMode
   )
 
   const title = titleParts.title
   const titleEnriched = title !== baseTitle
-  const baseSubtitle = error || toolSubtitle(part, argsRecord, resultRecord)
+  const baseSubtitle = error || toolSubtitle(part, argsRecord, resultRecord, productMode)
 
   const keepSubtitleWithTitle =
     part.toolName === 'terminal' ||

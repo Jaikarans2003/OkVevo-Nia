@@ -711,6 +711,16 @@ def _billing_or_entitlement_message(
     model: str,
     unverified: bool = False,
 ) -> str:
+    # Public Nia builds: the only billable route is the OkVevo gateway, so
+    # the guidance is always the OkVevo credits copy — never a third-party
+    # provider's portal link.
+    from agent.okvevo_gateway import nia_is_internal_channel
+
+    if not nia_is_internal_channel():
+        from agent.user_facing_errors import CREDITS_COPY
+
+        return CREDITS_COPY
+
     if _is_nous_inference_route(provider, base_url):
         return _nous_entitlement_message(capability)
 

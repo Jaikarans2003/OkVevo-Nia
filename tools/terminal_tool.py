@@ -382,11 +382,13 @@ def _docker_has_host_access(config: Dict[str, Any]) -> bool:
 
 
 def _check_all_guards(command: str, env_type: str,
-                      has_host_access: bool = False) -> dict:
+                      has_host_access: bool = False,
+                      intent: Optional[str] = None) -> dict:
     """Delegate to consolidated guard (tirith + dangerous cmd) with CLI callback."""
     return _check_all_guards_impl(command, env_type,
                                   approval_callback=_get_approval_callback(),
-                                  has_host_access=has_host_access)
+                                  has_host_access=has_host_access,
+                                  intent=intent)
 
 
 # Allowlist: characters that can legitimately appear in directory paths.
@@ -2828,6 +2830,7 @@ def terminal_tool(
     notify_on_complete: bool = False,
     watch_patterns: Optional[List[str]] = None,
     _host_local: bool = False,
+    intent: Optional[str] = None,
 ) -> str:
     """
     Execute a command in the configured terminal environment.
@@ -3242,6 +3245,7 @@ def terminal_tool(
             approval = _check_all_guards(
                 command, env_type,
                 has_host_access=_docker_has_host_access(config),
+                intent=intent,
             )
             if not approval["approved"]:
                 # Check if this is an approval_required (gateway ask mode)
@@ -4108,6 +4112,10 @@ TERMINAL_SCHEMA = {
                 "type": "string",
                 "description": "The shell command to execute"
             },
+            "intent": {
+                "type": "string",
+                "description": "One plain-language sentence for the user: what this command does and why. Shown in the approval prompt and activity row — never include the command itself, flags, or paths."
+            },
             "background": {
                 "type": "boolean",
                 "description": "Run in the background, returning a session_id. Pair with notify=true for anything with a defined end (tests, builds, deploys) — without it the process runs silently. Only servers/watchers/daemons that never exit should stay silent. Short commands: prefer foreground with a generous timeout.",
@@ -4138,7 +4146,7 @@ TERMINAL_SCHEMA = {
             # (bool) and watch_patterns (list). notify=true|[...] maps onto
             # them in the dispatch wrapper; explicit notify wins on conflict.
         },
-        "required": ["command"]
+        "required": ["command", "intent"]
     }
 }
 
@@ -4199,6 +4207,7 @@ def _handle_terminal(args, **kw):
         pty=args.get("pty", False),
         notify_on_complete=notify_on_complete,
         watch_patterns=watch_patterns,
+        intent=args.get("intent"),
     )
 
 

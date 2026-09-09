@@ -71,13 +71,13 @@ export const zh: Translations = {
       connectingGateway: '正在连接桌面网关',
       loadingSettings: '正在加载 Nia 设置',
       loadingSessions: '正在加载最近会话',
-      retryingRemoteBackend: '正在重新连接远程 Hermes 后端…',
+      retryingRemoteBackend: '正在重新连接远程 Nia 后端…',
       startingDesktopConnection: '正在启动桌面连接',
       startingHermesDesktop: '正在启动 Nia 桌面版…'
     },
     errors: {
-      backgroundExited: 'Hermes 后台进程已退出。',
-      backgroundExitedDuringStartup: 'Hermes 后台进程在启动期间退出。',
+      backgroundExited: 'Nia 后台进程已退出。',
+      backgroundExitedDuringStartup: 'Nia 后台进程在启动期间退出。',
       backendStopped: '后端已停止',
       desktopBootFailed: '桌面启动失败',
       gatewayConnectionLost: '与网关的连接已断开',
@@ -87,7 +87,7 @@ export const zh: Translations = {
       ipcBridgeUnavailable: '桌面 IPC 桥不可用。'
     },
     failure: {
-      title: 'Hermes 无法启动',
+      title: 'Nia 无法启动',
       description: '后台网关没有启动。请尝试下面的恢复步骤；这里不会删除你的对话或设置。',
       remoteTitle: '需要重新登录远程网关',
       remoteDescription: '你的远程网关会话已过期。请重新登录以恢复连接。这些操作不会删除你的对话或设置。',
@@ -132,9 +132,9 @@ export const zh: Translations = {
     copyDetail: '复制详情',
     copyDetailFailed: '无法复制通知详情',
     backendOutOfDateTitle: '后端版本过旧',
-    backendOutOfDateMessage: '你的 Hermes 后端早于当前桌面构建，可能无法正常工作。请更新以保持一致。',
+    backendOutOfDateMessage: '你的 Nia 后端早于当前桌面构建，可能无法正常工作。请更新以保持一致。',
     installMethodUnsupportedTitle: '不受支持的安装方式',
-    updateHermes: '更新 Hermes',
+    updateHermes: '更新 Nia',
     updateReadyTitle: '有可用更新',
     updateReadyMessage: count => `有 ${count} 项新更改可用。`,
     updateReadyMessageUnknown: '有新更新可用。',
@@ -1622,7 +1622,7 @@ export const zh: Translations = {
       placeholder: '搜索宠物…',
       loading: '正在加载 petdex 画廊…',
       error: '无法连接到 petdex 画廊。',
-      staleBackend: '请重启 Hermes 以使用宠物功能——当前后端版本过旧。',
+      staleBackend: '请重启 Nia 以使用宠物功能——当前后端版本过旧。',
       empty: '没有匹配的宠物。',
       turnOff: '关闭',
       turnOn: '开启',
@@ -1649,7 +1649,7 @@ export const zh: Translations = {
       hatchComposing: '正在拼合……',
       hatchSaving: '马上就好……',
       namePlaceholder: '给宠物起个名字',
-      staleBackend: '请更新 Hermes 以生成宠物。',
+      staleBackend: '请更新 Nia 以生成宠物。',
       backgroundHint: '你可以关闭此窗口——完成后 Nia 会通知你。',
       slowProviderHint: '这可能需要几分钟',
       remix: '混合生成',
@@ -1695,11 +1695,11 @@ export const zh: Translations = {
     noSessions: '暂无会话。',
     gatewayRunning: '消息网关运行中',
     gatewayStopped: '消息网关已停止',
-    hermesActiveSessions: (version, count) => `Hermes ${version} · 活跃会话 ${count}`,
+    hermesActiveSessions: (version, count) => `Nia ${version} · 活跃会话 ${count}`,
     restartGateway: '重启网关',
     openBrowser: '打开浏览器',
     gatewayRestartFailed: '网关重启失败。',
-    updateHermes: '更新 Hermes',
+    updateHermes: '更新 Nia',
     reloadWindow: '重新载入窗口',
     actionRunning: '运行中',
     actionDone: '完成',
@@ -2383,7 +2383,7 @@ export const zh: Translations = {
       copyPath: '复制路径',
       removeFromSidebar: '从侧边栏移除',
       createFailed: '无法创建项目',
-      staleBackend: '请更新 Hermes 后端以创建项目——当前后端比桌面应用旧（设置 → 更新 → 后端）。',
+      staleBackend: '请更新 Nia 后端以创建项目——当前后端比桌面应用旧（设置 → 更新 → 后端）。',
       deleteConfirm: '这会从 Nia 中移除已保存的项目。文件、git 仓库和工作树保持不变。',
       startWork: '新建工作树',
       newWorktreeTitle: '新建工作树',
@@ -2393,7 +2393,7 @@ export const zh: Translations = {
       baseBranchPlaceholder: '搜索分支…',
       baseBranchNone: '未找到分支',
       startWorkFailed: '无法创建工作树',
-      worktreeStaleBackend: '请更新 Hermes 后端以在此远程连接上创建工作树 —— 该后端早于 git 工作树 API。',
+      worktreeStaleBackend: '请更新 Nia 后端以在此远程连接上创建工作树 —— 该后端早于 git 工作树 API。',
       worktreeProjectLabel: '项目',
       worktreeProjectPlaceholder: '搜索项目…',
       worktreeProjectNone: '没有包含文件夹的项目',
@@ -3374,7 +3374,7 @@ export const zh: Translations = {
       attachingFile: '正在附加…'
     },
     approval: {
-      gatewayDisconnected: 'Hermes 网关未连接',
+      gatewayDisconnected: 'Nia 未连接',
       sendFailed: '无法发送审批响应',
       run: '运行',
       command: '命令',
@@ -3390,7 +3390,7 @@ export const zh: Translations = {
     },
     clarify: {
       notReady: '澄清请求尚未就绪',
-      gatewayDisconnected: 'Hermes 网关未连接',
+      gatewayDisconnected: 'Nia 未连接',
       sendFailed: '无法发送澄清响应',
       loadingQuestion: '正在加载问题…',
       other: '其他 (输入你的答案)',
@@ -3425,11 +3425,12 @@ export const zh: Translations = {
       envRequired: '请先填写所需凭据',
       sendFailed: '无法发送 MCP 设置响应',
       reloadFailed: '服务器已保存，但重新加载 MCP 工具失败 — 将在下个会话加载',
-      gatewayDisconnected: 'Hermes 网关未连接'
+      gatewayDisconnected: 'Nia 未连接'
     },
     tool: {
       copyCode: '复制代码',
       renderingImage: '正在渲染图片',
+      renderingVideo: 'Rendering video',
       copyOutput: '复制输出',
       copyCommand: '复制命令',
       copyContent: '复制内容',
@@ -3496,15 +3497,28 @@ export const zh: Translations = {
         terminal: { done: '已运行命令', pending: '正在运行命令', pendingAction: '正在运行' },
         todo: { done: '已更新待办', pending: '正在更新待办', pendingAction: '正在更新' },
         vision_analyze: { done: '已分析图片', pending: '正在分析图片', pendingAction: '正在分析' },
+        // ponytail: English copy until a native pass — see en.ts.
+        video_generate: { done: 'Generated video', pending: 'Generating video', pendingAction: 'Generating' },
         web_extract: { done: '已读取网页', pending: '正在读取网页', pendingAction: '正在读取' },
         web_search: { done: '已搜索网页', pending: '正在搜索网页', pendingAction: '正在搜索' },
         write_file: { done: '已编辑文件', pending: '正在编辑文件', pendingAction: '正在编辑' }
+      },
+      // ponytail: WS3 Product-mode phrasing deck is English-only until a
+      // native-tone pass; translateNowArray would fall back to en anyway.
+      phrasing: {
+        web_search: ['Hunting down "{query}"', 'Digging into "{query}"', 'On the hunt for "{query}"'],
+        read_file: ['Peeking at {file}', 'Giving {file} a read', 'Checking out {file}'],
+        file_edit: ['Tweaking {file}', 'Giving {file} a glow-up', 'Patching up {file}'],
+        image_generate: ['Cooking up your image', 'Painting pixels…', 'Whipping up the visual'],
+        video_generate: ['Rolling the cameras…', 'Cooking up your video', 'Rendering the magic'],
+        vision_analyze: ['Taking a look', 'Eyes on the image', 'Studying the visual'],
+        fallback: ['Working on it…', 'Doing the thing…', 'On it…']
       }
     }
   },
 
   prompts: {
-    gatewayDisconnected: 'Hermes 网关未连接',
+    gatewayDisconnected: 'Nia 未连接',
     sudoSendFailed: '无法发送 sudo 密码',
     secretSendFailed: '无法发送密钥',
     sudoTitle: '管理员密码',

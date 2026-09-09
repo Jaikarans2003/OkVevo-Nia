@@ -71,7 +71,7 @@ export const zhHant = defineLocale({
       connectingGateway: '正在連線桌面閘道',
       loadingSettings: '正在載入 Nia 設定',
       loadingSessions: '正在載入最近工作階段',
-      retryingRemoteBackend: '正在重新連線遠端 Hermes 後端…',
+      retryingRemoteBackend: '正在重新連線遠端 Nia 後端…',
       startingDesktopConnection: '正在啟動桌面連線',
       startingHermesDesktop: '正在啟動 Nia…'
     },
@@ -87,7 +87,7 @@ export const zhHant = defineLocale({
       ipcBridgeUnavailable: '桌面 IPC 橋接器不可用。'
     },
     failure: {
-      title: 'Hermes 無法啟動',
+      title: 'Nia 無法啟動',
       description: '背景閘道未啟動。請嘗試下面的復原步驟。這裡的操作不會刪除您的聊天或設定。',
       remoteTitle: '需要重新登入遠端閘道',
       remoteDescription: '您的遠端閘道工作階段已過期。請重新登入以重新連線。這裡的操作不會刪除您的聊天或設定。',
@@ -132,9 +132,9 @@ export const zhHant = defineLocale({
     copyDetail: '複製詳情',
     copyDetailFailed: '無法複製通知詳情',
     backendOutOfDateTitle: '後端版本過舊',
-    backendOutOfDateMessage: '您的 Hermes 後端早於目前的桌面版本，可能無法正常運作。請更新以保持一致。',
+    backendOutOfDateMessage: '您的 Nia 後端早於目前的桌面版本，可能無法正常運作。請更新以保持一致。',
     installMethodUnsupportedTitle: '不受支援的安裝方式',
-    updateHermes: '更新 Hermes',
+    updateHermes: '更新 Nia',
     updateReadyTitle: '有可用更新',
     updateReadyMessage: count => `有 ${count} 項新變更可用。`,
     updateReadyMessageUnknown: '有新更新可用。',
@@ -1210,7 +1210,7 @@ export const zhHant = defineLocale({
       placeholder: '搜尋寵物…',
       loading: '正在載入 petdex 畫廊…',
       error: '無法連線至 petdex 畫廊。',
-      staleBackend: '請重新啟動 Hermes 以使用寵物功能。',
+      staleBackend: '請重新啟動 Nia 以使用寵物功能。',
       empty: '沒有符合的寵物。',
       turnOff: '關閉',
       turnOn: '開啟',
@@ -1237,7 +1237,7 @@ export const zhHant = defineLocale({
       hatchComposing: '正在拼合……',
       hatchSaving: '快好了……',
       namePlaceholder: '為寵物命名',
-      staleBackend: '請更新 Hermes 以生成寵物。',
+      staleBackend: '請更新 Nia 以生成寵物。',
       backgroundHint: '你可以關閉此視窗——完成後 Nia 會通知你。',
       slowProviderHint: '這可能需要幾分鐘',
       remix: '混合生成',
@@ -1282,11 +1282,11 @@ export const zhHant = defineLocale({
     noSessions: '暫無工作階段。',
     gatewayRunning: '訊息閘道執行中',
     gatewayStopped: '訊息閘道已停止',
-    hermesActiveSessions: (version, count) => `Hermes ${version} · 活躍工作階段 ${count}`,
+    hermesActiveSessions: (version, count) => `Nia ${version} · 活躍工作階段 ${count}`,
     restartGateway: '重新啟動閘道',
     openBrowser: '開啟瀏覽器',
     gatewayRestartFailed: '閘道重新啟動失敗。',
-    updateHermes: '更新 Hermes',
+    updateHermes: '更新 Nia',
     reloadWindow: '重新載入視窗',
     actionRunning: '執行中',
     actionDone: '完成',
@@ -1816,7 +1816,7 @@ export const zhHant = defineLocale({
       copyPath: '複製路徑',
       removeFromSidebar: '從側邊欄移除',
       createFailed: '無法建立專案',
-      staleBackend: '請更新 Hermes 後端以建立專案——目前後端比桌面應用舊（設定 → 更新 → 後端）。',
+      staleBackend: '請更新 Nia 後端以建立專案——目前後端比桌面應用舊（設定 → 更新 → 後端）。',
       deleteConfirm: '這會從 Nia 中移除已儲存的專案。檔案、git 儲存庫和工作樹維持不變。',
       startWork: '新增工作樹',
       newWorktreeTitle: '新增工作樹',
@@ -2737,7 +2737,7 @@ export const zhHant = defineLocale({
       attachingFile: '正在附加…'
     },
     approval: {
-      gatewayDisconnected: 'Hermes 閘道未連線',
+      gatewayDisconnected: 'Nia 未連線',
       sendFailed: '無法傳送核准回應',
       run: '執行',
       command: '指令',
@@ -2753,7 +2753,7 @@ export const zhHant = defineLocale({
     },
     clarify: {
       notReady: '澄清請求尚未就緒',
-      gatewayDisconnected: 'Hermes 閘道未連線',
+      gatewayDisconnected: 'Nia 未連線',
       sendFailed: '無法傳送澄清回應',
       loadingQuestion: '正在載入問題…',
       other: '其他（輸入您的答案）',
@@ -2771,6 +2771,7 @@ export const zhHant = defineLocale({
     tool: {
       copyCode: '複製程式碼',
       renderingImage: '正在渲染圖片',
+      renderingVideo: 'Rendering video',
       copyOutput: '複製輸出',
       copyCommand: '複製指令',
       copyContent: '複製內容',
@@ -2841,15 +2842,28 @@ export const zhHant = defineLocale({
         terminal: { done: '已執行指令', pending: '正在執行指令', pendingAction: '正在執行' },
         todo: { done: '已更新待辦', pending: '正在更新待辦', pendingAction: '正在更新' },
         vision_analyze: { done: '已分析圖片', pending: '正在分析圖片', pendingAction: '正在分析' },
+        // ponytail: English copy until a native pass — see en.ts.
+        video_generate: { done: 'Generated video', pending: 'Generating video', pendingAction: 'Generating' },
         web_extract: { done: '已讀取網頁', pending: '正在讀取網頁', pendingAction: '正在讀取' },
         web_search: { done: '已搜尋網頁', pending: '正在搜尋網頁', pendingAction: '正在搜尋' },
         write_file: { done: '已編輯檔案', pending: '正在編輯檔案', pendingAction: '正在編輯' }
+      },
+      // ponytail: WS3 Product-mode phrasing deck is English-only until a
+      // native-tone pass; translateNowArray would fall back to en anyway.
+      phrasing: {
+        web_search: ['Hunting down "{query}"', 'Digging into "{query}"', 'On the hunt for "{query}"'],
+        read_file: ['Peeking at {file}', 'Giving {file} a read', 'Checking out {file}'],
+        file_edit: ['Tweaking {file}', 'Giving {file} a glow-up', 'Patching up {file}'],
+        image_generate: ['Cooking up your image', 'Painting pixels…', 'Whipping up the visual'],
+        video_generate: ['Rolling the cameras…', 'Cooking up your video', 'Rendering the magic'],
+        vision_analyze: ['Taking a look', 'Eyes on the image', 'Studying the visual'],
+        fallback: ['Working on it…', 'Doing the thing…', 'On it…']
       }
     }
   },
 
   prompts: {
-    gatewayDisconnected: 'Hermes 閘道未連線',
+    gatewayDisconnected: 'Nia 未連線',
     sudoSendFailed: '無法傳送 sudo 密碼',
     secretSendFailed: '無法傳送密鑰',
     sudoTitle: '管理員密碼',

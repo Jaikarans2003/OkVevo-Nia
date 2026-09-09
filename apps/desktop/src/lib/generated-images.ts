@@ -14,6 +14,9 @@ type TextLike = {
 // sandbox path the model restated doesn't slip through as a duplicate image.
 const DISPLAY_KEYS = ['host_image', 'image'] as const
 const ECHO_KEYS = ['host_image', 'image', 'agent_visible_image'] as const
+// video_generate results carry a single `video` field (local path after the
+// Python-side download; a CDN URL only if that download failed).
+const VIDEO_KEYS = ['video'] as const
 
 function recordFromUnknown(value: unknown): Record<string, unknown> | null {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -71,6 +74,35 @@ export function generatedImageEchoSources(parts: readonly ToolLike[]): string[] 
   return unique(parts.flatMap(part => stringFields(imageResult(part) ?? {}, ECHO_KEYS)))
 }
 
+function videoResult(part: ToolLike): Record<string, unknown> | null {
+  if (part.type !== 'tool-call' || part.toolName !== 'video_generate') {
+    return null
+  }
+
+  const record = recordFromUnknown(part.result)
+
+  return record && record.success !== false ? record : null
+}
+
+/** Display source for a completed `video_generate` result. */
+export function generatedVideoFromResult(result: unknown): string | null {
+  const record = recordFromUnknown(result)
+
+  if (!record || record.success === false) {
+    return null
+  }
+
+  return stringFields(record, VIDEO_KEYS)[0] ?? null
+}
+
+/** Every path/URL a generated image OR video might appear as in prose. */
+export function generatedMediaEchoSources(parts: readonly ToolLike[]): string[] {
+  return unique([
+    ...generatedImageEchoSources(parts),
+    ...parts.flatMap(part => stringFields(videoResult(part) ?? {}, VIDEO_KEYS))
+  ])
+}
+
 /** Strip a generated image out of prose so it only ever shows in the tool slot.
  *  Once a generation succeeded (`sources` is non-empty) we drop every embedded
  *  image and media link from that message — the model frequently restates the
@@ -95,10 +127,10 @@ export function stripGeneratedImageEchoes(text: string, sources: readonly string
     .trim()
 }
 
-/** Strip generated-image echoes from text parts, dropping any part left empty.
- *  The image lives in the tool slot; prose keeps the agent's actual words. */
+/** Strip generated-media echoes from text parts, dropping any part left empty.
+ *  The image/video lives in the tool slot; prose keeps the agent's actual words. */
 export function dedupeGeneratedImageEchoesInParts<T extends TextLike & ToolLike>(parts: readonly T[]): T[] {
-  const sources = generatedImageEchoSources(parts)
+  const sources = generatedMediaEchoSources(parts)
 
   if (!sources.length) {
     return [...parts]

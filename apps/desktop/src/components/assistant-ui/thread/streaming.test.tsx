@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $reasoningCollapsedByDefault } from '@/store/reasoning-disclosure'
+import { $toolViewMode } from '@/store/tool-view'
 
 import { stubThreadEnvironment, stubThreadViewportSize, ThreadRuntime } from '../test-utils'
 
@@ -470,6 +471,7 @@ describe('assistant-ui streaming renderer', () => {
   beforeEach(() => {
     resizeObservers.clear()
     $reasoningCollapsedByDefault.set(false)
+    $toolViewMode.set('product')
   })
 
   it('renders assistant text incrementally before completion', async () => {
@@ -770,23 +772,41 @@ describe('assistant-ui streaming renderer', () => {
       />
     )
 
+    // Product mode default-deny (WS1): expansion shows the generic friendly
+    // line; the raw provider error never paints.
     fireEvent.click(container.querySelector('[data-tool-row] button')!)
 
     await waitFor(() => {
-      expect(container.textContent).toContain('FAL rejected the prompt')
+      expect(container.textContent).toContain('Something went wrong on my end')
     })
     expect(container.querySelector('[data-slot="aui_generated-image"]')).toBeNull()
+    expect(container.textContent).not.toContain('FAL rejected the prompt')
     expect(container.textContent).not.toContain('"success":false')
   })
 
-  it('shows the command prompt and exit code for terminal calls', async () => {
+  it('keeps the command, exit code, and stdout out of product-mode terminal rows', async () => {
+    const { container } = render(<MessageHarness message={assistantTerminalMessage()} />)
+
+    // No intent on this fixture, so the row falls back to the static title;
+    // the command and output are technical-mode chrome (WS3).
+    expect(container.textContent).toContain('Ran command')
+    expect(container.textContent).not.toContain('npm run check')
+    expect(container.textContent).not.toContain('all checks passed')
+  })
+
+  it('technical mode keeps the raw terminal payload behind the Tool payload disclosure', async () => {
+    $toolViewMode.set('technical')
     const { container } = render(<MessageHarness message={assistantTerminalMessage()} />)
 
     fireEvent.click(container.querySelector('[data-tool-row] button')!)
 
     await waitFor(() => {
-      expect(container.textContent).toContain('$ npm run check --workspace=apps/desktop')
-      expect(container.textContent).toContain('exit 0')
+      expect(container.textContent).toContain('npm run check --workspace=apps/desktop')
+    })
+
+    fireEvent.click(screen.getByText('Tool payload'))
+
+    await waitFor(() => {
       expect(container.textContent).toContain('all checks passed')
     })
   })

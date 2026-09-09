@@ -71,13 +71,13 @@ export const ja = defineLocale({
       connectingGateway: 'ライブデスクトップゲートウェイに接続中',
       loadingSettings: 'Nia の設定を読み込み中',
       loadingSessions: '最近のセッションを読み込み中',
-      retryingRemoteBackend: 'リモート Hermes バックエンドに再接続中…',
+      retryingRemoteBackend: 'リモート Nia バックエンドに再接続中…',
       startingDesktopConnection: 'デスクトップ接続を開始中',
       startingHermesDesktop: 'Nia を起動中…'
     },
     errors: {
-      backgroundExited: 'Hermes バックグラウンドプロセスが終了しました。',
-      backgroundExitedDuringStartup: '起動中に Hermes バックグラウンドプロセスが終了しました。',
+      backgroundExited: 'Nia バックグラウンドプロセスが終了しました。',
+      backgroundExitedDuringStartup: '起動中に Nia バックグラウンドプロセスが終了しました。',
       backendStopped: 'バックエンドが停止しました',
       desktopBootFailed: 'デスクトップの起動に失敗しました',
       gatewayConnectionLost: 'ゲートウェイへの接続が切断されました',
@@ -137,9 +137,9 @@ export const ja = defineLocale({
     copyDetailFailed: '通知の詳細をコピーできませんでした',
     backendOutOfDateTitle: 'バックエンドが古いです',
     backendOutOfDateMessage:
-      'Hermes バックエンドがこのデスクトップビルドより古く、正常に動作しない場合があります。更新して揃えてください。',
+      'Nia バックエンドがこのデスクトップビルドより古く、正常に動作しない場合があります。更新して揃えてください。',
     installMethodUnsupportedTitle: 'サポート対象外のインストール方法',
-    updateHermes: 'Hermes を更新',
+    updateHermes: 'Nia を更新',
     updateReadyTitle: '更新の準備ができました',
     updateReadyMessage: count => `${count} 件の新しい変更が利用可能です。`,
     updateReadyMessageUnknown: '新しい更新が利用可能です。',
@@ -1249,7 +1249,7 @@ export const ja = defineLocale({
       placeholder: 'ペットを検索…',
       loading: 'petdex ギャラリーを読み込み中…',
       error: 'petdex ギャラリーに接続できません。',
-      staleBackend: 'ペット機能を使うには Hermes を再起動してください。',
+      staleBackend: 'ペット機能を使うには Nia を再起動してください。',
       empty: '一致するペットがありません。',
       turnOff: 'オフ',
       turnOn: 'オン',
@@ -1276,7 +1276,7 @@ export const ja = defineLocale({
       hatchComposing: 'まとめています…',
       hatchSaving: 'もうすぐです…',
       namePlaceholder: 'ペットに名前を付ける',
-      staleBackend: 'ペットを生成するには Hermes を更新してください。',
+      staleBackend: 'ペットを生成するには Nia を更新してください。',
       backgroundHint: 'このウィンドウは閉じても大丈夫です。完了したら Nia が通知します。',
       slowProviderHint: '数分かかることがあります',
       remix: 'リミックス',
@@ -1321,11 +1321,11 @@ export const ja = defineLocale({
     noSessions: 'セッションはまだありません。',
     gatewayRunning: 'メッセージングゲートウェイが実行中',
     gatewayStopped: 'メッセージングゲートウェイが停止中',
-    hermesActiveSessions: (version, count) => `Hermes ${version} · アクティブセッション ${count}`,
+    hermesActiveSessions: (version, count) => `Nia ${version} · アクティブセッション ${count}`,
     restartGateway: 'ゲートウェイを再起動',
     openBrowser: 'ブラウザを開く',
     gatewayRestartFailed: 'ゲートウェイの再起動に失敗しました。',
-    updateHermes: 'Hermes を更新',
+    updateHermes: 'Nia を更新',
     reloadWindow: 'ウィンドウを再読み込み',
     actionRunning: '実行中',
     actionDone: '完了',
@@ -1878,7 +1878,7 @@ export const ja = defineLocale({
       removeFromSidebar: 'サイドバーから削除',
       createFailed: 'プロジェクトを作成できませんでした',
       staleBackend:
-        'プロジェクトを作成するには Hermes バックエンドを更新してください。バックエンドがこのデスクトップアプリより古いです（設定 → 更新 → バックエンド）。',
+        'プロジェクトを作成するには Nia バックエンドを更新してください。バックエンドがこのデスクトップアプリより古いです（設定 → 更新 → バックエンド）。',
       deleteConfirm:
         'Nia から保存済みプロジェクトを削除します。ファイル・git リポジトリ・ワークツリーはそのまま残ります。',
       startWork: '新しいワークツリー',
@@ -1890,7 +1890,7 @@ export const ja = defineLocale({
       baseBranchNone: 'ブランチが見つかりません',
       startWorkFailed: 'ワークツリーを作成できませんでした',
       worktreeStaleBackend:
-        'このリモート接続でワークツリーを作成するには Hermes バックエンドを更新してください — git ワークツリー API 以前のバージョンです。',
+        'このリモート接続でワークツリーを作成するには Nia バックエンドを更新してください — git ワークツリー API 以前のバージョンです。',
       worktreeProjectLabel: 'プロジェクト',
       worktreeProjectPlaceholder: 'プロジェクトを検索…',
       worktreeProjectNone: 'フォルダのあるプロジェクトがありません',
@@ -2830,7 +2830,7 @@ export const ja = defineLocale({
       attachingFile: '添付中…'
     },
     approval: {
-      gatewayDisconnected: 'Hermes ゲートウェイが接続されていません',
+      gatewayDisconnected: 'Nia が接続されていません',
       sendFailed: '承認応答を送信できませんでした',
       run: '実行',
       command: 'コマンド',
@@ -2846,7 +2846,7 @@ export const ja = defineLocale({
     },
     clarify: {
       notReady: '明確化リクエストはまだ準備できていません',
-      gatewayDisconnected: 'Hermes ゲートウェイが接続されていません',
+      gatewayDisconnected: 'Nia が接続されていません',
       sendFailed: '明確化応答を送信できませんでした',
       loadingQuestion: '質問を読み込み中…',
       other: 'その他（回答を入力）',
@@ -2864,6 +2864,7 @@ export const ja = defineLocale({
     tool: {
       copyCode: 'コードをコピー',
       renderingImage: '画像をレンダリング中',
+      renderingVideo: 'Rendering video',
       copyOutput: '出力をコピー',
       copyCommand: 'コマンドをコピー',
       copyContent: 'コンテンツをコピー',
@@ -2958,6 +2959,8 @@ export const ja = defineLocale({
         terminal: { done: 'コマンドを実行しました', pending: 'コマンドを実行中', pendingAction: '実行中' },
         todo: { done: 'Todo を更新しました', pending: 'Todo を更新中', pendingAction: '更新中' },
         vision_analyze: { done: '画像を分析しました', pending: '画像を分析中', pendingAction: '分析中' },
+        // ponytail: English copy until a native pass — see en.ts.
+        video_generate: { done: 'Generated video', pending: 'Generating video', pendingAction: 'Generating' },
         web_extract: {
           done: 'Web ページを読み取りました',
           pending: 'Web ページを読み取り中',
@@ -2965,12 +2968,23 @@ export const ja = defineLocale({
         },
         web_search: { done: 'Web を検索しました', pending: 'Web を検索中', pendingAction: '検索中' },
         write_file: { done: 'ファイルを編集しました', pending: 'ファイルを編集中', pendingAction: '編集中' }
+      },
+      // ponytail: WS3 Product-mode phrasing deck is English-only until a
+      // native-tone pass; translateNowArray would fall back to en anyway.
+      phrasing: {
+        web_search: ['Hunting down "{query}"', 'Digging into "{query}"', 'On the hunt for "{query}"'],
+        read_file: ['Peeking at {file}', 'Giving {file} a read', 'Checking out {file}'],
+        file_edit: ['Tweaking {file}', 'Giving {file} a glow-up', 'Patching up {file}'],
+        image_generate: ['Cooking up your image', 'Painting pixels…', 'Whipping up the visual'],
+        video_generate: ['Rolling the cameras…', 'Cooking up your video', 'Rendering the magic'],
+        vision_analyze: ['Taking a look', 'Eyes on the image', 'Studying the visual'],
+        fallback: ['Working on it…', 'Doing the thing…', 'On it…']
       }
     }
   },
 
   prompts: {
-    gatewayDisconnected: 'Hermes ゲートウェイが接続されていません',
+    gatewayDisconnected: 'Nia が接続されていません',
     sudoSendFailed: 'sudo パスワードを送信できませんでした',
     secretSendFailed: 'シークレットを送信できませんでした',
     sudoTitle: '管理者パスワード',

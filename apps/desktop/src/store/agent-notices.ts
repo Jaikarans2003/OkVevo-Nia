@@ -1,5 +1,6 @@
 import type { NativeNotificationInput } from '@/store/native-notifications'
 import { dismissNotification, type NotificationInput, type NotificationKind, notify } from '@/store/notifications'
+import { scrubUserFacingText } from '@/lib/user-facing-error'
 
 /**
  * Wire shape of a `notification.show` payload — the driver-agnostic
@@ -123,6 +124,8 @@ export function noticeToToast(payload: AgentNoticePayload | undefined): Notifica
   // status line that reads fine, but the toast follows the title-plus-description
   // convention (Sonner/shadcn): the primary status is the message and the detail
   // drops to a muted second line, instead of inlining a `·` separator.
+  // Public builds: scrub leftover vendor names (curated copy, not raw
+  // exceptions — scrub, not default-deny).
   const [primary, meta] = splitMeta(stripGlyph(text))
 
   return {
@@ -134,8 +137,8 @@ export function noticeToToast(payload: AgentNoticePayload | undefined): Notifica
     durationMs: isTtl ? ttl : 0,
     id: payload?.key || payload?.id,
     kind: LEVEL_TO_TOAST_KIND[payload?.level ?? 'info'] ?? 'info',
-    message: primary,
-    meta
+    message: scrubUserFacingText(primary),
+    meta: meta ? scrubUserFacingText(meta) : meta
   }
 }
 
@@ -198,7 +201,7 @@ export function nativeNoticeInput(
   }
 
   return {
-    body: text,
+    body: scrubUserFacingText(text),
     global: true,
     kind: 'credits',
     title

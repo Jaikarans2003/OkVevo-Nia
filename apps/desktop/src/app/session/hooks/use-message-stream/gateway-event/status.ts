@@ -2,6 +2,7 @@ import { translateNow } from '@/i18n'
 import { textPart } from '@/lib/chat-messages'
 import { coerceGatewayText } from '@/lib/chat-runtime'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
+import { publicErrorText } from '@/lib/user-facing-error'
 import { type AgentNoticePayload, clearAgentNotice, nativeNoticeInput, showAgentNotice } from '@/store/agent-notices'
 import { clearClarifyRequest } from '@/store/clarify'
 import { reconcileSessionCompacting, setSessionCompacting } from '@/store/compaction'
@@ -118,8 +119,11 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
   }
 
   if (event.type === 'error') {
-    const errorMessage = payload?.message || 'Hermes reported an error'
+    const errorMessage = payload?.message || 'Nia reported an error'
     const looksLikeProviderSetup = isProviderSetupErrorMessage(errorMessage)
+    // Public builds: display copy is default-deny sanitized (category copy or
+    // generic fallback); detection below still runs on the raw message.
+    const displayError = publicErrorText(errorMessage)
 
     // A turn that errors out has also ended — drop any open blocking prompt
     // for this session so an approval/sudo/secret overlay can't linger past
@@ -138,7 +142,7 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
     }
 
     dispatchNativeNotification({
-      body: errorMessage,
+      body: displayError,
       kind: 'turnError',
       sessionId,
       title: translateNow('notifications.native.turnErrorTitle')
@@ -156,8 +160,8 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
       notify({
         id: `gateway-error:${errorMessage}`,
         kind: 'error',
-        title: 'Hermes error',
-        message: errorMessage
+        title: 'Nia',
+        message: displayError
       })
     }
 

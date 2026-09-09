@@ -402,9 +402,9 @@ _TOOL_STUBS = {
     ),
     "write_file": (
         "write_file",
-        "path: str, content: str, cross_profile: bool = False",
+        "path: str, content: str, cross_profile: bool = False, intent: str = None",
         '"""Write content to a file (always overwrites). Returns dict with status."""',
-        '{"path": path, "content": content, "cross_profile": cross_profile}',
+        '{"path": path, "content": content, "cross_profile": cross_profile, "intent": intent}',
     ),
     "search_files": (
         "search_files",
@@ -414,15 +414,15 @@ _TOOL_STUBS = {
     ),
     "patch": (
         "patch",
-        'path: str = None, old_string: str = None, new_string: str = None, replace_all: bool = False, mode: str = "replace", patch: str = None, cross_profile: bool = False',
+        'path: str = None, old_string: str = None, new_string: str = None, replace_all: bool = False, mode: str = "replace", patch: str = None, cross_profile: bool = False, intent: str = None',
         '"""Targeted find-and-replace (mode="replace") or V4A multi-file patches (mode="patch"). Returns dict with status."""',
-        '{"path": path, "old_string": old_string, "new_string": new_string, "replace_all": replace_all, "mode": mode, "patch": patch, "cross_profile": cross_profile}',
+        '{"path": path, "old_string": old_string, "new_string": new_string, "replace_all": replace_all, "mode": mode, "patch": patch, "cross_profile": cross_profile, "intent": intent}',
     ),
     "terminal": (
         "terminal",
-        "command: str, timeout: int = None, workdir: str = None",
+        "command: str, timeout: int = None, workdir: str = None, intent: str = None",
         '"""Run a shell command (foreground only). Returns dict with "output" and "exit_code"."""',
-        '{"command": command, "timeout": timeout, "workdir": workdir}',
+        '{"command": command, "timeout": timeout, "workdir": workdir, "intent": intent}',
     ),
 }
 
@@ -1521,6 +1521,7 @@ def execute_code(
     task_id: Optional[str] = None,
     enabled_tools: Optional[List[str]] = None,
     reset: bool = False,
+    intent: Optional[str] = None,
 ) -> str:
     """
     Run Python in the session's persistent kernel (local) or a per-call
@@ -1592,6 +1593,7 @@ def execute_code(
     _guard = check_execute_code_guard(
         code, env_type,
         has_host_access=_docker_has_host_access(_env_config),
+        intent=intent,
     )
     if not _guard.get("approved", False):
         return json.dumps({
@@ -2417,6 +2419,14 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
                         "and print your final result to stdout."
                     ),
                 },
+                "intent": {
+                    "type": "string",
+                    "description": (
+                        "One plain-language sentence for the user: what this "
+                        "code does and why. Shown in the approval prompt and "
+                        "activity row — never include code or paths."
+                    ),
+                },
                 "reset": {
                     "type": "boolean",
                     "description": (
@@ -2425,7 +2435,7 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
                     ),
                 },
             },
-            "required": ["code"],
+            "required": ["code", "intent"],
         },
     }
 
@@ -2472,6 +2482,7 @@ def _execute_code_handler(args: dict, **kwargs) -> str:
         task_id=kwargs.get("task_id"),
         enabled_tools=kwargs.get("enabled_tools"),
         reset=bool(args.get("reset", False)),
+        intent=args.get("intent"),
     )
 
 

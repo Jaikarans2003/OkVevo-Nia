@@ -71,13 +71,13 @@ export const en: Translations = {
       connectingGateway: 'Connecting live desktop gateway',
       loadingSettings: 'Loading Nia settings',
       loadingSessions: 'Loading recent sessions',
-      retryingRemoteBackend: 'Reconnecting to the remote Hermes backend…',
+      retryingRemoteBackend: 'Reconnecting to the remote Nia backend…',
       startingDesktopConnection: 'Starting desktop connection',
       startingHermesDesktop: 'Starting Nia Desktop…'
     },
     errors: {
-      backgroundExited: 'Hermes background process exited.',
-      backgroundExitedDuringStartup: 'Hermes background process exited during startup.',
+      backgroundExited: 'Nia background process exited.',
+      backgroundExitedDuringStartup: 'Nia background process exited during startup.',
       backendStopped: 'Backend stopped',
       desktopBootFailed: 'Desktop boot failed',
       gatewayConnectionLost: 'Lost connection to the gateway',
@@ -87,7 +87,7 @@ export const en: Translations = {
       ipcBridgeUnavailable: 'Desktop IPC bridge is unavailable.'
     },
     failure: {
-      title: "Hermes couldn't start",
+      title: "Nia couldn't start",
       description:
         "The background gateway didn't come up. Try one of the recovery steps below. Nothing here deletes your chats or settings.",
       remoteTitle: 'Remote gateway sign-in required',
@@ -136,9 +136,9 @@ export const en: Translations = {
     copyDetailFailed: 'Could not copy notification detail',
     backendOutOfDateTitle: 'Backend out of date',
     backendOutOfDateMessage:
-      'Your Hermes backend is older than this desktop build and may not work correctly. Update to align them.',
+      'Your Nia backend is older than this desktop build and may not work correctly. Update to align them.',
     installMethodUnsupportedTitle: 'Unsupported install method',
-    updateHermes: 'Update Hermes',
+    updateHermes: 'Update Nia',
     updateReadyTitle: 'Update ready',
     updateReadyMessage: count => `${count} new change${count === 1 ? '' : 's'} available.`,
     updateReadyMessageUnknown: 'A new update is available.',
@@ -687,7 +687,7 @@ export const en: Translations = {
       searchPlaceholder: 'Search…',
       noResults: 'No results found',
       systemDefault: 'System default',
-      loading: 'Loading Hermes configuration...',
+      loading: 'Loading Nia configuration...',
       emptyTitle: 'Nothing to configure',
       emptyDesc: 'This section has no adjustable settings.',
       failedLoad: 'Settings failed to load',
@@ -1508,11 +1508,11 @@ export const en: Translations = {
     noSessions: 'No sessions yet.',
     gatewayRunning: 'Messaging gateway running',
     gatewayStopped: 'Messaging gateway stopped',
-    hermesActiveSessions: (version, count) => `Hermes ${version} · Active sessions ${count}`,
+    hermesActiveSessions: (version, count) => `Nia ${version} · Active sessions ${count}`,
     restartGateway: 'Restart gateway',
     openBrowser: 'Open browser',
     gatewayRestartFailed: 'Gateway restart failed.',
-    updateHermes: 'Update Hermes',
+    updateHermes: 'Update Nia',
     reloadWindow: 'Reload window',
     actionRunning: 'running',
     actionDone: 'done',
@@ -2202,7 +2202,7 @@ export const en: Translations = {
       removeFromSidebar: 'Hide from sidebar',
       createFailed: 'Could not create project',
       staleBackend:
-        'Update the Hermes backend to create projects — your backend is older than this desktop app (Settings → Updates → Backend).',
+        'Update the Nia backend to create projects — your backend is older than this desktop app (Settings → Updates → Backend).',
       deleteConfirm: 'This removes the saved project from Nia. Files, git repos, and worktrees stay untouched.',
       startWork: 'New worktree',
       newWorktreeTitle: 'New worktree',
@@ -2213,7 +2213,7 @@ export const en: Translations = {
       baseBranchNone: 'No branches found',
       startWorkFailed: 'Could not create worktree',
       worktreeStaleBackend:
-        'Update the Hermes backend to create worktrees over this remote connection — it predates the git worktree API.',
+        'Update the Nia backend to create worktrees over this remote connection — it predates the git worktree API.',
       worktreeProjectLabel: 'Project',
       worktreeProjectPlaceholder: 'Search projects…',
       worktreeProjectNone: 'No projects with a folder',
@@ -3216,7 +3216,7 @@ export const en: Translations = {
       attachingFile: 'Attaching…'
     },
     approval: {
-      gatewayDisconnected: 'Hermes gateway is not connected',
+      gatewayDisconnected: 'Nia is not connected',
       sendFailed: 'Could not send approval response',
       run: 'Run',
       command: 'Command',
@@ -3232,7 +3232,7 @@ export const en: Translations = {
     },
     clarify: {
       notReady: 'Clarify request is not ready yet',
-      gatewayDisconnected: 'Hermes gateway is not connected',
+      gatewayDisconnected: 'Nia is not connected',
       sendFailed: 'Could not send clarify response',
       loadingQuestion: 'Loading question…',
       other: 'Other (type your answer)',
@@ -3267,11 +3267,12 @@ export const en: Translations = {
       envRequired: 'Fill in the required credentials first',
       sendFailed: 'Could not send MCP setup response',
       reloadFailed: 'Server saved, but reloading MCP tools failed — they load next session',
-      gatewayDisconnected: 'Hermes gateway is not connected'
+      gatewayDisconnected: 'Nia is not connected'
     },
     tool: {
       copyCode: 'Copy code',
       renderingImage: 'Rendering image',
+      renderingVideo: 'Rendering video',
       copyOutput: 'Copy output',
       copyCommand: 'Copy command',
       copyContent: 'Copy content',
@@ -3349,16 +3350,29 @@ export const en: Translations = {
         },
         terminal: { done: 'Ran command', pending: 'Running command', pendingAction: 'Running' },
         todo: { done: 'Updated todos', pending: 'Updating todos', pendingAction: 'Updating' },
+        video_generate: { done: 'Generated video', pending: 'Generating video', pendingAction: 'Generating' },
         vision_analyze: { done: 'Analyzed image', pending: 'Analyzing image', pendingAction: 'Analyzing' },
         web_extract: { done: 'Read webpage', pending: 'Reading webpage', pendingAction: 'Reading' },
         web_search: { done: 'Searched web', pending: 'Searching web', pendingAction: 'Searching' },
         write_file: { done: 'Edited file', pending: 'Editing file', pendingAction: 'Editing' }
+      },
+      // WS3 rotating Product-mode pending phrasings (tone deck approved by
+      // Karan 2026-09-09). One per row, picked deterministically by
+      // toolCallId. `{query}` / `{file}` interpolate real detail.
+      phrasing: {
+        web_search: ['Hunting down "{query}"', 'Digging into "{query}"', 'On the hunt for "{query}"'],
+        read_file: ['Peeking at {file}', 'Giving {file} a read', 'Checking out {file}'],
+        file_edit: ['Tweaking {file}', 'Giving {file} a glow-up', 'Patching up {file}'],
+        image_generate: ['Cooking up your image', 'Painting pixels…', 'Whipping up the visual'],
+        video_generate: ['Rolling the cameras…', 'Cooking up your video', 'Rendering the magic'],
+        vision_analyze: ['Taking a look', 'Eyes on the image', 'Studying the visual'],
+        fallback: ['Working on it…', 'Doing the thing…', 'On it…']
       }
     }
   },
 
   prompts: {
-    gatewayDisconnected: 'Hermes gateway is not connected',
+    gatewayDisconnected: 'Nia is not connected',
     sudoSendFailed: 'Could not send sudo password',
     secretSendFailed: 'Could not send secret',
     sudoTitle: 'Administrator password',

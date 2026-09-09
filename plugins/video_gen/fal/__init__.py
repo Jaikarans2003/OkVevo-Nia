@@ -669,6 +669,17 @@ def _submit_fal_video_request(endpoint: str, arguments: Dict[str, Any]):
 
         status = _extract_http_status(exc)
         if status is not None and 400 <= status < 500:
+            # Public builds never name the vendor gateway: map the rejection
+            # to the OkVevo copy deck (402 → credits, 401/403 → session,
+            # anything else → generic friendly).
+            from agent.okvevo_gateway import nia_is_internal_channel
+
+            if not nia_is_internal_channel():
+                from agent.user_facing_errors import public_error_message
+
+                raise ValueError(
+                    public_error_message(str(exc), status=status)
+                ) from exc
             raise ValueError(
                 f"Nous Subscription gateway rejected endpoint '{endpoint}' "
                 f"(HTTP {status}). This model may not yet be enabled on "
@@ -706,6 +717,37 @@ def _check_fal_video_available() -> bool:
     if fal_key_is_configured():
         return True
     return resolve_managed_tool_gateway("fal-queue") is not None
+
+
+def _no_fal_backend_message() -> str:
+    """No reachable FAL backend. Public builds never name vendors/keys — the
+    OkVevo gateway is the only real path there."""
+    from agent.okvevo_gateway import nia_is_internal_channel
+
+    if not nia_is_internal_channel():
+        return (
+            "Video generation isn't available right now. Make sure you're "
+            "signed in to Nia, check your internet, and try again. If it "
+            "keeps failing, contact OkVevo support."
+        )
+    return (
+        "No FAL backend available. Either set FAL_KEY "
+        "(run `hermes tools` → Video Generation → FAL to configure) "
+        "or sign in to Nous (`hermes setup`) for managed gateway access."
+    )
+
+
+def _video_failure_message(exc: Exception) -> str:
+    """Provider failure copy. Public builds default-deny to the OkVevo deck
+    (category copy when the exception carries a recognizable status, generic
+    otherwise); internal keeps the raw FAL detail for debugging."""
+    from agent.okvevo_gateway import nia_is_internal_channel
+
+    if nia_is_internal_channel():
+        return f"FAL video generation failed: {exc}"
+    from agent.user_facing_errors import public_error_message
+
+    return public_error_message(str(exc))
 
 
 # ---------------------------------------------------------------------------
@@ -924,11 +966,7 @@ class FALVideoGenProvider(VideoGenProvider):
                         prompt=prompt,
                     )
             return error_response(
-                error=(
-                    "No FAL backend available. Either set FAL_KEY "
-                    "(run `hermes tools` → Video Generation → FAL to configure) "
-                    "or sign in to Nous (`hermes setup`) for managed gateway access."
-                ),
+                error=_no_fal_backend_message(),
                 error_type="auth_required",
                 provider="fal",
                 prompt=prompt,
@@ -937,8 +975,12 @@ class FALVideoGenProvider(VideoGenProvider):
         try:
             _load_fal_client()
         except ImportError:
+            from agent.user_facing_errors import public_error_message
+
             return error_response(
-                error="fal_client Python package not installed (pip install fal-client)",
+                error=public_error_message(
+                    "fal_client Python package not installed (pip install fal-client)"
+                ),
                 error_type="missing_dependency",
                 provider="fal",
                 prompt=prompt,
@@ -1045,7 +1087,7 @@ class FALVideoGenProvider(VideoGenProvider):
                 family_id, endpoint, exc, exc_info=True,
             )
             return error_response(
-                error=f"FAL video generation failed: {exc}",
+                error=_video_failure_message(exc),
                 error_type="api_error",
                 provider="fal", model=family_id, prompt=prompt,
                 aspect_ratio=aspect_ratio,
@@ -1059,8 +1101,10 @@ class FALVideoGenProvider(VideoGenProvider):
             url = video
 
         if not url:
+            from agent.user_facing_errors import public_error_message
+
             return error_response(
-                error="FAL returned no video URL in response",
+                error=public_error_message("FAL returned no video URL in response"),
                 error_type="empty_response",
                 provider="fal", model=family_id, prompt=prompt,
             )
@@ -1079,6 +1123,17 @@ class FALVideoGenProvider(VideoGenProvider):
                     "Video upscale pass failed — returning native-resolution video"
                 )
 
+        # Materialise the delivery URL locally before returning: fal CDN
+        # links are ephemeral, and chat renders the local file, never the
+        # remote URL. On any download failure we keep the bare URL rather
+        # than fail the turn.
+        try:
+            from agent.video_gen_provider import save_url_video
+
+            url = str(save_url_video(url))
+        except Exception as exc:  # noqa: BLE001 — bare-URL fallback
+            logger.warning("Could not cache generated video locally: %s", exc)
+
         extra: Dict[str, Any] = {"endpoint": endpoint, "upscaled": upscaled}
         if upscaled:
             extra["upscale_factor"] = UPSCALER_FACTOR
@@ -1088,7 +1143,7 @@ class FALVideoGenProvider(VideoGenProvider):
             if video.get("content_type"):
                 extra["content_type"] = video["content_type"]
 
-        return success_response(
+        result_payload = success_response(
             video=url,
             model=family_id,
             prompt=prompt,
@@ -1098,6 +1153,14 @@ class FALVideoGenProvider(VideoGenProvider):
             provider="fal",
             extra=extra,
         )
+        # Public builds: the result JSON feeds chat rendering — provider,
+        # endpoint, and model id stay internal-only.
+        from agent.okvevo_gateway import nia_is_internal_channel
+
+        if not nia_is_internal_channel():
+            for key in ("provider", "endpoint", "model"):
+                result_payload.pop(key, None)
+        return result_payload
 
 
 # ---------------------------------------------------------------------------

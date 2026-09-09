@@ -107,6 +107,8 @@ export type GatewayEventPayload = {
   // approval.request (dangerous command / execute_code) — session-keyed
   command?: string
   description?: string
+  // The model's plain-language one-liner for the approval prompt (WS2).
+  intent?: string
   // False when a tirith content-security warning forbids a permanent allow.
   allow_permanent?: boolean
   smart_denied?: boolean
