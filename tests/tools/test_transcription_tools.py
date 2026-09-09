@@ -438,6 +438,30 @@ class TestTranscribeLocalExtended:
         assert result["success"] is False
         assert "CUDA out of memory" in result["error"]
 
+    def test_windows_auto_device_forces_cpu(self):
+        """Windows device=auto must not reach ctranslate2 autodetection."""
+        mock_whisper_cls = MagicMock(return_value=MagicMock())
+
+        with patch("tools.transcription_tools.platform.system", return_value="Windows"), \
+             patch("tools.transcription_tools._should_force_faster_whisper_cpu", return_value=False), \
+             patch("faster_whisper.WhisperModel", mock_whisper_cls):
+            from tools.transcription_tools import _load_local_whisper_model
+            _load_local_whisper_model("base", device="auto", compute_type="auto")
+
+        mock_whisper_cls.assert_called_once_with("base", device="cpu", compute_type="int8")
+
+    def test_windows_explicit_cuda_device_is_forwarded(self):
+        """Explicit cuda on Windows stays user-owned (no auto rewrite)."""
+        mock_whisper_cls = MagicMock(return_value=MagicMock())
+
+        with patch("tools.transcription_tools.platform.system", return_value="Windows"), \
+             patch("tools.transcription_tools._should_force_faster_whisper_cpu", return_value=False), \
+             patch("faster_whisper.WhisperModel", mock_whisper_cls):
+            from tools.transcription_tools import _load_local_whisper_model
+            _load_local_whisper_model("base", device="cuda", compute_type="float16")
+
+        mock_whisper_cls.assert_called_once_with("base", device="cuda", compute_type="float16")
+
 
 # ============================================================================
 # Model auto-correction

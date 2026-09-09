@@ -1774,20 +1774,34 @@ def _load_local_whisper_model(model_name: str, device: str = "auto", compute_typ
 
     We try the requested config first (fast CUDA path when it works), and on
     any CUDA library load failure fall back to CPU + int8.
+
+    On Windows, ``device="auto"`` is rewritten to CPU before WhisperModel is
+    constructed: ctranslate2's CUDA autodetection can hard-abort the process
+    (same class as Darwin Apple Silicon/Rosetta). Explicit ``cuda`` / ``cpu``
+    are left alone so users with a working NVIDIA stack can still opt in.
     """
     force_cpu = _should_force_faster_whisper_cpu()
+    # Windows auto → CPU: never hand "auto" to ctranslate2 here; its probe
+    # can abort before Python can catch. Explicit device stays user-owned.
+    if (
+        not force_cpu
+        and str(device or "auto").strip().lower() == "auto"
+        and platform.system() == "Windows"
+    ):
+        force_cpu = True
     if force_cpu:
         # Importing ctranslate2/faster-whisper itself can abort on some
-        # Apple Silicon/Rosetta installs because multiple Intel OpenMP runtimes
-        # are already loaded.  Set this before importing faster_whisper so the
-        # gateway survives, then keep inference on CPU to avoid device probing.
+        # Apple Silicon/Rosetta (and some Windows) installs because multiple
+        # Intel OpenMP runtimes are already loaded.  Set this before importing
+        # faster_whisper so the gateway survives, then keep inference on CPU
+        # to avoid device probing.
         os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
     from faster_whisper import WhisperModel
     if force_cpu:
         logger.info(
-            "Apple Silicon/Rosetta detected — loading faster-whisper on CPU "
-            "(int8) to avoid native device autodetection crashes"
+            "forcing faster-whisper onto CPU (int8) to avoid native device "
+            "autodetection crashes"
         )
         return WhisperModel(model_name, device="cpu", compute_type="int8")
 
