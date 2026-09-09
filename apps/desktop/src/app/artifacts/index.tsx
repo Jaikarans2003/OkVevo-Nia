@@ -6,7 +6,6 @@ import { TitlebarIcon } from '@/app/shell/titlebar-icon'
 import { ZoomableImage } from '@/components/chat/zoomable-image'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
-import { CopyButton } from '@/components/ui/copy-button'
 import {
   Pagination,
   PaginationButton,
@@ -24,9 +23,7 @@ import { resolveBrandIcon } from '@/lib/brand-icon'
 import {
   ExternalLink,
   ExternalLinkIcon,
-  hostPathLabel,
   shortHostLabel,
-  urlSlugTitleLabel,
   useLinkTitle
 } from '@/lib/external-link'
 import { FileImage, FileText, FolderOpen, Link2 } from '@/lib/icons'
@@ -525,7 +522,6 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
           <div className="truncate text-[length:var(--conversation-caption-font-size)] font-medium">
             {artifact.label}
           </div>
-          <div className="mt-0.5 truncate text-[0.625rem] text-(--ui-text-tertiary)">{artifact.value}</div>
         </div>
 
         <div className="truncate text-[0.625rem] text-(--ui-text-tertiary)">
@@ -585,7 +581,8 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
   const brand = isLink ? resolveBrandIcon(shortHostLabel(artifact.href)) : null
   const Icon = brand ?? (isLink ? Link2 : FileText)
   const fetchedTitle = useLinkTitle(isLink ? artifact.href : null)
-  const label = isLink ? fetchedTitle || urlSlugTitleLabel(artifact.href) : artifact.label
+  // Basename / fetched page title only — never host+path or raw URL text.
+  const label = isLink ? fetchedTitle || artifact.label : artifact.label
 
   return (
     <ArtifactCellAction
@@ -601,37 +598,6 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
         {isLink && <ExternalLinkIcon />}
       </span>
     </ArtifactCellAction>
-  )
-})
-
-const LocationCell = memo(function LocationCell({ artifact }: { artifact: ArtifactRecord; ctx: CellCtx }) {
-  const { t } = useI18n()
-  const isLink = artifact.kind === 'link'
-  const value = isLink ? hostPathLabel(artifact.value) : artifact.value
-  const copyLabel = isLink ? t.artifacts.copyUrl : t.artifacts.copyPath
-
-  return (
-    <div className="group/location flex min-w-0 items-center gap-1.5">
-      <Tip label={artifact.value}>
-        <div
-          className={cn(
-            'min-w-0 flex-1 truncate text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)',
-            isLink ? 'font-normal' : 'font-mono'
-          )}
-        >
-          {value}
-        </div>
-      </Tip>
-      <CopyButton
-        appearance="icon"
-        buttonSize="icon-xs"
-        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/location:opacity-100"
-        iconClassName="size-3.5"
-        label={copyLabel}
-        text={artifact.value}
-        title={copyLabel}
-      />
-    </div>
   )
 })
 
@@ -655,22 +621,14 @@ const ARTIFACT_COLUMNS: readonly ArtifactColumn[] = [
     header: (filter, a) =>
       filter === 'link' ? a.colTitleLink : filter === 'file' ? a.colTitleFile : a.colTitleDefault,
     id: 'primary',
-    width: filter => (filter === 'link' ? 'w-[50%]' : 'w-[35%]')
-  },
-  {
-    Cell: LocationCell,
-    bodyClassName: 'px-2.5 py-1.5',
-    header: (filter, a) =>
-      filter === 'link' ? a.colLocationLink : filter === 'file' ? a.colLocationFile : a.colLocationDefault,
-    id: 'location',
-    width: filter => (filter === 'link' ? 'w-[30%]' : 'w-[41%]')
+    width: filter => (filter === 'link' ? 'w-[70%]' : 'w-[65%]')
   },
   {
     Cell: SessionCell,
     bodyClassName: 'p-0',
     header: (_filter, a) => a.colSession,
     id: 'session',
-    width: filter => (filter === 'link' ? 'w-[20%]' : 'w-[24%]')
+    width: filter => (filter === 'link' ? 'w-[30%]' : 'w-[35%]')
   }
 ]
 

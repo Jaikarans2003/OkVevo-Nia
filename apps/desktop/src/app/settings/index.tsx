@@ -102,11 +102,11 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
     (showProvidersByok ? 'config:model' : PUBLIC_FALLBACK_SETTINGS_VIEW) as SettingsViewId
   )
 
-  const bounceToAppearance = !showProvidersByok && !isSettingsViewVisible(activeView)
+  const bounceToFallback = !showProvidersByok && !isSettingsViewVisible(activeView)
 
   // Connections merged into the unified Gateways page: land old
   // `?tab=connections` routes/bookmarks there instead of a dead entry.
-  // Public bounces `connections` straight to Appearance — skip the alias.
+  // Public bounces `connections` straight to Billing — skip the alias.
   useEffect(() => {
     if (activeView === 'connections' && isSettingsViewVisible('connections')) {
       setActiveView('gateway')
@@ -114,12 +114,13 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   }, [activeView, setActiveView])
 
   // Public channel: hidden tabs (Providers, Gateways, Keyboard Shortcuts,
-  // Memory, Plugins, Model/Chat/Workspace) bounce to Appearance so deep links cannot resurrect them.
+  // Memory, Plugins, Model/Chat/Workspace/Appearance, Tools & Keys) bounce to
+  // Billing so deep links cannot resurrect them.
   useEffect(() => {
-    if (bounceToAppearance) {
+    if (bounceToFallback) {
       setActiveView(PUBLIC_FALLBACK_SETTINGS_VIEW)
     }
-  }, [bounceToAppearance, setActiveView])
+  }, [bounceToFallback, setActiveView])
   // Providers subnav (Accounts vs API keys) lives in its own param so each
   // sub-view is deep-linkable and survives a refresh.
   const [providerView, setProviderView] = useRouteEnumParam<ProviderView>('pview', PROVIDER_VIEWS, 'accounts')
@@ -274,29 +275,33 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
             }
           ]
         : []),
-      {
-        active: activeView === 'keys',
-        children: [
-          {
-            active: activeView === 'keys' && keysView === 'tools',
-            icon: Wrench,
-            id: 'kview:tools',
-            label: t.settings.nav.keysTools,
-            onSelect: () => openKeysView('tools')
-          },
-          {
-            active: activeView === 'keys' && keysView === 'settings',
-            icon: Settings2,
-            id: 'kview:settings',
-            label: t.settings.nav.keysSettings,
-            onSelect: () => openKeysView('settings')
-          }
-        ],
-        icon: KeyRound,
-        id: 'keys',
-        label: t.settings.nav.apiKeys,
-        onSelect: () => setActiveView('keys')
-      },
+      ...(isSettingsViewVisible('keys')
+        ? [
+            {
+              active: activeView === 'keys',
+              children: [
+                {
+                  active: activeView === 'keys' && keysView === 'tools',
+                  icon: Wrench,
+                  id: 'kview:tools',
+                  label: t.settings.nav.keysTools,
+                  onSelect: () => openKeysView('tools')
+                },
+                {
+                  active: activeView === 'keys' && keysView === 'settings',
+                  icon: Settings2,
+                  id: 'kview:settings',
+                  label: t.settings.nav.keysSettings,
+                  onSelect: () => openKeysView('settings')
+                }
+              ],
+              icon: KeyRound,
+              id: 'keys',
+              label: t.settings.nav.apiKeys,
+              onSelect: () => setActiveView('keys')
+            }
+          ]
+        : []),
       ...(isSettingsViewVisible('plugins')
         ? [
             {
@@ -410,7 +415,9 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   )
 
   const activeSettingsContent =
-    bounceToAppearance || activeView === 'config:appearance' ? (
+    bounceToFallback || activeView === 'billing' ? (
+      <BillingSettings />
+    ) : activeView === 'config:appearance' ? (
       <AppearanceSettings />
     ) : activeView === 'about' ? (
       <AboutSettings />
@@ -439,8 +446,6 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
       <KeysSettings view={keysView} />
     ) : activeView === 'notifications' ? (
       <NotificationsSettings />
-    ) : activeView === 'billing' ? (
-      <BillingSettings />
     ) : activeView === 'plugins' ? (
       <PluginsSettings />
     ) : (

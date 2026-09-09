@@ -2495,6 +2495,7 @@ export const ar = defineLocale({
       errorOpenDesktopLogs: 'فتح سجلات سطح المكتب',
       errorCopyDiagnostics: 'نسخ تفاصيل الخطأ',
       errorSendDiagnostics: 'إرسال التشخيصات',
+      errorHelpEmail: 'Need help? Email help@okvevo.com',
       filesChanged: count => `${count} ملفات تم تغييرها`,
       reviewChanges: 'مراجعة',
       readAloudFailed: 'فشلت القراءة بصوت عال',

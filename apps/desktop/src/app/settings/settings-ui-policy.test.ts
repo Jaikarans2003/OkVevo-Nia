@@ -99,17 +99,17 @@ describe('settings UI policy filters', () => {
     expect(HIDDEN_APPEARANCE_SETTING_IDS.has('appearance.embeds')).toBe(true)
   })
 
-  it('hides Model, Chat, Workspace, Memory and public Appearance rows only on public', () => {
+  it('hides Model, Chat, Workspace, Memory and Appearance only on public', () => {
     isByokChromeVisibleMock.mockReturnValue(false)
 
     expect(isConfigSectionVisible('model')).toBe(false)
     expect(isConfigSectionVisible('chat')).toBe(false)
     expect(isConfigSectionVisible('workspace')).toBe(false)
     expect(isConfigSectionVisible('memory')).toBe(false)
-    expect(isConfigSectionVisible('appearance')).toBe(true)
+    expect(isConfigSectionVisible('appearance')).toBe(false)
     expect(isConfigSectionVisible('safety')).toBe(true)
     expect(isConfigSectionVisible('voice')).toBe(true)
-    expect(PUBLIC_FALLBACK_SETTINGS_VIEW).toBe('config:appearance')
+    expect(PUBLIC_FALLBACK_SETTINGS_VIEW).toBe('billing')
 
     expect(isAppearanceSettingVisible('appearance.language')).toBe(false)
     expect(isAppearanceSettingVisible('appearance.session-density')).toBe(false)
@@ -119,17 +119,18 @@ describe('settings UI policy filters', () => {
     expect(isAppearanceSettingVisible('appearance.translucency')).toBe(false)
   })
 
-  it('hides Gateways, Keyboard Shortcuts, Command Allowlist, Redact Secrets, and Advanced schema keys only on public', () => {
+  it('hides Gateways, Keyboard Shortcuts, Tools & Keys, Command Allowlist, Redact Secrets, and Advanced schema keys only on public', () => {
     isByokChromeVisibleMock.mockReturnValue(false)
 
     expect(isSettingsViewVisible('gateway')).toBe(false)
     expect(isSettingsViewVisible('connections')).toBe(false)
     expect(isSettingsViewVisible('keybinds')).toBe(false)
+    expect(isSettingsViewVisible('keys')).toBe(false)
     expect(isSettingsViewVisible('providers')).toBe(false)
     expect(isSettingsViewVisible('plugins')).toBe(false)
     expect(isSettingsViewVisible('config:memory')).toBe(false)
     expect(isSettingsViewVisible('config:model')).toBe(false)
-    expect(isSettingsViewVisible('config:appearance')).toBe(true)
+    expect(isSettingsViewVisible('config:appearance')).toBe(false)
     expect(isSettingsViewVisible('config:voice')).toBe(true)
     expect(isSettingsViewVisible('billing')).toBe(true)
     expect(isSettingsViewVisible('config:safety')).toBe(true)
@@ -153,11 +154,14 @@ describe('settings UI policy filters', () => {
     expect(isConfigKeyVisible('voice.max_recording_seconds')).toBe(true)
   })
 
-  it('keeps Gateways, Keyboard Shortcuts, Plugins, and public-hidden keys visible on the internal channel', () => {
+  it('keeps Gateways, Keyboard Shortcuts, Tools & Keys, Plugins, Appearance, and public-hidden keys visible on the internal channel', () => {
     expect(isSettingsViewVisible('gateway')).toBe(true)
     expect(isSettingsViewVisible('keybinds')).toBe(true)
+    expect(isSettingsViewVisible('keys')).toBe(true)
     expect(isSettingsViewVisible('providers')).toBe(true)
     expect(isSettingsViewVisible('plugins')).toBe(true)
+    expect(isSettingsViewVisible('config:appearance')).toBe(true)
+    expect(isConfigSectionVisible('appearance')).toBe(true)
     expect(isConfigKeyVisible('command_allowlist')).toBe(true)
     expect(isConfigKeyVisible('security.redact_secrets')).toBe(true)
     expect(isConfigKeyVisible('toolsets')).toBe(true)

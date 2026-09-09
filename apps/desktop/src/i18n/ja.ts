@@ -2810,6 +2810,7 @@ export const ja = defineLocale({
       errorOpenDesktopLogs: 'デスクトップのログを開く',
       errorCopyDiagnostics: 'エラー詳細をコピー',
       errorSendDiagnostics: '診断情報を送信',
+      errorHelpEmail: 'Need help? Email help@okvevo.com',
       filesChanged: count => `${count} 件のファイルを変更`,
       reviewChanges: 'レビュー',
       readAloudFailed: '読み上げに失敗しました',

@@ -2717,6 +2717,7 @@ export const zhHant = defineLocale({
       errorOpenDesktopLogs: '開啟桌面端日誌',
       errorCopyDiagnostics: '複製錯誤詳細資訊',
       errorSendDiagnostics: '傳送診斷資訊',
+      errorHelpEmail: 'Need help? Email help@okvevo.com',
       filesChanged: count => `${count} 個檔案已變更`,
       reviewChanges: '檢視',
       readAloudFailed: '朗讀失敗',

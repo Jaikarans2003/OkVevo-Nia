@@ -392,11 +392,11 @@ export function ChatBar({
     stashAt
   })
 
-  // Resting / reconnecting / starting placeholder. Normal window loops every
-  // sentence forward then back with an orange caret overlay; HUD stays static.
+  // Resting / reconnecting / starting placeholder. Splash (centered intro)
+  // loops every sentence; docked / popout / HUD stay on a static phrase.
   const { looping: placeholderLooping, text: placeholder } = useComposerPlaceholder({
     disabled,
-    loop: !hudMode,
+    loop: splashColumn,
     reconnecting,
     sessionId
   })

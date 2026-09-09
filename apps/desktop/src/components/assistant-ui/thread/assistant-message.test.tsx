@@ -6,7 +6,8 @@
 // supplied, matching how onDismissError/onRestoreToMessage already behave.
 import { AssistantRuntimeProvider, type ThreadMessage, useExternalStoreRuntime } from '@assistant-ui/react'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { MemoryRouter } from 'react-router'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $displayTimestamps } from '@/store/display-timestamps'
 
@@ -15,6 +16,12 @@ import { stubThreadEnvironment } from '../test-utils'
 import { formatTimelineRange, formatTimelineTimestamp } from './timestamp'
 
 import { Thread } from '.'
+
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 
 // Timeline timestamps render only when `display.timestamps` is enabled.
 $displayTimestamps.set(true)
@@ -25,6 +32,14 @@ stubThreadEnvironment()
 
 afterEach(() => {
   cleanup()
+})
+
+beforeEach(() => {
+  isByokChromeVisible.mockReturnValue(true)
+  window.hermesDesktop = {
+    ...window.hermesDesktop,
+    logsRoot: async () => '/tmp/logs'
+  } as Window['hermesDesktop']
 })
 
 function userMessage(): ThreadMessage {
@@ -68,6 +83,25 @@ function assistantMessage(): ThreadMessage {
   } as unknown as ThreadMessage
 }
 
+function assistantErrorMessage(): ThreadMessage {
+  return {
+    id: 'assistant-error-1',
+    role: 'assistant',
+    content: [],
+    status: { type: 'incomplete', reason: 'error', error: 'Provider rejected the request.' },
+    createdAt,
+    metadata: {
+      unstable_state: null,
+      unstable_annotations: [],
+      unstable_data: [],
+      steps: [],
+      custom: {
+        errorSurface: { layer: 'provider', retryable: true }
+      }
+    }
+  } as unknown as ThreadMessage
+}
+
 function Harness({
   assistant = assistantMessage(),
   onBranchInNewChat
@@ -82,9 +116,11 @@ function Harness({
   })
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <Thread onBranchInNewChat={onBranchInNewChat} />
-    </AssistantRuntimeProvider>
+    <MemoryRouter>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <Thread onBranchInNewChat={onBranchInNewChat} />
+      </AssistantRuntimeProvider>
+    </MemoryRouter>
   )
 }
 
@@ -104,6 +140,33 @@ describe('AssistantMessage branch button visibility (bug #2 fix)', () => {
     await screen.findByText('done')
 
     expect(screen.queryByRole('button', { name: 'Branch in new chat' })).toBeNull()
+  })
+})
+
+describe('ErrorRecoveryActions channel chrome', () => {
+  it('keeps Switch provider / Open logs / Copy error details on internal', async () => {
+    render(<Harness assistant={assistantErrorMessage()} />)
+
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Switch provider' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open logs' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy error details' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Send diagnostics' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /help@okvevo\.com/i })).toBeNull()
+  })
+
+  it('shows help email only on public (hides Switch provider / Open logs / Copy)', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    render(<Harness assistant={assistantErrorMessage()} />)
+
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open logs' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy error details' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Send diagnostics' })).toBeNull()
+
+    const help = screen.getByRole('link', { name: /help@okvevo\.com/i })
+    expect(help.getAttribute('href')).toBe('mailto:help@okvevo.com')
   })
 })
 

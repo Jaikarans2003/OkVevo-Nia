@@ -3191,6 +3191,7 @@ export const en: Translations = {
       errorOpenDesktopLogs: 'Open Desktop logs',
       errorCopyDiagnostics: 'Copy error details',
       errorSendDiagnostics: 'Send diagnostics',
+      errorHelpEmail: 'Need help? Email help@okvevo.com',
       filesChanged: count => (count === 1 ? '1 file changed' : `${count} files changed`),
       reviewChanges: 'Review',
       readAloudFailed: 'Read aloud failed',

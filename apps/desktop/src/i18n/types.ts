@@ -2764,6 +2764,7 @@ export interface Translations {
       errorOpenDesktopLogs: string
       errorCopyDiagnostics: string
       errorSendDiagnostics: string
+      errorHelpEmail: string
       filesChanged: (count: number) => string
       reviewChanges: string
       readAloudFailed: string

@@ -153,6 +153,17 @@ function looksLikeArtifact(value: string): boolean {
   return looksLikePathOrUrl(value) && (IMAGE_EXT_RE.test(value) || FILE_EXT_RE.test(value))
 }
 
+/** Fal CDN hosts — never surface these as Artifacts pane rows (path/URL leak). */
+export function isFalCdnArtifact(value: string): boolean {
+  try {
+    const host = new URL(value).hostname.toLowerCase()
+
+    return host === 'fal.media' || host.endsWith('.fal.media') || host === 'fal.ai' || host.endsWith('.fal.ai')
+  } catch {
+    return false
+  }
+}
+
 function artifactKind(value: string): ArtifactKind {
   if (value.startsWith('data:image/') || IMAGE_EXT_RE.test(value)) {
     return 'image'
@@ -403,7 +414,7 @@ export function collectArtifactsForSession(session: SessionInfo, messages: Sessi
     collectArtifactsFromMessage(message, candidate => {
       const value = normalizeValue(candidate)
 
-      if (!value || !looksLikeArtifact(value)) {
+      if (!value || !looksLikeArtifact(value) || isFalCdnArtifact(value)) {
         return
       }
 

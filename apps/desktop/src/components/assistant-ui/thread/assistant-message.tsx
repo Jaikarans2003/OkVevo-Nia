@@ -559,8 +559,10 @@ const ErrorRecoveryActions: FC = () => {
           </button>
         </ActionBarPrimitive.Reload>
       )}
-      {showSwitchProvider && inRouter && <SwitchProviderAction label={copy.errorSwitchProvider} />}
-      {window.hermesDesktop?.logsRoot && (
+      {isByokChromeVisible() && showSwitchProvider && inRouter && (
+        <SwitchProviderAction label={copy.errorSwitchProvider} />
+      )}
+      {isByokChromeVisible() && window.hermesDesktop?.logsRoot && (
         <button className="aui-error-action" onClick={() => void openLogs()} type="button">
           {remoteConnection ? copy.errorOpenDesktopLogs : copy.errorOpenLogs}
         </button>
@@ -573,12 +575,18 @@ const ErrorRecoveryActions: FC = () => {
           {copy.errorSendDiagnostics}
         </button>
       )}
-      <CopyButton
-        appearance="inline"
-        className="aui-error-action"
-        label={copy.errorCopyDiagnostics}
-        text={diagnosticsText}
-      />
+      {isByokChromeVisible() ? (
+        <CopyButton
+          appearance="inline"
+          className="aui-error-action"
+          label={copy.errorCopyDiagnostics}
+          text={diagnosticsText}
+        />
+      ) : (
+        <a className="aui-error-action" href="mailto:help@okvevo.com">
+          {copy.errorHelpEmail}
+        </a>
+      )}
     </div>
   )
 }

@@ -111,35 +111,39 @@ export function useSettingsSearchCatalog(enabled: boolean) {
   const appearanceContext = t.settings.sections.appearance
   const appearance = t.settings.appearance
 
-  const appearanceEntries: SettingsSearchEntry[] = [
-    {
-      context: appearanceContext,
-      description: t.language.description,
-      icon: Palette,
-      id: `setting:${APPEARANCE_SETTING_IDS.language}`,
-      keywords: ['locale'],
-      label: t.language.label,
-      target: { setting: APPEARANCE_SETTING_IDS.language, view: 'config:appearance' }
-    },
-    {
-      context: appearanceContext,
-      description: appearance.toolViewDesc,
-      icon: Palette,
-      id: `setting:${APPEARANCE_SETTING_IDS.toolView}`,
-      keywords: ['tool display', 'technical'],
-      label: appearance.toolViewTitle,
-      target: { setting: APPEARANCE_SETTING_IDS.toolView, view: 'config:appearance' }
-    }
-  ].filter(entry => isAppearanceSettingVisible(entry.target.setting ?? ''))
+  const appearanceEntries: SettingsSearchEntry[] = isSettingsViewVisible('config:appearance')
+    ? [
+        {
+          context: appearanceContext,
+          description: t.language.description,
+          icon: Palette,
+          id: `setting:${APPEARANCE_SETTING_IDS.language}`,
+          keywords: ['locale'],
+          label: t.language.label,
+          target: { setting: APPEARANCE_SETTING_IDS.language, view: 'config:appearance' }
+        },
+        {
+          context: appearanceContext,
+          description: appearance.toolViewDesc,
+          icon: Palette,
+          id: `setting:${APPEARANCE_SETTING_IDS.toolView}`,
+          keywords: ['tool display', 'technical'],
+          label: appearance.toolViewTitle,
+          target: { setting: APPEARANCE_SETTING_IDS.toolView, view: 'config:appearance' }
+        }
+      ].filter(entry => isAppearanceSettingVisible(entry.target.setting ?? ''))
+    : []
 
-  const credentialEntries = buildCredentialSearchEntries(
-    envVarsFetching || envVarsError ? null : envVars,
-    {
-      settings: t.settings.nav.keysSettings,
-      tools: t.settings.nav.keysTools
-    },
-    { settings: Settings2, tools: Wrench }
-  )
+  const credentialEntries = isSettingsViewVisible('keys')
+    ? buildCredentialSearchEntries(
+        envVarsFetching || envVarsError ? null : envVars,
+        {
+          settings: t.settings.nav.keysSettings,
+          tools: t.settings.nav.keysTools
+        },
+        { settings: Settings2, tools: Wrench }
+      )
+    : []
 
   return {
     appearanceEntries,

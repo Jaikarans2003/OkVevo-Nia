@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { renameSession } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { triggerHaptic } from '@/lib/haptics'
 import { PROFILE_SWATCHES } from '@/lib/profile-color'
 import { exportSession } from '@/lib/session-export'
@@ -257,7 +258,8 @@ function useSessionActions({
     // The user's OWN terminal, not the in-app pane: resumes the session in the
     // TUI. Hidden on a remote connection — the emulator we'd open runs on this
     // machine while the session (and its runtime) lives on the remote host.
-    ...(canOpenSessionInTerminal() && !isRemote
+    // Public builds: internal/debug chrome only.
+    ...(isByokChromeVisible() && canOpenSessionInTerminal() && !isRemote
       ? [
           spec({
             disabled: !sessionId,
@@ -347,15 +349,19 @@ function useSessionActions({
         onBranch?.()
       }
     }),
-    spec({
-      disabled: !sessionId,
-      icon: 'cloud-download',
-      label: r.export,
-      onSelect: () => {
-        triggerHaptic('selection')
-        void exportSession(sessionId, { profile, title })
-      }
-    })
+    ...(isByokChromeVisible()
+      ? [
+          spec({
+            disabled: !sessionId,
+            icon: 'cloud-download',
+            label: r.export,
+            onSelect: () => {
+              triggerHaptic('selection')
+              void exportSession(sessionId, { profile, title })
+            }
+          })
+        ]
+      : [])
   ]
 
   // TAB — verbs that act on the strip (tabs only; a row isn't a tab).

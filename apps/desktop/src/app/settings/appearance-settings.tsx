@@ -105,21 +105,23 @@ export function AppearanceSettings() {
             />
           )}
 
-          <ListRow
-            action={
-              <SegmentedControl
-                onChange={id => {
-                  triggerHaptic('selection')
-                  setToolViewMode(id)
-                }}
-                options={toolOptions}
-                value={toolViewMode}
-              />
-            }
-            description={a.toolViewDesc}
-            id={appearanceSettingElementId(APPEARANCE_SETTING_IDS.toolView)}
-            title={a.toolViewTitle}
-          />
+          {isAppearanceSettingVisible(APPEARANCE_SETTING_IDS.toolView) && (
+            <ListRow
+              action={
+                <SegmentedControl
+                  onChange={id => {
+                    triggerHaptic('selection')
+                    setToolViewMode(id)
+                  }}
+                  options={toolOptions}
+                  value={toolViewMode}
+                />
+              }
+              description={a.toolViewDesc}
+              id={appearanceSettingElementId(APPEARANCE_SETTING_IDS.toolView)}
+              title={a.toolViewTitle}
+            />
+          )}
         </div>
       </div>
     </SettingsContent>

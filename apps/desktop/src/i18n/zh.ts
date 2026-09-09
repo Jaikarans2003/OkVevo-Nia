@@ -3350,6 +3350,7 @@ export const zh: Translations = {
       errorOpenDesktopLogs: '打开桌面端日志',
       errorCopyDiagnostics: '复制错误详情',
       errorSendDiagnostics: '发送诊断信息',
+      errorHelpEmail: 'Need help? Email help@okvevo.com',
       filesChanged: count => `${count} 个文件已更改`,
       reviewChanges: '查看',
       readAloudFailed: '朗读失败',

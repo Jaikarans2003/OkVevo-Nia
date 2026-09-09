@@ -56,14 +56,21 @@ export const HIDDEN_APPEARANCE_SETTING_IDS = new Set([
   'appearance.translucency'
 ])
 
-export const PUBLIC_HIDDEN_CONFIG_SECTION_IDS = new Set(['chat', 'memory', 'model', 'workspace'])
+export const PUBLIC_HIDDEN_CONFIG_SECTION_IDS = new Set([
+  'appearance',
+  'chat',
+  'memory',
+  'model',
+  'workspace'
+])
 
-export const PUBLIC_FALLBACK_SETTINGS_VIEW = 'config:appearance' as const
+export const PUBLIC_FALLBACK_SETTINGS_VIEW = 'billing' as const
 
 export const PUBLIC_HIDDEN_SETTINGS_VIEWS = new Set<SettingsView>([
   'connections',
   'gateway',
   'keybinds',
+  'keys',
   'plugins',
   'providers'
 ])

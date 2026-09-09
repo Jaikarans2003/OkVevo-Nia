@@ -39,15 +39,15 @@ describe('AppearanceSettings', () => {
     expect(screen.getByText('Desktop-only. Language, density, translucency, and chat chrome.')).toBeTruthy()
   })
 
-  it('shows Tool Call Display only on public', () => {
+  it('hides every Appearance control on public (section is nav-hidden via policy)', () => {
     isByokChromeVisible.mockReturnValue(false)
     renderAppearance()
 
     expect(screen.queryByText('Language')).toBeNull()
     expect(screen.queryByText('Session List Density')).toBeNull()
     expect(screen.queryByText('Tab Strip')).toBeNull()
+    expect(screen.queryByText('Tool Call Display')).toBeNull()
     expect(screen.queryByText('Desktop-only. Language, density, translucency, and chat chrome.')).toBeNull()
-    expect(screen.getByText('Tool Call Display')).toBeTruthy()
     expect(screen.getByText('Appearance')).toBeTruthy()
   })
 })

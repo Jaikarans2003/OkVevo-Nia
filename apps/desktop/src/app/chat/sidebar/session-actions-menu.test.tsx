@@ -1,15 +1,21 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { atom } from 'nanostores'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SessionActionsMenu, SessionContextMenu } from './session-actions-menu'
 
 afterEach(cleanup)
 
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+const canOpenSessionInTerminal = vi.hoisted(() => vi.fn(() => false))
+
 // Exercises the real SessionActionsMenu end-to-end (no DropdownMenu mock) so
 // a broken asChild composition on the kebab trigger fails here — the menu
 // must still open on click.
 
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 vi.mock('@/components/pane-shell/tree/store', () => ({
   closeAllTreeTabs: vi.fn(),
   closeOtherTreeTabs: vi.fn(),
@@ -55,6 +61,7 @@ vi.mock('@/i18n', () => ({
           export: 'Export',
           hideTabBar: 'Hide tab bar',
           markRead: 'Mark as read',
+          openInTerminal: 'Open in terminal',
           pin: 'Pin',
           rename: 'Rename',
           renameDesc: 'Leave empty to clear.',
@@ -104,13 +111,18 @@ vi.mock('@/store/session-states', () => ({
   openSessionTile: vi.fn()
 }))
 vi.mock('@/store/windows', () => ({
-  canOpenSessionInTerminal: () => false,
+  canOpenSessionInTerminal: () => canOpenSessionInTerminal(),
   canOpenSessionWindow: () => false,
   isBrowserWindow: () => false,
   isSecondaryWindow: () => false,
   openSessionInNewWindow: vi.fn(),
   openSessionInTerminal: vi.fn()
 }))
+
+beforeEach(() => {
+  isByokChromeVisible.mockReturnValue(true)
+  canOpenSessionInTerminal.mockReturnValue(false)
+})
 
 function renderMenu() {
   return render(
@@ -120,6 +132,16 @@ function renderMenu() {
       </button>
     </SessionActionsMenu>
   )
+}
+
+async function openMenu() {
+  const trigger = screen.getByRole('button', { name: 'Session actions' })
+
+  fireEvent.pointerDown(trigger, { button: 0, pointerType: 'mouse' })
+  fireEvent.pointerUp(trigger, { button: 0, pointerType: 'mouse' })
+  fireEvent.click(trigger)
+
+  return screen.findByRole('menu')
 }
 
 describe('SessionActionsMenu', () => {
@@ -140,6 +162,25 @@ describe('SessionActionsMenu', () => {
     expect(await screen.findByRole('menu')).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /rename/i })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /archive/i })).toBeTruthy()
+  })
+
+  it('shows Export and Open in terminal on the internal channel', async () => {
+    canOpenSessionInTerminal.mockReturnValue(true)
+    renderMenu()
+    await openMenu()
+
+    expect(screen.getByRole('menuitem', { name: /export/i })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /open in terminal/i })).toBeTruthy()
+  })
+
+  it('hides Export and Open in terminal on the public channel', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    canOpenSessionInTerminal.mockReturnValue(true)
+    renderMenu()
+    await openMenu()
+
+    expect(screen.queryByRole('menuitem', { name: /export/i })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /open in terminal/i })).toBeNull()
   })
 
   it('opens the rename dialog focused on its input, not the row trigger', async () => {
