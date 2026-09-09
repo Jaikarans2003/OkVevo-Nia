@@ -161,3 +161,28 @@ class _ManagedFalSyncClient:
             cancel_url=data["cancel_url"],
             client=self._http_client,
         )
+
+
+# ponytail: ceiling = inline base64 — data URLs over ~27M chars (~20MB raw)
+# are rejected to protect the managed gateway's ~32MB request-size limit
+# (Cloud Run). Upgrade path: an authenticated upload route on the OkVevo
+# gateway returning real fal CDN URLs, then drop this cap.
+_FAL_INLINE_DATA_URL_MAX_CHARS = 27 * 1000 * 1000
+
+
+def fal_fetchable_source(src, *, permitted=("image",)):
+    """Return a source Fal's servers can fetch: http(s)/data: pass through;
+    local paths are read via the shared resolver (credential-guarded,
+    size-capped) and inlined as data: URLs."""
+    from model_tools import _run_async  # noqa: WPS433 — same lazy pattern as _confine_source_images
+    from tools.image_source import SourceTooLarge, resolve_local_source_to_data_url
+
+    out = _run_async(resolve_local_source_to_data_url(src, None, permitted=permitted))
+    if isinstance(out, str) and out.startswith("data:") and len(out) > _FAL_INLINE_DATA_URL_MAX_CHARS:
+        raise SourceTooLarge(
+            "Source image is too large to inline for Fal submission "
+            f"({len(out) / 1_000_000:.0f}MB data URL; ~20MB raw max). "
+            "Provide an http(s) URL or a smaller file.",
+            src=str(src)[:200],
+        )
+    return out

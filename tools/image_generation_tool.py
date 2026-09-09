@@ -63,6 +63,7 @@ from tools.fal_common import (
     _ManagedFalSyncClient,
     _extract_http_status,
     _normalize_fal_queue_url_format,  # noqa: F401 — re-exported for tests
+    fal_fetchable_source,
 )
 from tools.managed_tool_gateway import resolve_managed_tool_gateway
 from tools.tool_backend_helpers import (
@@ -1260,6 +1261,23 @@ def image_generate_tool(
         for ref in reference_image_urls:
             if isinstance(ref, str) and ref.strip():
                 source_images.append(ref.strip())
+
+    # Fal fetch chokepoint: local paths must reach Fal as fetchable sources —
+    # Fal's servers cannot read the user's disk (422 file_download_error).
+    # http(s)/data: sources pass through unchanged, so this is a no-op for
+    # sources already converted by _confine_source_images (non-local backends).
+    if source_images:
+        from tools.image_source import ImageResolutionError
+
+        try:
+            source_images = [fal_fetchable_source(s) for s in source_images]
+        except ImageResolutionError as exc:
+            return json.dumps({
+                "success": False,
+                "image": None,
+                "error": f"Could not read source image: {exc}",
+                "error_type": type(exc).__name__,
+            }, indent=2, ensure_ascii=False)
 
     edit_endpoint = meta.get("edit_endpoint")
     use_edit = bool(source_images) and bool(edit_endpoint)

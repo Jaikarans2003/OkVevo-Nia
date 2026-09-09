@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from unittest.mock import Mock
 
 import pytest
@@ -502,6 +503,88 @@ class TestPayloadBuilder:
         )
         # Only prompt — no payload bloat for fields we can't verify
         assert p == {"prompt": "a horse galloping"}
+
+
+class TestFetchableSources:
+    """Local image paths must reach Fal as data: URLs — Fal's servers cannot
+    read the user's disk (422 file_download_error)."""
+
+    # 1x1 transparent PNG.
+    _PNG_BYTES = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+
+    @pytest.fixture
+    def with_fake_fal(self, monkeypatch):
+        import sys
+        import types
+
+        captured = {"endpoint": None, "arguments": None}
+
+        class FakeHandle:
+            def get(self):
+                return {"video": {"url": "https://fake/out.mp4"}}
+
+        fake = types.ModuleType("fal_client")
+        def _submit(endpoint, arguments=None, headers=None):
+            captured["endpoint"] = endpoint
+            captured["arguments"] = arguments
+            return FakeHandle()
+        fake.submit = _submit  # type: ignore
+        monkeypatch.setitem(sys.modules, "fal_client", fake)
+
+        from plugins.video_gen import fal as fal_plugin
+        fal_plugin._fal_client = None
+        fal_plugin._managed_fal_video_client = None
+        fal_plugin._managed_fal_video_client_config = None
+
+        monkeypatch.setenv("FAL_KEY", "test")
+        monkeypatch.setattr(fal_plugin, "_resolve_managed_fal_video_gateway", lambda: None)
+        return captured
+
+    def test_local_file_is_inlined_as_data_url(self, with_fake_fal, tmp_path):
+        from plugins.video_gen.fal import FALVideoGenProvider
+
+        src = tmp_path / "reference.png"
+        src.write_bytes(self._PNG_BYTES)
+        result = FALVideoGenProvider().generate(
+            "animate this", model="pixverse-v6", image_url=str(src),
+        )
+        assert result["success"] is True
+        assert with_fake_fal["arguments"]["image_url"].startswith("data:image/png;base64,")
+
+    def test_local_file_inlined_for_kling_start_image_url(self, with_fake_fal, tmp_path):
+        from plugins.video_gen.fal import FALVideoGenProvider
+
+        src = tmp_path / "reference.png"
+        src.write_bytes(self._PNG_BYTES)
+        result = FALVideoGenProvider().generate(
+            "animate this", model="kling-v3-4k", image_url=str(src),
+        )
+        assert result["success"] is True
+        assert with_fake_fal["arguments"]["start_image_url"].startswith("data:image/png;base64,")
+
+    def test_http_url_passes_through_unchanged(self, with_fake_fal):
+        from plugins.video_gen.fal import FALVideoGenProvider
+
+        result = FALVideoGenProvider().generate(
+            "animate this", model="pixverse-v6",
+            image_url="https://example.com/dog.png",
+        )
+        assert result["success"] is True
+        assert with_fake_fal["arguments"]["image_url"] == "https://example.com/dog.png"
+
+    def test_missing_file_errors_before_submit(self, with_fake_fal):
+        from plugins.video_gen.fal import FALVideoGenProvider
+
+        result = FALVideoGenProvider().generate(
+            "animate this", model="pixverse-v6",
+            image_url="/nonexistent/nope.png",
+        )
+        assert result["success"] is False
+        assert result["error_type"] == "source_unreadable"
+        assert "Could not read source image" in result["error"]
+        assert with_fake_fal["endpoint"] is None  # submit never called
 
 
 class TestUpscalePass:

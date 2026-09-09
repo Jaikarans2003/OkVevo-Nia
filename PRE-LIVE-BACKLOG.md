@@ -249,6 +249,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Public pack: Skills → TTS has no provider switcher; leftover `tts.provider=elevenlabs` becomes Edge after relaunch. |
 | **Notes** | Logged 2026-09-07 with Voice/Memory/Plugins public hide. Internal Voice Shortcut YAML (`voice.record_key`) still edits CLI, not desktop `composer.voice` — same ceiling, internal-only. |
 
+### [ ] OkVevo gateway upload route for large Fal reference files (>20MB)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live |
+| **Risk if skipped** | Local reference files are inlined as `data:` URLs (`tools/fal_common.fal_fetchable_source`) with a ~20MB raw ceiling (`_FAL_INLINE_DATA_URL_MAX_CHARS`, protects the Cloud Run ~32MB request limit). Larger refs are rejected with a clear "too large" error instead of working. Dashboard also shows inline base64 instead of real `v3.fal.media` URLs. |
+| **Scope** | OkVevo-Web gateway (new authenticated upload route); `tools/fal_common.py` (`fal_fetchable_source`, ponytail comment) |
+| **Fix** | Authenticated upload route on the OkVevo gateway that stores the file and returns a fetchable CDN URL; `fal_fetchable_source` calls it for local files over the inline ceiling instead of rejecting. |
+| **Verify** | Attach a >20MB reference image → image edit + i2v complete; Fal dashboard request input is a `v3.fal.media` URL, not base64. |
+| **Notes** | Logged 2026-09-09 with the local-file upload fix (data-URL inlining). Related: r2v multi-reference support for the FAL video plugin (`max_reference_images: 0` today) is tracked in the video-gen plan's out-of-scope list — don't duplicate it here. |
+
 ### [ ] Gateway reserved-job TTL sweeper
 
 | Field | Value |

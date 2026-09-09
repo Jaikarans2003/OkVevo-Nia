@@ -950,6 +950,21 @@ class FALVideoGenProvider(VideoGenProvider):
         # Route: image_url → image-to-video endpoint; else → text-to-video.
         image_url_norm = (image_url or "").strip() or None
         if image_url_norm:
+            # Fal fetch chokepoint: local paths must reach Fal as fetchable
+            # sources — Fal's servers cannot read the user's disk (422
+            # file_download_error). http(s)/data: pass through unchanged.
+            from tools.fal_common import fal_fetchable_source
+            from tools.image_source import ImageResolutionError
+
+            try:
+                image_url_norm = fal_fetchable_source(image_url_norm)
+            except ImageResolutionError as exc:
+                return error_response(
+                    error=f"Could not read source image: {exc}",
+                    error_type="source_unreadable",
+                    provider="fal", model=family_id, prompt=prompt,
+                )
+        if image_url_norm:
             endpoint = family.get("image_endpoint")
             modality_used = "image"
             if not endpoint:
