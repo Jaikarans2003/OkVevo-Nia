@@ -14,3 +14,8 @@ test('internal pack overrides macOS plist identity so helpers match the binary',
     'spaces in productName desync Electron Helper.app from MacOS/Nia'
   )
 })
+
+test('internal pack overrides NSIS identity so it does not collide with the public install', () => {
+  assert.ok(INTERNAL_ELECTRON_BUILDER_ARGS.includes('-c.nsis.shortcutName=NiaInternal'))
+  assert.ok(INTERNAL_ELECTRON_BUILDER_ARGS.includes('-c.nsis.uninstallDisplayName=Nia Internal'))
+})

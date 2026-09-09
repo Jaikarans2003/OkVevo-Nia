@@ -19,6 +19,11 @@ export const INTERNAL_ELECTRON_BUILDER_ARGS = [
   '-c.productName=NiaInternal',
   '-c.executableName=NiaInternal',
   '-c.artifactName=NiaInternal-${version}-${os}-${arch}.${ext}',
+  // Windows: package.json hardcodes nsis shortcutName/uninstallDisplayName to
+  // "Nia" — without these overrides the internal installer overwrites the
+  // public build's shortcut and both show as "Nia" in Add/Remove Programs.
+  '-c.nsis.shortcutName=NiaInternal',
+  '-c.nsis.uninstallDisplayName=Nia Internal',
   '-c.mac.extendInfo.CFBundleExecutable=NiaInternal',
   '-c.mac.extendInfo.CFBundleName=NiaInternal',
   '-c.mac.extendInfo.CFBundleDisplayName=Nia Internal'
