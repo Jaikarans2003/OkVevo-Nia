@@ -2189,7 +2189,7 @@ def _run_post_setup(post_setup_key: str):
             # 4.6.0 is the last working build. Mac/Linux resolve normally.
             _fw_specs = ["-U", "faster-whisper"]
             if sys.platform == "win32":
-                _fw_specs.append("ctranslate2==4.6.0")
+                _fw_specs.extend(["ctranslate2==4.6.0", "setuptools>=70,<81"])
             result = _pip_install([*_fw_specs, "--quiet"], timeout=300)
             if result.returncode == 0:
                 _print_success("    faster-whisper installed")
@@ -3681,7 +3681,7 @@ _RESTORABLE_PYTHON_TOOL_DEPENDENCIES: dict[str, tuple[str, tuple[str, ...]]] = {
     # (0xC0000005) constructing a Whisper model since the oneAPI 2025.3 bump.
     "faster_whisper": (
         "faster_whisper",
-        ("-U", "faster-whisper", "ctranslate2==4.6.0")
+        ("-U", "faster-whisper", "ctranslate2==4.6.0", "setuptools>=70,<81")
         if sys.platform == "win32"
         else ("-U", "faster-whisper"),
     ),

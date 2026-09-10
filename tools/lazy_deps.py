@@ -150,7 +150,7 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
         # last working build. Windows-only (Mac uses Accelerate, not MKL/oneDNN).
         # Lazy-dep specs cannot carry PEP 508 markers (_spec_is_safe rejects
         # ";"), so the platform gate is applied here in code.
-        *(("ctranslate2==4.6.0",) if sys.platform == "win32" else ()),
+        *(("ctranslate2==4.6.0", "setuptools>=70,<81") if sys.platform == "win32" else ()),
         "sounddevice==0.5.5",
         "numpy==2.4.3",
     ),
