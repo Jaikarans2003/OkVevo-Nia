@@ -1855,9 +1855,16 @@ def build_local_transcribe_kwargs(stt_config: Optional[Dict[str, Any]] = None) -
         "condition_on_previous_text": False,
     }
 
-    vad_enabled = local_cfg.get("vad", True)
-    if vad_enabled is None:
-        vad_enabled = True
+    # ponytail: Windows Silero VAD (onnxruntime) hard-crashes 0xC0000005 in
+    # managed desktop venvs, killing serve mid-dictate (desktop: ECONNRESET).
+    # Live config patches do not survive package+reinstall. Ceiling: VAD always
+    # off on win32. Upgrade: known-good onnxruntime, then honor stt.local.vad.
+    if platform.system() == "Windows":
+        vad_enabled = False
+    else:
+        vad_enabled = local_cfg.get("vad", True)
+        if vad_enabled is None:
+            vad_enabled = True
     if bool(vad_enabled):
         kwargs["vad_filter"] = True
         try:

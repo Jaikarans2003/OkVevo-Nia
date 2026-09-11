@@ -4,6 +4,8 @@ Pure-data leaf module: DEFAULT_CONFIG and OPTIONAL_ENV_VARS, extracted
 verbatim from hermes_cli/config.py. Must not import from hermes_cli.config.
 """
 
+import platform
+
 DEFAULT_CONFIG = {
     "model": "",
     "providers": {},
@@ -1912,7 +1914,10 @@ DEFAULT_CONFIG = {
             "initial_prompt": "",
             # Anti-hallucination hardening (faster-whisper decodes junk tokens
             # from silence/noise without these):
-            "vad": True,  # Silero VAD filter — silence never reaches whisper. false = old raw behavior (music/ambient).
+            # Silero VAD — silence never reaches whisper. Off by default on
+            # Windows: onnxruntime hard-crashes (0xC0000005) in managed venvs,
+            # which kills serve mid-dictate (ECONNRESET after package+reinstall).
+            "vad": platform.system() != "Windows",
             "vad_min_silence_ms": 500,  # min silence (ms) that splits speech chunks when vad is on
             "no_speech_prob_threshold": 0.6,  # drop a segment only if no_speech_prob is ABOVE this...
             "logprob_threshold": -1.0,  # ...AND its avg_logprob is BELOW this (both must hit)
