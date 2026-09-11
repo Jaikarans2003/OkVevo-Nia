@@ -454,6 +454,10 @@ declare global {
       ) => () => void
       startOkvevoSignIn?: () => Promise<{ ok: boolean; error?: string }>
       openOkvevoPortal?: (portalPath: string) => Promise<{ ok: boolean; error?: string }>
+      getOkvevoCustomToken?: () => Promise<
+        | { ok: true; customToken: string; uid: string }
+        | { ok: false; error?: string }
+      >
       signOutOkvevo?: () => Promise<{
         signedIn: boolean
         uid: string | null

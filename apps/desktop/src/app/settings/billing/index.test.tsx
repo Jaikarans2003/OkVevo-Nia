@@ -27,6 +27,19 @@ vi.mock('@/lib/build-channel', () => ({
   isByokChromeVisible
 }))
 
+const billingListenerMocks = vi.hoisted(() => ({
+  subscribeOkvevoUserBilling: vi.fn()
+}))
+
+vi.mock('@/lib/okvevo-billing-listener', () => ({
+  formatOkvevoBillingDescription: (data: {
+    planName: string | null
+    remainingPctLabel: string
+    additional: number
+  }) => `${data.planName || 'None'} · remaining ${data.remainingPctLabel} · additional ${data.additional} credits`,
+  subscribeOkvevoUserBilling: billingListenerMocks.subscribeOkvevoUserBilling
+}))
+
 const apiMocks = vi.hoisted(() => ({
   charge: vi.fn(),
   chargeStatus: vi.fn(),
@@ -75,10 +88,23 @@ beforeEach(() => {
   $okvevoAuth.set({ signedIn: false, uid: null, email: null, displayName: null })
   apiMocks.fetchBillingState.mockResolvedValue(okBilling(todayBillingState))
   apiMocks.fetchSubscriptionState.mockResolvedValue(okSubscription(todaySubscriptionState))
+  billingListenerMocks.subscribeOkvevoUserBilling.mockImplementation(async (_uid, _token, onData) => {
+    onData({
+      planName: 'Starter',
+      planStatus: 'active',
+      remainingPctLabel: '50%',
+      additional: 120,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false
+    })
+
+    return () => {}
+  })
   Object.defineProperty(window, 'hermesDesktop', {
     configurable: true,
     value: {
-      openExternal: apiMocks.openExternal
+      openExternal: apiMocks.openExternal,
+      getOkvevoCustomToken: vi.fn(async () => ({ ok: true, customToken: 'tok', uid: 'user-1' }))
     }
   })
 })
@@ -632,13 +658,14 @@ describe('BillingSettings', () => {
     expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
   })
 
-  it('keeps the Nia-credits placeholder without the Nous sentence on public when signed in', async () => {
+  it('shows live OkVevo billing without the Nous sentence on public when signed in', async () => {
     isByokChromeVisible.mockReturnValue(false)
     $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
 
     renderBilling()
 
-    expect(await screen.findByText('Nia credits will show here once billing is live.')).toBeTruthy()
+    expect(await screen.findByText('Starter · remaining 50% · additional 120 credits')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Add Credits/ })).toBeTruthy()
     expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
   })
 

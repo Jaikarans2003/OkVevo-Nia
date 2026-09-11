@@ -171,16 +171,27 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | 1) Release workflow with `OKVEVO_WEB_ORIGIN` unset → job fails. 2) Packaged app from a successful signed job: Sign In / Upgrade open that origin; `rg 'www.okvevo.com' apps/desktop/electron/okvevo-auth.ts agent/okvevo_gateway.py` → 0. 3) Packaged app with the var stripped still shows the visible missing-config dialog, not a silent domain. |
 | **Notes** | Logged 2026-09-05 with the env-centralize pass. Blocks first tagged release together with Mac notarize + Windows Authenticode. The signed-release pipeline is not built yet — this row exists so the injection is not forgotten among other gates. Env layout: [ENVIRONMENT.md](ENVIRONMENT.md). |
 
-### [ ] Razorpay webhook still seeds old subscription credits (not users.creditBalance)
+### [x] Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers
 
 | Field | Value |
 |-------|-------|
 | **Gate** | Required before live (portal billing SoT) |
-| **Risk if skipped** | After Phase 1, `/billing` reads `users.creditBalance` + top-level `creditTransactions`. Paid Razorpay invoices still write `users/{uid}/subscriptions.credits` only — portal shows **0** until Phase 3 rewires the webhook. |
-| **Scope** | `OkVevo-Web/src/app/api/razorpay/webhook/route.ts` (separate git tree from this repo) |
-| **Fix** | Phase 3.5 / Razorpay rework (not the LLM gateway pass): Admin grant to `users/{uid}.creditBalance` and top-level `creditTransactions` (`type: grant`). Stop treating subscription `credits` as SoT. No dual-read. |
-| **Verify** | `invoice.paid` increases `users/{uid}.creditBalance`; `/billing` history shows a grant row. Client cannot write `creditBalance`. |
-| **Notes** | Deferred 2026-09-04 with Phase 1 Firestore rules lock. Webhook intentionally untouched. |
+| **Risk if skipped** | Portal shows wrong remaining; renewals don't refresh allocation; yearly users stall between annual invoices; cancelled/halted users keep spending. |
+| **Scope** | `OkVevo-Web`: `types/credits.ts`, `config/razorpay.ts`, `lib/billing/allocation.ts`, `lib/gateway/reserve.ts`+`debit.ts`, `api/razorpay/webhook`, `api/cron/allocation-refresh`, `firestore.rules`, Pricing + `/billing`, desktop billing listener |
+| **Fix** | Two buckets on `users/{uid}`: `allocationBalance` (SET on activated + charged-if-due + daily cron) and `topUpBalance` (ADD on Payment Link `payment.captured`). FIFO debit. `invoice.paid` grants nothing. Cancel/paused/halted set `planStatus`. Spend requires `planStatus == 'active'`. |
+| **Verify** | `npx tsx src/types/credits.selfcheck.ts` + `npx tsx src/lib/gateway/reserve.selfcheck.ts`. Test-key E2E: monthly charged refresh, yearly daily cron, FIFO, live % Mac+Windows. |
+| **Notes** | Replaces the old “webhook seeds subscription.credits not creditBalance” row. Implemented 2026-09-11. |
+
+### [ ] Wire Cloud Scheduler → `/api/cron/allocation-refresh`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (yearly allocation) |
+| **Risk if skipped** | Yearly subscribers never get monthly allocation refreshes between annual invoices. |
+| **Scope** | Firebase project hosting App Hosting; Cloud Scheduler job; `CRON_SECRET` in App Hosting env |
+| **Fix** | Daily ~00:10 UTC HTTPS POST to `/api/cron/allocation-refresh` with `Authorization: Bearer CRON_SECRET`. Deploy composite index `planStatus + nextAllocationDate`. |
+| **Verify** | Manual POST with secret refreshes a due yearly test user; without secret → 401. |
+| **Notes** | Route exists; Scheduler wiring is ops (Karan). |
 
 ---
 
@@ -321,9 +332,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
-| Item | Closed | Commit / PR |
-|------|--------|-------------|
-| Gateway balance-check race (reserve before stream) | 2026-09-07 | pending commit. `reserveCredits` txn + `applyReserve`; `npx tsx src/lib/gateway/reserve.selfcheck.ts` — balance 100, two 80 estimates, second insufficient; extra debit never negative. Chat/Fal/Tavily all reserve then reconcile. Stuck Fal reserve → Nice-to-have TTL sweeper. |
+| Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers | 2026-09-11 | pending commit. Selfchecks: `credits.selfcheck`, `reserve.selfcheck` (FIFO 100+50 spend 120→0+30; Jan 31→Feb 28). Desktop vitest `okvevo-billing-listener.test.ts`. Ops remaining: Cloud Scheduler → `/api/cron/allocation-refresh` + `CRON_SECRET`. |
 | Settings → Gateway / OS keychain toggle | 2026-09-07 | pending commit. Public hides the whole Gateways tab (nav, palette, `?tab=gateway` / `connections` bounce to Appearance). Internal keeps the OS keychain toggle. |
 | Next.js 16.3 vs App Hosting Cloud Build adapter | 2026-09-05 | pending commit. `okvevo-web` live at `https://okvevo-web--okvevo-testing.us-central1.hosted.app`. Adapter compiled Next **16.3.3**. First Cloud Build fail was Razorpay module-load, not the adapter. |
 | Production LLM gateway SSE / Phase 3 checklist on App Hosting | 2026-09-05 | pending commit. Grant 10000 → streamed POST 200 `text/event-stream` + debit amount 1 (`creditBalance` 10000→9999) → zero-balance **402** `insufficient_quota` in 661ms. Signed-out BYOK: `test_okvevo_gateway.py` 8 passed. Cloud Run 300s unused; `minInstances` stayed 0. |

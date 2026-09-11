@@ -16821,6 +16821,37 @@ ipcMain.handle('hermes:okvevo-auth:sign-out', () => {
 
 ipcMain.handle('hermes:okvevo-auth:get', () => publicOkvevoAuthSnapshot(loadOkvevoAuthSession(_okvevoAuthStoreIo())))
 
+ipcMain.handle('hermes:okvevo-auth:custom-token', async () => {
+  const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+  if (!session?.refreshToken) {
+    return { ok: false }
+  }
+
+  const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
+
+  if (!origin) {
+    return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
+  }
+
+  try {
+    const body = (await postJsonNoAuth(`${origin.replace(/\/$/, '')}/api/auth/desktop/custom-token`, {
+      refreshToken: session.refreshToken
+    }, { timeoutMs: 15_000 })) as { customToken?: string; uid?: string }
+
+    const customToken = typeof body.customToken === 'string' ? body.customToken : ''
+    const uid = typeof body.uid === 'string' ? body.uid : ''
+
+    if (!customToken || !uid || uid !== session.uid) {
+      return { ok: false }
+    }
+
+    return { ok: true, customToken, uid }
+  } catch {
+    return { ok: false }
+  }
+})
+
 // ── Find-in-page (Ctrl/Cmd+F) ─────────────────────────────────────────────
 // The desktop supports multiple BrowserWindows (one primary plus any
 // per-session secondary windows spawned via `hermes:window:openSession`).

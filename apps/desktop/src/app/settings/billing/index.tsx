@@ -10,6 +10,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { isByokChromeVisible } from '@/lib/build-channel'
 import { BarChart3, CreditCard, ExternalLink, LogIn, Package, Wrench } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import {
+  formatOkvevoBillingDescription,
+  subscribeOkvevoUserBilling,
+  type OkvevoBillingData
+} from '@/lib/okvevo-billing-listener'
 import { useOkvevoAuth } from '@/store/okvevo-auth'
 
 import { useRouteEnumParam } from '../../hooks/use-route-enum-param'
@@ -60,6 +65,90 @@ type BillingFixtureSelection = 'live' | BillingDevFixtureName
 function OkvevoAccountChrome() {
   const auth = useOkvevoAuth()
   const showNousBillingCopy = isByokChromeVisible()
+  const [billing, setBilling] = useState<OkvevoBillingData | null>(null)
+  const [billingState, setBillingState] = useState<'idle' | 'loading' | 'live' | 'error'>('idle')
+
+  useEffect(() => {
+    if (!auth.signedIn || !auth.uid) {
+      setBilling(null)
+      setBillingState('idle')
+
+      return
+    }
+
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
+
+    setBillingState('loading')
+
+    void (async () => {
+      const tokenResult = await window.hermesDesktop?.getOkvevoCustomToken?.()
+
+      if (cancelled) {
+        return
+      }
+
+      if (!tokenResult?.ok || !tokenResult.customToken || tokenResult.uid !== auth.uid) {
+        setBilling(null)
+        setBillingState('error')
+
+        return
+      }
+
+      try {
+        unsubscribe = await subscribeOkvevoUserBilling(
+          auth.uid!,
+          tokenResult.customToken,
+          data => {
+            if (!cancelled) {
+              setBilling(data)
+              setBillingState('live')
+            }
+          },
+          () => {
+            if (!cancelled) {
+              setBilling(null)
+              setBillingState('error')
+            }
+          }
+        )
+      } catch {
+        if (!cancelled) {
+          setBilling(null)
+          setBillingState('error')
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [auth.signedIn, auth.uid])
+
+  const signedInDescription = (() => {
+    if (billingState === 'live' && billing) {
+      const line = formatOkvevoBillingDescription(billing)
+
+      return showNousBillingCopy ? `${line} Nous credits below are unchanged.` : line
+    }
+
+    if (billingState === 'loading') {
+      return showNousBillingCopy
+        ? 'Loading Nia credits… Nous credits below are unchanged.'
+        : 'Loading Nia credits…'
+    }
+
+    if (billingState === 'error') {
+      return showNousBillingCopy
+        ? 'Could not load Nia credits. Try again from the portal. Nous credits below are unchanged.'
+        : 'Could not load Nia credits. Try again from the portal.'
+    }
+
+    return showNousBillingCopy
+      ? 'Nia credits will show here once billing is live. Nous credits below are unchanged.'
+      : 'Nia credits will show here once billing is live.'
+  })()
 
   return (
     <SettingsSection icon={LogIn} title="OkVevo">
@@ -91,16 +180,14 @@ function OkvevoAccountChrome() {
               type="button"
               variant="outline"
             >
-              Upgrade
+              Add Credits
               <ExternalLink className="size-3.5" />
             </Button>
           </div>
         }
         description={
           auth.signedIn
-            ? showNousBillingCopy
-              ? 'Nia credits will show here once billing is live. Nous credits below are unchanged.'
-              : 'Nia credits will show here once billing is live.'
+            ? signedInDescription
             : showNousBillingCopy
               ? 'Sign in with your OkVevo account. Nous billing below is unchanged.'
               : 'Sign in with your OkVevo account.'

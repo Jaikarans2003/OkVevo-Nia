@@ -67,8 +67,10 @@ Secrets are never listed. “Testing source” is where the current testing valu
 | `OPENROUTER_API_KEY` | OkVevo-Web gateway `route.ts` / `pricing.ts`; optional hermes-agent BYOK | Server key for the LLM proxy (web) or user BYOK (desktop) | Secret Manager `OPENROUTER_API_KEY` |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `NEXT_PUBLIC_RAZORPAY_KEY_ID` | OkVevo-Web `env.ts` / `razorpay.ts` | Checkout + server API | Public key: yaml `value`. Server secrets: Secret Manager |
 | `RAZORPAY_STARTER_PLAN_ID` / `RAZORPAY_STARTER_ANNUAL_PLAN_ID` | `env.ts` | Starter plan ids | Razorpay test-mode plans. yaml `value` |
-| `RAZORPAY_HOBBY_PLAN_ID` / `RAZORPAY_HOBBY_ANNUAL_PLAN_ID` | `env.ts` | Hobby plan ids | yaml `value` |
 | `RAZORPAY_PRO_PLAN_ID` / `RAZORPAY_PRO_ANNUAL_PLAN_ID` | `env.ts` | Pro plan ids | yaml `value` |
+| `RAZORPAY_MAX_PLAN_ID` / `RAZORPAY_MAX_ANNUAL_PLAN_ID` | `env.ts` | Max plan ids (HOBBY_* accepted as fallback) | Test IDs in `.env.example` |
+| `CRON_SECRET` | `api/cron/allocation-refresh` | Bearer for daily allocation refresh | Secret Manager / App Hosting secret |
+| `VITE_OKVEVO_FIREBASE_API_KEY` / `AUTH_DOMAIN` / `PROJECT_ID` / `APP_ID` / `STORAGE_BUCKET` / `MESSAGING_SENDER_ID` | desktop `okvevo-firebase.ts` | Renderer Firestore onSnapshot | Same values as `NEXT_PUBLIC_FIREBASE_*` (bake at Vite build) |
 | `RAZORPAY_WEBHOOK_SECRET` | webhook route | HMAC verify | Secret Manager. Webhook URL must be the hosted.app origin |
 | `RAZORPAY_AFFILIATE_OFFER_ID` | create-subscription route | Affiliate offer | Razorpay test offer (optional) |
 | `ADMIN_EMAILS` | `firebase-admin.ts` | Admin claim fallback | yaml `value` |

@@ -125,6 +125,7 @@
     "electron-updater": "6.6.4",
     "emojibase-data": "16.0.3",
     "fflate": "0.8.3",
+    "firebase": "^12.19.0",
     "frimousse": "0.3.0",
     "hast-util-from-html-isomorphic": "2.0.0",
     "hast-util-to-text": "4.0.2",
