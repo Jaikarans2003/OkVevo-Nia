@@ -182,7 +182,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `npx tsx src/types/credits.selfcheck.ts` + `npx tsx src/lib/gateway/reserve.selfcheck.ts`. Test-key E2E: monthly charged refresh, yearly daily cron, FIFO, live % Mac+Windows. |
 | **Notes** | Replaces the old “webhook seeds subscription.credits not creditBalance” row. Implemented 2026-09-11. |
 
-### [ ] Wire Cloud Scheduler → `/api/cron/allocation-refresh`
+### [x] Wire Cloud Scheduler → `/api/cron/allocation-refresh`
 
 | Field | Value |
 |-------|-------|
@@ -191,11 +191,22 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | Firebase project hosting App Hosting; Cloud Scheduler job; `CRON_SECRET` in App Hosting env |
 | **Fix** | Daily ~00:10 UTC HTTPS POST to `/api/cron/allocation-refresh` with `Authorization: Bearer CRON_SECRET`. Deploy composite index `planStatus + nextAllocationDate`. |
 | **Verify** | Manual POST with secret refreshes a due yearly test user; without secret → 401. |
-| **Notes** | Route exists; Scheduler wiring is ops (Karan). |
+| **Notes** | Closed 2026-09-11: `nia-allocation-refresh` ENABLED `10 0 * * *` Etc/UTC; secrets in SM; index READY; Scheduler run-now → Cloud Logging HTTP 200. See `.cursor/plans/ops_billing_rollout_875b8a3c.plan.md`. |
 
 ---
 
 ## Should fix before live (lower severity)
+
+### [ ] Connect GitHub repo to App Hosting backend `okvevo-web`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live (ops) |
+| **Risk if skipped** | `okvevo-web` has no connected repository — `git push` to `OkVevo-Web` does not auto-roll. Releases rely on `firebase deploy --only apphosting` (local source). Easy to ship code to GitHub and forget to redeploy the live portal. |
+| **Scope** | Firebase Console → App Hosting → `okvevo-web` → connect `Jaikarans2003/OkVevo-Web` (branch `main`) |
+| **Fix** | Connect repo + enable auto-rollouts on `main`. Confirm `apphosting:rollouts:create --git-commit` works. Keep local `firebase deploy --only apphosting` as fallback. |
+| **Verify** | Push a no-op commit to `main` → App Hosting build starts; backend Repository column non-empty. |
+| **Notes** | Logged 2026-09-11 during ops billing rollout. |
 
 ### [ ] Audit Tailwind rounded-* vs --radius-scalar 0.2
 
@@ -332,7 +343,8 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
-| Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers | 2026-09-11 | pending commit. Selfchecks: `credits.selfcheck`, `reserve.selfcheck` (FIFO 100+50 spend 120→0+30; Jan 31→Feb 28). Desktop vitest `okvevo-billing-listener.test.ts`. Ops remaining: Cloud Scheduler → `/api/cron/allocation-refresh` + `CRON_SECRET`. |
+| Wire Cloud Scheduler → `/api/cron/allocation-refresh` | 2026-09-11 | `nia-allocation-refresh` ENABLED; SM secrets + grantaccess; local apphosting deploy; Scheduler run-now → HTTP 200. Plan: `ops_billing_rollout_875b8a3c`. |
+| Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers | 2026-09-11 | pending commit. Selfchecks: `credits.selfcheck`, `reserve.selfcheck` (FIFO 100+50 spend 120→0+30; Jan 31→Feb 28). Desktop vitest `okvevo-billing-listener.test.ts`. Ops cron/secrets closed same day — see Scheduler row above. |
 | Settings → Gateway / OS keychain toggle | 2026-09-07 | pending commit. Public hides the whole Gateways tab (nav, palette, `?tab=gateway` / `connections` bounce to Appearance). Internal keeps the OS keychain toggle. |
 | Next.js 16.3 vs App Hosting Cloud Build adapter | 2026-09-05 | pending commit. `okvevo-web` live at `https://okvevo-web--okvevo-testing.us-central1.hosted.app`. Adapter compiled Next **16.3.3**. First Cloud Build fail was Razorpay module-load, not the adapter. |
 | Production LLM gateway SSE / Phase 3 checklist on App Hosting | 2026-09-05 | pending commit. Grant 10000 → streamed POST 200 `text/event-stream` + debit amount 1 (`creditBalance` 10000→9999) → zero-balance **402** `insufficient_quota` in 661ms. Signed-out BYOK: `test_okvevo_gateway.py` 8 passed. Cloud Run 300s unused; `minInstances` stayed 0. |
