@@ -52,7 +52,7 @@ Secrets are never listed. “Testing source” is where the current testing valu
 
 | Name | Read by | Purpose | Testing source |
 |------|---------|---------|----------------|
-| `OKVEVO_WEB_ORIGIN` | hermes-agent `apps/desktop/electron/okvevo-auth.ts`, `backend-env.ts`; `agent/okvevo_gateway.py` | Portal origin for Sign In, Upgrade, LLM gateway | App Hosting `*.hosted.app` for backend `okvevo-web` on `okvevo-testing` |
+| `OKVEVO_WEB_ORIGIN` | hermes-agent `apps/desktop/electron/okvevo-auth.ts`, `backend-env.ts`; `agent/okvevo_gateway.py` | Portal origin for Sign In, billing (Change Plan / Cancel / Add Credits), LLM gateway | App Hosting `*.hosted.app` for backend `okvevo-web` on `okvevo-testing` |
 | `OKVEVO_FIREBASE_ID_TOKEN_FILE` | Electron sets; Python `okvevo_gateway.py` reads | Path to rotating Firebase ID token (0600) | Electron-injected (`$HERMES_HOME/okvevo-firebase-id-token`). Do not set unless overriding. |
 | `NEXT_PUBLIC_SITE_URL` | OkVevo-Web `src/config/env.ts` | SEO / metadataBase / OpenRouter HTTP-Referer | Same `*.hosted.app` origin (or localhost in local mode). `apphosting.yaml` `value`, BUILD+RUNTIME |
 | `ALLOWED_ORIGINS` | OkVevo-Web `env.ts` | CORS allowlist | Testing hosted.app origin + localhost when developing. `apphosting.yaml` `value` |
@@ -66,10 +66,13 @@ Secrets are never listed. “Testing source” is where the current testing valu
 | `FIREBASE_SERVICE_ACCOUNT_KEY` / `FB_SERVICE_ACCOUNT_KEY` | OkVevo-Web `src/lib/firebase-admin.ts` | Admin SDK (base64 JSON) | Secret Manager `FIREBASE_SERVICE_ACCOUNT_KEY`. Local alias `FB_SERVICE_ACCOUNT_KEY` |
 | `OPENROUTER_API_KEY` | OkVevo-Web gateway `route.ts` / `pricing.ts`; optional hermes-agent BYOK | Server key for the LLM proxy (web) or user BYOK (desktop) | Secret Manager `OPENROUTER_API_KEY` |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `NEXT_PUBLIC_RAZORPAY_KEY_ID` | OkVevo-Web `env.ts` / `razorpay.ts` | Checkout + server API | Public key: yaml `value`. Server secrets: Secret Manager |
-| `RAZORPAY_STARTER_PLAN_ID` / `RAZORPAY_STARTER_ANNUAL_PLAN_ID` | `env.ts` | Starter plan ids | Razorpay test-mode plans. yaml `value` |
-| `RAZORPAY_PRO_PLAN_ID` / `RAZORPAY_PRO_ANNUAL_PLAN_ID` | `env.ts` | Pro plan ids | yaml `value` |
-| `RAZORPAY_MAX_PLAN_ID` / `RAZORPAY_MAX_ANNUAL_PLAN_ID` | `env.ts` | Max plan ids (HOBBY_* accepted as fallback) | Test IDs in `.env.example` |
-| `CRON_SECRET` | `api/cron/allocation-refresh` | Bearer for daily allocation refresh | Secret Manager / App Hosting secret |
+| `RAZORPAY_STARTER_PLAN_ID` / `RAZORPAY_STARTER_ANNUAL_PLAN_ID` | `env.ts` | Starter USD plan ids | Razorpay test-mode plans. yaml `value` |
+| `RAZORPAY_PRO_PLAN_ID` / `RAZORPAY_PRO_ANNUAL_PLAN_ID` | `env.ts` | Pro USD plan ids | yaml `value` |
+| `RAZORPAY_MAX_PLAN_ID` / `RAZORPAY_MAX_ANNUAL_PLAN_ID` | `env.ts` | Max USD plan ids (HOBBY_* accepted as fallback) | Test IDs in `.env.example` |
+| `RAZORPAY_INR_STARTER_PLAN_ID` / `RAZORPAY_INR_STARTER_ANNUAL_PLAN_ID` | `env.ts` | Starter INR plan ids | Test-mode yaml `value`. Live IDs before go-live |
+| `RAZORPAY_INR_PRO_PLAN_ID` / `RAZORPAY_INR_PRO_ANNUAL_PLAN_ID` | `env.ts` | Pro INR plan ids | yaml `value` |
+| `RAZORPAY_INR_MAX_PLAN_ID` / `RAZORPAY_INR_MAX_ANNUAL_PLAN_ID` | `env.ts` | Max INR plan ids | yaml `value` |
+| `CRON_SECRET` | `api/cron/allocation-refresh`, `api/cron/fx-drift` | Bearer for daily allocation refresh + weekly FX drift | Secret Manager / App Hosting secret |
 | `VITE_OKVEVO_FIREBASE_API_KEY` / `AUTH_DOMAIN` / `PROJECT_ID` / `APP_ID` / `STORAGE_BUCKET` / `MESSAGING_SENDER_ID` | desktop `okvevo-firebase.ts` | Renderer Firestore onSnapshot | Same values as `NEXT_PUBLIC_FIREBASE_*` (bake at Vite build) |
 | `RAZORPAY_WEBHOOK_SECRET` | webhook route | HMAC verify | Secret Manager. Webhook URL must be the hosted.app origin |
 | `RAZORPAY_AFFILIATE_OFFER_ID` | create-subscription route | Affiliate offer | Razorpay test offer (optional) |

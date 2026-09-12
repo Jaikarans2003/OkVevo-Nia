@@ -10,22 +10,36 @@ import { getOkvevoFirebase, okvevoFirebaseConfigured } from './okvevo-firebase'
 export type OkvevoBillingView = {
   planName: string | null
   planStatus: string | null
-  remainingPctLabel: string
-  additional: number
+  remainingPct: number
+  additionalPct: number
   currentPeriodEnd: Date | null
   cancelAtPeriodEnd: boolean
 }
 
 export type OkvevoBillingData = OkvevoBillingView
 
-export function formatRemainingPct(creditsIncluded: number, allocationBalance: number): string {
-  if (!Number.isInteger(creditsIncluded) || creditsIncluded <= 0) return '0%'
+/** Floored 0–100. Never round — 19931/20000 is 99%, not 100%. */
+export function remainingPct(creditsIncluded: number, allocationBalance: number): number {
+  if (!Number.isInteger(creditsIncluded) || creditsIncluded <= 0) return 0
   const alloc =
     typeof allocationBalance === 'number' && Number.isInteger(allocationBalance) && allocationBalance >= 0
       ? allocationBalance
       : 0
-  const pct = Math.round((alloc / creditsIncluded) * 100)
-  return `${Math.max(0, Math.min(100, pct))}%`
+  return Math.max(0, Math.min(100, Math.floor((alloc / creditsIncluded) * 100)))
+}
+
+export function additionalRemainingPct(topUpBalance: number, topUpPurchasedTotal: number): number {
+  const leftover =
+    typeof topUpBalance === 'number' && Number.isInteger(topUpBalance) && topUpBalance >= 0 ? topUpBalance : 0
+  const purchased =
+    typeof topUpPurchasedTotal === 'number' && Number.isInteger(topUpPurchasedTotal) && topUpPurchasedTotal >= 0
+      ? topUpPurchasedTotal
+      : 0
+  return remainingPct(Math.max(purchased, leftover), leftover)
+}
+
+export function formatRemainingPct(creditsIncluded: number, allocationBalance: number): string {
+  return `${remainingPct(creditsIncluded, allocationBalance)}%`
 }
 
 /** Period figure is percent-only — never embed raw allocationBalance. */
@@ -42,7 +56,7 @@ export function periodRemainingDisplay(creditsIncluded: number, allocationBalanc
 export function formatOkvevoBillingDescription(data: OkvevoBillingView): string {
   const plan = data.planName || 'None'
 
-  return `${plan} · remaining ${data.remainingPctLabel} · additional ${data.additional} credits`
+  return `${plan} · remaining ${data.remainingPct}% · additional ${data.additionalPct}%`
 }
 
 function readInt(n: unknown): number {
@@ -68,8 +82,8 @@ export function billingViewFromUserData(data: Record<string, unknown> | undefine
     return {
       planName: null,
       planStatus: null,
-      remainingPctLabel: '0%',
-      additional: 0,
+      remainingPct: 0,
+      additionalPct: 0,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false
     }
@@ -84,8 +98,8 @@ export function billingViewFromUserData(data: Record<string, unknown> | undefine
   return {
     planName: typeof data.planName === 'string' ? data.planName : null,
     planStatus: typeof data.planStatus === 'string' ? data.planStatus : null,
-    remainingPctLabel: formatRemainingPct(creditsIncluded, allocationBalance),
-    additional: topUpBalance,
+    remainingPct: remainingPct(creditsIncluded, allocationBalance),
+    additionalPct: additionalRemainingPct(topUpBalance, readInt(data.topUpPurchasedTotal)),
     currentPeriodEnd: toDate(data.currentPeriodEnd),
     cancelAtPeriodEnd: data.cancelAtPeriodEnd === true
   }
@@ -111,9 +125,7 @@ export async function subscribeOkvevoUserBilling(
   const unsub = onSnapshot(
     doc(fb.db, 'users', uid),
     snap => {
-      onData(
-        billingViewFromUserData(snap.exists() ? (snap.data() as Record<string, unknown>) : undefined)
-      )
+      onData(billingViewFromUserData(snap.exists() ? (snap.data() as Record<string, unknown>) : undefined))
     },
     err => {
       console.error('okvevo billing snapshot', err)

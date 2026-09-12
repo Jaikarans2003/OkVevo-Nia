@@ -32,11 +32,6 @@ const billingListenerMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/okvevo-billing-listener', () => ({
-  formatOkvevoBillingDescription: (data: {
-    planName: string | null
-    remainingPctLabel: string
-    additional: number
-  }) => `${data.planName || 'None'} · remaining ${data.remainingPctLabel} · additional ${data.additional} credits`,
   subscribeOkvevoUserBilling: billingListenerMocks.subscribeOkvevoUserBilling
 }))
 
@@ -46,6 +41,7 @@ const apiMocks = vi.hoisted(() => ({
   fetchBillingState: vi.fn(),
   fetchSubscriptionState: vi.fn(),
   openExternal: vi.fn(),
+  openOkvevoPortal: vi.fn(),
   previewSubscriptionChange: vi.fn(),
   resumeSubscription: vi.fn(),
   scheduleSubscriptionChange: vi.fn(),
@@ -92,9 +88,9 @@ beforeEach(() => {
     onData({
       planName: 'Starter',
       planStatus: 'active',
-      remainingPctLabel: '50%',
-      additional: 120,
-      currentPeriodEnd: null,
+      remainingPct: 50,
+      additionalPct: 40,
+      currentPeriodEnd: new Date(2026, 9, 12),
       cancelAtPeriodEnd: false
     })
 
@@ -104,6 +100,7 @@ beforeEach(() => {
     configurable: true,
     value: {
       openExternal: apiMocks.openExternal,
+      openOkvevoPortal: apiMocks.openOkvevoPortal,
       getOkvevoCustomToken: vi.fn(async () => ({ ok: true, customToken: 'tok', uid: 'user-1' }))
     }
   })
@@ -645,7 +642,7 @@ describe('BillingSettings', () => {
     expect(screen.queryByText('Usage')).toBeNull()
   })
 
-  it('hides the Nous-connect notice and Nous captions on public', async () => {
+  it('hides Hermes billing chrome and Nous captions on public', async () => {
     isByokChromeVisible.mockReturnValue(false)
     apiMocks.fetchBillingState.mockResolvedValue(okBilling(loggedOutBillingState))
     apiMocks.fetchSubscriptionState.mockResolvedValue(okSubscription(loggedOutSubscriptionState))
@@ -656,17 +653,69 @@ describe('BillingSettings', () => {
     expect(screen.queryByText('Connect your Nous account')).toBeNull()
     expect(screen.queryByText(/Nous billing below is unchanged/)).toBeNull()
     expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
+    expect(screen.queryByText('Payment & credits')).toBeNull()
+    expect(screen.queryByText('$996.47')).toBeNull()
+    expect(screen.queryByText('Balance')).toBeNull()
+    expect(screen.queryByText('Auto-refill')).toBeNull()
   })
 
-  it('shows live OkVevo billing without the Nous sentence on public when signed in', async () => {
+  it('shows the OkVevo plan card and % bars on public when signed in', async () => {
     isByokChromeVisible.mockReturnValue(false)
     $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
 
     renderBilling()
 
-    expect(await screen.findByText('Starter · remaining 50% · additional 120 credits')).toBeTruthy()
+    expect(await screen.findByText(/Starter · Renews/)).toBeTruthy()
+    expect(screen.getByText('Current Plan')).toBeTruthy()
+    expect(screen.getByText('Plan remaining')).toBeTruthy()
+    expect(screen.getByText('Additional remaining')).toBeTruthy()
+    expect(screen.getByText('50%')).toBeTruthy()
+    expect(screen.getByText('40%')).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: 'Plan remaining' }).getAttribute('aria-valuenow')).toBe('50')
+    expect(screen.getByRole('progressbar', { name: 'Additional remaining' }).getAttribute('aria-valuenow')).toBe('40')
     expect(screen.getByRole('button', { name: /Add Credits/ })).toBeTruthy()
     expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
+    expect(screen.queryByText('Payment & credits')).toBeNull()
+    expect(screen.queryByText('$996.47')).toBeNull()
+  })
+
+  it('shows Access until and hides Cancel Plan when OkVevo cancel is scheduled', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
+    billingListenerMocks.subscribeOkvevoUserBilling.mockImplementation(async (_uid, _token, onData) => {
+      onData({
+        planName: 'Starter',
+        planStatus: 'active',
+        remainingPct: 50,
+        additionalPct: 40,
+        currentPeriodEnd: new Date(2026, 9, 12),
+        cancelAtPeriodEnd: true
+      })
+
+      return () => {}
+    })
+
+    renderBilling()
+
+    expect(await screen.findByText(/Starter · Access until/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Cancel Plan' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Change Plan' })).toBeTruthy()
+  })
+
+  it('sends plan and cancel actions to the swappable OkVevo website', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
+
+    renderBilling()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Change Plan' }))
+    expect(apiMocks.openOkvevoPortal).toHaveBeenCalledWith('/billing/change-plan')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Plan' }))
+    expect(apiMocks.openOkvevoPortal).toHaveBeenCalledWith('/billing/cancel')
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Credits/ }))
+    expect(apiMocks.openOkvevoPortal).toHaveBeenCalledWith('/billing')
   })
 
   it('renders danger value text for overdrawn subscription credits', async () => {

@@ -33,10 +33,18 @@ test('web origin: env wins, else localhost in dev, else empty', () => {
 test('portal path allowlist and Upgrade URL', () => {
   assert.equal(isAllowedOkvevoPortalPath('/billing'), true)
   assert.equal(isAllowedOkvevoPortalPath('/billing/plans'), true)
+  assert.equal(isAllowedOkvevoPortalPath('/billing/change-plan'), true)
+  assert.equal(isAllowedOkvevoPortalPath('/billing/cancel'), true)
+  assert.equal(isAllowedOkvevoPortalPath('/billing/upgrade'), true)
+  assert.equal(isAllowedOkvevoPortalPath('/pricing'), true)
   assert.equal(isAllowedOkvevoPortalPath('billing'), false)
   assert.equal(isAllowedOkvevoPortalPath('https://evil.example/billing'), false)
   assert.equal(isAllowedOkvevoPortalPath('/billing?x=1'), false)
   assert.equal(buildOkvevoPortalUrl('https://staging.example/', '/billing'), 'https://staging.example/billing')
+  assert.equal(
+    buildOkvevoPortalUrl('https://okvevo-web--okvevo-testing.us-central1.hosted.app', '/billing/change-plan'),
+    'https://okvevo-web--okvevo-testing.us-central1.hosted.app/billing/change-plan'
+  )
   assert.equal(buildOkvevoPortalUrl('', '/billing'), null)
 })
 

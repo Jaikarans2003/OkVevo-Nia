@@ -193,6 +193,94 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Manual POST with secret refreshes a due yearly test user; without secret → 401. |
 | **Notes** | Closed 2026-09-11: `nia-allocation-refresh` ENABLED `10 0 * * *` Etc/UTC; secrets in SM; index READY; Scheduler run-now → Cloud Logging HTTP 200. See `.cursor/plans/ops_billing_rollout_875b8a3c.plan.md`. |
 
+### [ ] Razorpay Dashboard: subscribe `subscription.updated`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Immediate upgrades never ADD the credit delta or rewrite plan meta on `users/{uid}`. Cycle-end downgrades still grant via `subscription.charged` for that invoice, but cron/UI keep the old `creditsIncluded` until this event is enabled. |
+| **Scope** | Razorpay Dashboard → Developers → Webhooks (Test Mode now; Live before go-live) |
+| **Fix** | Add `subscription.updated` to the existing OkVevo webhook URL’s event list. Code already handles it in `OkVevo-Web/src/app/api/razorpay/webhook/route.ts`. |
+| **Verify** | Starter→Pro in test mode: Cloud Logging shows `Razorpay webhook: subscription.updated`; user `creditsIncluded` becomes 60000; `allocationBalance` rose by 40000; `currentPeriodEnd` unchanged. |
+| **Notes** | Logged 2026-09-12 with Billing v2 Phase 2. Dashboard click is Karan-only. |
+
+### [ ] Live-mode dual-currency Razorpay plans (6 USD + 6 INR)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Test plan IDs are what checkout uses today. Live Indian cards/UPI cannot pay USD subscriptions; live INR plans do not exist until Dashboard cutover. |
+| **Scope** | Razorpay Dashboard (Live) + `OkVevo-Web/apphosting.yaml` / `.env` `RAZORPAY_*_PLAN_ID` and `RAZORPAY_INR_*` |
+| **Fix** | Activate International Payments, enable UPI Autopay, create 6 live INR + 6 live USD plans matching the Phase 3 price book, swap env IDs, rotate live webhook secret. Do not auto-FX-convert — paste Karan’s live IDs. |
+| **Verify** | `npx tsx src/config/razorpay.selfcheck.ts`. Live (or live-mode) INR domestic subscription card + USD international subscription card both activate; `users/{uid}.currency` is `INR` or `USD`; `lookupPlanById` covers all 12 live IDs. |
+| **Notes** | Logged 2026-09-12 with Billing v2 Phase 3 (test IDs shipped). |
+
+### [ ] INR Payment Links for Add Credits
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (India) |
+| **Risk if skipped** | Indian cards that can pay INR subscriptions still cannot pay USD top-up Payment Links. |
+| **Scope** | `OkVevo-Web/src/app/api/razorpay/create-payment-link/route.ts` |
+| **Fix** | Same currency lock as subscriptions: INR links in paise, USD links in cents, keyed off `users/{uid}.currency`. |
+| **Verify** | INR subscriber Add Credits opens an INR Payment Link; USD subscriber stays USD. No tax line. |
+| **Notes** | Logged 2026-09-12 with Phase 3. Out of scope for the subscription price book; still required before India go-live. |
+
+### [ ] Wire Cloud Scheduler → `/api/cron/fx-drift`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (INR price-book review) |
+| **Risk if skipped** | Live USD/INR can drift >7% off the ₹95–100 book with no alert; INR display prices stay stale until someone notices. Job never auto-changes Razorpay plans. |
+| **Scope** | Cloud Scheduler `nia-fx-drift`; `OkVevo-Web/src/app/api/cron/fx-drift/route.ts`; `CRON_SECRET` |
+| **Fix** | Weekly Monday 09:00 UTC HTTPS POST to `/api/cron/fx-drift` with `Authorization: Bearer CRON_SECRET`. Script: `OkVevo-Web/scripts/ops-billing-finish.sh` (fx-drift block). Optional `OPS_ALERT_WEBHOOK_URL` for Slack/email. |
+| **Verify** | `gcloud scheduler jobs describe nia-fx-drift --project=okvevo-testing --location=us-central1` → ENABLED, schedule `0 9 * * 1`. Manual POST with secret → 200 and `opsAlerts/fxDrift` written; without secret → 401. `npx tsx src/lib/billing/fxDrift.selfcheck.ts`. |
+| **Notes** | Logged 2026-09-12 with Billing v2 Phase 6. Phase 3 shipped the route; this row is the Scheduler wire. Agent could not `gcloud` describe (reauth needed). |
+
+### [ ] Test-mode billing v2 E2E (INR/USD cards, upgrade, downgrade, cancel)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Dual-currency checkout, prorated upgrade delta, cycle-end downgrade, or cancel-at-period-end can be wrong in Razorpay test mode even when unit selfchecks pass. |
+| **Scope** | Razorpay Test Mode + hosted `/pricing` + `/billing` + desktop Settings → Billing. Cards (subscription test cards only): INR domestic `4718 6091 0820 4366`; USD international `5104 0155 5555 5558`. |
+| **Fix** | Karan runs the checklist below on **test keys**. Do not use non-subscription test cards. Dashboard must already include `subscription.updated` (row above). |
+| **Verify** | 1) Logged-out `/` and `/pricing`: geo or manual INR/USD switch shows the matching price book **before** checkout; **no GST/tax line**. 2) INR Starter via domestic card → `users/{uid}.currency=INR`, Plan remaining 100%, `creditsIncluded=20000`. 3) USD Starter via international card (separate test uid) → `currency=USD`. 4) Card Starter→Pro: Razorpay charges the prorated difference **now**, billing date unchanged, `creditsIncluded=60000`, allocation **ADD floor(delta × remaining/period)** (half-cycle → +20,000, not full 40,000). 5) Pro→Starter downgrade: **no charge now**, `hasScheduledChanges` banner, next `subscription.charged` grants 20000. 6) Cancel: “Cancellation scheduled” banner; spend still works until `currentPeriodEnd`; after `subscription.cancelled`, gateway 402 / `planStatus=cancelled`. 7) Both surfaces: % bars (not raw balances) move after a real debit. Code: `npx tsx src/lib/billing/phase6.verify.selfcheck.ts` (OkVevo-Web); `npx tsx src/lib/billing/userSoT.selfcheck.ts`; desktop `npx tsx src/lib/okvevo-billing-listener.selfcheck.ts`. |
+| **Notes** | Logged 2026-09-12 with Billing v2 Phase 6. Agent cannot complete 3DS/Razorpay Checkout. Live-mode cutover is the dual-currency plans row, not this one. |
+
+### [ ] Desktop Settings → Billing visual check on Mac and Windows
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Public billing can still show Hermes dashes / dollar usage on one OS, or wrap the plan-card actions so Change Plan / Cancel Plan / Add Credits are unreachable at the locked 110% zoom. |
+| **Scope** | `apps/desktop/src/app/settings/billing/index.tsx`, `apps/desktop/src/lib/okvevo-billing-listener.ts` |
+| **Fix** | Karan opens Settings → Billing on both machines (public pack). Signed-out: OkVevo sign-in only, no Nous “Connect” card, no Balance/Auto-refill dashes. Signed-in: Current Plan + Plan remaining / Additional remaining % bars (no raw balances), portal buttons open `/billing/change-plan`, `/billing/cancel`, `/billing`. Internal pack may still show Hermes chrome below. |
+| **Verify** | Manual Mac + Windows. Unit: `cd apps/desktop && npx vitest run src/app/settings/billing/index.test.tsx src/lib/okvevo-billing-listener.test.ts`; `npx tsx src/lib/okvevo-billing-listener.selfcheck.ts`. |
+| **Notes** | Logged 2026-09-12 with Billing v2 Phase 5. This environment is macOS; Windows is Karan’s other machine. |
+
+### [ ] Change Plan disclaimer (web + desktop)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Card vs UPI upgrade pricing is easy to miss: card users expect a prorated difference; UPI users are charged the full new plan and keep leftover credits until the next billing date. |
+| **Scope** | `OkVevo-Web/src/components/billing/ChangePlanModal.tsx`, `OkVevo-Web/src/app/billing/[[...slug]]/page.tsx`, `hermes-agent/apps/desktop/src/app/settings/billing/` |
+| **Fix** | Add the dual-method disclaimer on Change Plan (web + desktop): “Card upgrades are charged a prorated difference immediately. UPI upgrades charge the full new plan price, and your existing credits remain usable until your next billing date.” |
+| **Verify** | Both surfaces show the sentence before confirm. Short UPI-only line already shipped with the 100% bar / UPI stack pass. |
+| **Notes** | Logged 2026-09-12 with Billing 100 UPI credits. Not implemented in that pass. |
+
+### [ ] Legal → Subscription & Billing: card proration vs UPI stack
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Legal copy still describes a single upgrade path; UPI full-price stack + leftover-until-renewal SET is the live behavior. |
+| **Scope** | `OkVevo-Web/src/app/legal/page.tsx` (`subscription-billing`) |
+| **Fix** | Document card proration vs UPI stack / full price / leftover until the new subscription’s first renewal SET. |
+| **Verify** | `/legal` Subscription & Billing section names both methods. |
+| **Notes** | Logged 2026-09-12 with Billing 100 UPI credits. Not implemented in that pass. |
+
 ---
 
 ## Should fix before live (lower severity)

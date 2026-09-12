@@ -7,7 +7,17 @@ import { TierArt } from './tier-art'
 import type { BillingPlanCardView } from './use-billing-state'
 import { useResumeFlow } from './use-subscription-change'
 
-export function CurrentPlanCard({ onViewPlans, plan }: { onViewPlans: () => void; plan: BillingPlanCardView }) {
+export function CurrentPlanCard({
+  onLink,
+  onPending,
+  onViewPlans,
+  plan
+}: {
+  onLink?: () => void
+  onPending?: () => void
+  onViewPlans: () => void
+  plan: BillingPlanCardView
+}) {
   const resumeFlow = useResumeFlow()
 
   return (
@@ -39,12 +49,22 @@ export function CurrentPlanCard({ onViewPlans, plan }: { onViewPlans: () => void
           )}
           {/* Scheduled downgrade → chargeless undo (subscription.resume), no confirm. */}
           {plan.pending && (
-            <Button disabled={resumeFlow.busy} onClick={() => void resumeFlow.resume()} size="sm" type="button">
-              {resumeFlow.busy ? 'Undoing…' : 'Undo'}
+            <Button
+              disabled={onPending ? false : resumeFlow.busy}
+              onClick={() => (onPending ? onPending() : void resumeFlow.resume())}
+              size="sm"
+              type="button"
+            >
+              {onPending ? 'Manage' : resumeFlow.busy ? 'Undoing…' : 'Undo'}
             </Button>
           )}
           {plan.link && (
-            <Button onClick={() => plan.link && openExternal(plan.link.url)} size="sm" type="button" variant="outline">
+            <Button
+              onClick={() => (onLink ? onLink() : plan.link && openExternal(plan.link.url))}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               {plan.link.label}
               <ExternalLink className="size-3.5" />
             </Button>

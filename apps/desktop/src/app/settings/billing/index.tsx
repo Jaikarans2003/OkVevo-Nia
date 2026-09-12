@@ -9,12 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { isByokChromeVisible } from '@/lib/build-channel'
 import { BarChart3, CreditCard, ExternalLink, LogIn, Package, Wrench } from '@/lib/icons'
+import { fmtDate } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import {
-  formatOkvevoBillingDescription,
-  subscribeOkvevoUserBilling,
-  type OkvevoBillingData
-} from '@/lib/okvevo-billing-listener'
+import { subscribeOkvevoUserBilling, type OkvevoBillingData } from '@/lib/okvevo-billing-listener'
 import { useOkvevoAuth } from '@/store/okvevo-auth'
 
 import { useRouteEnumParam } from '../../hooks/use-route-enum-param'
@@ -61,6 +58,81 @@ const BILLING_DEV_FIXTURE_NAMES = import.meta.env.DEV
   : []
 
 type BillingFixtureSelection = 'live' | BillingDevFixtureName
+
+function openOkvevoPortal(path: string) {
+  void window.hermesDesktop?.openOkvevoPortal?.(path)
+}
+
+function isLiveOkvevoPlan(status: string | null | undefined): boolean {
+  return status === 'active' || status === 'authenticated' || status === 'paused' || status === 'pending'
+}
+
+function okvevoPlanDescription(billing: OkvevoBillingData, livePlan: boolean): string {
+  if (!livePlan) {
+    return 'No active subscription'
+  }
+
+  const name = billing.planName || 'None'
+
+  if (!billing.currentPeriodEnd) {
+    return name
+  }
+
+  const when = billing.cancelAtPeriodEnd ? 'Access until' : 'Renews'
+
+  return `${name} · ${when} ${fmtDate.format(billing.currentPeriodEnd)}`
+}
+
+function OkvevoPortalActions({ canCancelPlan, livePlan }: { canCancelPlan: boolean; livePlan: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 @2xl:justify-end">
+      {livePlan ? (
+        <Button
+          onClick={() => openOkvevoPortal('/billing/change-plan')}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Change Plan
+          <ExternalLink className="size-3.5" />
+        </Button>
+      ) : (
+        <Button onClick={() => openOkvevoPortal('/pricing')} size="sm" type="button" variant="outline">
+          See plans
+          <ExternalLink className="size-3.5" />
+        </Button>
+      )}
+      {canCancelPlan ? (
+        <Button onClick={() => openOkvevoPortal('/billing/cancel')} size="sm" type="button" variant="outline">
+          Cancel Plan
+          <ExternalLink className="size-3.5" />
+        </Button>
+      ) : null}
+      <Button onClick={() => openOkvevoPortal('/billing')} size="sm" type="button" variant="outline">
+        Add Credits
+        <ExternalLink className="size-3.5" />
+      </Button>
+    </div>
+  )
+}
+
+function OkvevoUsageRow({ label, pct }: { label: string; pct: number }) {
+  const clamped = Math.max(0, Math.min(100, Number.isInteger(pct) ? pct : 0))
+
+  return (
+    <div className="@container">
+      <div className="grid min-w-0 gap-2 py-3 @2xl:grid-cols-[minmax(0,180px)_minmax(0,1fr)_220px] @2xl:items-center @2xl:gap-4">
+        <div className="min-w-0 text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
+          {label}
+        </div>
+        <Progress aria-label={label} fillClassName="bg-(--ui-green)" size="lg" value={clamped / 100} />
+        <div className="min-w-0 whitespace-nowrap text-[length:var(--conversation-text-font-size)] font-medium tabular-nums @2xl:w-[220px] @2xl:flex-none @2xl:text-right">
+          {clamped}%
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function OkvevoAccountChrome() {
   const auth = useOkvevoAuth()
@@ -126,28 +198,30 @@ function OkvevoAccountChrome() {
     }
   }, [auth.signedIn, auth.uid])
 
-  const signedInDescription = (() => {
-    if (billingState === 'live' && billing) {
-      const line = formatOkvevoBillingDescription(billing)
+  const liveSnapshot = billingState === 'live' ? billing : null
+  const livePlan = Boolean(liveSnapshot && isLiveOkvevoPlan(liveSnapshot.planStatus))
+  const canCancelPlan = liveSnapshot?.planStatus === 'active' && !liveSnapshot.cancelAtPeriodEnd
 
-      return showNousBillingCopy ? `${line} Nous credits below are unchanged.` : line
+  const accountDescription = (() => {
+    if (!auth.signedIn) {
+      return showNousBillingCopy
+        ? 'Sign in with your OkVevo account. Nous billing below is unchanged.'
+        : 'Sign in with your OkVevo account.'
     }
 
     if (billingState === 'loading') {
-      return showNousBillingCopy
-        ? 'Loading Nia credits… Nous credits below are unchanged.'
-        : 'Loading Nia credits…'
+      return 'Loading Nia credits…'
     }
 
     if (billingState === 'error') {
-      return showNousBillingCopy
-        ? 'Could not load Nia credits. Try again from the portal. Nous credits below are unchanged.'
-        : 'Could not load Nia credits. Try again from the portal.'
+      return 'Could not load Nia credits. Try again from the portal.'
     }
 
-    return showNousBillingCopy
-      ? 'Nia credits will show here once billing is live. Nous credits below are unchanged.'
-      : 'Nia credits will show here once billing is live.'
+    if (showNousBillingCopy) {
+      return 'Nous credits below are unchanged.'
+    }
+
+    return undefined
   })()
 
   return (
@@ -174,26 +248,38 @@ function OkvevoAccountChrome() {
                 Sign in
               </Button>
             )}
-            <Button
-              onClick={() => void window.hermesDesktop?.openOkvevoPortal?.('/billing')}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Add Credits
-              <ExternalLink className="size-3.5" />
-            </Button>
+            {auth.signedIn ? null : (
+              <Button onClick={() => openOkvevoPortal('/billing')} size="sm" type="button" variant="outline">
+                Add Credits
+                <ExternalLink className="size-3.5" />
+              </Button>
+            )}
           </div>
         }
-        description={
-          auth.signedIn
-            ? signedInDescription
-            : showNousBillingCopy
-              ? 'Sign in with your OkVevo account. Nous billing below is unchanged.'
-              : 'Sign in with your OkVevo account.'
-        }
+        description={accountDescription}
         title={auth.signedIn ? auth.email || 'Signed in' : 'Not signed in'}
       />
+      {auth.signedIn ? (
+        <ListRow
+          action={
+            <OkvevoPortalActions canCancelPlan={Boolean(canCancelPlan)} livePlan={livePlan} />
+          }
+          description={
+            liveSnapshot
+              ? okvevoPlanDescription(liveSnapshot, livePlan)
+              : billingState === 'error'
+                ? 'Open the portal to manage your plan.'
+                : 'Plan details appear once billing is live.'
+          }
+          title="Current Plan"
+        />
+      ) : null}
+      {liveSnapshot ? (
+        <>
+          <OkvevoUsageRow label="Plan remaining" pct={liveSnapshot.remainingPct} />
+          <OkvevoUsageRow label="Additional remaining" pct={liveSnapshot.additionalPct} />
+        </>
+      ) : null}
     </SettingsSection>
   )
 }
@@ -650,7 +736,7 @@ function BillingSettingsContent({
       <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
       <OkvevoAccountChrome />
 
-      {view.notice && (isByokChromeVisible() || view.status !== 'logged_out') && <NoticeCard notice={view.notice} />}
+      {view.notice && <NoticeCard notice={view.notice} />}
 
       <div className="@container mb-6">
         <div className="grid gap-3 @2xl:grid-cols-3">
@@ -722,6 +808,16 @@ function BillingSettingsWithDevFixtures() {
 }
 
 export function BillingSettings() {
+  // Public Nia: OkVevo listener only. Hermes/Nous billing stays on the internal channel.
+  if (!isByokChromeVisible()) {
+    return (
+      <SettingsContent>
+        <BillingHeader />
+        <OkvevoAccountChrome />
+      </SettingsContent>
+    )
+  }
+
   if (import.meta.env.DEV) {
     return <BillingSettingsWithDevFixtures />
   }
