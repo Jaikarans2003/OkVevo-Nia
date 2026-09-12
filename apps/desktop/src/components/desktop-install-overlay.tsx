@@ -582,6 +582,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
   const currentStartedAt = currentStage ? state.stages[currentStage]?.startedAt : null
   const currentElapsed = typeof currentStartedAt === 'number' ? formatElapsed(now - currentStartedAt) : ''
   const publicHappy = publicChrome && !failed
+
   const setupTitle = failed
     ? copy.failedTitle
     : state.active

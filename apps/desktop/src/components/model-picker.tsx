@@ -93,6 +93,7 @@ export function ModelPickerDialog({
     if (!isByokChromeVisible()) {
       return
     }
+
     startManualOnboarding()
     onOpenChange(false)
   }

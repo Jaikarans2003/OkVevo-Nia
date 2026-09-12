@@ -199,6 +199,7 @@ test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)
     platform: 'darwin',
     pathModule: path.posix
   })
+
   assert.equal(packaged.OKVEVO_WEB_ORIGIN, '')
 
   const dev = buildDesktopBackendEnv({
@@ -208,6 +209,7 @@ test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)
     pathModule: path.posix,
     devServer: true
   })
+
   assert.equal(dev.OKVEVO_WEB_ORIGIN, 'http://localhost:3000')
 
   const fromEnv = buildDesktopBackendEnv({
@@ -217,6 +219,7 @@ test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)
     pathModule: path.posix,
     devServer: true
   })
+
   assert.equal(fromEnv.OKVEVO_WEB_ORIGIN, 'https://staging.example')
 
   const fromDevServerEnv = buildDesktopBackendEnv({
@@ -225,6 +228,7 @@ test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)
     platform: 'darwin',
     pathModule: path.posix
   })
+
   assert.equal(fromDevServerEnv.OKVEVO_WEB_ORIGIN, 'http://localhost:3000')
 })
 
@@ -235,6 +239,7 @@ test('buildDesktopBackendEnv injects NIA_BUILD_CHANNEL for the Python backend', 
     platform: 'darwin',
     pathModule: path.posix
   })
+
   assert.equal(fromEnv.NIA_BUILD_CHANNEL, 'internal')
 
   const baked = buildDesktopBackendEnv({
@@ -243,5 +248,6 @@ test('buildDesktopBackendEnv injects NIA_BUILD_CHANNEL for the Python backend', 
     platform: 'darwin',
     pathModule: path.posix
   })
+
   assert.ok(baked.NIA_BUILD_CHANNEL === 'public' || baked.NIA_BUILD_CHANNEL === 'internal')
 })

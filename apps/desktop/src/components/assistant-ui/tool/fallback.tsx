@@ -17,11 +17,9 @@ import {
 } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
-import { AnsiText } from '@/components/assistant-ui/ansi-text'
 import { TimelineTimestamp } from '@/components/assistant-ui/thread/timeline-timestamp'
 import { useElapsedSeconds } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
-import { CompactMarkdown } from '@/components/chat/compact-markdown'
 import { FileDiffPanel } from '@/components/chat/diff-lines'
 import { DisclosureRow } from '@/components/chat/disclosure-row'
 import {
@@ -43,7 +41,6 @@ import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { PrettyLink, LinkifiedText as SharedLinkifiedText, urlSlugTitleLabel } from '@/lib/external-link'
 import { AlertCircle, CheckCircle2 } from '@/lib/icons'
-import { normalize } from '@/lib/text'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
 import { recordPreviewArtifact } from '@/store/preview-status'
@@ -62,7 +59,6 @@ import {
   isCardTool,
   isFileEditTool,
   isPreviewableTarget,
-  looksRedundant,
   type SearchResultRow,
   selectMessageRunning,
   stripInlineDiffChrome,
@@ -426,6 +422,7 @@ function ToolEntry({ part }: ToolEntryProps) {
   // (ToolPayloadDisclosure covers them there).
   const friendlyErrorLine =
     toolViewMode !== 'technical' && view.status === 'error' ? view.subtitle.trim() : ''
+
   const hasExpandableContent = Boolean(
     view.imageUrl ||
     view.inlineDiff ||

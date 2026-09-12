@@ -569,7 +569,9 @@ export function ToolsetConfigPanel({ toolset, onConfiguredChange, profile }: Too
 
   const providers = useMemo(() => {
     const all = cfg?.providers ?? []
-    if (isByokChromeVisible()) return all
+
+    if (isByokChromeVisible()) {return all}
+
     return all.filter(p => !isPublicHiddenToolProvider(toolset, p.name))
   }, [cfg, toolset])
 

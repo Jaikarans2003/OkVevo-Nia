@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { $desktopOnboarding, type DesktopOnboardingState, type OnboardingContext } from '@/store/onboarding'
 import { $okvevoAuth } from '@/store/okvevo-auth'
+import { $desktopOnboarding, type DesktopOnboardingState, type OnboardingContext } from '@/store/onboarding'
 import { makeOAuthProvider } from '@/test/oauth-provider'
 import type { OAuthProvider } from '@/types/hermes'
 
@@ -10,6 +10,7 @@ let byokChromeVisible = true
 
 vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
   const actual = await importOriginal<typeof import('@/app/settings/settings-ui-policy')>()
+
   return {
     ...actual,
     isByokChromeVisible: () => byokChromeVisible

@@ -87,9 +87,11 @@ export function isPublicHiddenToolProvider(toolset: string, name: string): boole
     // resurrect off-gateway generation.
     return true
   }
+
   if (toolset === 'web') {
     return name === 'Tavily'
   }
+
   return false
 }
 

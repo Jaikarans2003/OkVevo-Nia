@@ -261,6 +261,7 @@ describe('I18nProvider', () => {
   it('on public, ignores a non-English display.language and persists en', async () => {
     isByokChromeVisible.mockReturnValue(false)
     const saveConfig = vi.fn().mockResolvedValue({ ok: true })
+
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: 'zh' } }),
       saveConfig

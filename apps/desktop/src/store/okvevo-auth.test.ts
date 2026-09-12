@@ -13,9 +13,11 @@ afterEach(() => {
 
 test('a newer auth push wins over a stale get', async () => {
   let resolveGet: (snap: typeof signedOut) => void = () => undefined
+
   const getPromise = new Promise<typeof signedOut>(resolve => {
     resolveGet = resolve
   })
+
   const listeners: Array<(snap: typeof signedIn) => void> = []
 
   Object.defineProperty(window, 'hermesDesktop', {

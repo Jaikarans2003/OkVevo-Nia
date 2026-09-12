@@ -343,9 +343,11 @@ export function BotsPane() {
   // non-display consumer continues to receive the complete roster.
   const hiddenExpanded = useValue($showHiddenBots)
   const hiddenBots = roster.filter(bot => isBotHidden(bot, allMeta))
+
   const visibleRoster = roster
     .filter(bot => !isBotHidden(bot, allMeta))
     .filter(bot => !isLocalPrimaryDefaultBot(bot))
+
   const gatewayRoster = filterBotsByGateway(visibleRoster, gatewayFilter)
 
   const filteredRoster = filterBots(gatewayRoster, allMeta, query).filter((bot: RosterRow) =>

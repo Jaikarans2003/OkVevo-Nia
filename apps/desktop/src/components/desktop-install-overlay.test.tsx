@@ -636,6 +636,7 @@ describe('DesktopInstallOverlay public chrome', () => {
 
   it('starts local bootstrap from the public Install Nia button', async () => {
     byokChromeVisible = false
+
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'darwin', activeRoot: '/Users/me/.hermes/hermes-agent' }

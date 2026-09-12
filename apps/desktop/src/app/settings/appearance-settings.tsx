@@ -17,6 +17,7 @@ import { useDeepLinkHighlight } from './use-deep-link-highlight'
 const APPEARANCE_SEARCH_TARGETS = new Set<string>(
   Object.values(APPEARANCE_SETTING_IDS).filter(isAppearanceSettingVisible)
 )
+
 const appearanceSettingElementId = (id: string) => `setting-field-${id}`
 
 export function AppearanceSettings() {

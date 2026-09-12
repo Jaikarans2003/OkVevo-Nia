@@ -1,5 +1,6 @@
-import { TailChase } from 'ldrs/react'
 import 'ldrs/react/TailChase.css'
+
+import { TailChase } from 'ldrs/react'
 
 import { prefersReducedMotion } from '@/hooks/use-media-query'
 

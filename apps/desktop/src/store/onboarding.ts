@@ -440,6 +440,7 @@ export function startManualOnboarding(reason: null | string = DEFAULT_MANUAL_ONB
   if (!isByokChromeVisible()) {
     return
   }
+
   patch({
     manual: true,
     requested: true,
@@ -462,6 +463,7 @@ export function startManualLocalEndpoint(reason: null | string = null) {
   if (!isByokChromeVisible()) {
     return
   }
+
   pendingProviderOAuthId = null
   patch({
     manual: true,
@@ -485,6 +487,7 @@ export function startManualProviderOAuth(providerId: string, reason: null | stri
   if (!isByokChromeVisible()) {
     return
   }
+
   pendingProviderOAuthId = providerId
   startManualOnboarding(reason)
 }

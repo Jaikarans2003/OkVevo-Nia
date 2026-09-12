@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   additionalRemainingPct,
   billingViewFromUserData,
-  formatRemainingPct,
   formatOkvevoBillingDescription,
+  formatRemainingPct,
   periodRemainingDisplay,
   remainingPct
 } from './okvevo-billing-listener'
