@@ -18,6 +18,8 @@ import {
 } from '@hermes/plugin-sdk'
 import { useState } from 'react'
 
+import { isByokChromeVisible } from '@/lib/build-channel'
+
 import {
   AVATAR_PICKER_SHAPES,
   avatarColor,
@@ -57,9 +59,11 @@ export function AvatarPicker({ shape, color, image, onShape, onColor, onImage, g
   const b = useBots()
   const pickerName = generateSeed?.name || 'agent'
   const imagen = useValue($imagenAvailable)
+  const showPet = isByokChromeVisible()
   const [tab, setTab] = useState('bot')
   const [describe, setDescribe] = useState('')
   const [genBusy, setGenBusy] = useState(false)
+  const activeTab = !showPet && tab === 'pet' ? 'bot' : tab
 
   if (imagen === null) {
     void probeImagen()
@@ -127,16 +131,16 @@ export function AvatarPicker({ shape, color, image, onShape, onColor, onImage, g
           { id: 'bot', label: b.avatar.tabBot },
           { id: 'generate', label: b.avatar.tabGenerate },
           { id: 'upload', label: b.avatar.upload },
-          { id: 'pet', label: b.avatar.tabPet }
+          ...(showPet ? [{ id: 'pet', label: b.avatar.tabPet }] : [])
         ]}
-        value={tab}
+        value={activeTab}
       />
-      {image && tab !== 'generate' ? (
+      {image && activeTab !== 'generate' ? (
         <Button onClick={() => onImage(null)} size="sm" type="button" variant="ghost">
           {b.avatar.removeImage}
         </Button>
       ) : null}
-      {tab === 'bot' ? (
+      {activeTab === 'bot' ? (
         isBlobShape(shape) && blobatarSvg ? (
           (() => {
             const { seedPart, kind } = parseBlobShape(shape, pickerName)
@@ -248,7 +252,7 @@ export function AvatarPicker({ shape, color, image, onShape, onColor, onImage, g
           </div>
         )
       ) : null}
-      {tab === 'generate' ? (
+      {activeTab === 'generate' ? (
         imagen ? (
           <div className="grid w-full gap-2">
             <Textarea
@@ -278,18 +282,18 @@ export function AvatarPicker({ shape, color, image, onShape, onColor, onImage, g
         ) : (
           <div className="px-2 py-3 text-center text-xs leading-5 text-(--ui-text-tertiary)">
             {imagen === false
-              ? 'No image model available. If you just enabled one (or updated Hermes), restart the gateway: Ctrl+K → "Restart gateway".'
+              ? 'No image model available. If you just enabled one (or updated Nia), restart the gateway: Ctrl+K → "Restart gateway".'
               : 'Checking image backend…'}
           </div>
         )
       ) : null}
-      {tab === 'upload' ? (
+      {activeTab === 'upload' ? (
         <Button className="w-full justify-center" onClick={upload} type="button" variant="secondary">
           <Codicon className="mr-1 text-[0.8rem]" name="device-camera" />
           Choose an image…
         </Button>
       ) : null}
-      {tab === 'pet' ? <PetTab image={image} onImage={onImage} /> : null}
+      {activeTab === 'pet' ? <PetTab image={image} onImage={onImage} /> : null}
     </div>
   )
 }

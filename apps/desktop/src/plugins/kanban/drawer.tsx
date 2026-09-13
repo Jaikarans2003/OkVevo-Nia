@@ -479,7 +479,7 @@ function EstimateSection({ id }: { id: string }) {
 
   const est = useMutation({
     mutationFn: () => estimateTask(id),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: r => {
       if (r.ok) {
         setResult(r)
@@ -607,7 +607,7 @@ export function TaskDrawer({
         qc.setQueryData(taskKey(slug, id!), context.previous)
       }
 
-      host.notify({ kind: 'error', message: errText(err) })
+      host.notifyError(err, k.couldNotUpdate)
     },
     onSettled: invalidate
   })
@@ -618,12 +618,12 @@ export function TaskDrawer({
         invalidate()
         onDone?.()
       },
-      (err: unknown) => host.notify({ kind: 'error', message: errText(err) })
+      (err: unknown) => host.notifyError(err, k.couldNotUpdate)
     )
 
   const commentMut = useMutation({
     mutationFn: (body: string) => addComment(id!, body),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: invalidate
   })
 
@@ -635,7 +635,7 @@ export function TaskDrawer({
       await addComment(id!, body)
       await reclaimTask(id!)
     },
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: () => {
       host.notify({ kind: 'info', message: k.notePosted })
       invalidate()
@@ -649,7 +649,7 @@ export function TaskDrawer({
         contentType: file.type || undefined,
         filename: file.name
       }),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: invalidate
   })
 

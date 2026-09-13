@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getGlobalModelOptions } from '@/hermes'
 
@@ -13,11 +13,21 @@ import {
 
 const globalOptions = { model: 'hermes-4', provider: 'nous', providers: [] }
 
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
+
 vi.mock('@/hermes', () => ({
   getGlobalModelOptions: vi.fn(() => Promise.resolve(globalOptions))
 }))
 
 describe('requestModelOptions', () => {
+  beforeEach(() => {
+    isByokChromeVisible.mockReturnValue(true)
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -37,6 +47,30 @@ describe('requestModelOptions', () => {
 
     expect(gateway.request).toHaveBeenCalledWith('model.options', { explicit_only: true })
     expect(getGlobalModelOptions).not.toHaveBeenCalled()
+  })
+
+  it('keeps only the OkVevo catalog row on the public channel', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+
+    const gatewayPayload = {
+      model: 'anthropic/claude-opus-4.8',
+      provider: 'openrouter',
+      providers: [
+        { models: ['anthropic/claude-opus-4.8'], name: 'OpenRouter', slug: 'openrouter' },
+        { models: ['claude'], name: 'AWS Bedrock', slug: 'bedrock' },
+        { models: ['BeastMode'], name: 'Mixture of Agents', slug: 'moa' }
+      ]
+    }
+
+    const gateway = {
+      request: vi.fn(() => Promise.resolve(gatewayPayload))
+    }
+
+    await expect(requestModelOptions({ gateway: gateway as never, sessionId: null })).resolves.toEqual({
+      model: 'anthropic/claude-opus-4.8',
+      provider: 'openrouter',
+      providers: [{ models: ['anthropic/claude-opus-4.8'], name: 'OkVevo', slug: 'openrouter' }]
+    })
   })
 
   it('recovers an empty gateway catalog through profile-scoped REST without replacing the session selection', async () => {

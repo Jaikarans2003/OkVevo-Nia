@@ -227,11 +227,11 @@ export const en: Translations = {
       'Your bundle was uploaded privately. Share the link below in your support thread so the team can see your logs.',
     failedTitle: 'Upload failed',
     failedHint:
-      'You can also run `hermes debug share --nous` from a terminal, or `hermes debug share --local` to print the report without uploading.',
+      'You can also run the debug-share command from a terminal, or print the report locally without uploading.',
     handoffLead: 'Pick up the discussion in:',
     links: {
       github: 'GitHub Issues',
-      portal: 'Nous Portal Support',
+      portal: 'OkVevo support',
       discord: 'Discord'
     }
   },
@@ -1297,7 +1297,7 @@ export const en: Translations = {
     edit: 'Edit',
     archive: 'Archive',
     skillArchivedTitle: 'Skill archived',
-    skillArchivedMessage: 'Restorable via hermes curator restore.',
+    skillArchivedMessage: 'You can restore it later.',
     hub: {
       searchPlaceholder: 'Search the skill hub',
       search: 'Search',
@@ -1898,9 +1898,8 @@ export const en: Translations = {
     saving: 'Saving...',
     saveSoul: 'Save SOUL.md',
     deleteTitle: 'Delete profile?',
-    deleteDescPrefix: 'This will delete ',
-    deleteDescMid: ' and remove its ',
-    deleteDescSuffix: ' directory. This cannot be undone.',
+    deleteDescPrefix: 'This will permanently delete ',
+    deleteDescSuffix: '. This cannot be undone.',
     deleting: 'Deleting...',
     createDesc: 'Profiles are independent Nia environments: separate config, skills, and SOUL.md.',
     nameLabel: 'Name',
@@ -2368,7 +2367,7 @@ export const en: Translations = {
       '/resume': 'resume a prior session',
       '/details': 'control transcript detail level',
       '/copy': 'copy selection or last assistant message',
-      '/quit': 'exit hermes'
+      '/quit': 'exit Nia'
     },
     hotkeyDescs: {
       'composer.mention': 'reference files, folders, urls, git',
@@ -3458,7 +3457,7 @@ export const en: Translations = {
       success: platform => `Handed off to ${platform}. Resume here anytime.`,
       systemNote: platform => `↻ Handed off to ${platform} — resume here anytime.`,
       failed: error => `Handoff failed: ${error}`,
-      timedOut: 'Timed out waiting for the gateway. Is `hermes gateway` running?'
+      timedOut: 'Timed out waiting for Nia. Please try again.'
     }
   },
 

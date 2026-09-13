@@ -1,3 +1,4 @@
+import { scrubUserFacingText } from '@/lib/user-facing-error'
 import { dismissNotification, notify, notifyError } from '@/store/notifications'
 
 /** The gateway's model-switch handshake shape — shared by `config.set model`
@@ -82,7 +83,9 @@ export function surfaceModelSwitchConfirm<T extends GuardedModelSwitchResult>(
       onClick: applyConfirmedSwitch
     },
     kind: 'warning',
-    message: options.confirmMessage?.trim() || options.fallbackMessage || 'Confirm this model switch?',
+    message: scrubUserFacingText(
+      options.confirmMessage?.trim() || options.fallbackMessage || 'Confirm this model switch?'
+    ),
     title: options.title ?? options.confirmLabel
   })
 

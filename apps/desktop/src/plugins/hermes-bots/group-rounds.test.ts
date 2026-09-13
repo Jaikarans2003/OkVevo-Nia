@@ -102,7 +102,7 @@ describe('routing', () => {
     expect(parsed.mentioned.size).toBe(1)
   })
 
-  it('resolves @hermes to the default member', async () => {
+  it('resolves @nia to the default member and ignores leftover @hermes', async () => {
     const { rounds } = await loadRoom()
 
     const members: GroupMember[] = [
@@ -110,7 +110,9 @@ describe('routing', () => {
       { name: 'builder', title: '' }
     ]
 
-    const parsed = rounds.parseGroupChatMentions('@hermes take a look', members)
+    expect(rounds.parseGroupChatMentions('@hermes take a look', members).mentioned.size).toBe(0)
+
+    const parsed = rounds.parseGroupChatMentions('@nia take a look', members)
 
     expect(parsed.mentioned.has('default')).toBe(true)
     expect(parsed.mentioned.size).toBe(1)

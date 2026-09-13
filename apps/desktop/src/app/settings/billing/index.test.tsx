@@ -31,9 +31,13 @@ const billingListenerMocks = vi.hoisted(() => ({
   subscribeOkvevoUserBilling: vi.fn()
 }))
 
-vi.mock('@/lib/okvevo-billing-listener', () => ({
-  subscribeOkvevoUserBilling: billingListenerMocks.subscribeOkvevoUserBilling
-}))
+vi.mock('@/lib/okvevo-billing-listener', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/lib/okvevo-billing-listener')>()
+  return {
+    ...actual,
+    subscribeOkvevoUserBilling: billingListenerMocks.subscribeOkvevoUserBilling
+  }
+})
 
 const apiMocks = vi.hoisted(() => ({
   charge: vi.fn(),
@@ -677,6 +681,32 @@ describe('BillingSettings', () => {
     expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
     expect(screen.queryByText('Payment & credits')).toBeNull()
     expect(screen.queryByText('$996.47')).toBeNull()
+  })
+
+  it('shows two-decimal plan remaining without rounding the bar to an integer', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
+    billingListenerMocks.subscribeOkvevoUserBilling.mockImplementation(async (_uid, _token, onData) => {
+      onData({
+        planName: 'Pro',
+        planStatus: 'active',
+        remainingPct: 87.5,
+        additionalPct: 40,
+        currentPeriodEnd: new Date(2026, 9, 12),
+        cancelAtPeriodEnd: false
+      })
+
+      return () => {}
+    })
+
+    renderBilling()
+
+    expect(await screen.findByText('87.5%')).toBeTruthy()
+    expect(screen.queryByText('88%')).toBeNull()
+    expect(screen.queryByText('87%')).toBeNull()
+    expect(screen.getByRole('progressbar', { name: 'Plan remaining' }).getAttribute('aria-valuenow')).toBe(
+      '87.5'
+    )
   })
 
   it('shows Access until and hides Cancel Plan when OkVevo cancel is scheduled', async () => {

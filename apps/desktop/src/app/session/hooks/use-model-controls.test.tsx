@@ -59,6 +59,12 @@ vi.mock('@/store/notifications', () => ({
   notifyError: (...args: Parameters<typeof notifyError>) => notifyError(...args)
 }))
 
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
+
 type Controls = ReturnType<typeof useModelControls>
 
 function Harness({
@@ -80,6 +86,7 @@ function Harness({
 
 describe('useModelControls', () => {
   beforeEach(() => {
+    isByokChromeVisible.mockReturnValue(true)
     $activeGatewayProfile.set('default')
     $activeSessionId.set(null)
     setCurrentModel('')
@@ -248,6 +255,34 @@ describe('useModelControls', () => {
       model: 'poolside/laguna-xs-2.1:free',
       provider: 'nous',
       providers
+    })
+  })
+
+  it('brands a synthetic public catalog entry and drops non-OkVevo rows', () => {
+    isByokChromeVisible.mockReturnValue(false)
+    const queryClient = new QueryClient()
+
+    const { result } = renderHook(() =>
+      useModelControls({
+        queryClient,
+        requestGateway: vi.fn()
+      })
+    )
+
+    result.current.applySavedMainModel('bedrock', 'anthropic.claude-3')
+
+    expect(queryClient.getQueryData(modelOptionsQueryKey('default'))).toEqual({
+      model: 'anthropic.claude-3',
+      provider: 'bedrock',
+      providers: []
+    })
+
+    result.current.applySavedMainModel('openrouter', 'anthropic/claude-opus-4.8')
+
+    expect(queryClient.getQueryData(modelOptionsQueryKey('default'))).toEqual({
+      model: 'anthropic/claude-opus-4.8',
+      provider: 'openrouter',
+      providers: [{ models: ['anthropic/claude-opus-4.8'], name: 'OkVevo', slug: 'openrouter' }]
     })
   })
 

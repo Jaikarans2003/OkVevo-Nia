@@ -12,7 +12,6 @@ import { host, type PluginOs } from '@hermes/plugin-sdk'
 
 import { exportBoard, importBoard } from './api'
 import type { KanbanText } from './i18n'
-import { errText } from './ui'
 
 const ARCHIVE_FILTERS = [{ extensions: ['tar.gz', 'tgz'], name: 'Nia board' }]
 
@@ -35,7 +34,7 @@ export async function runExportBoardFlow(os: PluginOs, k: KanbanText, slug: stri
 
     return result.archive
   } catch (error) {
-    host.notify({ kind: 'error', message: errText(error) })
+    host.notifyError(error, k.couldNotExport)
 
     return null
   }
@@ -67,7 +66,7 @@ export async function runImportBoardFlow(os: PluginOs, k: KanbanText): Promise<n
 
     return result.board
   } catch (error) {
-    host.notify({ kind: 'error', message: errText(error) })
+    host.notifyError(error, k.couldNotImport)
 
     return null
   }

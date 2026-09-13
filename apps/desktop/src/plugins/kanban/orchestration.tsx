@@ -31,7 +31,7 @@ import {
   saveProfileDescription
 } from './api'
 import type { KanbanProfile } from './types'
-import { errText, FIELD_LABEL, useKanban } from './ui'
+import { FIELD_LABEL, useKanban } from './ui'
 
 const DEFAULT_SENTINEL = '__default__'
 
@@ -76,13 +76,13 @@ function ProfileDescriptionRow({ profile }: { profile: KanbanProfile }) {
 
   const save = useMutation({
     mutationFn: () => saveProfileDescription(profile.name, draft.trim()),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: invalidate
   })
 
   const auto = useMutation({
     mutationFn: () => autoDescribeProfile(profile.name),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: result => {
       if (result.ok) {
         setDraft(result.description ?? '')
@@ -137,7 +137,7 @@ export function OrchestrationPanel() {
 
   const save = useMutation({
     mutationFn: (patch: Record<string, unknown>) => saveOrchestration(patch),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ORCHESTRATION_KEY })
   })
 

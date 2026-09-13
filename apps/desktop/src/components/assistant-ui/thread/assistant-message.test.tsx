@@ -10,6 +10,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $displayTimestamps } from '@/store/display-timestamps'
+import { $toolViewMode } from '@/store/tool-view'
 
 import { stubThreadEnvironment } from '../test-utils'
 
@@ -36,6 +37,7 @@ afterEach(() => {
 
 beforeEach(() => {
   isByokChromeVisible.mockReturnValue(true)
+  $toolViewMode.set('product')
   window.hermesDesktop = {
     ...window.hermesDesktop,
     logsRoot: async () => '/tmp/logs'
@@ -172,6 +174,7 @@ describe('ErrorRecoveryActions channel chrome', () => {
 
 describe('message timeline timestamps', () => {
   it('always renders precise user and assistant lifecycle times', async () => {
+    $toolViewMode.set('technical')
     const { container } = render(<Harness />)
 
     await screen.findByText('done')
@@ -205,5 +208,26 @@ describe('message timeline timestamps', () => {
     )
 
     expect(stamps.filter(stamp => stamp === formatTimelineRange(startedAt, completedAt))).toHaveLength(1)
+  })
+})
+
+describe('reasoning accordion channel', () => {
+  it('hides the thinking disclosure in product mode', async () => {
+    $toolViewMode.set('product')
+    const { container } = render(<Harness />)
+
+    await screen.findByText('done')
+
+    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeNull()
+    expect(container.textContent).not.toContain('checked carefully')
+  })
+
+  it('shows the thinking disclosure in technical mode', async () => {
+    $toolViewMode.set('technical')
+    const { container } = render(<Harness />)
+
+    await screen.findByText('done')
+
+    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeTruthy()
   })
 })

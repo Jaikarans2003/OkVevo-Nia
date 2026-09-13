@@ -218,7 +218,7 @@ def resolve_remote_target(raw_target: str, roster: list[dict]) -> Any:
     for row in roster:
         handle = row["handle"].lower()
         profile = row["profile"].lower()
-        aliases = {"nia", "hermes"} if profile == "default" else set()
+        aliases = {"nia"} if profile == "default" else set()
         if want.lower() not in (handle, profile) and want.lower() not in aliases:
             continue
         if conn and row["connection_id"].lower() != conn.lower():

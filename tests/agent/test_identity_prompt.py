@@ -90,7 +90,8 @@ class TestProductIdentityGuidance:
 
         assert PRODUCT_IDENTITY_GUIDANCE in stable
         assert "Never say Hermes, Nous, or" in PRODUCT_IDENTITY_GUIDANCE
-        assert "`~/.nia`" in PRODUCT_IDENTITY_GUIDANCE
+        assert "never the mechanism or its location on disk" in PRODUCT_IDENTITY_GUIDANCE
+        assert "Never paste script or code contents or local filesystem paths" in PRODUCT_IDENTITY_GUIDANCE
         assert stable.index("capability brochure") < stable.index(
             "Model:` and `Provider:`"
         )

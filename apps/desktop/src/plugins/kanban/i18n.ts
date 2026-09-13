@@ -176,6 +176,9 @@ type KanbanMessages = {
   boardExported: (path: string) => string
   boardImported: (name: string) => string
   boardImportedAs: (slug: string) => string
+  couldNotExport: string
+  couldNotImport: string
+  couldNotUpdate: string
   renameBoardTitle: string
   deleteBoardTitle: (name: string) => string
   deleteBoardConfirm: string
@@ -388,6 +391,9 @@ export const en: KanbanMessages = {
   boardExported: path => `Board exported to ${path}`,
   boardImported: name => `Imported ${name}`,
   boardImportedAs: slug => `That name was taken — imported as ${slug}`,
+  couldNotExport: 'Could not export the board',
+  couldNotImport: 'Could not import the board',
+  couldNotUpdate: 'Could not update the board',
   renameBoardTitle: 'Rename board',
   deleteBoardTitle: name => `Delete "${name}"?`,
   deleteBoardConfirm: 'The board is archived, not erased — its tasks and attachments stay on disk and can be restored.',
@@ -599,6 +605,9 @@ const ja: KanbanMessages = {
   boardExported: path => `ボードを ${path} にエクスポートしました`,
   boardImported: name => `${name} をインポートしました`,
   boardImportedAs: slug => `その名前は使用中のため ${slug} としてインポートしました`,
+  couldNotExport: 'ボードをエクスポートできませんでした',
+  couldNotImport: 'ボードをインポートできませんでした',
+  couldNotUpdate: 'ボードを更新できませんでした',
   renameBoardTitle: 'ボード名を変更',
   deleteBoardTitle: name => `「${name}」を削除しますか？`,
   deleteBoardConfirm: 'ボードは消去されずアーカイブされます。タスクと添付ファイルはディスクに残り、復元できます。',
@@ -808,6 +817,9 @@ const zh: KanbanMessages = {
   boardExported: path => `面板已导出至 ${path}`,
   boardImported: name => `已导入 ${name}`,
   boardImportedAs: slug => `该名称已被占用，已导入为 ${slug}`,
+  couldNotExport: '无法导出面板',
+  couldNotImport: '无法导入面板',
+  couldNotUpdate: '无法更新面板',
   renameBoardTitle: '重命名面板',
   deleteBoardTitle: name => `确定删除“${name}”？`,
   deleteBoardConfirm: '面板会被归档而非清除，其任务和附件仍保留在磁盘上，可以恢复。',
@@ -1016,6 +1028,9 @@ const zhHant: KanbanMessages = {
   boardExported: path => `面板已匯出至 ${path}`,
   boardImported: name => `已匯入 ${name}`,
   boardImportedAs: slug => `該名稱已被使用，已匯入為 ${slug}`,
+  couldNotExport: '無法匯出面板',
+  couldNotImport: '無法匯入面板',
+  couldNotUpdate: '無法更新面板',
   renameBoardTitle: '重新命名面板',
   deleteBoardTitle: name => `確定刪除「${name}」？`,
   deleteBoardConfirm: '面板會被封存而非清除，其任務和附件仍保留在磁碟上，可以還原。',

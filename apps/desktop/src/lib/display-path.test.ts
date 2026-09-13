@@ -75,13 +75,41 @@ describe('displayWakePhrase', () => {
 })
 
 describe('sanitizeUserFacingBrand', () => {
-  it('rewrites install paths and leftover product phrases', () => {
-    expect(sanitizeUserFacingBrand('~/.hermes/profiles/default')).toBe('~/.nia/profiles/default')
+  it('rewrites leftover product phrases', () => {
     expect(sanitizeUserFacingBrand('The Hermes desktop app lives here')).toBe('The Nia desktop app lives here')
     expect(sanitizeUserFacingBrand('Hermes Agent can help')).toBe('Nia can help')
     expect(sanitizeUserFacingBrand('Say hey hermes to wake')).toBe('Say ok nia to wake')
     expect(sanitizeUserFacingBrand('Say hey nia to wake')).toBe('Say ok nia to wake')
     expect(sanitizeUserFacingBrand('Ask @hermes later')).toBe('Ask @nia later')
+  })
+
+  it('replaces home-dotfile paths with a folder nickname', () => {
+    expect(sanitizeUserFacingBrand('~/.hermes/profiles/default')).toBe('your Nia data folder')
+    expect(sanitizeUserFacingBrand('~/.nia/config.yaml')).toBe('your Nia data folder')
+    expect(sanitizeUserFacingBrand('/Users/karan/.hermes/plugins')).toBe('your Nia data folder')
+    expect(sanitizeUserFacingBrand('/home/alice/.nia/state.db')).toBe('your Nia data folder')
+    expect(sanitizeUserFacingBrand('C:\\Users\\brooklyn\\.hermes\\config.yaml')).toBe('your Nia data folder')
+    expect(sanitizeUserFacingBrand('Stored at ~/.hermes/foo.')).toBe('Stored at your Nia data folder.')
+  })
+
+  it('leaves a legitimate deliverable path tildified, not scrubbed', () => {
+    expect(sanitizeUserFacingBrand('Saved to ~/Documents/budget.csv')).toBe('Saved to ~/Documents/budget.csv')
+  })
+
+  it('rewrites mechanism terms and drops backticked CLI spans', () => {
+    expect(sanitizeUserFacingBrand('I restarted the gateway')).toBe('I restarted the app')
+    expect(sanitizeUserFacingBrand('The backend process crashed')).toBe('The app crashed')
+    expect(sanitizeUserFacingBrand('Check the roster')).toBe('Check the bots list')
+    expect(sanitizeUserFacingBrand('Run `hermes profile create nidhi` next')).toBe('Run a Nia command next')
+  })
+
+  it('replaces fenced blocks that leak internals and leaves clean fences', () => {
+    expect(sanitizeUserFacingBrand('Here:\n```\n~/.hermes/foo\n```\nDone.')).toBe(
+      'Here:\n[internal details omitted]\nDone.'
+    )
+    expect(sanitizeUserFacingBrand('Here:\n```ts\nconst answer = 42\n```\nDone.')).toBe(
+      'Here:\n```ts\nconst answer = 42\n```\nDone.'
+    )
   })
 
   it('leaves protocol and SDK identifiers', () => {

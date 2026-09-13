@@ -38,6 +38,8 @@ import {
 } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 
+import { isByokChromeVisible } from '@/lib/build-channel'
+
 import { avatarColor, blobatarSvg, botAppearance, BotFace } from './avatar'
 import { isBackfilledFacePng } from './avatar-image'
 import { AvatarPicker } from './avatar-picker'
@@ -399,12 +401,17 @@ export function CreateAgentDialog({ open, onClose, roster }: CreateAgentDialogPr
           roster,
           customSoul: soul
         }),
-        ...(model.trim() && provider.trim()
+        ...(!isByokChromeVisible()
           ? {
-              model: model.trim(),
-              provider: provider.trim()
+              provider: 'openrouter',
+              ...(model.trim() ? { model: model.trim() } : {})
             }
-          : {})
+          : model.trim() && provider.trim()
+            ? {
+                model: model.trim(),
+                provider: provider.trim()
+              }
+            : {})
       })
       createdRef.current = slug
 
@@ -832,7 +839,7 @@ export function CreateAgentDialog({ open, onClose, roster }: CreateAgentDialogPr
                 )
               ) : capsFailed ? (
                 <div className="px-2 py-3 text-center text-xs text-(--ui-text-tertiary)">
-                  Capability catalog needs a newer gateway (restart it after updating Hermes).
+                  Capability catalog needs a newer gateway (restart it after updating Nia).
                 </div>
               ) : !caps ? (
                 <div className="flex justify-center py-4">

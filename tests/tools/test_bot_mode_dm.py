@@ -167,10 +167,15 @@ def test_cannot_message_self(tmp_path):
     home = _managed_home(tmp_path)
     agent = _FakeAgent(home, title="Bot Chat")  # default profile
     result = json.loads(
-        bot_mode_dm.message_agent_tool(target="hermes", message="hi", agent=agent)
+        bot_mode_dm.message_agent_tool(target="nia", message="hi", agent=agent)
     )
     assert "error" in result
     assert "yourself" in result["error"]
+    leftover = json.loads(
+        bot_mode_dm.message_agent_tool(target="hermes", message="hi", agent=agent)
+    )
+    assert "error" in leftover
+    assert "yourself" not in leftover["error"]
 
 
 def test_empty_and_oversized_message_rejected(tmp_path):

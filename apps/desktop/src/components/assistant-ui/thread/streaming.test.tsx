@@ -605,6 +605,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('renders an incomplete streaming reasoning fenced code block as a code card', async () => {
+    $toolViewMode.set('technical')
     const { container } = render(<RunningReasoningHarness />)
     const ui = within(container)
     const thinkingToggle = ui.getByRole('button', { name: /thinking/i })
@@ -624,6 +625,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('keeps the height-capped thinking preview scrollable after the turn settles', async () => {
+    $toolViewMode.set('technical')
     const { container, settle } = renderSettlingReasoning()
 
     const live = container.querySelector('[data-slot="aui_thinking-body"]')?.className ?? ''
@@ -646,6 +648,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('does not collapse a live thinking preview when the turn settles', async () => {
+    $toolViewMode.set('technical')
     const { container, settle } = renderSettlingReasoning()
     const toggle = within(container).getByRole('button', { name: /thinking/i })
 
@@ -665,6 +668,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('leaves a settling turn collapsed when the collapsed-by-default preference is enabled', async () => {
+    $toolViewMode.set('technical')
     $reasoningCollapsedByDefault.set(true)
 
     const { container, settle } = renderSettlingReasoning()
@@ -688,6 +692,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('keeps streaming reasoning collapsed by default when the preference is enabled', () => {
+    $toolViewMode.set('technical')
     $reasoningCollapsedByDefault.set(true)
 
     const { container } = render(<RunningReasoningHarness />)
@@ -703,6 +708,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('renders reasoning text without a leading token space', () => {
+    $toolViewMode.set('technical')
     const { container } = render(<ReasoningHarness />)
     const ui = within(container)
 
@@ -715,6 +721,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('groups consecutive reasoning parts under one thinking disclosure', () => {
+    $toolViewMode.set('technical')
     const { container } = render(<GroupedReasoningHarness />)
 
     const disclosures = container.querySelectorAll('[data-slot="aui_thinking-disclosure"]')
@@ -729,6 +736,7 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('does not reopen an earlier completed thinking group when a later group is running', () => {
+    $toolViewMode.set('technical')
     const { container } = render(<RunningMessageHarness message={assistantSeparatedReasoningMessage()} />)
 
     const disclosures = container.querySelectorAll('[data-slot="aui_thinking-disclosure"]')
@@ -738,6 +746,13 @@ describe('assistant-ui streaming renderer', () => {
     expect(disclosures[1].querySelector('button')?.getAttribute('aria-expanded')).toBe('true')
     expect(container.textContent).not.toContain('Complete first thought.')
     expect(container.textContent).toContain('Interim answer.')
+  })
+
+  it('hides the thinking disclosure in product mode', () => {
+    $toolViewMode.set('product')
+    const { container } = render(<ReasoningHarness />)
+
+    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeNull()
   })
 
   it('does not render an inline todo panel — todos live in the composer status stack', () => {

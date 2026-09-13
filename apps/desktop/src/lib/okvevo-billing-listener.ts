@@ -18,14 +18,37 @@ export type OkvevoBillingView = {
 
 export type OkvevoBillingData = OkvevoBillingView
 
-/** Floored 0–100. Never round — 19931/20000 is 99%, not 100%. */
-export function remainingPct(creditsIncluded: number, allocationBalance: number): number {
-  if (!Number.isInteger(creditsIncluded) || creditsIncluded <= 0) return 0
-  const alloc =
-    typeof allocationBalance === 'number' && Number.isInteger(allocationBalance) && allocationBalance >= 0
-      ? allocationBalance
-      : 0
-  return Math.max(0, Math.min(100, Math.floor((alloc / creditsIncluded) * 100)))
+/** 0–100, two-decimal floor. Never round up — 19931/20000 is 99.65, not 100. */
+export function flooredPct(remaining: number, total: number): number {
+  if (!Number.isInteger(total) || total <= 0) return 0
+  if (!Number.isInteger(remaining) || remaining < 0) return 0
+  return Math.min(100, Math.floor((remaining / total) * 10000) / 100)
+}
+
+/** Trim trailing zeros: 87.5%, 99.86%, 50%, 100%. */
+export function formatPctLabel(pct: number): string {
+  if (!Number.isFinite(pct)) return '0%'
+  const hundredths = Math.round(Math.min(100, Math.max(0, pct)) * 100)
+  const whole = Math.floor(hundredths / 100)
+  const frac = hundredths % 100
+  if (frac === 0) return `${whole}%`
+  if (frac % 10 === 0) return `${whole}.${frac / 10}%`
+  return `${whole}.${String(frac).padStart(2, '0')}%`
+}
+
+/** Floored 0–100. Denom is this-cycle grant total; fallback creditsIncluded. */
+export function remainingPct(
+  creditsIncluded: number,
+  allocationBalance: number,
+  allocationGrantedTotal?: number
+): number {
+  const granted =
+    typeof allocationGrantedTotal === 'number' &&
+    Number.isInteger(allocationGrantedTotal) &&
+    allocationGrantedTotal > 0
+      ? allocationGrantedTotal
+      : creditsIncluded
+  return flooredPct(allocationBalance, granted)
 }
 
 export function additionalRemainingPct(topUpBalance: number, topUpPurchasedTotal: number): number {
@@ -35,16 +58,24 @@ export function additionalRemainingPct(topUpBalance: number, topUpPurchasedTotal
     typeof topUpPurchasedTotal === 'number' && Number.isInteger(topUpPurchasedTotal) && topUpPurchasedTotal >= 0
       ? topUpPurchasedTotal
       : 0
-  return remainingPct(Math.max(purchased, leftover), leftover)
+  return flooredPct(leftover, Math.max(purchased, leftover))
 }
 
-export function formatRemainingPct(creditsIncluded: number, allocationBalance: number): string {
-  return `${remainingPct(creditsIncluded, allocationBalance)}%`
+export function formatRemainingPct(
+  creditsIncluded: number,
+  allocationBalance: number,
+  allocationGrantedTotal?: number
+): string {
+  return formatPctLabel(remainingPct(creditsIncluded, allocationBalance, allocationGrantedTotal))
 }
 
 /** Period figure is percent-only — never embed raw allocationBalance. */
-export function periodRemainingDisplay(creditsIncluded: number, allocationBalance: number): string {
-  const label = formatRemainingPct(creditsIncluded, allocationBalance)
+export function periodRemainingDisplay(
+  creditsIncluded: number,
+  allocationBalance: number,
+  allocationGrantedTotal?: number
+): string {
+  const label = formatRemainingPct(creditsIncluded, allocationBalance, allocationGrantedTotal)
 
   if (creditsIncluded > 0 && allocationBalance > 0 && label.includes(String(allocationBalance))) {
     throw new Error('periodRemainingDisplay must not expose raw allocation balance')
@@ -56,7 +87,7 @@ export function periodRemainingDisplay(creditsIncluded: number, allocationBalanc
 export function formatOkvevoBillingDescription(data: OkvevoBillingView): string {
   const plan = data.planName || 'None'
 
-  return `${plan} · remaining ${data.remainingPct}% · additional ${data.additionalPct}%`
+  return `${plan} · remaining ${formatPctLabel(data.remainingPct)} · additional ${formatPctLabel(data.additionalPct)}`
 }
 
 function readInt(n: unknown): number {
@@ -90,6 +121,7 @@ export function billingViewFromUserData(data: Record<string, unknown> | undefine
   }
   const creditsIncluded = readInt(data.creditsIncluded)
   const allocationBalance = readInt(data.allocationBalance)
+  const allocationGrantedTotal = readInt(data.allocationGrantedTotal)
   let topUpBalance = readInt(data.topUpBalance)
   const legacy = readInt(data.creditBalance)
   if (allocationBalance === 0 && topUpBalance === 0 && legacy > 0 && data.topUpBalance === undefined) {
@@ -98,7 +130,7 @@ export function billingViewFromUserData(data: Record<string, unknown> | undefine
   return {
     planName: typeof data.planName === 'string' ? data.planName : null,
     planStatus: typeof data.planStatus === 'string' ? data.planStatus : null,
-    remainingPct: remainingPct(creditsIncluded, allocationBalance),
+    remainingPct: remainingPct(creditsIncluded, allocationBalance, allocationGrantedTotal),
     additionalPct: additionalRemainingPct(topUpBalance, readInt(data.topUpPurchasedTotal)),
     currentPeriodEnd: toDate(data.currentPeriodEnd),
     cancelAtPeriodEnd: data.cancelAtPeriodEnd === true

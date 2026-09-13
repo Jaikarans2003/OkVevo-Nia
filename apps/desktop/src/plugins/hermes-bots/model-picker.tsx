@@ -18,7 +18,10 @@ import {
   SelectValue,
   useQuery
 } from '@hermes/plugin-sdk'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+import { isByokChromeVisible } from '@/lib/build-channel'
+import { brandProviderSlug } from '@/lib/provider-branding'
 
 import { labeled } from './dialog-parts'
 import { botRouteKey, requestForBot, resolveBotConnectionRoute } from './routing'
@@ -124,14 +127,80 @@ export function ModelPicker({ bot = null, value, onChange, placeholderModel = 'g
   // Declaring them after a return trips React error #310.
   const NONE = '__default__'
   const CUSTOM = '__custom__'
+  const publicLocked = !isByokChromeVisible()
   const providers = (data?.providers || []).filter(p => p && p.slug)
   const isKnown = !value.provider || value.provider === NONE || providers.some(p => p.slug === value.provider)
   const [useFreeText, setUseFreeText] = useState(!isKnown)
+
+  useEffect(() => {
+    if (publicLocked && value.provider !== 'openrouter') {
+      onChange({ provider: 'openrouter' })
+    }
+  }, [publicLocked, value.provider, onChange])
 
   if (isLoading) {
     return (
       <div className="flex justify-center py-2">
         <GlyphSpinner className="text-(--ui-text-tertiary)" spinner="breathe" />
+      </div>
+    )
+  }
+
+  if (publicLocked) {
+    const openrouter = providers.find(p => p.slug === 'openrouter') || null
+    const models = openrouter
+      ? (openrouter.models || []).map(m => (typeof m === 'string' ? m : m.id || m.name || ''))
+      : []
+    const catalogReady = !error && Boolean(openrouter)
+
+    return (
+      <div className="grid grid-cols-[1fr_1.4fr] gap-2.5">
+        {labeled(
+          'Provider',
+          <Input
+            aria-disabled="true"
+            data-testid="bot-provider-locked"
+            disabled
+            readOnly
+            value={brandProviderSlug('openrouter')}
+          />
+        )}
+        {labeled(
+          'Model',
+          catalogReady && models.length > 0 ? (
+            <Select
+              onValueChange={v =>
+                onChange({
+                  model: v
+                })
+              }
+              value={value.model || (models[0] ?? '')}
+            >
+              <SelectTrigger className="h-8 rounded-md">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map(m => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              onChange={event =>
+                onChange({
+                  model: event.target.value
+                })
+              }
+              placeholder={
+                error || !providers.length ? 'antigravity/gemini-3.6-flash-high' : placeholderModel || 'e.g. model name'
+              }
+              value={value.model}
+            />
+          )
+        )}
       </div>
     )
   }

@@ -33,6 +33,8 @@ describe('brandProviderCatalog', () => {
   const opencodeGo = { models: ['go'], name: 'OpenCode Go', slug: 'opencode-go' }
   const opencode = { models: ['legacy'], name: 'OpenCode', slug: 'opencode' }
   const nous = { models: ['hermes-4'], name: 'Nous', slug: 'nous' }
+  const bedrock = { models: ['claude'], name: 'AWS Bedrock', slug: 'bedrock' }
+  const moa = { models: ['BeastMode'], name: 'Mixture of Agents', slug: 'moa' }
   const keylessOther = { keyless: true, models: ['web'], name: 'Exa', slug: 'exa' }
 
   it('returns the same array on the internal channel', () => {
@@ -41,7 +43,7 @@ describe('brandProviderCatalog', () => {
     expect(brandProviderCatalog(providers)).toBe(providers)
   })
 
-  it('renames OpenRouter, drops OpenCode slugs, and leaves other rows', () => {
+  it('keeps ONLY the OkVevo row on the public channel', () => {
     isByokChromeVisible.mockReturnValue(false)
 
     const result = brandProviderCatalog([
@@ -51,21 +53,18 @@ describe('brandProviderCatalog', () => {
       opencodeGo,
       opencode,
       nous,
+      bedrock,
+      moa,
       keylessOther
     ])
 
-    expect(result.map(row => row.slug)).toEqual(['openrouter', 'nous', 'exa'])
+    expect(result.map(row => row.slug)).toEqual(['openrouter'])
     expect(result[0]?.name).toBe('OkVevo')
-    expect(result[1]).toBe(nous)
-    expect(result[2]).toBe(keylessOther)
   })
 
-  it('does not drop a keyless non-OpenCode slug', () => {
+  it('drops a catalog that has no OpenRouter row', () => {
     isByokChromeVisible.mockReturnValue(false)
 
-    const result = brandProviderCatalog([keylessOther])
-
-    expect(result).toEqual([keylessOther])
-    expect(result[0]).toBe(keylessOther)
+    expect(brandProviderCatalog([bedrock, moa, keylessOther])).toEqual([])
   })
 })

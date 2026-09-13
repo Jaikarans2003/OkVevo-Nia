@@ -228,11 +228,11 @@ export const ja = defineLocale({
       'バンドルは非公開でアップロードされました。サポートスレッドで以下のリンクを共有すると、チームがログを確認できます。',
     failedTitle: 'アップロードに失敗しました',
     failedHint:
-      'ターミナルから `hermes debug share --nous` を実行するか、`hermes debug share --local` でアップロードせずにレポートを表示することもできます。',
+      'ターミナルから debug-share コマンドを実行するか、アップロードせずにレポートをローカル表示することもできます。',
     handoffLead: '続きは次の場所で:',
     links: {
       github: 'GitHub Issues',
-      portal: 'Nous Portal サポート',
+      portal: 'OkVevo サポート',
       discord: 'Discord'
     }
   },
@@ -1183,7 +1183,7 @@ export const ja = defineLocale({
     edit: '編集',
     archive: 'アーカイブ',
     skillArchivedTitle: 'スキルをアーカイブしました',
-    skillArchivedMessage: 'hermes curator restore で復元できます。'
+    skillArchivedMessage: '後で復元できます。'
   },
 
   starmap: {
@@ -1582,8 +1582,7 @@ export const ja = defineLocale({
     saveSoul: 'SOUL を保存',
     deleteTitle: 'プロファイルを削除しますか？',
     deleteDescPrefix: 'これにより ',
-    deleteDescMid: ' が削除され、その ',
-    deleteDescSuffix: ' ディレクトリが削除されます。この操作は元に戻せません。',
+    deleteDescSuffix: ' が完全に削除されます。この操作は元に戻せません。',
     deleting: '削除中...',
     createDesc: 'プロファイルは独立した Nia 環境です：設定、スキル、SOUL.md が別々になります。',
     nameLabel: '名前',
@@ -2036,7 +2035,7 @@ export const ja = defineLocale({
       '/resume': '以前のセッションを再開',
       '/details': 'トランスクリプトの詳細レベルを制御',
       '/copy': '選択または最後のアシスタントメッセージをコピー',
-      '/quit': 'hermes を終了'
+      '/quit': 'Nia を終了'
     },
     hotkeyDescs: {
       'composer.mention': 'ファイル、フォルダー、URL、Git を参照',
@@ -3072,7 +3071,7 @@ export const ja = defineLocale({
       success: platform => `${platform} に引き継ぎました。いつでもここで再開できます。`,
       systemNote: platform => `↻ ${platform} に引き継ぎました — いつでもここで再開できます。`,
       failed: error => `引き継ぎに失敗しました: ${error}`,
-      timedOut: 'ゲートウェイの待機がタイムアウトしました。`hermes gateway` は起動していますか？'
+      timedOut: 'Nia の待機がタイムアウトしました。もう一度お試しください。'
     }
   },
 

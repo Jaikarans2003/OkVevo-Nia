@@ -175,6 +175,18 @@ const FAL_WORD_RE = /\bfal\.ai\b/g
 const HEY_HERMES_RE = /\bhey hermes\b/gi
 const HEY_NIA_RE = /\bhey nia\b/gi
 const HERMES_PROFILE_AT_RE = /@hermes\b(?!\/)/g
+const HERMES_CLI_SPAN_RE = /`hermes [^`]*`/g
+const FENCED_CODE_RE = /```[\s\S]*?(?:```|$)/g
+const THE_GATEWAY_RE = /\bthe gateway\b/gi
+const BACKEND_PROCESS_RE = /\bbackend process\b/gi
+const GATEWAY_WORD_RE = /\bgateway\b/gi
+const BACKEND_WORD_RE = /\bbackend\b/gi
+const ROSTER_WORD_RE = /\broster\b/gi
+const HOME_DOTFILE_PATH_RE =
+  /(?:~|\/Users\/[^/\s]+|\/home\/[^/\s]+|[A-Za-z]:[\\/]Users[\\/][^\\/\s]+)[\\/]\.[^\s`'"]+/g
+const HOME_DOTFILE_PATH_TEST_RE =
+  /(?:~|\/Users\/[^/\s]+|\/home\/[^/\s]+|[A-Za-z]:[\\/]Users[\\/][^\\/\s]+)[\\/]\.[^\s`'"]+/
+const INTERNAL_FENCE_PLACEHOLDER = '[internal details omitted]'
 
 const LEGACY_WAKE_PHRASES = new Set(['', 'hey hermes', 'hey nia'])
 
@@ -185,10 +197,25 @@ export function displayWakePhrase(phrase: string | null | undefined): string {
   return LEGACY_WAKE_PHRASES.has(raw.toLowerCase()) ? 'ok nia' : raw
 }
 
-/** Rewrite leftover Hermes product copy for assistant bubble paint. */
-export function sanitizeUserFacingBrand(raw: string): string {
-  // ponytail: naive phrase/path rewrite; upgrade later if code-fence exemptions are needed.
+function fenceContainsInternal(block: string): boolean {
+  const stripped = block.replace(/hermes:\/\//gi, '').replace(/@hermes\//g, '')
+
+  return (
+    /\bhermes\b/i.test(stripped) ||
+    /\bnous\b/i.test(stripped) ||
+    /\bopenrouter\b/i.test(stripped) ||
+    /\bfal\.ai\b/i.test(stripped) ||
+    /\bgateway\b/i.test(stripped) ||
+    /\bbackend\b/i.test(stripped) ||
+    /\broster\b/i.test(stripped) ||
+    /\.hermes\b/.test(stripped) ||
+    HOME_DOTFILE_PATH_TEST_RE.test(stripped)
+  )
+}
+
+function sanitizeUserFacingProse(raw: string): string {
   return displayInstallPath(raw)
+    .replace(HERMES_CLI_SPAN_RE, 'a Nia command')
     .replace(HERMES_DESKTOP_APP_RE, 'Nia desktop app')
     .replace(HERMES_AGENT_RE, 'Nia')
     .replace(HERMES_WORD_RE, 'Nia')
@@ -199,4 +226,24 @@ export function sanitizeUserFacingBrand(raw: string): string {
     .replace(HEY_HERMES_RE, 'ok nia')
     .replace(HEY_NIA_RE, 'ok nia')
     .replace(HERMES_PROFILE_AT_RE, '@nia')
+    .replace(THE_GATEWAY_RE, 'the app')
+    .replace(BACKEND_PROCESS_RE, 'app')
+    .replace(GATEWAY_WORD_RE, 'app')
+    .replace(BACKEND_WORD_RE, 'app')
+    .replace(ROSTER_WORD_RE, 'bots list')
+    .replace(HOME_DOTFILE_PATH_RE, match => {
+      const punct = match.match(/[.,;:!?]+$/)?.[0] ?? ''
+
+      return `your Nia data folder${punct}`
+    })
+}
+
+/** Rewrite leftover product copy, mechanism terms, and home-dotfile paths for paint. */
+export function sanitizeUserFacingBrand(raw: string): string {
+  // ponytail: ordered regex table; upgrade if a real tokenizer is needed for mixed markdown.
+  const withFences = raw.replace(FENCED_CODE_RE, block =>
+    fenceContainsInternal(block) ? INTERNAL_FENCE_PLACEHOLDER : block
+  )
+
+  return sanitizeUserFacingProse(withFences)
 }

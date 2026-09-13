@@ -57,4 +57,31 @@ describe('summarizeToolRun', () => {
   it('reads a run the turn left unresolved as finished', () => {
     expect(settled([read('a.ts'), tool('search_files', { query: 'toolRuns' })])).toBe('Explored 2 files')
   })
+
+  it('product mode never counts commands or files', () => {
+    const text = summarizeToolRun(
+      [read('a.ts'), read('b.ts'), read('c.ts'), ran('ls'), ran('pwd'), ran('id')],
+      false,
+      true
+    )
+
+    expect(text).not.toMatch(/Ran \d+ commands/i)
+    expect(text).not.toMatch(/Explored \d+ files/i)
+    expect(text.length).toBeGreaterThan(0)
+  })
+
+  it('product mode uses the phrasing deck, not technical clauses', () => {
+    const deck = ['Working on it…', 'Doing the thing…', 'On it…']
+    const text = summarizeToolRun([ran('npm test'), ran('ls')], false, true)
+
+    expect(deck).toContain(text)
+    expect(text).not.toMatch(/Ran \d+ command/i)
+  })
+
+  it('product mode prefers listed phrasing for a read-heavy run', () => {
+    const text = summarizeToolRun([read('wiring.tsx'), read('a.ts')], false, true)
+
+    expect(text).toMatch(/wiring\.tsx|a\.ts/)
+    expect(text).not.toMatch(/Explored \d+ files/i)
+  })
 })

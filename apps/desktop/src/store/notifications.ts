@@ -166,6 +166,10 @@ export function readableError(error: unknown, fallback: string): { message: stri
   const detail = cleaned.match(/"detail"\s*:\s*"([^"]+)"/)?.[1] ?? cleaned
   const summary = summarizeErrorMessage(detail, fallback)
 
+  if (!isByokChromeVisible()) {
+    return { message: summary }
+  }
+
   return { message: summary, detail: detail === summary ? undefined : detail }
 }
 

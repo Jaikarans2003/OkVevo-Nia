@@ -718,13 +718,14 @@ function useToolRun(startIndex: number, endIndex: number): ToolRunState {
     // The tail bound is what keeps this honest — a turn that ends, or an agent
     // that moves on to later parts, leaves the run settled and collapsible.
     const live = selectMessageRunning(state) && endIndex >= parts.length - 1
+    const productMode = $toolViewMode.get() === 'product'
 
     const signature = timelineTools
       .map(
         tool =>
           `${tool.toolCallId}:${tool.result === undefined ? 0 : 1}:${tool.timestamp ?? ''}:${tool.completedAt ?? ''}`
       )
-      .concat(String(live))
+      .concat(String(live), String(productMode))
       .join('|')
 
     if (cache.current?.signature !== signature) {
@@ -754,7 +755,7 @@ function useToolRun(startIndex: number, endIndex: number): ToolRunState {
             undefined
           ),
           pendingApprovalTool: tools.some(tool => tool.result === undefined && APPROVAL_TOOLS.has(tool.toolName)),
-          summary: summarizeToolRun(tools, live)
+          summary: summarizeToolRun(tools, live, productMode)
         }
       }
     }

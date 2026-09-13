@@ -1,8 +1,15 @@
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 
-import { $notifications, clearNotifications, isDiskFullErrorMessage, notifyError } from './notifications'
+import { $notifications, clearNotifications, isDiskFullErrorMessage, notifyError, readableError } from './notifications'
+
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 
 beforeEach(() => {
+  isByokChromeVisible.mockReturnValue(true)
   clearNotifications()
 })
 
@@ -54,4 +61,29 @@ test('session storage write failure is treated as disk-full class', () => {
   )
 
   expect(lastMessage()).toMatch(/Disk full/i)
+})
+
+test('public channel drops raw exception detail from readableError', () => {
+  isByokChromeVisible.mockReturnValue(false)
+
+  const readable = readableError(
+    new Error("AttributeError: 'AIAgent' object has no attribute 'api_key'"),
+    "Couldn't switch model"
+  )
+
+  expect(readable.message).toBe("Couldn't switch model")
+  expect(readable.detail).toBeUndefined()
+
+  notifyError(new Error("AttributeError: 'AIAgent' object has no attribute 'api_key'"), "Couldn't switch model")
+
+  expect(lastMessage()).toBe("Couldn't switch model")
+  expect($notifications.get()[0]?.detail).toBeUndefined()
+})
+
+test('internal channel keeps raw exception detail on readableError', () => {
+  const raw = `${'Traceback (most recent call last): '.repeat(8)}AttributeError: 'AIAgent' object has no attribute 'api_key'`
+  const readable = readableError(new Error(raw), "Couldn't switch model")
+
+  expect(readable.message).toBe("Couldn't switch model")
+  expect(readable.detail).toBe(raw)
 })

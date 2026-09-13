@@ -11,7 +11,7 @@ import { isByokChromeVisible } from '@/lib/build-channel'
 import { BarChart3, CreditCard, ExternalLink, LogIn, Package, Wrench } from '@/lib/icons'
 import { fmtDate } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import { subscribeOkvevoUserBilling, type OkvevoBillingData } from '@/lib/okvevo-billing-listener'
+import { formatPctLabel, subscribeOkvevoUserBilling, type OkvevoBillingData } from '@/lib/okvevo-billing-listener'
 import { useOkvevoAuth } from '@/store/okvevo-auth'
 
 import { useRouteEnumParam } from '../../hooks/use-route-enum-param'
@@ -117,7 +117,8 @@ function OkvevoPortalActions({ canCancelPlan, livePlan }: { canCancelPlan: boole
 }
 
 function OkvevoUsageRow({ label, pct }: { label: string; pct: number }) {
-  const clamped = Math.max(0, Math.min(100, Number.isInteger(pct) ? pct : 0))
+  const clamped = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0
+  const shown = formatPctLabel(clamped)
 
   return (
     <div className="@container">
@@ -125,9 +126,16 @@ function OkvevoUsageRow({ label, pct }: { label: string; pct: number }) {
         <div className="min-w-0 text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
           {label}
         </div>
-        <Progress aria-label={label} fillClassName="bg-(--ui-green)" size="lg" value={clamped / 100} />
+        <Progress
+          aria-label={label}
+          aria-valuenow={clamped}
+          fillClassName="bg-(--ui-green)"
+          fillStyle={{ width: `${clamped}%` }}
+          size="lg"
+          value={clamped / 100}
+        />
         <div className="min-w-0 whitespace-nowrap text-[length:var(--conversation-text-font-size)] font-medium tabular-nums @2xl:w-[220px] @2xl:flex-none @2xl:text-right">
-          {clamped}%
+          {shown}
         </div>
       </div>
     </div>

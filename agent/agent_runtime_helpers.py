@@ -3138,7 +3138,8 @@ def switch_model(
             # Other anthropic_messages providers (MiniMax, Alibaba, etc.) must use their own
             # API key — falling back would send Anthropic credentials to third-party endpoints.
             _is_native_anthropic = new_provider == "anthropic"
-            effective_key = (api_key or agent.api_key or resolve_anthropic_token() or "") if _is_native_anthropic else (api_key or agent.api_key or "")
+            _existing_key = getattr(agent, "api_key", "")
+            effective_key = (api_key or _existing_key or resolve_anthropic_token() or "") if _is_native_anthropic else (api_key or _existing_key or "")
 
             # MiniMax OAuth: swap static string for a per-request callable token
             # provider so the rebuilt client survives 15-min token expiry. See
@@ -3166,7 +3167,7 @@ def switch_model(
             agent.client = None
             agent._client_kwargs = {}
         else:
-            effective_key = api_key or agent.api_key
+            effective_key = api_key or getattr(agent, "api_key", "")
             effective_base = base_url or agent.base_url
             agent._client_kwargs = {
                 "api_key": effective_key,
@@ -3291,7 +3292,8 @@ def switch_model(
         # string for its live-probe paths; for Foundry the context
         # length normally resolves via config or static catalogs and
         # never hits a probe, but coerce to empty string defensively.
-        _ctx_api_key = agent.api_key if isinstance(agent.api_key, str) else ""
+        _existing_key = getattr(agent, "api_key", "")
+        _ctx_api_key = _existing_key if isinstance(_existing_key, str) else ""
         try:
             new_context_length = get_model_context_length(
                 agent.model,

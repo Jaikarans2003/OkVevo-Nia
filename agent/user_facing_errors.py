@@ -29,6 +29,9 @@ RATE_LIMIT_COPY = (
 )
 SERVER_COPY = "Something broke on our side. The OkVevo team is on it — try again in a bit."
 AUTH_COPY = "Your session hit a snag — restart Nia and we should be good."
+SUBSCRIPTION_COPY = (
+    "Your OkVevo subscription isn't active — visit okvevo.com to get back on a plan."
+)
 NETWORK_COPY = "Can't reach OkVevo right now — check your internet and try again."
 CONTENT_BLOCKED_COPY = "That one got blocked by content filters — try rephrasing."
 UNREADABLE_FILE_COPY = "I couldn't read that file — try attaching it again."
@@ -39,6 +42,7 @@ _COPY_BY_CATEGORY = {
     "rate_limit": RATE_LIMIT_COPY,
     "server": SERVER_COPY,
     "auth": AUTH_COPY,
+    "subscription": SUBSCRIPTION_COPY,
     "network": NETWORK_COPY,
     "content_blocked": CONTENT_BLOCKED_COPY,
     "unreadable_file": UNREADABLE_FILE_COPY,
@@ -138,6 +142,12 @@ def categorize_error(
         or "too many requests" in lowered
     ):
         return "rate_limit"
+    if (
+        et == "plan_not_active"
+        or "plan not active" in lowered
+        or "subscription isn't active" in lowered
+    ):
+        return "subscription"
     if code in (401, 403) or et in _AUTH_ERROR_TYPES:
         return "auth"
     if code is not None and 500 <= code < 600 or et in ("server_error", "internal_error"):

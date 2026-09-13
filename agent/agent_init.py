@@ -1285,6 +1285,9 @@ def init_agent(
             pass
         agent.client = None
         agent._client_kwargs = {}
+        # Bedrock uses IAM/boto3, not a bearer key. Still set the attr so a
+        # later switch_model `api_key or agent.api_key` cannot AttributeError.
+        agent.api_key = ""
         if not agent.quiet_mode:
             _gr_label = " + Guardrails" if agent._bedrock_guardrail_config else ""
             print(f"🤖 AI Agent initialized with model: {agent.model} (AWS Bedrock, {agent._bedrock_region}{_gr_label})")

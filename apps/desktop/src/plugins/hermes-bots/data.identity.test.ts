@@ -139,13 +139,13 @@ describe('resolving @mentions against the roster', () => {
     expect(resolveRosterMentions('ping @bob-mac-mini', roster, live).map(bot => bot.name)).toEqual(['bob'])
   })
 
-  it('never treats @nia or leftover @hermes in your own chat as a handoff to yourself', () => {
+  it('never treats @nia in your own chat as a handoff to yourself; leftover @hermes does not resolve', () => {
     expect(resolveRosterMentions('@nia do it', roster, { connectionId: 'local', name: 'default' })).toEqual([])
     expect(resolveRosterMentions('@hermes do it', roster, { connectionId: 'local', name: 'default' })).toEqual([])
-    // From ANOTHER bot's chat the same tag is a real handoff.
+    // Leftover @hermes is reserved, not a working alias — even from another bot.
     expect(
       resolveRosterMentions('@hermes do it', roster, { connectionId: 'mac-mini', name: 'dixie' }).map(bot => bot.name)
-    ).toEqual(['default'])
+    ).toEqual([])
     expect(
       resolveRosterMentions('@nia do it', roster, { connectionId: 'mac-mini', name: 'dixie' }).map(bot => bot.name)
     ).toEqual(['default'])
@@ -255,7 +255,7 @@ describe('roster search narrows without re-ranking', () => {
       'agency-audio-designer',
       'agency-ai-engineer'
     ])
-    expect(filterBots(roster, meta, '@hermes').map(bot => bot.name)).toEqual(['default'])
+    expect(filterBots(roster, meta, '@hermes').map(bot => bot.name)).toEqual([])
     expect(filterBots(roster, meta, '@nia').map(bot => bot.name)).toEqual(['default'])
     expect(filterBots(roster, meta, 'default').map(bot => bot.name)).toEqual(['default'])
   })

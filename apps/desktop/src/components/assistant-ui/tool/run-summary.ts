@@ -1,3 +1,4 @@
+import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { firstStringField } from '@/lib/text'
 
@@ -126,7 +127,32 @@ function lowerFirst(text: string): string {
  * split out before this sees them (`splitRunItems`), so there is no aggregate
  * diff to report here; each edit carries its own +N/−M on its card.
  */
-export function summarizeToolRun(tools: readonly ToolCallLike[], live: boolean): string {
+function summarizeProductToolRun(tools: readonly ToolCallLike[], live: boolean): string {
+  const narrating = live ? (tools.find(isPending) ?? tools.at(-1)) : tools[0]
+  if (narrating) {
+    const listed = listedProductPhrasing(
+      narrating.toolName,
+      narrating.toolCallId || narrating.toolName,
+      toolTarget(narrating)
+    )
+    if (listed) {
+      return listed
+    }
+  }
+
+  const seed = tools[0]?.toolCallId || tools[0]?.toolName || 'run'
+  return genericProductPhrasing(seed) ?? 'Working on it…'
+}
+
+export function summarizeToolRun(
+  tools: readonly ToolCallLike[],
+  live: boolean,
+  productMode = false
+): string {
+  if (productMode) {
+    return summarizeProductToolRun(tools, live)
+  }
+
   // Which clause narrates in the present tense: normally the outstanding call,
   // but sequential calls leave gaps where the run is still going and nothing is
   // pending. The most recent call covers those, and it's the one the ticker is

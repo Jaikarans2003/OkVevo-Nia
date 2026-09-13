@@ -219,12 +219,11 @@ export const zhHant = defineLocale({
     doneTitle: '診斷資訊已傳送',
     doneDescription: '偵錯套件已私密上傳。在您的支援討論串中分享以下連結，團隊即可檢視您的日誌。',
     failedTitle: '上傳失敗',
-    failedHint:
-      '您也可以在終端機執行 `hermes debug share --nous`，或執行 `hermes debug share --local` 在不上傳的情況下檢視報告。',
+    failedHint: '您也可以從終端機執行 debug-share 命令，或在本機列印報告而不上傳。',
     handoffLead: '在以下位置繼續討論:',
     links: {
       github: 'GitHub Issues',
-      portal: 'Nous Portal 支援',
+      portal: 'OkVevo 支援',
       discord: 'Discord'
     }
   },
@@ -1144,7 +1143,7 @@ export const zhHant = defineLocale({
     edit: '編輯',
     archive: '封存',
     skillArchivedTitle: '技能已封存',
-    skillArchivedMessage: '可透過 hermes curator restore 還原。'
+    skillArchivedMessage: '之後可以再還原。'
   },
 
   starmap: {
@@ -1522,9 +1521,8 @@ export const zhHant = defineLocale({
     saving: '儲存中…',
     saveSoul: '儲存 SOUL.md',
     deleteTitle: '刪除設定檔？',
-    deleteDescPrefix: '這將刪除 ',
-    deleteDescMid: ' 並移除其 ',
-    deleteDescSuffix: ' 目錄。此操作無法復原。',
+    deleteDescPrefix: '這將永久刪除 ',
+    deleteDescSuffix: '。此操作無法復原。',
     deleting: '刪除中…',
     createDesc: '設定檔是獨立的 Nia 環境：各自擁有獨立的設定、技能和 SOUL.md。',
     nameLabel: '名稱',
@@ -1971,7 +1969,7 @@ export const zhHant = defineLocale({
       '/resume': '繼續之前的工作階段',
       '/details': '控制對話記錄的詳細程度',
       '/copy': '複製所選內容或最後一條助手訊息',
-      '/quit': '結束 hermes'
+      '/quit': '結束 Nia'
     },
     hotkeyDescs: {
       'composer.mention': '參照檔案、資料夾、URL、git',
@@ -2947,7 +2945,7 @@ export const zhHant = defineLocale({
       success: platform => `已移交到 ${platform}。隨時可在此處恢復。`,
       systemNote: platform => `↻ 已移交到 ${platform} — 隨時可在此處恢復。`,
       failed: error => `移交失敗：${error}`,
-      timedOut: '等待閘道逾時。`hermes gateway` 是否正在執行？'
+      timedOut: '等待 Nia 逾時。請再試一次。'
     }
   },
 

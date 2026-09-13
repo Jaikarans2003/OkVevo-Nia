@@ -35,7 +35,7 @@ def _rows():
     return [
         {
             "profile": "default",
-            "handle": "hermes",
+            "handle": "nia",
             "connection_id": "cloud-1",
             "connection_label": "Hermes Cloud",
             "title": "Moxie",
@@ -58,7 +58,7 @@ def test_roster_roundtrip_and_validation(root):
         {"profile": "", "handle": "x", "connection_id": "c"},  # no profile
         {"profile": "bad name!", "connection_id": "c"},  # bad charset
         "not-a-dict",
-        {"profile": "default", "handle": "hermes", "connection_id": "cloud-1"},  # dupe
+        {"profile": "default", "handle": "nia", "connection_id": "cloud-1"},  # dupe
     ]
     count = bot_relay.write_remote_roster(root, rows)
     assert count == 2
@@ -79,13 +79,13 @@ def test_resolve_remote_target_forms(root):
     bot_relay.write_remote_roster(root, _rows())
     roster = bot_relay.read_remote_roster(root)
     assert bot_relay.resolve_remote_target("researcher", roster)["connection_id"] == "ssh-vps"
-    assert bot_relay.resolve_remote_target("@hermes", roster)["profile"] == "default"
+    assert bot_relay.resolve_remote_target("@hermes", roster) is None
     assert bot_relay.resolve_remote_target("@nia", roster)["profile"] == "default"
     # profile name resolves too
     assert bot_relay.resolve_remote_target("default", roster)["connection_id"] == "cloud-1"
     # exact connection-qualified form
-    assert bot_relay.resolve_remote_target("hermes@cloud-1", roster)["profile"] == "default"
-    assert bot_relay.resolve_remote_target("hermes@nope", roster) is None
+    assert bot_relay.resolve_remote_target("nia@cloud-1", roster)["profile"] == "default"
+    assert bot_relay.resolve_remote_target("nia@nope", roster) is None
     assert bot_relay.resolve_remote_target("ghost", roster) is None
 
 
@@ -100,7 +100,7 @@ def test_resolve_ambiguous_handle_across_connections(root):
     assert match["connection_id"] == "ssh-vps"
     forms = bot_relay.remote_target_forms(roster)
     assert "researcher@ssh-vps" in forms and "researcher@cloud-1" in forms
-    assert "hermes" in forms  # unique handle stays bare
+    assert "nia" in forms  # unique handle stays bare
 
 
 # ── outbox / replies ─────────────────────────────────────────────────────────

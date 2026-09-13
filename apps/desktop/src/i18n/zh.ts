@@ -219,12 +219,11 @@ export const zh: Translations = {
     doneTitle: '诊断信息已发送',
     doneDescription: '调试包已私密上传。在您的支持会话中分享以下链接，团队即可查看您的日志。',
     failedTitle: '上传失败',
-    failedHint:
-      '您也可以在终端运行 `hermes debug share --nous`，或运行 `hermes debug share --local` 在不上传的情况下查看报告。',
+    failedHint: '也可以从终端运行 debug-share 命令，或在本地打印报告而不上传。',
     handoffLead: '在以下位置继续讨论:',
     links: {
       github: 'GitHub Issues',
-      portal: 'Nous Portal 支持',
+      portal: 'OkVevo 支持',
       discord: 'Discord'
     }
   },
@@ -1487,7 +1486,7 @@ export const zh: Translations = {
     edit: '编辑',
     archive: '归档',
     skillArchivedTitle: '技能已归档',
-    skillArchivedMessage: '可通过 hermes curator restore 恢复。',
+    skillArchivedMessage: '之后可以再还原。',
     hub: {
       searchPlaceholder: '搜索技能中心',
       search: '搜索',
@@ -2081,9 +2080,8 @@ export const zh: Translations = {
     saving: '保存中…',
     saveSoul: '保存 SOUL.md',
     deleteTitle: '删除配置档案？',
-    deleteDescPrefix: '这将删除 ',
-    deleteDescMid: ' 并移除其 ',
-    deleteDescSuffix: ' 目录。此操作无法撤销。',
+    deleteDescPrefix: '这将永久删除 ',
+    deleteDescSuffix: '。此操作无法撤销。',
     deleting: '删除中…',
     createDesc: '配置档案是相互独立的 Nia 环境：各自拥有独立的配置、技能和 SOUL.md。',
     nameLabel: '名称',
@@ -2548,7 +2546,7 @@ export const zh: Translations = {
       '/resume': '恢复之前的会话',
       '/details': '控制对话记录的详细程度',
       '/copy': '复制所选内容或最后一条助手消息',
-      '/quit': '退出 hermes'
+      '/quit': '退出 Nia'
     },
     hotkeyDescs: {
       'composer.mention': '引用文件、文件夹、URL、git',
@@ -3602,7 +3600,7 @@ export const zh: Translations = {
       success: platform => `已移交到 ${platform}。随时可在此处恢复。`,
       systemNote: platform => `↻ 已移交到 ${platform} — 随时可在此处恢复。`,
       failed: error => `移交失败：${error}`,
-      timedOut: '等待网关超时。`hermes gateway` 是否正在运行？'
+      timedOut: '等待 Nia 超时。请重试。'
     }
   },
 

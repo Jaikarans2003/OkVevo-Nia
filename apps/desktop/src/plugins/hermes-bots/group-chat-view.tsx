@@ -36,6 +36,8 @@ import {
 import type { ClipboardEvent, DragEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { sanitizeUserFacingBrand } from '@/lib/display-path'
+
 import { avatarColor, botAppearance, BotFace } from './avatar'
 import { isBackfilledFacePng } from './avatar-image'
 import {
@@ -941,7 +943,7 @@ export function GroupChatWorkspace({ group, members, onBack, visible = true }: G
 
     // Match this speaker back to its member descriptor so display
     // names and disambiguating handles come from the roster (the
-    // primary "default" profile renders as Hermes, remote dupes
+    // primary "default" profile renders as Nia, remote dupes
     // carry their @name-device handle) instead of raw profile ids.
     const member = isUser
       ? null
@@ -977,6 +979,7 @@ export function GroupChatWorkspace({ group, members, onBack, visible = true }: G
     // deterministic face for their name — stable per bot.
     // Non-null exactly when !isUser — the user's own lines carry no avatar.
     const appearance = isUser ? null : botAppearance(entry.from.name, meta)
+    const safeText = sanitizeUserFacingBrand(entry.text)
     const image = appearance?.image ?? null
     const photo = Boolean(image && !isBackfilledFacePng(image))
 
@@ -1015,9 +1018,9 @@ export function GroupChatWorkspace({ group, members, onBack, visible = true }: G
               </Button>
             )}
             <span className="text-[0.625rem] text-(--ui-text-quaternary)">{relativeTime(entry.at)}</span>
-            {entry.text.trim() ? (
+            {safeText.trim() ? (
               <div className="ml-auto shrink-0 opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
-                <CopyButton appearance="icon" buttonSize="icon" stopPropagation text={entry.text} />
+                <CopyButton appearance="icon" buttonSize="icon" stopPropagation text={safeText} />
               </div>
             ) : null}
           </div>
@@ -1026,7 +1029,7 @@ export function GroupChatWorkspace({ group, members, onBack, visible = true }: G
             // back in so drag-select and ⌘C work in group chat logs.
             data-selectable-text="true"
           >
-            {Streamdown ? <Streamdown>{entry.text}</Streamdown> : entry.text}
+            {Streamdown ? <Streamdown>{safeText}</Streamdown> : safeText}
           </div>
           {/* User attachments: what every responding bot was */
           /* shown — image previews, or a named chip for */

@@ -245,7 +245,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Risk if skipped** | Dual-currency checkout, prorated upgrade delta, cycle-end downgrade, or cancel-at-period-end can be wrong in Razorpay test mode even when unit selfchecks pass. |
 | **Scope** | Razorpay Test Mode + hosted `/pricing` + `/billing` + desktop Settings → Billing. Cards (subscription test cards only): INR domestic `4718 6091 0820 4366`; USD international `5104 0155 5555 5558`. |
 | **Fix** | Karan runs the checklist below on **test keys**. Do not use non-subscription test cards. Dashboard must already include `subscription.updated` (row above). |
-| **Verify** | 1) Logged-out `/` and `/pricing`: geo or manual INR/USD switch shows the matching price book **before** checkout; **no GST/tax line**. 2) INR Starter via domestic card → `users/{uid}.currency=INR`, Plan remaining 100%, `creditsIncluded=20000`. 3) USD Starter via international card (separate test uid) → `currency=USD`. 4) Card Starter→Pro: Razorpay charges the prorated difference **now**, billing date unchanged, `creditsIncluded=60000`, allocation **ADD floor(delta × remaining/period)** (half-cycle → +20,000, not full 40,000). 5) Pro→Starter downgrade: **no charge now**, `hasScheduledChanges` banner, next `subscription.charged` grants 20000. 6) Cancel: “Cancellation scheduled” banner; spend still works until `currentPeriodEnd`; after `subscription.cancelled`, gateway 402 / `planStatus=cancelled`. 7) Both surfaces: % bars (not raw balances) move after a real debit. Code: `npx tsx src/lib/billing/phase6.verify.selfcheck.ts` (OkVevo-Web); `npx tsx src/lib/billing/userSoT.selfcheck.ts`; desktop `npx tsx src/lib/okvevo-billing-listener.selfcheck.ts`. |
+| **Verify** | 1) Logged-out `/` and `/pricing`: geo or manual INR/USD switch shows the matching price book **before** checkout; **no GST/tax line**. 2) INR Starter via domestic card → `users/{uid}.currency=INR`, Plan remaining 100%, `creditsIncluded=20000`. 3) USD Starter via international card (separate test uid) → `currency=USD`. 4) Card Starter→Pro: Razorpay charges the prorated difference **now**, billing date unchanged, `creditsIncluded=60000`, allocation **ADD floor(delta × remaining/period)** (half-cycle → +20,000, not full 40,000). Plan remaining = leftover / `allocationGrantedTotal` (half-used Starter then **UPI** Pro → 70k/80k = **87.5%**, not 50% and not 100%; card half-cycle +20k tank → **not** 87.5%). Two-decimal floor, never round up. 5) Pro→Starter downgrade: **no charge now**, `hasScheduledChanges` banner, next `subscription.charged` grants 20000. 6) Cancel: “Cancellation scheduled” banner; spend still works until `currentPeriodEnd`; after `subscription.cancelled`, gateway 402 / `planStatus=cancelled`. 7) Both surfaces: % bars (not raw balances) move after a real debit; label and bar width share the same two-decimal value. Code: `npx tsx src/types/credits.selfcheck.ts`; `npx tsx src/lib/billing/phase6.verify.selfcheck.ts` (OkVevo-Web); `npx tsx src/lib/billing/userSoT.selfcheck.ts`; desktop `npx tsx src/lib/okvevo-billing-listener.selfcheck.ts`. |
 | **Notes** | Logged 2026-09-12 with Billing v2 Phase 6. Agent cannot complete 3DS/Razorpay Checkout. Live-mode cutover is the dual-currency plans row, not this one. |
 
 ### [ ] Desktop Settings → Billing visual check on Mac and Windows
@@ -255,7 +255,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Gate** | Required before live |
 | **Risk if skipped** | Public billing can still show Hermes dashes / dollar usage on one OS, or wrap the plan-card actions so Change Plan / Cancel Plan / Add Credits are unreachable at the locked 110% zoom. |
 | **Scope** | `apps/desktop/src/app/settings/billing/index.tsx`, `apps/desktop/src/lib/okvevo-billing-listener.ts` |
-| **Fix** | Karan opens Settings → Billing on both machines (public pack). Signed-out: OkVevo sign-in only, no Nous “Connect” card, no Balance/Auto-refill dashes. Signed-in: Current Plan + Plan remaining / Additional remaining % bars (no raw balances), portal buttons open `/billing/change-plan`, `/billing/cancel`, `/billing`. Internal pack may still show Hermes chrome below. |
+| **Fix** | Karan opens Settings → Billing on both machines (public pack). Signed-out: OkVevo sign-in only, no Nous “Connect” card, no Balance/Auto-refill dashes. Signed-in: Current Plan + Plan remaining / Additional remaining % bars (no raw balances; leftover / this-cycle grants, two-decimal floor), portal buttons open `/billing/change-plan`, `/billing/cancel`, `/billing`. Internal pack may still show Hermes chrome below. |
 | **Verify** | Manual Mac + Windows. Unit: `cd apps/desktop && npx vitest run src/app/settings/billing/index.test.tsx src/lib/okvevo-billing-listener.test.ts`; `npx tsx src/lib/okvevo-billing-listener.selfcheck.ts`. |
 | **Notes** | Logged 2026-09-12 with Billing v2 Phase 5. This environment is macOS; Windows is Karan’s other machine. |
 
@@ -280,6 +280,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Document card proration vs UPI stack / full price / leftover until the new subscription’s first renewal SET. |
 | **Verify** | `/legal` Subscription & Billing section names both methods. |
 | **Notes** | Logged 2026-09-12 with Billing 100 UPI credits. Not implemented in that pass. |
+
+### [ ] Skills Hub iframe still Hermes-branded
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | New Bot / Edit Profile / Sessions Capabilities embed `hermes-agent.nousresearch.com` — users see Hermes Agent chrome inside Nia. |
+| **Scope** | `apps/desktop/src/app/skills/embedded-hub-picker.tsx`, `apps/desktop/src/plugins/hermes-bots/skills-hub.tsx` |
+| **Fix** | OkVevo/Nia-hosted hub (or hide the iframe) in the same pass as Capabilities below. Keep `{type:'hermes-skill-pick'}` wire. |
+| **Verify** | Capabilities hub does not show “Hermes Agent” / “HERMES AGENT”. |
+| **Notes** | Deferred 2026-09-13 from Nia Bots Part A. Karan confirmed. |
 
 ---
 
@@ -424,6 +435,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Split xAI edit/extend into their own toolset (or document the merge as final). Static membership stays `["video_generate"]` for subset inference (issue #49622). |
 | **Verify** | `hermes tools` shows the split; disabling `video_gen` does not remove xAI edit/extend and vice versa; `tests/plugins/video_gen/test_xai_plugin_integration.py` green. |
 | **Notes** | Logged 2026-09-09 with the media catalog pass. Runtime merge (`include_registry=True`) + xAI credential `check_fn` keep current behavior correct, just not separable. |
+
+### [ ] Capabilities (Bot Advanced + Sessions) as one future pass
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix |
+| **Risk if skipped** | Two Capabilities surfaces can drift if patched separately; hub branding (row above) lives inside both. |
+| **Scope** | `plugins/hermes-bots/create-dialog.tsx`, `profile-config.tsx`, `apps/desktop/src/app/skills/**` |
+| **Fix** | One pass covering Bot Advanced Capabilities and the Sessions-level Skills page together (including hub iframe). |
+| **Verify** | Both surfaces stay in sync; hub no longer Hermes-branded. |
+| **Notes** | 2026-09-13 Karan confirmed both load as designed (Skills/Tools/MCP; brief loading is expected). Do not split the two surfaces. |
 
 ---
 

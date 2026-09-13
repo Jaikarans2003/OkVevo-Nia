@@ -14,12 +14,11 @@ export const ar = defineLocale({
     doneTitle: 'تم إرسال التشخيصات',
     doneDescription: 'تم رفع الحزمة بشكل خاص. شارك الرابط أدناه في محادثة الدعم لكي يتمكن الفريق من رؤية سجلاتك.',
     failedTitle: 'فشل الرفع',
-    failedHint:
-      'يمكنك أيضاً تشغيل `hermes debug share --nous` من الطرفية، أو `hermes debug share --local` لعرض التقرير دون رفعه.',
+    failedHint: 'يمكنك أيضا تشغيل أمر debug-share من الطرفية، أو عرض التقرير محليا دون رفعه.',
     handoffLead: 'تابع النقاش في:',
     links: {
       github: 'GitHub Issues',
-      portal: 'دعم بوابة Nous',
+      portal: 'دعم OkVevo',
       discord: 'Discord'
     }
   },
@@ -990,7 +989,8 @@ export const ar = defineLocale({
     toolsetEnabled: 'تم تفعيل مجموعة الأدوات',
     toolsetDisabled: 'تم تعطيل مجموعة الأدوات',
     appliesToNewSessions: name => `ينطبق على الجلسات الجديدة في ${name}`,
-    failedToUpdate: name => `فشل تحديث ${name}`
+    failedToUpdate: name => `فشل تحديث ${name}`,
+    skillArchivedMessage: 'يمكنك استعادتها لاحقا.'
   },
   agents: {
     close: 'إغلاق الوكلاء',
@@ -1428,8 +1428,7 @@ export const ar = defineLocale({
     saveSoul: 'حفظ التعليمات',
     deleteTitle: 'حذف الملف الشخصي',
     deleteDescPrefix: 'سيؤدي هذا إلى حذف ',
-    deleteDescMid: ' وإزالة ',
-    deleteDescSuffix: ' الخاص به. لا يمكن التراجع عن هذا.',
+    deleteDescSuffix: ' نهائيا. لا يمكن التراجع عن هذا.',
     deleting: 'جار الحذف...',
     createDesc: 'أنشئ ملفا شخصيا بإعدادات منفصلة.',
     nameLabel: 'الاسم',
@@ -1820,7 +1819,7 @@ export const ar = defineLocale({
       '/resume': 'استئناف جلسة سابقة',
       '/details': 'التحكم في مستوى تفاصيل النص',
       '/copy': 'نسخ التحديد أو آخر رسالة من المساعد',
-      '/quit': 'الخروج من hermes'
+      '/quit': 'الخروج من Nia'
     },
     hotkeyDescs: {
       'composer.mention': 'الإشارة إلى الملفات والمجلدات والروابط وgit',
@@ -2807,7 +2806,7 @@ export const ar = defineLocale({
       success: platform => `تم التسليم إلى ${platform}. استأنف هنا في أي وقت.`,
       systemNote: platform => `↻ تم التسليم إلى ${platform} — استأنف هنا في أي وقت.`,
       failed: error => `فشل التسليم: ${error}`,
-      timedOut: 'انتهت المهلة في انتظار البوابة. هل `hermes gateway` قيد التشغيل؟'
+      timedOut: 'انتهت المهلة في انتظار Nia. يرجى المحاولة مرة أخرى.'
     }
   },
   errors: {

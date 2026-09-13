@@ -582,7 +582,7 @@ function NewTaskDialog({
   // via the auto-routed auxiliary model. Makes a model call — explicit action.
   const estMut = useMutation({
     mutationFn: () => estimateNew(title.trim(), bodyText.trim()),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: r => {
       if (r.ok) {
         setEstimate(r)
@@ -972,7 +972,7 @@ function SelectionBar({
     if (failed.length > 0) {
       host.notify({
         kind: 'warning',
-        message: k.bulkFailed(failed.length, selected.size, failed[0].error ?? k.refused)
+        message: k.bulkFailed(failed.length, selected.size, k.couldNotUpdate)
       })
     }
 
@@ -981,7 +981,7 @@ function SelectionBar({
 
   const bulk = useMutation({
     mutationFn: (patch: Record<string, unknown>) => bulkTasks([...selected], patch),
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: data => finish(data.results.filter(r => !r.ok))
   })
 
@@ -1202,7 +1202,7 @@ export function KanbanBoardPage() {
         qc.setQueryData(boardKey(slug, archived), context.previous)
       }
 
-      host.notify({ kind: 'error', message: errText(err) })
+      host.notifyError(err, k.couldNotUpdate)
     },
     onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: ['kanban', 'board'] })
@@ -1227,7 +1227,7 @@ export function KanbanBoardPage() {
         qc.setQueryData(boardKey(slug, archived), context.previous)
       }
 
-      host.notify({ kind: 'error', message: errText(err) })
+      host.notifyError(err, k.couldNotUpdate)
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: ['kanban', 'board'] })
   })

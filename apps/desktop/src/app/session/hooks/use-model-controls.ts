@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n'
 import { isBusySessionModelSwitch } from '@/lib/gateway-rpc'
 import { surfaceModelSwitchConfirm } from '@/lib/guarded-model-switch'
 import { manualPickRemoved, modelOptionsQueryKey } from '@/lib/model-options'
+import { brandModelOptionsResponse } from '@/lib/provider-branding'
 import { notifyError } from '@/store/notifications'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
@@ -62,7 +63,7 @@ export function useModelControls({ queryClient, requestGateway }: ModelControlsO
             ? [{ models: [model], name: provider, slug: provider }]
             : []
 
-        return { ...prev, provider, model, providers }
+        return brandModelOptionsResponse({ ...prev, provider, model, providers })
       }
 
       queryClient.setQueryData<ModelOptionsResponse>(modelOptionsQueryKey(profile, sessionId), patch)

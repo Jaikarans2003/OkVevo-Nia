@@ -21,7 +21,9 @@ describe('categorizePublicError', () => {
     expect(categorizePublicError('HTTP 429: too many requests')).toBe('rateLimit')
     expect(categorizePublicError('HTTP 401: unauthorized')).toBe('auth')
     expect(categorizePublicError('HTTP 403: forbidden')).toBe('auth')
+    expect(categorizePublicError('HTTP 403: plan not active')).toBe('subscription')
     expect(categorizePublicError('HTTP 500: internal server error')).toBe('server')
+    expect(categorizePublicError('HTTP 502: Fal submit failed')).toBe('server')
     expect(categorizePublicError('HTTP 503: service unavailable')).toBe('server')
   })
 
@@ -52,6 +54,10 @@ describe('friendlyErrorText (default-deny, no channel gate)', () => {
       PUBLIC_ERROR_COPY.credits
     )
     expect(friendlyErrorText('HTTP 500 from fal.ai queue')).toBe(PUBLIC_ERROR_COPY.server)
+    expect(friendlyErrorText('HTTP 502: Fal submit failed')).toBe(PUBLIC_ERROR_COPY.server)
+    expect(friendlyErrorText('HTTP 403: plan not active')).toBe(PUBLIC_ERROR_COPY.subscription)
+    expect(friendlyErrorText('HTTP 403: plan not active')).not.toBe(PUBLIC_ERROR_COPY.credits)
+    expect(friendlyErrorText('HTTP 402: insufficient credits')).toBe(PUBLIC_ERROR_COPY.credits)
   })
 
   it('passes through known-friendly copy unchanged', () => {

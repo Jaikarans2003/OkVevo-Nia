@@ -1,11 +1,5 @@
 import { isByokChromeVisible } from '@/lib/build-channel'
 
-const OPENCODE_PICKER_SLUGS = new Set(['opencode', 'opencode-free', 'opencode-zen', 'opencode-go'])
-
-function isOpenCodePickerSlug(slug: string): boolean {
-  return OPENCODE_PICKER_SLUGS.has(slug.toLowerCase())
-}
-
 /** Public picker/group label for a provider slug. Wire slugs stay unchanged. */
 export function brandProviderSlug(slug: string): string {
   if (!isByokChromeVisible() && slug === 'openrouter') {
@@ -15,17 +9,15 @@ export function brandProviderSlug(slug: string): string {
   return slug
 }
 
-/** Public catalog: OpenRouter display name → OkVevo; drop the OpenCode family. */
+/** Public catalog: keep ONLY the OpenRouter row, renamed OkVevo. No MoA, no BYOK. */
 export function brandProviderCatalog<T extends { name?: string; slug: string }>(providers: T[]): T[] {
   if (isByokChromeVisible()) {
     return providers
   }
 
   return providers
-    .filter(provider => !isOpenCodePickerSlug(provider.slug))
-    .map(provider =>
-      provider.slug === 'openrouter' ? { ...provider, name: brandProviderSlug(provider.slug) } : provider
-    )
+    .filter(provider => provider.slug === 'openrouter')
+    .map(provider => ({ ...provider, name: brandProviderSlug(provider.slug) }))
 }
 
 export function brandModelOptionsResponse<T extends { providers?: Array<{ name?: string; slug: string }> }>(

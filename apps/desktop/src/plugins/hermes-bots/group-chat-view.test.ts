@@ -289,3 +289,17 @@ describe('disband', () => {
     expect(envelope.deleted?.['name:Gone']).toBeGreaterThan(0)
   })
 })
+
+describe('room message paint sanitizer', () => {
+  it('routes Streamdown and CopyButton through sanitizeUserFacingBrand', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { dirname, join } = await import('node:path')
+    const { fileURLToPath } = await import('node:url')
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'group-chat-view.tsx'), 'utf8')
+
+    expect(src).toContain('const safeText = sanitizeUserFacingBrand(entry.text)')
+    expect(src).toContain('text={safeText}')
+    expect(src).toContain('<Streamdown>{safeText}</Streamdown>')
+    expect(src).not.toMatch(/<Streamdown>\{entry\.text\}<\/Streamdown>/)
+  })
+})

@@ -1626,7 +1626,6 @@ export interface Translations {
     saveSoul: string
     deleteTitle: string
     deleteDescPrefix: string
-    deleteDescMid: string
     deleteDescSuffix: string
     deleting: string
     createDesc: string

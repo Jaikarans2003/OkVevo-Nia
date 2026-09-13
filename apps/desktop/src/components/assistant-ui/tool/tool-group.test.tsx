@@ -390,6 +390,7 @@ beforeEach(() => {
   $activeSessionId.set('sess-1')
   $toolDisclosureStates.set({})
   clearDismissedToolRows()
+  $toolViewMode.set('technical')
 })
 
 afterEach(() => {
@@ -531,6 +532,22 @@ describe('live tool run', () => {
 // A run whose calls never resolved used to read as live forever, which stranded
 // it in the present tense and — because a live run withholds its toggle — left
 // it permanently expanded with no way to collapse it.
+describe('product-mode tool run header', () => {
+  beforeEach(() => $toolViewMode.set('product'))
+
+  it('does not use technical command or file counts', async () => {
+    const { container } = render(<GroupHarness message={settledRunMessage()} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-tool-summary]')).not.toBeNull()
+    })
+
+    expect(screen.queryByText(/Ran \d+ commands/i)).toBeNull()
+    expect(screen.queryByText(/Explored \d+ files/i)).toBeNull()
+    expect(screen.queryByText(/Explored wiring\.tsx, ran 1 command/i)).toBeNull()
+  })
+})
+
 describe('tool run left unresolved', () => {
   it('settles with the turn rather than narrating work that stopped', async () => {
     const { container } = render(<GroupHarness message={abandonedRunMessage()} />)

@@ -42,6 +42,19 @@ def test_auth_category(public):
     assert ufe.public_error_message("x", error_type="auth_required") == ufe.AUTH_COPY
 
 
+def test_subscription_category_not_credits(public):
+    assert ufe.public_error_message("HTTP 403: plan not active") == ufe.SUBSCRIPTION_COPY
+    assert ufe.public_error_message("HTTP 403: plan not active") != ufe.CREDITS_COPY
+    assert (
+        ufe.public_error_message("x", error_type="plan_not_active") == ufe.SUBSCRIPTION_COPY
+    )
+
+
+def test_fal_502_is_server_not_credits(public):
+    assert ufe.public_error_message("HTTP 502: Fal submit failed") == ufe.SERVER_COPY
+    assert ufe.public_error_message("HTTP 502: Fal submit failed") != ufe.CREDITS_COPY
+
+
 def test_network_category(public):
     assert (
         ufe.public_error_message("Connection error. getaddrinfo failed")
@@ -88,6 +101,7 @@ def test_mapping_is_idempotent(public):
         ufe.RATE_LIMIT_COPY,
         ufe.SERVER_COPY,
         ufe.AUTH_COPY,
+        ufe.SUBSCRIPTION_COPY,
         ufe.NETWORK_COPY,
         ufe.CONTENT_BLOCKED_COPY,
         ufe.UNREADABLE_FILE_COPY,

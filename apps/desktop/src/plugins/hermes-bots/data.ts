@@ -65,7 +65,7 @@ const BOT_ATTENTION_CLASSES: ReadonlySet<string> = new Set<AttentionClass>([
 export const BOT_ATTENTION_HINTS: Record<string, string> = {
   provider_auth_or_access: 'Sign in again for this profile',
   provider_quota_limit: 'Quota or balance exhausted',
-  missing_config: 'Provider not configured — run hermes model',
+  missing_config: 'Provider not configured — pick a model in Advanced',
   agent_blocked: 'Bot is blocked — see its last message'
 }
 
@@ -952,7 +952,7 @@ function mergeMultiSourceRoster(
 /** The @handle users tag a bot with. Multi-source rosters precompute the
  *  handle (bare name, or name-device when the profile exists on several
  *  registered sources) — prefer it when present. The primary profile's
- *  callable alias is 'nia' — leftover '@hermes' still resolves to 'default'
+ *  callable alias is 'nia' — leftover '@hermes' is reserved, not callable
  *  — so the word 'default' never surfaces in the UI. */
 export function botHandle(name: string, bot?: Partial<RosterRow> | null): string {
   if (bot?.handle && bot.handle !== name) {
@@ -1133,7 +1133,6 @@ export function resolveRosterMentions(
     const forms = new Set([handle, name])
 
     if (name === 'default') {
-      forms.add('hermes')
       forms.add('nia')
     }
 
@@ -1174,10 +1173,6 @@ export function resolveRosterMentions(
 
   for (const match of prose.matchAll(/(^|\s)@([a-z0-9][a-z0-9_-]*)/gi)) {
     let token = match[2].toLowerCase()
-
-    if (token === 'hermes' || token === 'nia') {
-      token = byForm.has(token) ? token : byForm.has('nia') ? 'nia' : token
-    }
 
     const bot = byForm.get(token)
 
@@ -1386,7 +1381,7 @@ export function filterBots(roster: RosterRow[], metaByName: Record<string, BotMe
     const display = displayName(bot, meta).toLowerCase()
     const profile = (bot.name || '').toLowerCase()
     const handle = botHandle(bot.name, bot).toLowerCase()
-    const aliases = profile === 'default' ? ['hermes', 'nia'] : []
+    const aliases = profile === 'default' ? ['nia'] : []
     // Multi-source rows also match on their device name ("homelab" finds
     // every bot living on the Homelab connection).
     const sourceLabel = (bot.connectionLabel || '').toLowerCase()

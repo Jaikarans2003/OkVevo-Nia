@@ -20,6 +20,8 @@ export const PUBLIC_ERROR_COPY = {
   rateLimit: 'Whoa, slow down — too many requests at once. Give it a few seconds and try again.',
   server: "Something broke on our side. The OkVevo team is on it — try again in a bit.",
   auth: 'Your session hit a snag — restart Nia and we should be good.',
+  subscription:
+    "Your OkVevo subscription isn't active — visit okvevo.com to get back on a plan.",
   network: "Can't reach OkVevo right now — check your internet and try again.",
   contentBlocked: 'That one got blocked by content filters — try rephrasing.',
   unreadableFile: "I couldn't read that file — try attaching it again.",
@@ -92,6 +94,10 @@ export function categorizePublicError(raw: string): PublicErrorCategory | null {
 
   if (status === 429 || lowered.includes('rate limit') || lowered.includes('too many requests')) {
     return 'rateLimit'
+  }
+
+  if (lowered.includes('plan not active') || lowered.includes("subscription isn't active")) {
+    return 'subscription'
   }
 
   if (status === 401 || status === 403) {

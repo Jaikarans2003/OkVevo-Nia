@@ -149,4 +149,10 @@ After the table.`
 
     expect(sanitizeTextForSpeech(text)).toContain('Item | Value')
   })
+
+  it('speaks rewritten product terms instead of leaked mechanism copy', () => {
+    expect(sanitizeTextForSpeech('I restarted the gateway at ~/.hermes/foo.')).toBe(
+      'I restarted the app at your Nia data folder.'
+    )
+  })
 })

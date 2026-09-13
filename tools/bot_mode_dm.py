@@ -212,11 +212,11 @@ def _handle(name: str) -> str:
 
 
 def _resolve_local_name(target: str, roster: list[str]) -> Optional[str]:
-    """Map a target handle to a profile name ('nia' / leftover 'hermes' → 'default')."""
+    """Map a target handle to a profile name ('nia' → 'default'). Leftover 'hermes' does not resolve."""
     want = target.strip()
     if not want:
         return None
-    if want.lower() in ("nia", "hermes"):
+    if want.lower() == "nia":
         return "default" if "default" in roster else None
     for name in roster:
         if name.lower() == want.lower():

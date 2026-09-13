@@ -47,7 +47,7 @@ import {
 } from './api'
 import { runExportBoardFlow, runImportBoardFlow } from './transfer'
 import type { BoardMeta } from './types'
-import { errText, FIELD_LABEL, useKanban } from './ui'
+import { FIELD_LABEL, useKanban } from './ui'
 
 const NO_PROJECT = '__none__'
 /** Mirrors `kanban_db.DEFAULT_BOARD` — the board that always exists. */
@@ -88,11 +88,12 @@ function ProjectPicker({ onChange, value }: { onChange: (id: string) => void; va
 /** Every board write ends the same way: refresh the switcher's list and let
  *  the caller finish, or surface the error and leave the dialog open. */
 function useBoardWrite<T>(mutationFn: () => Promise<T>, onDone: (result: T) => void) {
+  const k = useKanban()
   const qc = useQueryClient()
 
   return useMutation({
     mutationFn,
-    onError: err => host.notify({ kind: 'error', message: errText(err) }),
+    onError: err => host.notifyError(err, k.couldNotUpdate),
     onSuccess: result => {
       void qc.invalidateQueries({ queryKey: BOARDS_KEY })
       onDone(result)
