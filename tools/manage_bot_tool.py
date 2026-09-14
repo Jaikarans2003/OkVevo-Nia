@@ -28,18 +28,24 @@ def _slug_bot_name(raw: str) -> str:
 
 
 def _compose_soul(name: str, role: str, personality: str) -> str:
+    """Bot SOUL.md: always opens with "You are <name>, <role>." so the bot
+    self-identifies even when the personality text never names it."""
     personality = (personality or "").strip()
-    if personality:
-        return personality
     role = (role or "").strip()
     who = (name or "").strip()
     if who and role:
-        return f"You are {who}, {role}."
-    if who:
-        return f"You are {who}."
-    if role:
-        return f"You are {role}."
-    return ""
+        lead = f"You are {who}, {role}."
+    elif who:
+        lead = f"You are {who}."
+    elif role:
+        lead = f"You are {role}."
+    else:
+        lead = ""
+    if not personality:
+        return lead
+    if not lead or personality.lower().startswith(f"you are {who.lower()}"):
+        return personality
+    return f"{lead} {personality}"
 
 
 def _safe_error(message: str) -> str:
@@ -192,8 +198,12 @@ MANAGE_BOT_SCHEMA = {
     "description": (
         "Create, list, or update Nia bots (teammates). Use this instead of "
         "editing files or running CLI commands. create/update take a name, "
-        "optional role, personality (the bot's voice), and a short description. "
-        "Results name the bot only — never files, models, or settings."
+        "role, personality (the bot's voice), and a short description. "
+        "When creating a bot, always supply role AND a full personality: "
+        "write it in second person as the bot's own persona (expertise, how "
+        "it thinks, tone, what it pushes back on, how it introduces itself) — "
+        "never as Nia and never in Nia's voice. Results name the bot only — "
+        "never files, models, or settings."
     ),
     "parameters": {
         "type": "object",
@@ -209,11 +219,15 @@ MANAGE_BOT_SCHEMA = {
             },
             "role": {
                 "type": "string",
-                "description": "Optional job or role (for example CMO).",
+                "description": "Job or role, e.g. 'CFO of OkVevo'. Always set on create.",
             },
             "personality": {
                 "type": "string",
-                "description": "Optional personality / voice for the bot.",
+                "description": (
+                    "The bot's own persona, 3-8 sentences, second person: "
+                    "domain expertise, how it reasons, tone, and how it "
+                    "introduces itself by name and role. Always set on create."
+                ),
             },
             "description": {
                 "type": "string",

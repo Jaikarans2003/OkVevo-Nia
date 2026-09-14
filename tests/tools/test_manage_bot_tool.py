@@ -104,6 +104,26 @@ def test_create_list_update_are_canary_clean(bot_home):
     assert "still CMO" in soul
 
 
+def test_soul_always_opens_with_bot_name_and_role(bot_home):
+    """A persona that never names the bot (the real Nitish case) still gets a
+    "You are <name>, <role>." lead, and a blank persona never inherits Nia's."""
+    manage_bot_tool = _load_tool(bot_home)
+    from hermes_cli.profiles import get_profile_dir
+
+    manage_bot_tool(
+        action="create", name="Nitish", role="CFO of OkVevo",
+        personality="Quiet, deliberate, numbers-first.",
+    )
+    soul = (get_profile_dir("nitish") / "SOUL.md").read_text(encoding="utf-8")
+    assert soul.startswith("You are Nitish, CFO of OkVevo.")
+    assert "numbers-first" in soul
+
+    manage_bot_tool(action="create", name="Adarsh")
+    soul = (get_profile_dir("adarsh") / "SOUL.md").read_text(encoding="utf-8")
+    assert soul == "You are Adarsh."
+    assert "Nia" not in soul
+
+
 def test_unknown_action_errors(bot_home):
     manage_bot_tool = _load_tool(bot_home)
     raw = manage_bot_tool(action="delete")

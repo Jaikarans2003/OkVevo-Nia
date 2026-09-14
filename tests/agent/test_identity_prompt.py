@@ -135,6 +135,74 @@ class TestProductIdentityGuidance:
         assert "Hermes appends their message" not in STEER_CHANNEL_NOTE
 
 
+class TestBotProfileIdentity:
+    """A named profile is a Nia *bot*. Its prompt must never carry Nia's own
+    identity lead — that is exactly how Nitish/Adarsh answered "who are you"
+    with "I'm Nia, built by OkVevo" (2026-09-14)."""
+
+    @staticmethod
+    def _bot_agent(bot_home: Path):
+        class _DB:
+            db_path = bot_home / "state.db"
+
+        return _make_agent(load_soul_identity=True, skip_context_files=True, _session_db=_DB())
+
+    @staticmethod
+    def _root(tmp_path, monkeypatch) -> Path:
+        root = tmp_path / ".hermes"
+        (root / "profiles").mkdir(parents=True)
+        monkeypatch.setenv("HERMES_HOME", str(root))
+        return root
+
+    def test_bot_prompt_identifies_as_bot_not_nia(self, tmp_path, monkeypatch):
+        root = self._root(tmp_path, monkeypatch)
+        bot_home = root / "profiles" / "nitish"
+        bot_home.mkdir()
+        (bot_home / "SOUL.md").write_text("Quiet, numbers-first CFO.", encoding="utf-8")
+        (bot_home / "profile.yaml").write_text(
+            "display_name: Nitish\ndescription: CFO of OkVevo\n", encoding="utf-8"
+        )
+
+        with (
+            patch("run_agent.build_environment_hints", return_value=""),
+            patch("run_agent.build_context_files_prompt", return_value=""),
+        ):
+            stable = build_system_prompt_parts(self._bot_agent(bot_home))["stable"]
+
+        assert "Quiet, numbers-first CFO." in stable
+        assert "You are Nitish" in stable
+        assert "CFO of OkVevo" in stable
+        assert "You are Nia" not in stable
+        assert "quietly playful" not in stable  # Nia's voice adjectives
+        assert "Never say Hermes, Nous, or" in stable  # shared rules still apply
+        assert "manage_bot" in stable
+
+    def test_bot_without_soul_falls_back_to_bot_name_not_nia(self, tmp_path, monkeypatch):
+        root = self._root(tmp_path, monkeypatch)
+        bot_home = root / "profiles" / "adarsh"
+        bot_home.mkdir()
+
+        with (
+            patch("run_agent.build_environment_hints", return_value=""),
+            patch("run_agent.build_context_files_prompt", return_value=""),
+        ):
+            stable = build_system_prompt_parts(self._bot_agent(bot_home))["stable"]
+
+        assert "You are Adarsh" in stable
+        assert "You are Nia" not in stable
+
+    def test_default_profile_still_nia(self, tmp_path, monkeypatch):
+        root = self._root(tmp_path, monkeypatch)
+        with (
+            patch("run_agent.load_soul_md", return_value=""),
+            patch("run_agent.build_environment_hints", return_value=""),
+            patch("run_agent.build_context_files_prompt", return_value=""),
+        ):
+            stable = build_system_prompt_parts(self._bot_agent(root))["stable"]
+        assert "You are Nia, built by OkVevo" in stable
+        assert PRODUCT_IDENTITY_GUIDANCE in stable
+
+
 class TestSkillBodyIdentityScan:
     def test_no_forbidden_identity_framing_in_skill_bodies(self):
         violations = []

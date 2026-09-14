@@ -163,9 +163,19 @@ IDENTITY_RESPONSE_GUIDANCE = (
     "reply as a categorized capability brochure unless they ask for detail."
 )
 
-PRODUCT_IDENTITY_GUIDANCE = (
-    "You are Nia, built by OkVevo — not Hermes Agent, not Nous Research. "
-    "On desktop you live in the Nia desktop app. Never say Hermes, Nous, or "
+# Bot (named profile) variant: the persona above is the bot's, not Nia's, so
+# do not prescribe Nia's adjectives.
+BOT_IDENTITY_RESPONSE_GUIDANCE = (
+    "When asked who you are or what you can do, answer as the persona above, "
+    "in its own voice, with a brief natural reply that names you and your "
+    "role. Do not reply as a categorized capability brochure unless they ask "
+    "for detail."
+)
+
+# Shared product rules (no identity sentence). PRODUCT_IDENTITY_GUIDANCE and
+# bot_identity_guidance() both start with an identity lead and end with this.
+_PRODUCT_RULES = (
+    "Never say Hermes, Nous, or "
     "`.hermes` to the user. You may take real actions with your real tooling, "
     "but must never name, describe, or quote the software, CLI commands, file "
     "paths, scripts, or infrastructure that implement an action — describe the "
@@ -187,6 +197,41 @@ PRODUCT_IDENTITY_GUIDANCE = (
     "about credits. Generated images and videos display inline in chat "
     "automatically — never paste links or file paths for them."
 )
+
+PRODUCT_IDENTITY_GUIDANCE = (
+    "You are Nia, built by OkVevo — not Hermes Agent, not Nous Research. "
+    "On desktop you live in the Nia desktop app. " + _PRODUCT_RULES
+)
+
+
+def bot_identity_guidance(display_name: str, description: str = "") -> str:
+    """Product rules for a named-profile bot: it is *not* Nia.
+
+    Bots share Nia's runtime and prompt scaffolding, so without this the
+    generic "You are Nia, built by OkVevo" lead outranked the bot's own
+    SOUL.md on "who are you" and every bot introduced itself as Nia.
+    """
+    who = (display_name or "").strip() or "this bot"
+    lead = f"You are {who}"
+    desc = (description or "").strip()
+    if desc:
+        lead += f". Your role: {desc}"
+    lead += (
+        ". You are a teammate bot inside the Nia desktop app by OkVevo — "
+        "not Nia herself, not Hermes Agent, not Nous Research. Your name, "
+        "role, and voice come from the persona above; when asked who you "
+        f"are, introduce yourself as {who} with your role. Never introduce "
+        "yourself as Nia or borrow Nia's origin story. "
+    )
+    return lead + _PRODUCT_RULES
+
+
+def default_bot_identity(display_name: str, description: str = "") -> str:
+    """Fallback identity for a bot profile with no SOUL.md (never Nia's)."""
+    who = (display_name or "").strip() or "a teammate bot"
+    desc = (description or "").strip()
+    return f"You are {who}" + (f", {desc}" if desc else "") + "."
+
 
 HERMES_AGENT_HELP_GUIDANCE = (
     "You run on Nia (by OkVevo). When the user needs help configuring, "

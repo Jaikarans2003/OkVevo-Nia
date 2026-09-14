@@ -32,6 +32,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from agent.prompt_builder import (
+    BOT_IDENTITY_RESPONSE_GUIDANCE,
     DEFAULT_AGENT_IDENTITY,
     EXECUTION_GUIDANCE_MODELS,
     GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
@@ -52,6 +53,8 @@ from agent.prompt_builder import (
     TELEGRAM_RICH_MESSAGES_HINT,
     TOOL_USE_ENFORCEMENT_GUIDANCE,
     TOOL_USE_ENFORCEMENT_MODELS,
+    bot_identity_guidance,
+    default_bot_identity,
     drain_truncation_warnings,
 )
 from agent.runtime_cwd import resolve_context_cwd
@@ -435,6 +438,27 @@ def _profile_name_for_home(home: Path) -> str:
         return "default"
 
 
+def _bot_identity_for_agent(agent: Any) -> Optional[tuple[str, str]]:
+    """``(display_name, description)`` when the agent's own home is a named
+    profile (a Nia bot); ``None`` for the default profile (Nia herself)."""
+    home = _agent_home(agent)
+    if home is None:
+        return None
+    name = _profile_name_for_home(home)
+    if name == "default":
+        return None
+    display, description = "", ""
+    try:
+        from hermes_cli.profiles import read_profile_meta
+
+        meta = read_profile_meta(home)
+        display = meta.get("display_name", "")
+        description = meta.get("description", "")
+    except Exception:
+        pass
+    return (display or name.replace("-", " ").replace("_", " ").title(), description)
+
+
 def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) -> Dict[str, str]:
     """Assemble the system prompt as three ordered cache tiers.
 
@@ -485,12 +509,21 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
             stable_parts.append(_soul_content)
             _soul_loaded = True
 
+    # A named profile is a Nia *bot*: its persona (SOUL.md) is the identity,
+    # and the product lead must say "You are <bot>", never "You are Nia" —
+    # otherwise every bot answers "who are you" as Nia.
+    _bot = _bot_identity_for_agent(agent)
+
     if not _soul_loaded:
         # Fallback to hardcoded identity
-        stable_parts.append(DEFAULT_AGENT_IDENTITY)
+        stable_parts.append(default_bot_identity(*_bot) if _bot else DEFAULT_AGENT_IDENTITY)
 
-    stable_parts.append(IDENTITY_RESPONSE_GUIDANCE)
-    stable_parts.append(PRODUCT_IDENTITY_GUIDANCE)
+    if _bot:
+        stable_parts.append(BOT_IDENTITY_RESPONSE_GUIDANCE)
+        stable_parts.append(bot_identity_guidance(*_bot))
+    else:
+        stable_parts.append(IDENTITY_RESPONSE_GUIDANCE)
+        stable_parts.append(PRODUCT_IDENTITY_GUIDANCE)
 
     # Pointer to the docs (and, when it exists, the hermes-agent skill) for
     # user questions about Hermes itself. The skill_view() pointer is a

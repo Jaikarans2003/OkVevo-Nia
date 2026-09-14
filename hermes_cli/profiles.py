@@ -1322,13 +1322,18 @@ def create_profile(
         except OSError:
             pass  # best-effort — save_env_value creates the file on demand
 
-    # Seed a default SOUL.md so the user has a file to customize immediately.
+    # Seed a SOUL.md so the user has a file to customize immediately.
     # Skipped when the profile already has one (from --clone / --clone-all).
+    # A named profile is a Nia bot, so it must NOT get Nia's own persona
+    # (DEFAULT_SOUL_MD says "You are Nia") — a blank-personality bot would
+    # then introduce itself as Nia. Seed the bot's name instead.
     soul_path = profile_dir / "SOUL.md"
     if not soul_path.exists():
         try:
-            from hermes_cli.default_soul import DEFAULT_SOUL_MD
-            soul_path.write_text(DEFAULT_SOUL_MD, encoding="utf-8")
+            soul_path.write_text(
+                f"You are {name.replace('-', ' ').replace('_', ' ').title()}.",
+                encoding="utf-8",
+            )
         except Exception:
             pass  # best-effort — don't fail profile creation over this
 
