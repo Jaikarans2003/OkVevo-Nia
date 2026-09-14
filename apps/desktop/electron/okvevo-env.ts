@@ -70,6 +70,7 @@ export function loadPackEnvFile(filePath: string | null | undefined): PackEnvFil
 
   try {
     const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as PackEnvFile
+
     if (!parsed || typeof parsed !== 'object') {
       return null
     }
@@ -94,6 +95,7 @@ export function applyPackEnv(packEnv: PackEnvFile | null | undefined, env: NodeJ
     }
 
     const trimmed = String(value).trim()
+
     if (!trimmed || env[key]) {
       continue
     }

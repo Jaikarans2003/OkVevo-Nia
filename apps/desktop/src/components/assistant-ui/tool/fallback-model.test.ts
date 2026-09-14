@@ -578,6 +578,7 @@ describe('buildToolView product mode', () => {
       toolCallId: 'call_1',
       toolName: 'web_search'
     })
+
     const view = buildToolView(pending, '')
 
     expect(view.title).toContain('okra recipes')
@@ -591,6 +592,7 @@ describe('buildToolView product mode', () => {
       part({ args: { path: 'src/deep/nested/notes.md' }, result: undefined, toolName: 'read_file' }),
       ''
     )
+
     const edit = buildToolView(
       part({ args: { mode: 'replace', path: 'src/deep/nested/demo.ts' }, result: undefined, toolName: 'patch' }),
       ''
@@ -631,6 +633,7 @@ describe('buildToolView product mode', () => {
 
   it('leaves technical-mode pending titles untouched', () => {
     $toolViewMode.set('technical')
+
     const view = buildToolView(
       part({ args: { search_term: 'okra recipes' }, result: undefined, toolName: 'web_search' }),
       ''

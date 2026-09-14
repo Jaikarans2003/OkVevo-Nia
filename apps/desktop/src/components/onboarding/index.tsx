@@ -172,6 +172,7 @@ function useApiKeyCatalog(): ApiKeyOption[] {
     derived.sort((a, b) => a.name.localeCompare(b.name))
 
     const all = [...API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)), ...derived]
+
     return isByokChromeVisible() ? all : []
   }, [rows])
 }

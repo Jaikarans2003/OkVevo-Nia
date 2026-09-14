@@ -28,6 +28,7 @@ afterEach(() => {
 describe('useComposerPlaceholder loop', () => {
   it('types forward then deletes through the pool when looping', () => {
     vi.useFakeTimers()
+
     const { result } = renderHook(() =>
       useComposerPlaceholder({
         disabled: false,

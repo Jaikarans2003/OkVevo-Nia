@@ -52,6 +52,7 @@ test('mapBinaryCheckResult uses updateAvailable + null behind, not a fake commit
 
 test('configureBinaryUpdater points at the generic feed, channel latest, and disables silent download', () => {
   const calls: unknown[] = []
+
   const updater = {
     autoDownload: true,
     autoInstallOnAppQuit: true,
@@ -71,6 +72,7 @@ test('configureBinaryUpdater points at the generic feed, channel latest, and dis
 
 test('configureBinaryUpdater honors NIA_UPDATE_FEED_URL and NIA_UPDATE_CHANNEL', () => {
   const calls: unknown[] = []
+
   const updater = {
     autoDownload: false,
     autoInstallOnAppQuit: false,

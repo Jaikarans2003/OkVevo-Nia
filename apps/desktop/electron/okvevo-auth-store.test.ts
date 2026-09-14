@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { persistOkvevoAuthSession, loadOkvevoAuthSession, persistOkvevoAuthPending, loadOkvevoAuthPending, type OkvevoAuthStoreIo } from './okvevo-auth-store'
 import type { OkvevoAuthSession } from './okvevo-auth'
+import { loadOkvevoAuthPending, loadOkvevoAuthSession, type OkvevoAuthStoreIo, persistOkvevoAuthPending, persistOkvevoAuthSession } from './okvevo-auth-store'
 
 function fakeIo(initial: string | null = null): { io: OkvevoAuthStoreIo; text: () => string | null } {
   let text = initial
+
   const io: OkvevoAuthStoreIo = {
     encrypt: plaintext => ({ encoding: 'plain', value: plaintext }),
     decrypt: secret => (secret && typeof secret === 'object' && 'value' in secret ? String((secret as { value: string }).value) : ''),

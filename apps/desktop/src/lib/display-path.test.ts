@@ -87,6 +87,7 @@ describe('sanitizeUserFacingBrand', () => {
     const scrubbed = sanitizeUserFacingBrand(
       'openrouter .env config.yaml profile.yaml auth.json API key Bedrock minimax/minimax-m3 credential pool hermes -p coder HERMES_HOME created a profile'
     )
+
     const lowered = scrubbed.toLowerCase()
 
     for (const term of [
@@ -150,10 +151,12 @@ describe('sanitizeUserFacingBrand', () => {
     const { readFileSync } = await import('node:fs')
     const { dirname, join } = await import('node:path')
     const { fileURLToPath } = await import('node:url')
+
     const fixturePath = join(
       dirname(fileURLToPath(import.meta.url)),
       '../../../../tests/fixtures/brand_scrub_golden.json'
     )
+
     const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as { input: string; output: string }
 
     expect(fixture.output).toBeTruthy()

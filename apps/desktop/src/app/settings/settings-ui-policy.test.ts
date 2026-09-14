@@ -41,10 +41,10 @@ import { $petInfo, setPetInfo } from '@/store/pet'
 import { $petGallery } from '@/store/pet-gallery'
 import { $reactionsEnabled, setReactionsEnabled } from '@/store/reactions-enabled'
 import { $reasoningCollapsedByDefault, setReasoningCollapsedByDefault } from '@/store/reasoning-disclosure'
+import { $statusbarVisible, toggleStatusbarVisible } from '@/store/statusbar-prefs'
 import { $tipsEnabled, setTipsEnabled } from '@/store/tips'
 import { $toursEnabled, setToursEnabled } from '@/store/tours'
 import { $translucencyBook, GLASS_SUPPORTED } from '@/store/translucency'
-import { $statusbarVisible, toggleStatusbarVisible } from '@/store/statusbar-prefs'
 import { $vibeHeartsEnabled, setVibeHeartsEnabled } from '@/store/vibe-hearts-enabled'
 
 import {

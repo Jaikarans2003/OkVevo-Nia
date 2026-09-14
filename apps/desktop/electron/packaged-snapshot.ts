@@ -53,6 +53,7 @@ export function readPackStamp(activeRoot: string | null | undefined): PackStamp 
 
   try {
     const parsed = JSON.parse(fs.readFileSync(packStampPath(activeRoot), 'utf8')) as PackStamp
+
     if (parsed && typeof parsed.commit === 'string' && parsed.commit.length >= 7) {
       return parsed
     }
@@ -83,6 +84,7 @@ export function shouldRebootstrapFromPackagedSnapshot(opts: {
   }
 
   const pin = typeof opts.installStampCommit === 'string' ? opts.installStampCommit.trim() : ''
+
   if (pin.length < 7) {
     return false
   }
@@ -93,6 +95,7 @@ export function shouldRebootstrapFromPackagedSnapshot(opts: {
 function runTarExtract(archive: string, dest: string): void {
   fs.mkdirSync(dest, { recursive: true })
   const tar = process.platform === 'win32' ? 'tar.exe' : 'tar'
+
   const result = spawnSync(tar, ['-xzf', archive, '-C', dest], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
@@ -140,6 +143,7 @@ export function extractPackagedSnapshot(opts: {
 
   const backup = `${dest}.prev`
   fs.rmSync(backup, { recursive: true, force: true })
+
   if (fs.existsSync(dest)) {
     fs.renameSync(dest, backup)
   }
@@ -150,6 +154,7 @@ export function extractPackagedSnapshot(opts: {
     if (fs.existsSync(backup) && !fs.existsSync(dest)) {
       fs.renameSync(backup, dest)
     }
+
     throw err
   }
 

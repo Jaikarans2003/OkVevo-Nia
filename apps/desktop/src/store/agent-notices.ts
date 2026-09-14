@@ -1,6 +1,6 @@
+import { scrubUserFacingText } from '@/lib/user-facing-error'
 import type { NativeNotificationInput } from '@/store/native-notifications'
 import { dismissNotification, type NotificationInput, type NotificationKind, notify } from '@/store/notifications'
-import { scrubUserFacingText } from '@/lib/user-facing-error'
 
 /**
  * Wire shape of a `notification.show` payload — the driver-agnostic

@@ -185,10 +185,13 @@ const BACKEND_PROCESS_RE = /\bbackend process\b/gi
 const GATEWAY_WORD_RE = /\bgateway\b/gi
 const BACKEND_WORD_RE = /\bbackend\b/gi
 const ROSTER_WORD_RE = /\broster\b/gi
+
 const HOME_DOTFILE_PATH_RE =
   /(?:~|\/Users\/[^/\s]+|\/home\/[^/\s]+|[A-Za-z]:[\\/]Users[\\/][^\\/\s]+)[\\/]\.[^\s`'"]+/g
+
 const HOME_DOTFILE_PATH_TEST_RE =
   /(?:~|\/Users\/[^/\s]+|\/home\/[^/\s]+|[A-Za-z]:[\\/]Users[\\/][^\\/\s]+)[\\/]\.[^\s`'"]+/
+
 const DOTENV_RE = /(?<![\w])\.env\b/g
 const CONFIG_YAML_RE = /\bconfig\.yaml\b/gi
 const PROFILE_YAML_RE = /\bprofile\.yaml\b/gi
@@ -216,6 +219,7 @@ export function displayWakePhrase(phrase: string | null | undefined): string {
 
 function fenceContainsInternal(block: string): boolean {
   const stripped = block.replace(/hermes:\/\//gi, '').replace(/@hermes\//g, '')
+
   const hit = (re: RegExp) => {
     re.lastIndex = 0
 

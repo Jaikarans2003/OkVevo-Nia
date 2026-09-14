@@ -33,6 +33,7 @@ const billingListenerMocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/okvevo-billing-listener', async importOriginal => {
   const actual = await importOriginal<typeof import('@/lib/okvevo-billing-listener')>()
+
   return {
     ...actual,
     subscribeOkvevoUserBilling: billingListenerMocks.subscribeOkvevoUserBilling

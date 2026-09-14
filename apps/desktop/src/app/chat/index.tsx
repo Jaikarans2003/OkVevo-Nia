@@ -27,8 +27,8 @@ import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
 import { migrateSessionDraft } from '@/store/composer'
-import { migrateQueuedPrompts, parkQueuedPrompts } from '@/store/composer-queue'
 import { $composerPopoutGesturesEnabled, $composerPopoutZone } from '@/store/composer-popout'
+import { migrateQueuedPrompts, parkQueuedPrompts } from '@/store/composer-queue'
 import { $introSplash } from '@/store/intro-splash'
 import { $pinnedSessionIds } from '@/store/layout'
 import { $petActive } from '@/store/pet'
@@ -502,6 +502,7 @@ const ChatViewContent = memo(function ChatViewContent({
     routedSessionView: isRoutedSessionView,
     selectedSessionId
   })
+
   const composerGroupId = usePaneGroup()
   const popoutGesturesEnabled = useStore($composerPopoutGesturesEnabled)
   const popoutZone = useStore(useMemo(() => $composerPopoutZone(composerGroupId), [composerGroupId]))

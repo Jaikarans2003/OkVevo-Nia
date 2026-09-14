@@ -1,10 +1,10 @@
 import { type ToolTitleKey, translateNow } from '@/i18n'
 import { normalizeExternalUrl } from '@/lib/external-link'
+import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { capitalize, firstStringField, normalize } from '@/lib/text'
 import { isCardTool, isFileEditTool, isSilentTool } from '@/lib/tool-render-class'
 import { extractToolErrorMessage, formatToolResultSummary } from '@/lib/tool-result-summary'
-import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { friendlyErrorText } from '@/lib/user-facing-error'
 import { $toolViewMode } from '@/store/tool-view'
 
@@ -1337,6 +1337,7 @@ function dynamicTitle(
           : isFileEditTool(part.toolName)
             ? fileEditBasename(fileEditPath(args, result))
             : ''
+
     const listed = listedProductPhrasing(part.toolName, part.toolCallId || '', detail)
 
     if (listed) {
@@ -1472,11 +1473,13 @@ export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
   // Skip residual error-heuristic text once status is success (stale isError
   // envelope over a landed memory write would otherwise foul the subtitle).
   const rawError = status === 'success' ? '' : toolErrorText(part, resultRecord)
+
   // Product mode never shows raw tool/provider error text: recognized
   // categories get the friendly copy, anything else the generic fallback.
   // Technical mode keeps the raw detail.
   const error =
     rawError && $toolViewMode.get() === 'product' ? friendlyErrorText(rawError) : rawError
+
   const productMode = $toolViewMode.get() === 'product'
   // Over-budget memory refusals stay amber — don't claim "Saved".
   const memoryMissed = part.toolName === 'memory' && part.result !== undefined && status !== 'success'

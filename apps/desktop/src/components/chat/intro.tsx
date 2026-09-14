@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { capitalize, normalize } from '@/lib/text'
-import { useOkvevoAuth, type OkvevoAuthPublic } from '@/store/okvevo-auth'
+import { type OkvevoAuthPublic, useOkvevoAuth } from '@/store/okvevo-auth'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
 
@@ -230,9 +230,11 @@ export function Intro(_props: IntroProps = {}) {
   const visible = useTypewriter(script.hi, script.hi)
 
   let cursor = 0
+
   const take = (chunk: string) => {
     const start = cursor
     cursor += chunk.length
+
     if (visible <= start) {
       return ''
     }

@@ -972,6 +972,7 @@ export function useGatewayBoot({
         active: false,
         setupChoice: null as Awaited<ReturnType<NonNullable<typeof desktop>['getBootstrapState']>>['setupChoice']
       }
+
       let bootProgress: Awaited<ReturnType<NonNullable<typeof desktop>['getBootProgress']>> | null = null
 
       const refreshBootstrapSuspendSnapshot = async () => {
@@ -988,6 +989,7 @@ export function useGatewayBoot({
       const offBootstrapSuspend = desktop.onBootstrapEvent(() => {
         void refreshBootstrapSuspendSnapshot()
       })
+
       const offBootProgressSuspend = desktop.onBootProgress(payload => {
         bootProgress = payload
       })

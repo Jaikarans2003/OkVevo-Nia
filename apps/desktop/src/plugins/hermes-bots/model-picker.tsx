@@ -148,9 +148,11 @@ export function ModelPicker({ bot = null, value, onChange, placeholderModel = 'g
 
   if (publicLocked) {
     const openrouter = providers.find(p => p.slug === 'openrouter') || null
+
     const models = openrouter
       ? (openrouter.models || []).map(m => (typeof m === 'string' ? m : m.id || m.name || ''))
       : []
+
     const catalogReady = !error && Boolean(openrouter)
 
     return (

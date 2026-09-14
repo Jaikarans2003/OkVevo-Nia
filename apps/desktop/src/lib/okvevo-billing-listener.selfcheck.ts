@@ -39,6 +39,7 @@ const view = billingViewFromUserData({
   topUpBalance: 5000,
   cancelAtPeriodEnd: false
 })
+
 assert.equal(view.remainingPct, 50)
 assert.equal(view.additionalPct, 100)
 assert.doesNotMatch(String(view.remainingPct), /30000/)
@@ -60,6 +61,7 @@ const purchased = billingViewFromUserData({
   topUpPurchasedTotal: 10000,
   cancelAtPeriodEnd: false
 })
+
 assert.equal(purchased.additionalPct, 50)
 assert.doesNotMatch(String(purchased.additionalPct), /5000/)
 assert.doesNotMatch(String(purchased.additionalPct), /10000/)
@@ -73,12 +75,14 @@ const stacked = billingViewFromUserData({
   topUpBalance: 0,
   cancelAtPeriodEnd: false
 })
+
 assert.equal(stacked.remainingPct, 87.5)
 
 const billingPage = fs.readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), '../app/settings/billing/index.tsx'),
   'utf8'
 )
+
 assert.match(billingPage, /formatPctLabel/)
 assert.doesNotMatch(billingPage, /Number\.isInteger\(pct\)/)
 assert.match(billingPage, /fillStyle=\{\{ width: `\$\{clamped\}%` \}\}/)

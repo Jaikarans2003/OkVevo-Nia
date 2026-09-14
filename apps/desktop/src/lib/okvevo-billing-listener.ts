@@ -20,19 +20,24 @@ export type OkvevoBillingData = OkvevoBillingView
 
 /** 0–100, two-decimal floor. Never round up — 19931/20000 is 99.65, not 100. */
 export function flooredPct(remaining: number, total: number): number {
-  if (!Number.isInteger(total) || total <= 0) return 0
-  if (!Number.isInteger(remaining) || remaining < 0) return 0
+  if (!Number.isInteger(total) || total <= 0) {return 0}
+
+  if (!Number.isInteger(remaining) || remaining < 0) {return 0}
+
   return Math.min(100, Math.floor((remaining / total) * 10000) / 100)
 }
 
 /** Trim trailing zeros: 87.5%, 99.86%, 50%, 100%. */
 export function formatPctLabel(pct: number): string {
-  if (!Number.isFinite(pct)) return '0%'
+  if (!Number.isFinite(pct)) {return '0%'}
   const hundredths = Math.round(Math.min(100, Math.max(0, pct)) * 100)
   const whole = Math.floor(hundredths / 100)
   const frac = hundredths % 100
-  if (frac === 0) return `${whole}%`
-  if (frac % 10 === 0) return `${whole}.${frac / 10}%`
+
+  if (frac === 0) {return `${whole}%`}
+
+  if (frac % 10 === 0) {return `${whole}.${frac / 10}%`}
+
   return `${whole}.${String(frac).padStart(2, '0')}%`
 }
 
@@ -48,16 +53,19 @@ export function remainingPct(
     allocationGrantedTotal > 0
       ? allocationGrantedTotal
       : creditsIncluded
+
   return flooredPct(allocationBalance, granted)
 }
 
 export function additionalRemainingPct(topUpBalance: number, topUpPurchasedTotal: number): number {
   const leftover =
     typeof topUpBalance === 'number' && Number.isInteger(topUpBalance) && topUpBalance >= 0 ? topUpBalance : 0
+
   const purchased =
     typeof topUpPurchasedTotal === 'number' && Number.isInteger(topUpPurchasedTotal) && topUpPurchasedTotal >= 0
       ? topUpPurchasedTotal
       : 0
+
   return flooredPct(leftover, Math.max(purchased, leftover))
 }
 
@@ -95,8 +103,10 @@ function readInt(n: unknown): number {
 }
 
 function toDate(v: unknown): Date | null {
-  if (!v) return null
-  if (v instanceof Date) return v
+  if (!v) {return null}
+
+  if (v instanceof Date) {return v}
+
   if (
     typeof v === 'object' &&
     v !== null &&
@@ -105,6 +115,7 @@ function toDate(v: unknown): Date | null {
   ) {
     return (v as { toDate: () => Date }).toDate()
   }
+
   return null
 }
 
@@ -119,14 +130,17 @@ export function billingViewFromUserData(data: Record<string, unknown> | undefine
       cancelAtPeriodEnd: false
     }
   }
+
   const creditsIncluded = readInt(data.creditsIncluded)
   const allocationBalance = readInt(data.allocationBalance)
   const allocationGrantedTotal = readInt(data.allocationGrantedTotal)
   let topUpBalance = readInt(data.topUpBalance)
   const legacy = readInt(data.creditBalance)
+
   if (allocationBalance === 0 && topUpBalance === 0 && legacy > 0 && data.topUpBalance === undefined) {
     topUpBalance = legacy
   }
+
   return {
     planName: typeof data.planName === 'string' ? data.planName : null,
     planStatus: typeof data.planStatus === 'string' ? data.planStatus : null,
@@ -145,15 +159,20 @@ export async function subscribeOkvevoUserBilling(
 ): Promise<Unsubscribe> {
   if (!uid || !customToken || !okvevoFirebaseConfigured()) {
     onData(billingViewFromUserData(undefined))
+
     return () => {}
   }
+
   const fb = getOkvevoFirebase()
+
   if (!fb) {
     onData(billingViewFromUserData(undefined))
+
     return () => {}
   }
 
   await signInWithCustomToken(fb.auth, customToken)
+
   const unsub = onSnapshot(
     doc(fb.db, 'users', uid),
     snap => {

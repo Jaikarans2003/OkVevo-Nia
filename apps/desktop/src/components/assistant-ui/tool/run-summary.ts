@@ -1,5 +1,5 @@
-import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { sanitizePublicText } from '@/lib/display-path'
+import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { firstStringField } from '@/lib/text'
 
@@ -131,18 +131,21 @@ function lowerFirst(text: string): string {
  */
 function summarizeProductToolRun(tools: readonly ToolCallLike[], live: boolean): string {
   const narrating = live ? (tools.find(isPending) ?? tools.at(-1)) : tools[0]
+
   if (narrating) {
     const listed = listedProductPhrasing(
       narrating.toolName,
       narrating.toolCallId || narrating.toolName,
       toolTarget(narrating)
     )
+
     if (listed) {
       return listed
     }
   }
 
   const seed = tools[0]?.toolCallId || tools[0]?.toolName || 'run'
+
   return genericProductPhrasing(seed) ?? 'Working on it…'
 }
 

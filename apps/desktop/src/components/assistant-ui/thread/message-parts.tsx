@@ -1,8 +1,8 @@
 import {
   type ReasoningMessagePartComponent,
   type TextMessagePartProps,
-  type ToolCallMessagePartProps,
   TextMessagePartProvider,
+  type ToolCallMessagePartProps,
   useAuiState,
   useMessagePartReasoning,
   useMessagePartText

@@ -129,6 +129,7 @@ export function ModelPill({
     : PILL
 
   const brandedProvider = currentProvider ? brandProviderSlug(currentProvider) : ''
+
   const baseTitle = brandedProvider
     ? copy.modelTitle(brandedProvider, currentModel || copy.modelNone)
     : copy.switchModel
