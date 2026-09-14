@@ -1,0 +1,15 @@
+name: nia-public-guard
+version: "1.0.0"
+description: "Public-channel guardrails — block internals paths and the hermes CLI, redact secrets in tool results, scrub user-facing model output. No-op on NIA_BUILD_CHANNEL=internal. Bundled kind: backend so it auto-loads (fail-closed: must be explicitly disabled)."
+author: OkVevo
+kind: backend
+hooks:
+  - pre_tool_call
+  - transform_tool_result
+  - transform_terminal_output
+  - transform_llm_output
+provides_hooks:
+  - pre_tool_call
+  - transform_tool_result
+  - transform_terminal_output
+  - transform_llm_output

@@ -23,7 +23,7 @@ import { GeneratedImage } from '@/components/chat/generated-image-result'
 import { GeneratedVideo } from '@/components/chat/generated-video-result'
 import { SCAFFOLD_LABEL_CLASS, SCAFFOLD_META_CLASS, ScaffoldRow } from '@/components/chat/scaffold-row'
 import { useI18n } from '@/i18n'
-import { sanitizeUserFacingBrand } from '@/lib/display-path'
+import { sanitizePublicText, sanitizeUserFacingBrand } from '@/lib/display-path'
 import { generatedImageFromResult, generatedVideoFromResult } from '@/lib/generated-images'
 import { separateGluedReasoningBlocks } from '@/lib/reasoning-blocks'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
@@ -368,7 +368,7 @@ const ReasoningTextPart: ReasoningMessagePartComponent = () => {
       containerProps={{ 'data-slot': 'aui_reasoning-text' } as ComponentProps<'div'>}
       disableArtifacts
       isRunning={status.type === 'running' || messageRunning}
-      text={separateGluedReasoningBlocks(text.trimStart())}
+      text={sanitizePublicText(separateGluedReasoningBlocks(text.trimStart()))}
     />
   )
 }

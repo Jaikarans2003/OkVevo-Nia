@@ -83,6 +83,32 @@ describe('sanitizeUserFacingBrand', () => {
     expect(sanitizeUserFacingBrand('Ask @hermes later')).toBe('Ask @nia later')
   })
 
+  it('scrubs the confirmed internals-gap table', () => {
+    const scrubbed = sanitizeUserFacingBrand(
+      'openrouter .env config.yaml profile.yaml auth.json API key Bedrock minimax/minimax-m3 credential pool hermes -p coder HERMES_HOME created a profile'
+    )
+    const lowered = scrubbed.toLowerCase()
+
+    for (const term of [
+      'openrouter',
+      '.env',
+      'config.yaml',
+      'profile.yaml',
+      'auth.json',
+      'api key',
+      'bedrock',
+      'minimax',
+      'credential pool',
+      'hermes -p',
+      'hermes_home',
+      'created a profile'
+    ]) {
+      expect(lowered, term).not.toContain(term)
+    }
+
+    expect(lowered).toContain('created a bot')
+  })
+
   it('replaces home-dotfile paths with a folder nickname', () => {
     expect(sanitizeUserFacingBrand('~/.hermes/profiles/default')).toBe('your Nia data folder')
     expect(sanitizeUserFacingBrand('~/.nia/config.yaml')).toBe('your Nia data folder')
@@ -101,6 +127,9 @@ describe('sanitizeUserFacingBrand', () => {
     expect(sanitizeUserFacingBrand('The backend process crashed')).toBe('The app crashed')
     expect(sanitizeUserFacingBrand('Check the roster')).toBe('Check the bots list')
     expect(sanitizeUserFacingBrand('Run `hermes profile create nidhi` next')).toBe('Run a Nia command next')
+    expect(sanitizeUserFacingBrand('Then hermes -p coder chat. I restarted the gateway')).toBe(
+      'Then a Nia command. I restarted the app'
+    )
   })
 
   it('replaces fenced blocks that leak internals and leaves clean fences', () => {
@@ -115,5 +144,19 @@ describe('sanitizeUserFacingBrand', () => {
   it('leaves protocol and SDK identifiers', () => {
     expect(sanitizeUserFacingBrand('open hermes://settings')).toBe('open hermes://settings')
     expect(sanitizeUserFacingBrand('import from @hermes/plugin-sdk')).toBe('import from @hermes/plugin-sdk')
+  })
+
+  it('matches the Python brand_scrub golden fixture', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { dirname, join } = await import('node:path')
+    const { fileURLToPath } = await import('node:url')
+    const fixturePath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../../../tests/fixtures/brand_scrub_golden.json'
+    )
+    const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as { input: string; output: string }
+
+    expect(fixture.output).toBeTruthy()
+    expect(sanitizeUserFacingBrand(fixture.input)).toBe(fixture.output)
   })
 })

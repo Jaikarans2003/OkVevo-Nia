@@ -41,6 +41,7 @@ import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { ToolIcon } from '@/components/ui/tool-icon'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
+import { sanitizePublicText } from '@/lib/display-path'
 import { PrettyLink, LinkifiedText as SharedLinkifiedText, urlSlugTitleLabel } from '@/lib/external-link'
 import { AlertCircle, CheckCircle2 } from '@/lib/icons'
 import { normalize } from '@/lib/text'
@@ -182,7 +183,7 @@ export function technicalTrace(args: unknown, result: unknown): string {
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([label, value]) => `${label}:\n${prettyTechnicalValue(value)}`)
 
-  return clampForDisplay(parts.join('\n\n'))
+  return sanitizePublicText(clampForDisplay(parts.join('\n\n')))
 }
 
 function statusGlyph(status: ToolStatus, copy: ToolStatusCopy): ReactNode {
@@ -425,7 +426,7 @@ function ToolEntry({ part }: ToolEntryProps) {
   // stdout/stderr, and detail dumps are Technical-mode chrome
   // (ToolPayloadDisclosure covers them there).
   const friendlyErrorLine =
-    toolViewMode !== 'technical' && view.status === 'error' ? view.subtitle.trim() : ''
+    toolViewMode !== 'technical' && view.status === 'error' ? sanitizePublicText(view.subtitle.trim()) : ''
   const hasExpandableContent = Boolean(
     view.imageUrl ||
     view.inlineDiff ||
@@ -523,7 +524,7 @@ function ToolEntry({ part }: ToolEntryProps) {
         >
           <span
             className="flex min-w-0 items-center gap-1.5"
-            title={isFileEdit && view.subtitle ? view.subtitle : undefined}
+            title={isFileEdit && view.subtitle ? sanitizePublicText(view.subtitle) : undefined}
           >
             <ToolGlyph
               copy={copy}
@@ -536,7 +537,7 @@ function ToolEntry({ part }: ToolEntryProps) {
               isPending={isPending}
               legendary={memoryLegendary}
               status={view.status}
-              title={view.title}
+              title={sanitizePublicText(view.title)}
               titleAction={view.titleAction}
             />
             {!isPending && view.countLabel && (
@@ -570,7 +571,7 @@ function ToolEntry({ part }: ToolEntryProps) {
               showLabel={false}
               side="left"
               stopPropagation
-              text={copyAction.text}
+              text={sanitizePublicText(copyAction.text)}
             />
           )}
           {view.imageUrl && (

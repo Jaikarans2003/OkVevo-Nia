@@ -92,6 +92,8 @@ class TestProductIdentityGuidance:
         assert "Never say Hermes, Nous, or" in PRODUCT_IDENTITY_GUIDANCE
         assert "never the mechanism or its location on disk" in PRODUCT_IDENTITY_GUIDANCE
         assert "Never paste script or code contents or local filesystem paths" in PRODUCT_IDENTITY_GUIDANCE
+        assert "manage_bot" in PRODUCT_IDENTITY_GUIDANCE
+        assert "never by editing files" in PRODUCT_IDENTITY_GUIDANCE.lower()
         assert stable.index("capability brochure") < stable.index(
             "Model:` and `Provider:`"
         )

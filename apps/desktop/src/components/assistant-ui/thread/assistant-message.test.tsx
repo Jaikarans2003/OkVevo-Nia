@@ -231,3 +231,19 @@ describe('reasoning accordion channel', () => {
     expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeTruthy()
   })
 })
+
+describe('public-channel copy and reasoning sanitizers', () => {
+  it('routes Copy and ReadAloud through sanitizePublicText', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { dirname, join } = await import('node:path')
+    const { fileURLToPath } = await import('node:url')
+    const here = dirname(fileURLToPath(import.meta.url))
+    const messageSrc = readFileSync(join(here, 'assistant-message.tsx'), 'utf8')
+    const partsSrc = readFileSync(join(here, 'message-parts.tsx'), 'utf8')
+
+    expect(messageSrc).toContain('text={() => sanitizePublicText(getMessageText())}')
+    expect(messageSrc).toContain('getText={() => sanitizePublicText(getMessageText())}')
+    expect(messageSrc).not.toMatch(/text=\{getMessageText\}/)
+    expect(partsSrc).toContain('sanitizePublicText(separateGluedReasoningBlocks')
+  })
+})

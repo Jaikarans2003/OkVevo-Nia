@@ -31,6 +31,7 @@ import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
 import { isByokChromeVisible } from '@/lib/build-channel'
+import { sanitizePublicText } from '@/lib/display-path'
 import { type ErrorSurface, formatErrorDiagnostics } from '@/lib/error-surface'
 import { triggerHaptic } from '@/lib/haptics'
 import {
@@ -646,8 +647,8 @@ const AssistantActionBar: FC<MessageActionProps & { durationS?: number }> = ({
             <GitForkIcon className="size-3.5" />
           </TooltipIconButton>
         )}
-        <CopyButton appearance="icon" buttonSize="icon" label={copy.copy} text={getMessageText} />
-        <ReadAloudButton getText={getMessageText} messageId={messageId} />
+        <CopyButton appearance="icon" buttonSize="icon" label={copy.copy} text={() => sanitizePublicText(getMessageText())} />
+        <ReadAloudButton getText={() => sanitizePublicText(getMessageText())} messageId={messageId} />
         <ActionBarPrimitive.Reload asChild>
           <TooltipIconButton onClick={() => triggerHaptic('submit')} tooltip={copy.refresh}>
             <RefreshCwIcon className="size-3.5" />

@@ -1105,7 +1105,7 @@ export function GroupChatWorkspace({ group, members, onBack, visible = true }: G
 
     if (!expanded) {
       const replies = entries.length - 1
-      const headText = stripPreviewMarkdown(head?.text || '').slice(0, 80)
+      const headText = stripPreviewMarkdown(sanitizeUserFacingBrand(head?.text || '')).slice(0, 80)
       logChildren.push(
         <RowButton
           className="flex w-full items-center gap-2 rounded-md border border-(--ui-stroke-secondary) px-2 py-1.5 text-left text-xs text-(--ui-text-tertiary) transition-colors hover:bg-(--chrome-action-hover)"

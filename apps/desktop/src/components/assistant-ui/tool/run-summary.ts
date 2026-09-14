@@ -1,4 +1,5 @@
 import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
+import { sanitizePublicText } from '@/lib/display-path'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { firstStringField } from '@/lib/text'
 
@@ -86,8 +87,9 @@ function toolTarget(tool: ToolCallLike): string {
   }
 
   const path = firstStringField(args, ['path', 'file', 'filepath'])
+  const target = path ? fileEditBasename(path) : firstStringField(args, ['query', 'url'])
 
-  return path ? fileEditBasename(path) : firstStringField(args, ['query', 'url'])
+  return target ? sanitizePublicText(target) : target
 }
 
 /**
@@ -150,7 +152,7 @@ export function summarizeToolRun(
   productMode = false
 ): string {
   if (productMode) {
-    return summarizeProductToolRun(tools, live)
+    return sanitizePublicText(summarizeProductToolRun(tools, live))
   }
 
   // Which clause narrates in the present tense: normally the outstanding call,
@@ -179,5 +181,5 @@ export function summarizeToolRun(
     return group ? [clause(category, group, category === liveCategory)] : []
   })
 
-  return clauses.map((text, index) => (index === 0 ? text : lowerFirst(text))).join(', ')
+  return sanitizePublicText(clauses.map((text, index) => (index === 0 ? text : lowerFirst(text))).join(', '))
 }

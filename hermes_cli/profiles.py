@@ -1377,6 +1377,208 @@ def create_profile(
     return profile_dir
 
 
+def _env_has_real_content(env_path: Path) -> bool:
+    """True when .env has any non-comment, non-blank line."""
+    try:
+        for line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _mirror_voice_sections_into(profile_dir: Path) -> bool:
+    """Copy voice config (stt/tts/voice) from the launch profile into *profile_dir*."""
+    try:
+        from hermes_cli.config import (
+            load_config_readonly,
+            read_user_config_raw,
+            save_config,
+        )
+        from hermes_constants import (
+            reset_hermes_home_override,
+            set_hermes_home_override,
+        )
+
+        src_cfg = load_config_readonly() or {}
+        sections = {k: src_cfg[k] for k in ("stt", "tts", "voice") if src_cfg.get(k)}
+        if not sections:
+            return False
+
+        token = set_hermes_home_override(str(profile_dir))
+        try:
+            dst_cfg = read_user_config_raw() or {}
+            changed = False
+            for key, value in sections.items():
+                if key not in dst_cfg:
+                    dst_cfg[key] = value
+                    changed = True
+            if changed:
+                save_config(dst_cfg)
+        finally:
+            reset_hermes_home_override(token)
+        return changed
+    except Exception:
+        return False
+
+
+def provision_named_profile(
+    name: str,
+    *,
+    description: Optional[str] = None,
+    clone_from: Optional[str] = None,
+    clone_all: bool = False,
+    no_skills: bool = False,
+    soul: Optional[str] = None,
+    mirror_credentials: bool = True,
+    share_auth: bool = False,
+    model: str = "",
+    provider: str = "",
+) -> dict:
+    """Create a named profile and apply the runtime setup the RPC/tool share.
+
+    Includes bundled-skill seeding, alias wrapper, optional SOUL write,
+    credential/auth mirroring, voice-section copy, and model inheritance.
+    Return shape matches the ``profiles.create`` RPC (path, flags, mirrored).
+    """
+    clone_from = (clone_from or "").strip() or None
+    path = create_profile(
+        name=name,
+        clone_from=clone_from,
+        clone_all=clone_all,
+        clone_config=bool(clone_from) and not clone_all,
+        no_skills=no_skills,
+        description=description,
+    )
+
+    try:
+        if not clone_from:
+            seed_profile_skills(path, quiet=True)
+    except Exception:
+        pass
+    try:
+        if not check_alias_collision(name):
+            create_wrapper_script(name)
+    except Exception:
+        pass
+
+    soul_written = False
+    if isinstance(soul, str) and soul.strip():
+        try:
+            (path / "SOUL.md").write_text(soul, encoding="utf-8")
+            soul_written = True
+        except Exception:
+            pass
+
+    mirrored = {"env": False, "auth": False, "model_inherited": False, "voice": False}
+    if share_auth:
+        mirrored["auth"] = "shared"
+    if mirror_credentials:
+        from hermes_constants import get_hermes_home
+
+        launch_home = get_hermes_home()
+        try:
+            src_env = launch_home / ".env"
+            dst_env = path / ".env"
+            if src_env.is_file() and _env_has_real_content(src_env) and not _env_has_real_content(dst_env):
+                shutil.copy2(src_env, dst_env)
+                try:
+                    os.chmod(str(dst_env), 0o600)
+                except OSError:
+                    pass
+                mirrored["env"] = True
+        except Exception:
+            pass
+        try:
+            src_auth = launch_home / "auth.json"
+            dst_auth = path / "auth.json"
+            if not share_auth and src_auth.is_file() and not dst_auth.exists():
+                shutil.copy2(src_auth, dst_auth)
+                try:
+                    os.chmod(str(dst_auth), 0o600)
+                except OSError:
+                    pass
+                mirrored["auth"] = True
+        except Exception:
+            pass
+        mirrored["voice"] = _mirror_voice_sections_into(path)
+
+    model = (model or "").strip()
+    provider = (provider or "").strip()
+    model_set = False
+
+    if model and provider:
+        try:
+            from hermes_cli.web_routers.profiles import _write_profile_model
+
+            _write_profile_model(path, provider, model)
+            model_set = True
+        except Exception:
+            pass
+    elif mirror_credentials:
+        try:
+            from hermes_cli.config import load_config_readonly, read_user_config_raw
+            from hermes_cli.web_routers.profiles import _write_profile_model
+            from hermes_constants import (
+                reset_hermes_home_override,
+                set_hermes_home_override,
+            )
+
+            token = set_hermes_home_override(str(path))
+            try:
+                dst_model = (read_user_config_raw() or {}).get("model") or {}
+            finally:
+                reset_hermes_home_override(token)
+
+            if not (dst_model.get("provider") and dst_model.get("default")):
+                cfg = load_config_readonly() or {}
+                model_cfg = cfg.get("model") or {}
+                inherited_provider = str(model_cfg.get("provider") or "")
+                inherited_model = str(model_cfg.get("default") or "")
+                if inherited_provider and inherited_model:
+                    _write_profile_model(path, inherited_provider, inherited_model)
+                    mirrored["model_inherited"] = True
+        except Exception:
+            pass
+
+    return {
+        "ok": True,
+        "name": name,
+        "path": str(path),
+        "soul_written": soul_written,
+        "model_set": model_set,
+        "mirrored": mirrored,
+    }
+
+
+def update_named_profile_identity(
+    name: str,
+    *,
+    soul: Optional[str] = None,
+    description: Optional[str] = None,
+    display_name: Optional[str] = None,
+) -> Path:
+    """Update SOUL.md / description / display name for an existing named profile."""
+    canon = normalize_profile_name(name)
+    validate_profile_name(canon)
+    profile_dir = get_profile_dir(canon)
+    if not profile_dir.is_dir() or named_profile_is_deleted(profile_dir):
+        raise FileNotFoundError(f"profile '{canon}' not found")
+    if isinstance(soul, str):
+        (profile_dir / "SOUL.md").write_text(soul, encoding="utf-8")
+    meta_kwargs: Dict[str, object] = {}
+    if description is not None:
+        meta_kwargs["description"] = description
+        meta_kwargs["description_auto"] = False
+    if display_name is not None:
+        meta_kwargs["display_name"] = display_name
+    if meta_kwargs:
+        write_profile_meta(profile_dir, **meta_kwargs)
+    return profile_dir
+
+
 def seed_profile_skills(profile_dir: Path, quiet: bool = False) -> Optional[dict]:
     """Seed bundled skills into a profile via subprocess.
 

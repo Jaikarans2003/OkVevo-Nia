@@ -112,6 +112,7 @@ CONFIGURABLE_TOOLSETS = [
     ("context_engine",  "🧩 Context Engine",            "runtime tools from the active context engine"),
     ("session_search",  "🔎 Session Search",            "search past conversations"),
     ("clarify",         "❓ Clarifying Questions",      "clarify"),
+    ("bots",            "🤖 Bots",                      "manage_bot"),
     ("delegation",      "👥 Task Delegation",           "delegate_task"),
     ("cronjob",         "⏰ Cron Jobs",                 "create/list/update/pause/resume/run, with optional attached skills"),
     ("homeassistant",    "🏠 Home Assistant",           "smart home device control"),
@@ -2594,7 +2595,7 @@ def _exempt_explicit_platform_native(
 #: it: an enabled toolset still ships zero schemas when its check fails — the
 #: same split Home Assistant uses. Probing a remote service from this path
 #: would put a network call on every CLI start, gateway session and cron tick.
-_RECENTLY_SHIPPED_TOOLSETS: frozenset = frozenset()
+_RECENTLY_SHIPPED_TOOLSETS: frozenset = frozenset({"bots"})
 
 
 def _enable_recently_shipped_toolsets(

@@ -292,6 +292,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Capabilities hub does not show “Hermes Agent” / “HERMES AGENT”. |
 | **Notes** | Deferred 2026-09-13 from Nia Bots Part A. Karan confirmed. |
 
+### [ ] Audit bundled `skills/**/SKILL.md` for Hermes vocabulary
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Bundled skills that teach `hermes` CLI, `.env`, `config.yaml`, or OpenRouter still land in the model context via `skill_view`. L1–L4 guardrails are a backstop; regex denylists are not the control. |
+| **Scope** | `skills/**/SKILL.md` (bundled library synced into `~/.hermes/skills`) |
+| **Fix** | Rewrite user-facing skill copy to Nia product language; keep internal identifiers only where a skill must name a real on-disk path for the tool layer. Do not treat `agent/brand_scrub.py` / `sanitizeUserFacingBrand` as sufficient. |
+| **Verify** | `rg -n -i 'hermes profile|openrouter|~/.hermes|config\\.yaml|auth\\.json' skills --glob '**/SKILL.md'` — triage every hit; none should instruct the model to edit internals or name vendors to the user. |
+| **Notes** | Logged 2026-09-14 with nia-public-guard (OWASP LLM02). Public builds already block file/shell access to the agent home and scrub leftovers; this audit removes the teaching source. |
+
 ---
 
 ## Should fix before live (lower severity)

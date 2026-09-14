@@ -300,6 +300,7 @@ describe('room message paint sanitizer', () => {
     expect(src).toContain('const safeText = sanitizeUserFacingBrand(entry.text)')
     expect(src).toContain('text={safeText}')
     expect(src).toContain('<Streamdown>{safeText}</Streamdown>')
+    expect(src).toContain("stripPreviewMarkdown(sanitizeUserFacingBrand(head?.text || ''))")
     expect(src).not.toMatch(/<Streamdown>\{entry\.text\}<\/Streamdown>/)
   })
 })

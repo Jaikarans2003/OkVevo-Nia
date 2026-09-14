@@ -1,3 +1,5 @@
+import { isByokChromeVisible } from '@/lib/build-channel'
+
 /**
  * One place to format filesystem paths for DISPLAY.
  *
@@ -167,15 +169,16 @@ export function displayInstallPath(raw: string): string {
 
 const HERMES_DESKTOP_APP_RE = /\bHermes desktop app\b/g
 const HERMES_AGENT_RE = /\bHermes Agent\b/g
-const HERMES_WORD_RE = /\bHermes\b/g
+const HERMES_WORD_RE = /\bhermes\b/gi
 const NOUS_RESEARCH_RE = /\bNous Research\b/g
 const NOUS_WORD_RE = /\bNous\b/g
-const OPENROUTER_WORD_RE = /\bOpenRouter\b/g
-const FAL_WORD_RE = /\bfal\.ai\b/g
+const OPENROUTER_WORD_RE = /\bopenrouter\b/gi
+const FAL_WORD_RE = /\bfal\.ai\b/gi
 const HEY_HERMES_RE = /\bhey hermes\b/gi
 const HEY_NIA_RE = /\bhey nia\b/gi
 const HERMES_PROFILE_AT_RE = /@hermes\b(?!\/)/g
 const HERMES_CLI_SPAN_RE = /`hermes [^`]*`/g
+const HERMES_DASH_P_RE = /\bhermes\s+-p(?:\s+[A-Za-z0-9_-]+){0,2}/gi
 const FENCED_CODE_RE = /```[\s\S]*?(?:```|$)/g
 const THE_GATEWAY_RE = /\bthe gateway\b/gi
 const BACKEND_PROCESS_RE = /\bbackend process\b/gi
@@ -186,6 +189,20 @@ const HOME_DOTFILE_PATH_RE =
   /(?:~|\/Users\/[^/\s]+|\/home\/[^/\s]+|[A-Za-z]:[\\/]Users[\\/][^\\/\s]+)[\\/]\.[^\s`'"]+/g
 const HOME_DOTFILE_PATH_TEST_RE =
   /(?:~|\/Users\/[^/\s]+|\/home\/[^/\s]+|[A-Za-z]:[\\/]Users[\\/][^\\/\s]+)[\\/]\.[^\s`'"]+/
+const DOTENV_RE = /(?<![\w])\.env\b/g
+const CONFIG_YAML_RE = /\bconfig\.yaml\b/gi
+const PROFILE_YAML_RE = /\bprofile\.yaml\b/gi
+const AUTH_JSON_RE = /\bauth\.json\b/gi
+const API_KEY_RE = /\bAPI keys?\b/gi
+const BEDROCK_RE = /\bBedrock\b/gi
+const CREDENTIAL_POOL_RE = /\bcredential pools?\b/gi
+const HERMES_HOME_RE = /\bHERMES_HOME\b/g
+const MODEL_ID_RE = /\b[a-z][a-z0-9.-]{1,32}\/[a-z0-9][a-z0-9._-]*[-:][a-z0-9][a-z0-9._-]*\b/gi
+const NIA_PROFILE_RE = /\bNia profile\b/g
+const PROFILE_ACTION_RE = /\b(create|created|creating|make|made|making|set up|setup)\s+(a\s+)?(new\s+)?profile\b/gi
+const PROFILE_NAMED_RE = /\bprofile (named|called)\b/gi
+const PROTO_TOKEN = '\0HERMESPROTO\0'
+const SDK_TOKEN = '\0HERMESSDK\0'
 const INTERNAL_FENCE_PLACEHOLDER = '[internal details omitted]'
 
 const LEGACY_WAKE_PHRASES = new Set(['', 'hey hermes', 'hey nia'])
@@ -199,6 +216,11 @@ export function displayWakePhrase(phrase: string | null | undefined): string {
 
 function fenceContainsInternal(block: string): boolean {
   const stripped = block.replace(/hermes:\/\//gi, '').replace(/@hermes\//g, '')
+  const hit = (re: RegExp) => {
+    re.lastIndex = 0
+
+    return re.test(stripped)
+  }
 
   return (
     /\bhermes\b/i.test(stripped) ||
@@ -209,23 +231,35 @@ function fenceContainsInternal(block: string): boolean {
     /\bbackend\b/i.test(stripped) ||
     /\broster\b/i.test(stripped) ||
     /\.hermes\b/.test(stripped) ||
-    HOME_DOTFILE_PATH_TEST_RE.test(stripped)
+    hit(HOME_DOTFILE_PATH_TEST_RE) ||
+    hit(DOTENV_RE) ||
+    hit(CONFIG_YAML_RE) ||
+    hit(PROFILE_YAML_RE) ||
+    hit(AUTH_JSON_RE) ||
+    hit(API_KEY_RE) ||
+    hit(BEDROCK_RE) ||
+    hit(CREDENTIAL_POOL_RE) ||
+    hit(HERMES_HOME_RE) ||
+    hit(MODEL_ID_RE)
   )
 }
 
 function sanitizeUserFacingProse(raw: string): string {
-  return displayInstallPath(raw)
+  const protectedText = raw.replace(/hermes:\/\//gi, PROTO_TOKEN).replace(/@hermes\//g, SDK_TOKEN)
+
+  return displayInstallPath(protectedText)
     .replace(HERMES_CLI_SPAN_RE, 'a Nia command')
+    .replace(HERMES_DASH_P_RE, 'a Nia command')
     .replace(HERMES_DESKTOP_APP_RE, 'Nia desktop app')
     .replace(HERMES_AGENT_RE, 'Nia')
+    .replace(HEY_HERMES_RE, 'ok nia')
+    .replace(HEY_NIA_RE, 'ok nia')
+    .replace(HERMES_PROFILE_AT_RE, '@nia')
     .replace(HERMES_WORD_RE, 'Nia')
     .replace(NOUS_RESEARCH_RE, 'OkVevo')
     .replace(NOUS_WORD_RE, 'OkVevo')
     .replace(OPENROUTER_WORD_RE, 'OkVevo')
     .replace(FAL_WORD_RE, 'OkVevo')
-    .replace(HEY_HERMES_RE, 'ok nia')
-    .replace(HEY_NIA_RE, 'ok nia')
-    .replace(HERMES_PROFILE_AT_RE, '@nia')
     .replace(THE_GATEWAY_RE, 'the app')
     .replace(BACKEND_PROCESS_RE, 'app')
     .replace(GATEWAY_WORD_RE, 'app')
@@ -236,6 +270,20 @@ function sanitizeUserFacingProse(raw: string): string {
 
       return `your Nia data folder${punct}`
     })
+    .replace(DOTENV_RE, 'settings file')
+    .replace(CONFIG_YAML_RE, 'settings')
+    .replace(PROFILE_YAML_RE, 'settings')
+    .replace(AUTH_JSON_RE, 'settings')
+    .replace(API_KEY_RE, 'credentials')
+    .replace(BEDROCK_RE, 'the cloud')
+    .replace(CREDENTIAL_POOL_RE, 'credentials')
+    .replace(HERMES_HOME_RE, 'your Nia data folder')
+    .replace(MODEL_ID_RE, 'the model')
+    .replace(NIA_PROFILE_RE, 'Nia bot')
+    .replace(PROFILE_ACTION_RE, match => match.replace(/profile\b/i, 'bot'))
+    .replace(PROFILE_NAMED_RE, (_match, verb: string) => `bot ${verb}`)
+    .replaceAll(PROTO_TOKEN, 'hermes://')
+    .replaceAll(SDK_TOKEN, '@hermes/')
 }
 
 /** Rewrite leftover product copy, mechanism terms, and home-dotfile paths for paint. */
@@ -246,4 +294,9 @@ export function sanitizeUserFacingBrand(raw: string): string {
   )
 
   return sanitizeUserFacingProse(withFences)
+}
+
+/** Public builds scrub; internal builds keep the raw string. */
+export function sanitizePublicText(raw: string): string {
+  return isByokChromeVisible() ? raw : sanitizeUserFacingBrand(raw)
 }

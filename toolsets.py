@@ -66,6 +66,8 @@ _HERMES_CORE_TOOLS = [
     "session_search",
     # Clarifying questions
     "clarify",
+    # Bot create/list/update (least-privilege stand-in for editing internals)
+    "manage_bot",
     # Code execution + delegation
     "execute_code", "delegate_task",
     # Cronjob management
@@ -273,6 +275,12 @@ TOOLSETS = {
         "tools": ["clarify"],
         "includes": []
     },
+
+    "bots": {
+        "description": "Create, list, and update Nia bots",
+        "tools": ["manage_bot"],
+        "includes": []
+    },
     
     "code_execution": {
         "description": "Run Python scripts that call tools programmatically (reduces LLM round trips)",
@@ -403,7 +411,7 @@ TOOLSETS = {
             "browser_vision", "browser_console", "browser_cdp", "browser_dialog",
             "browser_exec",
             "todo", "memory",
-            "session_search", "clarify",
+            "session_search", "clarify", "manage_bot",
             "execute_code", "delegate_task",
         ],
         "includes": [],
