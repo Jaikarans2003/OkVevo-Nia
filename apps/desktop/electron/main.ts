@@ -279,7 +279,12 @@ import {
   resolveOkvevoWebOrigin,
   shouldDeliverDeepLinkToRenderer
 } from './okvevo-auth'
-import { loadHermesDotenvIntoProcess } from './okvevo-env'
+import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile } from './okvevo-env'
+import {
+  packagedSnapshotLayout,
+  readPackStamp,
+  shouldRebootstrapFromPackagedSnapshot
+} from './packaged-snapshot'
 import {
   completeOkvevoAuthCallback,
   refreshOkvevoAuth,
@@ -828,6 +833,15 @@ loadHermesDotenvIntoProcess({
   hermesHome: HERMES_HOME,
   unpackagedRepoEnv: IS_PACKAGED ? null : path.join(APP_ROOT, '..', '..', '.env')
 })
+
+if (IS_PACKAGED) {
+  const packEnvPath = process.resourcesPath ? path.join(process.resourcesPath, 'okvevo-pack-env.json') : null
+  const applied = applyPackEnv(loadPackEnvFile(packEnvPath))
+
+  if (applied.length) {
+    console.log(`[hermes] pack-env filled ${applied.join(', ')}`)
+  }
+}
 
 function pathWithHermesManagedNode(...entries) {
   const managed = hermesManagedNodePathEntries(HERMES_HOME).filter(directoryExists)
@@ -4696,7 +4710,40 @@ function resolveHermesBackend(backendArgs) {
     }
   }
 
-  // 3. ACTIVE_HERMES_ROOT — the canonical install at
+  // 3. Packaged snapshot stamp — electron-updater replaced extraResources.
+  //    Re-extract even if the previous venv is still importable so UI and
+  //    Python cannot drift. git pull in ~/.hermes must not win.
+  const packagedSnapshot = IS_PACKAGED ? packagedSnapshotLayout(process.resourcesPath) : null
+
+  if (
+    shouldRebootstrapFromPackagedSnapshot({
+      isPackaged: IS_PACKAGED,
+      snapshotPresent: Boolean(packagedSnapshot),
+      installStampCommit: INSTALL_STAMP?.commit,
+      extractedStampCommit: readPackStamp(ACTIVE_HERMES_ROOT)?.commit
+    })
+  ) {
+    rememberLog(
+      `[bootstrap] packaged agent stamp ${INSTALL_STAMP?.commit?.slice(0, 12) || '?'} ` +
+        `!= extracted ${readPackStamp(ACTIVE_HERMES_ROOT)?.commit?.slice(0, 12) || 'none'}; re-extracting`
+    )
+
+    return {
+      kind: 'bootstrap-needed',
+      label: 'Packaged agent snapshot changed; bootstrap required',
+      command: null,
+      args: backendArgs,
+      bootstrap: true,
+      env: {},
+      shell: false,
+      activeRoot: ACTIVE_HERMES_ROOT,
+      installStamp: INSTALL_STAMP,
+      isPackaged: IS_PACKAGED,
+      platform: process.platform
+    }
+  }
+
+  // 4. ACTIVE_HERMES_ROOT — the canonical install at
   //    %LOCALAPPDATA%\\hermes\\hermes-agent (Windows) or ~/.hermes/hermes-agent.
   //    A valid bootstrap marker proves Desktop finished the first-run install
   //    flow, but marker provenance is NOT the same thing as runtime usability:
@@ -4904,7 +4951,8 @@ async function ensureRuntime(backend) {
     const bootstrapResult = await runBootstrap({
       installStamp: backend.installStamp,
       activeRoot: backend.activeRoot,
-      sourceRepoRoot: SOURCE_REPO_ROOT,
+      sourceRepoRoot: IS_PACKAGED ? null : SOURCE_REPO_ROOT,
+      resourcesPath: IS_PACKAGED ? process.resourcesPath : null,
       hermesHome: HERMES_HOME,
       logRoot: path.join(HERMES_HOME, 'logs'),
       abortSignal: bootstrapAbortController.signal,

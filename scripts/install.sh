@@ -1341,6 +1341,16 @@ show_manual_install_hint() {
 # ============================================================================
 
 clone_repo() {
+    if [ "${HERMES_SKIP_REPOSITORY:-}" = "1" ]; then
+        log_info "Skipping git clone (packaged snapshot already extracted)"
+        if [ -z "$INSTALL_DIR" ] || [ ! -d "$INSTALL_DIR" ]; then
+            log_error "Packaged snapshot did not land at $INSTALL_DIR"
+            return 1
+        fi
+        log_success "Repository ready"
+        return 0
+    fi
+
     log_info "Installing to $INSTALL_DIR..."
 
     # An interrupted previous clone leaves a .git with no initial commit, where

@@ -25,9 +25,9 @@ export function missingReleaseSecrets(env = process.env) {
 
 export function formatMissingReleaseSecrets(missing) {
   return [
-    'Tagged Nia releases are fail-closed: missing signing or feed secrets.',
+    'Packaged Nia releases are fail-closed: missing signing or feed secrets.',
     `Unset: ${missing.join(', ')}`,
-    'Do not publish latest-mac.yml / latest.yml. See docs/FINISH-SIGNED-RELEASE.md.'
+    'See docs/FINISH-SIGNED-RELEASE.md and docs/CI-CD.md.'
   ].join('\n')
 }
 

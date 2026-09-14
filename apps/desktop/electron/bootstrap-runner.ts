@@ -39,6 +39,12 @@ import https from 'node:https'
 import path from 'node:path'
 
 import { hiddenWindowsChildOptions } from './windows-child-options'
+import {
+  extractPackagedSnapshot,
+  packagedSnapshotLayout,
+  readPackStamp,
+  shouldRebootstrapFromPackagedSnapshot
+} from './packaged-snapshot'
 
 const IS_WINDOWS = process.platform === 'win32'
 
@@ -169,6 +175,22 @@ function installScriptName() {
 
 function installScriptKind() {
   return process.platform === 'win32' ? 'powershell' : 'posix'
+}
+
+function bundledInstallScript(resourcesPath) {
+  if (!resourcesPath) {
+    return null
+  }
+
+  const candidate = path.join(resourcesPath, installScriptName())
+
+  try {
+    fs.accessSync(candidate, fs.constants.R_OK)
+
+    return candidate
+  } catch {
+    return null
+  }
 }
 
 function resolveLocalInstallScript(sourceRepoRoot) {
@@ -319,11 +341,12 @@ async function resolveInstallScript({
   sourceRepoRoot,
   hermesHome,
   emit,
+  resourcesPath,
   _download = downloadInstallScript
 }) {
   // 1. Dev shortcut: prefer a local checkout's installer so we can iterate
   //    without pushing. SOURCE_REPO_ROOT comes from main.ts (path.resolve
-  //    of APP_ROOT/../..).
+  //    of APP_ROOT/../..). Unpackaged only — packaged apps use extraResources.
   const localScript = resolveLocalInstallScript(sourceRepoRoot)
 
   if (localScript) {
@@ -332,7 +355,16 @@ async function resolveInstallScript({
     return { path: localScript, source: 'local', kind: installScriptKind() }
   }
 
-  // 2. Packaged path: download from GitHub at the install stamp's ref.
+  // 2. Packaged extraResources: bundled install.sh/ps1. Never hit GitHub.
+  const bundled = bundledInstallScript(resourcesPath)
+
+  if (bundled) {
+    emit({ type: 'log', line: `[bootstrap] using bundled ${installScriptName()} (no GitHub)` })
+
+    return { path: bundled, source: 'bundled', kind: installScriptKind() }
+  }
+
+  // 3. Legacy packaged path: download from GitHub at the install stamp's ref.
   // Non-git fallback builds carry an all-zero commit; treat that as an
   // unpinned branch ref instead of trying to fetch a non-existent SHA.
   const installRef = installRefForStamp(installStamp)
@@ -456,7 +488,7 @@ function resolveWindowsPowerShell() {
   return 'powershell.exe'
 }
 
-function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, hermesHome }: any = {}) {
+function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, hermesHome, skipRepository }: any = {}) {
   return new Promise<any>((resolve, reject) => {
     const ps = process.platform === 'win32' ? resolveWindowsPowerShell() : 'pwsh'
     const fullArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]
@@ -470,7 +502,8 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, herme
           ...process.env,
           // Pass HERMES_HOME through so install.ps1 respects the caller's
           // choice rather than re-computing the default.
-          HERMES_HOME: hermesHome || process.env.HERMES_HOME || ''
+          HERMES_HOME: hermesHome || process.env.HERMES_HOME || '',
+          ...(skipRepository ? { HERMES_SKIP_REPOSITORY: '1' } : {})
         }
       })
     )
@@ -560,13 +593,14 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, herme
   })
 }
 
-function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome }: any = {}) {
+function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome, skipRepository }: any = {}) {
   return new Promise<any>((resolve, reject) => {
     const child = spawn('bash', [scriptPath, ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        HERMES_HOME: hermesHome || process.env.HERMES_HOME || ''
+        HERMES_HOME: hermesHome || process.env.HERMES_HOME || '',
+        ...(skipRepository ? { HERMES_SKIP_REPOSITORY: '1' } : {})
       }
     })
 
@@ -690,7 +724,7 @@ function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = t
   return args
 }
 
-async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, activeRoot, installStamp, pinCommit }) {
+async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, activeRoot, installStamp, pinCommit, skipRepository }) {
   const isPosix = installerKind === 'posix'
 
   const args = isPosix
@@ -700,7 +734,8 @@ async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, acti
   const result = await (isPosix ? spawnBash : spawnPowerShell)(scriptPath, args, {
     emit,
     stageName: '__manifest__',
-    hermesHome
+    hermesHome,
+    skipRepository
   })
 
   if (result.code !== 0) {
@@ -761,7 +796,8 @@ async function runStage({
   activeRoot,
   abortSignal,
   installStamp,
-  pinCommit
+  pinCommit,
+  skipRepository
 }) {
   const startedAt = Date.now()
   emit({ type: 'stage', name: stage.name, state: 'running' })
@@ -782,7 +818,8 @@ async function runStage({
     emit,
     stageName: stage.name,
     abortSignal,
-    hermesHome
+    hermesHome,
+    skipRepository
   })
 
   const durationMs = Date.now() - startedAt
@@ -865,7 +902,8 @@ async function runBootstrap(opts) {
     logRoot,
     onEvent,
     abortSignal,
-    writeMarker // callback to write the bootstrap-complete marker; main.ts provides
+    writeMarker, // callback to write the bootstrap-complete marker; main.ts provides
+    resourcesPath
   } = opts
 
   // Bail before spawning anything if the user already cancelled — otherwise an
@@ -914,8 +952,35 @@ async function runBootstrap(opts) {
   })
 
   try {
+    const snapshot = packagedSnapshotLayout(resourcesPath)
+    if (
+      snapshot &&
+      installStamp?.commit &&
+      shouldRebootstrapFromPackagedSnapshot({
+        isPackaged: true,
+        snapshotPresent: true,
+        installStampCommit: installStamp.commit,
+        extractedStampCommit: readPackStamp(activeRoot)?.commit
+      })
+    ) {
+      extractPackagedSnapshot({
+        archive: snapshot.archive,
+        activeRoot,
+        commit: installStamp.commit,
+        emit
+      })
+    }
+
+    const skipRepository = Boolean(snapshot)
     const existingCheckout = hasExistingGitCheckout(activeRoot)
-    const pinCommit = !existingCheckout
+    const pinCommit = !existingCheckout && !skipRepository
+
+    if (skipRepository) {
+      emit({
+        type: 'log',
+        line: '[bootstrap] packaged snapshot present; skipping GitHub clone (repository stage)'
+      })
+    }
 
     if (existingCheckout && installStamp && installStamp.commit) {
       emit({
@@ -927,7 +992,13 @@ async function runBootstrap(opts) {
     }
 
     // 1. Resolve the platform installer.
-    const scriptInfo = await resolveInstallScript({ installStamp, sourceRepoRoot, hermesHome, emit })
+    const scriptInfo = await resolveInstallScript({
+      installStamp,
+      sourceRepoRoot,
+      hermesHome,
+      emit,
+      resourcesPath
+    })
     const installerKind = scriptInfo.kind || 'powershell'
 
     // 2. Fetch manifest
@@ -938,7 +1009,8 @@ async function runBootstrap(opts) {
       hermesHome,
       activeRoot,
       installStamp,
-      pinCommit
+      pinCommit,
+      skipRepository
     })
 
     emit({
@@ -958,6 +1030,11 @@ async function runBootstrap(opts) {
         return { ok: false, cancelled: true }
       }
 
+      if (skipRepository && stage.name === 'repository') {
+        emit({ type: 'stage', name: stage.name, state: 'skipped', durationMs: 0, json: { ok: true, skipped: true, stage: stage.name } })
+        continue
+      }
+
       const ev = await runStage({
         scriptPath: scriptInfo.path,
         installerKind,
@@ -967,7 +1044,8 @@ async function runBootstrap(opts) {
         activeRoot,
         abortSignal,
         installStamp,
-        pinCommit
+        pinCommit,
+        skipRepository
       })
 
       if (ev.state === 'failed') {
@@ -981,7 +1059,10 @@ async function runBootstrap(opts) {
     // not real pins -- resolve HEAD from the checkout we just installed so
     // isBootstrapComplete() (pinnedCommit.length >= 7) accepts the marker
     // instead of re-running bootstrap on every launch (#50823 review).
-    const pinnedCommit = resolveMarkerPinnedCommit(installStamp, activeRoot)
+    const pinnedCommit =
+      skipRepository && installStamp?.commit && installStamp.commit.length >= 7
+        ? installStamp.commit
+        : resolveMarkerPinnedCommit(installStamp, activeRoot)
 
     if (!pinnedCommit) {
       emit({
@@ -1022,6 +1103,7 @@ async function runBootstrap(opts) {
 export {
   buildPinArgs,
   buildPosixPinArgs,
+  bundledInstallScript,
   cachedScriptPath,
   hasExistingGitCheckout,
   installedAgentInstallScript,

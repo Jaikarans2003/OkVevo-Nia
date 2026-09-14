@@ -188,6 +188,33 @@ test('resolveInstallScript downloads fallback stamps by branch instead of zero c
   }
 })
 
+test('resolveInstallScript prefers bundled extraResources over GitHub', async () => {
+  const home = mkTmpHome()
+  const resources = fs.mkdtempSync(path.join(os.tmpdir(), 'nia-res-'))
+
+  try {
+    const bundled = path.join(resources, SCRIPT_NAME)
+    fs.writeFileSync(bundled, '#!/bin/sh\necho bundled\n')
+
+    const result = await resolveInstallScript({
+      installStamp: { commit: 'a'.repeat(40), branch: 'main' },
+      sourceRepoRoot: null,
+      hermesHome: home,
+      resourcesPath: resources,
+      emit: () => {},
+      _download: async () => {
+        throw new Error('GitHub must not be contacted when a bundled installer exists')
+      }
+    })
+
+    assert.equal(result.source, 'bundled')
+    assert.equal(result.path, bundled)
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true })
+    fs.rmSync(resources, { recursive: true, force: true })
+  }
+})
+
 test('resolveInstallScript prefers a cached script without touching the network', async () => {
   const home = mkTmpHome()
 

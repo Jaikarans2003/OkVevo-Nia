@@ -30,7 +30,7 @@ type UpdaterLike = {
   autoInstallOnAppQuit: boolean
   allowDowngrade: boolean
   verifyUpdateCodeSignature?: boolean
-  setFeedURL: (opts: { provider: string; url: string }) => void
+  setFeedURL: (opts: { provider: string; url: string; channel?: string }) => void
   checkForUpdates: () => Promise<{ isUpdateAvailable?: boolean; updateInfo?: { version: string } } | null>
   downloadUpdate: () => Promise<unknown>
   quitAndInstall: (isSilent?: boolean, isForceRunAfter?: boolean) => void
@@ -63,11 +63,31 @@ export function mapBinaryCheckResult(input: BinaryUpdateCheckInput): BinaryUpdat
   }
 }
 
-export function configureBinaryUpdater(updater: UpdaterLike, feedUrl = BINARY_UPDATE_FEED_URL) {
+export function resolveUpdateFeedUrl(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = (env.NIA_UPDATE_FEED_URL || '').trim().replace(/\/+$/, '')
+
+  return fromEnv || BINARY_UPDATE_FEED_URL
+}
+
+/** Runtime channel. Default `latest`. Team machines set NIA_UPDATE_CHANNEL=internal. Never bake internal into the binary. */
+export function resolveUpdateChannel(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = (env.NIA_UPDATE_CHANNEL || '').trim()
+
+  return fromEnv || 'latest'
+}
+
+export function configureBinaryUpdater(
+  updater: UpdaterLike,
+  opts: { url?: string; channel?: string; env?: NodeJS.ProcessEnv } = {}
+) {
+  const env = opts.env || process.env
+  const feedUrl = (opts.url || resolveUpdateFeedUrl(env)).replace(/\/+$/, '')
+  const channel = opts.channel || resolveUpdateChannel(env)
+
   updater.autoDownload = false
   updater.autoInstallOnAppQuit = false
   updater.allowDowngrade = false
-  updater.setFeedURL({ provider: 'generic', url: feedUrl.replace(/\/+$/, '') })
+  updater.setFeedURL({ provider: 'generic', url: feedUrl, channel })
 
   if (process.platform === 'darwin') {
     updater.verifyUpdateCodeSignature = true

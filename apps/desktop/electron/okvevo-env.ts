@@ -55,3 +55,52 @@ export function loadHermesDotenvIntoProcess({
 
   return loaded
 }
+
+export type PackEnvFile = {
+  OKVEVO_WEB_ORIGIN?: string
+  NIA_UPDATE_FEED_URL?: string
+  NIA_UPDATE_CHANNEL?: string
+  [key: string]: string | undefined
+}
+
+export function loadPackEnvFile(filePath: string | null | undefined): PackEnvFile | null {
+  if (!filePath) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as PackEnvFile
+    if (!parsed || typeof parsed !== 'object') {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+/** Fill unset keys only. Shell / ~/.hermes/.env already won. */
+export function applyPackEnv(packEnv: PackEnvFile | null | undefined, env: NodeJS.ProcessEnv = process.env): string[] {
+  if (!packEnv) {
+    return []
+  }
+
+  const applied: string[] = []
+
+  for (const [key, value] of Object.entries(packEnv)) {
+    if (!key || value === undefined) {
+      continue
+    }
+
+    const trimmed = String(value).trim()
+    if (!trimmed || env[key]) {
+      continue
+    }
+
+    env[key] = trimmed
+    applied.push(key)
+  }
+
+  return applied
+}

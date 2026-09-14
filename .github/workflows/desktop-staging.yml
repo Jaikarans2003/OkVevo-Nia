@@ -1,0 +1,26 @@
+# Public pack on push to staging. Feed: https://releases.okvevo.com/staging/
+# Secrets: STAGING_* + shared CSC_*/WIN_CSC_*/RELEASES_S3_*/APPLE_API_*
+# No GitHub Environments.
+
+name: Desktop staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pack:
+    uses: ./.github/workflows/desktop-pack.yml
+    with:
+      pack_target: staging
+      feed_prefix: staging
+      yml_mode: staging
+    secrets: inherit

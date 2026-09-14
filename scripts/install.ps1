@@ -2104,6 +2104,15 @@ function Install-SystemPackages {
 # ============================================================================
 
 function Install-Repository {
+    if ($env:HERMES_SKIP_REPOSITORY -eq "1") {
+        Write-Info "Skipping git clone (packaged snapshot already extracted)"
+        if (-not $InstallDir -or -not (Test-Path $InstallDir)) {
+            throw "Packaged snapshot did not land at $InstallDir"
+        }
+        Write-Success "Repository ready"
+        return
+    }
+
     Write-Info "Installing to $InstallDir..."
 
     $didUpdate = $false

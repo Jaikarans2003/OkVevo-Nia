@@ -13,10 +13,9 @@ const DESKTOP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const RELEASE_ROOT = path.join(DESKTOP_ROOT, 'release')
 const PLATFORM = process.platform
 
-// Platform-specific packaged-app layout. The thin installer ships an Electron
-// app shell plus extraResources (install-stamp.json + native-deps/) -- it
-// no longer bundles the Hermes Agent Python payload (that's fetched at first
-// launch via install.ps1 / install.sh, per the Phase 1 thin-installer flow).
+// Platform-specific packaged-app layout. extraResources ships install-stamp,
+// pack-env, bundled install scripts, and agent-snapshot.tar.gz (extracted at
+// first launch — no GitHub clone).
 const APP = (() => {
   if (PLATFORM === 'darwin') {
     const appPath = path.join(RELEASE_ROOT, `mac-${ARCH}`, 'Nia.app')
@@ -290,19 +289,38 @@ function launchFresh() {
 //     integrated terminal needs this; see Phase 1F.6).
 //   - The renderer's dist/index.html is reachable (either unpacked or
 //     inside app.asar).
+// Validate the packaged bundle:
+//   - Python agent ships as agent-snapshot.tar.gz (extracted at first launch).
+//   - Bundled install.sh / install.ps1 (no raw.githubusercontent.com).
+//   - install-stamp.json + okvevo-pack-env.json in resources/.
 function validateBundle() {
   if (!exists(APP.binary)) {
     die(`Missing packaged app binary: ${APP.binary}`)
   }
 
-  // Negative assertion: the OLD fat-installer factory payload must NOT be
-  // present anymore. If a stray ship of hermes_cli sneaks back in we want
-  // to fail loudly rather than re-introduce the 400MB delta we just removed.
   const staleFactoryMarker = path.join(APP.resourcesPath, 'hermes-agent', 'hermes_cli', 'main.py')
   if (exists(staleFactoryMarker)) {
     die(
-      `Thin-installer regression: factory-payload file should NOT be in the package: ${staleFactoryMarker}`
+      `Snapshot must stay archived: extracted hermes_cli must not live at ${staleFactoryMarker}`
     )
+  }
+
+  const snapshot = path.join(APP.resourcesPath, 'agent-snapshot.tar.gz')
+  if (!exists(snapshot)) {
+    die(`Missing agent-snapshot.tar.gz (required for GitHub-free first launch): ${snapshot}`)
+  }
+  if (fs.statSync(snapshot).size < 1000) {
+    die(`agent-snapshot.tar.gz is too small: ${snapshot}`)
+  }
+
+  const bundledScript = path.join(APP.resourcesPath, process.platform === 'win32' ? 'install.ps1' : 'install.sh')
+  if (!exists(bundledScript)) {
+    die(`Missing bundled installer: ${bundledScript}`)
+  }
+
+  const packEnvPath = path.join(APP.resourcesPath, 'okvevo-pack-env.json')
+  if (!exists(packEnvPath)) {
+    die(`Missing okvevo-pack-env.json: ${packEnvPath}`)
   }
 
   // Positive assertion: install-stamp.json carries a sane commit + branch

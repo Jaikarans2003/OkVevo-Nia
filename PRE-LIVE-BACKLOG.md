@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-09-09 (media catalog pass: `video_generate` core, `model=` fail-closed, public OkVevo Fal gate, credit-quote approval; deferred rows logged below)
+**Last reviewed:** 2026-09-14 (CI/CD staging/production pipeline; origin injection, agent snapshot, download URLs closed in code; signed-release + privatize still ops)
 
 ---
 
@@ -39,10 +39,10 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 |-------|-------|
 | **Gate** | Hard gate |
 | **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
-| **Scope** | `.github/workflows/desktop-release.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md` |
-| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` into GitHub Actions, then `git tag v0.21.0 && git push origin v0.21.0` (bump `apps/desktop/package.json` version to match first). Do not tag until secrets exist — missing certs fail the job on purpose. |
-| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. After secrets: workflow green, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist, test install picks up the update. |
-| **Notes** | Scaffolded 2026-09-01. Feed host is `releases.okvevo.com` (S3/R2 bucket), not www.okvevo.com. |
+| **Scope** | `.github/workflows/desktop-staging.yml`, `desktop-production.yml`, `desktop-promote.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
+| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Merge to `production` packs `internal.yml`; Karan runs **Desktop promote to latest**. Do not tag until secrets exist — missing certs fail the job on purpose. `v*` tags no longer ship. |
+| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. After secrets: staging + production workflows green; after promote, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
+| **Notes** | Code path landed 2026-09-14 (CI/CD plan). **Ops remaining:** signing certs, R2/DNS. Do not check this box until a signed promote exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
 
 ### [ ] Private repo breaks DMG first-install bootstrap
 
@@ -50,38 +50,38 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 |-------|-------|
 | **Gate** | Hard gate |
 | **Risk if skipped** | `raw.githubusercontent.com` does not serve private repos without a token. Packaged DMG bootstrap (`bootstrap-runner.ts` `downloadInstallScript`) and `install.sh` git clone both hit GitHub unauthenticated — same HTTP 404 as 2026-08-31 if the repo is private. First install never starts: no clone, no SOUL.md, no first chat. |
-| **Scope** | `apps/desktop/electron/bootstrap-runner.ts` (`downloadInstallScript`), `apps/bootstrap-installer/src-tauri/src/install_script.rs` (same raw URL pattern). Product/repo policy: `Jaikarans2003/OkVevo-Nia` visibility. |
-| **Why acceptable now** | Repo is **public by deliberate choice** to unblock first-install bootstrap — not because the fetch path is safe when private. |
-| **Fix (pick one before re-privatizing; do not implement both speculatively)** | **Auth path:** repo-scoped read-only GitHub deploy token embedded in the shipped app, sent as `Authorization` on both the raw script fetch and the git clone. Keeps a **live GitHub dependency at every install**; smaller DMG; secret to manage and rotate. **Bundled path:** ship `install.sh` and an initial repo snapshot inside the DMG so first-install has **no live GitHub dependency**. Bigger DMG; requires a rebuild whenever shipped backend code changes. |
-| **Hard gate** | Do **not** flip `Jaikarans2003/OkVevo-Nia` back to private until one of the above is implemented **and tested**, not just noted. Public visibility is an interim workaround, not the close condition. |
-| **Verify** | 1) While public: `curl -sI "https://raw.githubusercontent.com/Jaikarans2003/OkVevo-Nia/main/scripts/install.sh"` → **200**. 2) Fresh install: `rm -rf ~/.hermes`, launch DMG app, complete first-run — bootstrap log must **not** show `HTTP 404` on raw fetch; must reach clone + Nia SOUL. 3) Before re-privatizing: auth or bundled path implemented and same fresh-install test passes with repo private. |
-| **Notes** | **Reproduced 2026-08-31 (private):** DMG `Nia-0.17.0-mac-arm64.dmg`, stamp `07567979f4`, log `~/.hermes/logs/desktop.log`: `fetching install.sh for 07567979f4b8 from GitHub` → `404 from https://raw.githubusercontent.com/Jaikarans2003/OkVevo-Nia/07567979f4.../scripts/install.sh`. `git ls-remote okvevo main` succeeds (commit exists); raw + unauthenticated API return 404. Existing fallback to `installed-agent` only helps **re**-bootstrap, not first install on empty `~/.hermes`. |
+| **Scope** | `apps/desktop/electron/bootstrap-runner.ts`, `apps/desktop/electron/packaged-snapshot.ts`, `apps/desktop/scripts/pack-agent-snapshot.mjs`, extraResources `agent-snapshot.tar.gz` + bundled `install.sh`/`install.ps1`. Product/repo policy: `Jaikarans2003/OkVevo-Nia` visibility. |
+| **Why acceptable now** | Packaged apps no longer fetch GitHub. Repo is still public until a GitHub-blocked fresh-install test passes, then privatize. |
+| **Fix** | **Bundled path (implemented 2026-09-14):** ship `install.sh`/`install.ps1` and a filtered agent snapshot in extraResources; extract on stamp change; venv + python-deps still hit PyPI. Auth/token path was not built. |
+| **Hard gate** | Do **not** flip `Jaikarans2003/OkVevo-Nia` private until a fresh `rm -rf ~/.hermes` install with GitHub blocked completes. Public visibility remains until that test. |
+| **Verify** | 1) Packaged resources contain `agent-snapshot.tar.gz` + `install.sh`. 2) Fresh install: `rm -rf ~/.hermes`, launch, bootstrap log must **not** show `from GitHub` / `raw.githubusercontent.com`. 3) Block GitHub at the network: first install still reaches venv + Nia SOUL. Then privatize. |
+| **Notes** | **Code landed 2026-09-14.** Historical 2026-08-31 404 on raw fetch is why this gate existed. Existing `~/.hermes` git clones are replaced on stamp mismatch. **Ops remaining:** GitHub-blocked fresh-install test, then privatize. |
 
 ---
 
 ## Required before live
 
-### [ ] www.okvevo.com download page (Mac / Windows buttons)
+### [x] www.okvevo.com download page (Mac / Windows buttons)
 
 | Field | Value |
 |-------|-------|
 | **Gate** | Required before live |
 | **Risk if skipped** | About → Get the installer opens the homepage; testers can still download if the homepage has the files, but there is no dedicated Mac/Windows download surface. |
-| **Scope** | Marketing site, not this repo. About already uses `https://www.okvevo.com`. |
-| **Fix** | Add `/download` (or equivalent) with arm64 DMG + Windows NSIS pointing at `releases.okvevo.com` artifacts. Then point `INSTALLER_URL` at that path. |
-| **Verify** | Opening Get the installer lands on Mac/Windows buttons, not a generic homepage. |
-| **Notes** | Deliberately not blocked on the www redesign: first tagged release can ship with homepage CTA. |
+| **Scope** | OkVevo-Web `src/app/nia/page.tsx`, `src/lib/nia-downloads.ts` |
+| **Fix** | `/nia` Mac/Windows buttons use stable `https://releases.okvevo.com/Nia-mac-arm64.dmg` and `Nia-win-x64.exe` (staging yaml prefixes `/staging`). Promote job overwrites those objects. |
+| **Verify** | `node --experimental-strip-types src/lib/nia-downloads.selfcheck.ts` (OkVevo-Web). Opening `/nia` shows Mac/Windows buttons without placeholder copy. |
+| **Notes** | Closed 2026-09-14 with CI/CD plan. Artifacts 404 until the first successful promote. |
 
-### [ ] Pin packaged agent/runtime to the same release as the shell
+### [x] Pin packaged agent/runtime to the same release as the shell
 
 | Field | Value |
 |-------|-------|
 | **Gate** | Required before live |
 | **Risk if skipped** | electron-updater replaces the UI while `~/.hermes` is still a live git clone — new UI / old Python (or the reverse), the same skew About used to show. |
-| **Scope** | Packaged extraResources / gateway start path vs `~/.hermes` user data |
-| **Fix** | Ship agent code from the app (or a release-pinned snapshot). Keep `~/.hermes` for user data only. See plan Phase C agent pin. |
-| **Verify** | After an in-app update, Python/agent version matches the desktop tag; `git pull` in `~/.hermes` cannot change `apps/desktop`. |
-| **Notes** | Scaffold 2026-09-01 did not implement this. Do it before asking testers to rely on in-app update for backend fixes. |
+| **Scope** | `packaged-snapshot.ts`, extraResources `agent-snapshot.tar.gz`, `resolveHermesBackend` stamp mismatch |
+| **Fix** | Ship agent snapshot from the app. Extract when install stamp changes. Keep `~/.hermes` for user data, venv, dotenv. No `.git` in the snapshot. |
+| **Verify** | `cd apps/desktop && npx vitest run electron/packaged-snapshot.test.ts scripts/pack-agent-snapshot.test.mjs electron/bootstrap-runner.test.ts` |
+| **Notes** | Closed 2026-09-14 with CI/CD Phase C. In-app update still needs a Mac+Windows smoke after the first signed pack. |
 
 ### [ ] Clone-shipped TUI + web dashboard still say “Hermes” in many user-facing strings
 
@@ -160,16 +160,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | For each offered model: a request that triggers cache and/or reasoning produces a debit ≥ OpenRouter’s billed USD × `MARGIN`. Models not in that set are not selectable for gateway traffic. |
 | **Notes** | Logged 2026-09-05 with Phase 3. Phase 3 meters prompt+completion only. **Do not build this pass.** |
 
-### [ ] CI must inject OKVEVO_WEB_ORIGIN before the first signed release
+### [x] CI must inject OKVEVO_WEB_ORIGIN before the first signed release
 
 | Field | Value |
 |-------|-------|
-| **Gate** | Required before live (hard dependency of the first signed `v*` tag) |
+| **Gate** | Required before live (hard dependency of the first signed pack) |
 | **Risk if skipped** | After origin fail-closed (no hardcoded `www.okvevo.com`), a Dock/Start-Menu packaged build has no shell env. Sign In, Upgrade, and the LLM gateway show a missing-config error instead of opening the portal. Testers and customers cannot sign in. |
-| **Scope** | `.github/workflows/desktop-release.yml`, `apps/desktop/scripts/bundle-electron-main.mjs` (or extraResources written at pack time), [ENVIRONMENT.md](ENVIRONMENT.md) |
-| **Fix** | The signed-release job must set `OKVEVO_WEB_ORIGIN` from CI env/secrets at pack time so the packaged app has a portal URL without a source-code domain fallback. Missing secret fails the job (same posture as signing secrets). Do **not** hardcode `www.okvevo.com` in `okvevo-auth.ts` / `okvevo_gateway.py` to “help” this. Runtime `~/.hermes/.env` may still override for local testing. |
-| **Verify** | 1) Release workflow with `OKVEVO_WEB_ORIGIN` unset → job fails. 2) Packaged app from a successful signed job: Sign In / Upgrade open that origin; `rg 'www.okvevo.com' apps/desktop/electron/okvevo-auth.ts agent/okvevo_gateway.py` → 0. 3) Packaged app with the var stripped still shows the visible missing-config dialog, not a silent domain. |
-| **Notes** | Logged 2026-09-05 with the env-centralize pass. Blocks first tagged release together with Mac notarize + Windows Authenticode. The signed-release pipeline is not built yet — this row exists so the injection is not forgotten among other gates. Env layout: [ENVIRONMENT.md](ENVIRONMENT.md). |
+| **Scope** | `.github/workflows/desktop-pack.yml`, `apps/desktop/scripts/write-okvevo-pack-env.mjs`, `electron/okvevo-env.ts`, [ENVIRONMENT.md](ENVIRONMENT.md) |
+| **Fix** | CI writes `okvevo-pack-env.json` from `STAGING_*` / `PROD_*` repository secrets. Electron applies it after dotenv, unset keys only. Missing secret fails the job. Do **not** hardcode `www.okvevo.com`. |
+| **Verify** | `cd apps/desktop && npx vitest run scripts/write-okvevo-pack-env.test.mjs electron/okvevo-env.test.ts`. `rg 'www.okvevo.com' apps/desktop/electron/okvevo-auth.ts agent/okvevo_gateway.py` → 0. |
+| **Notes** | Closed 2026-09-14 with CI/CD Phase B. First signed pack still needs the secrets present (hard gate above). |
 
 ### [x] Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers
 
@@ -307,16 +307,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Should fix before live (lower severity)
 
-### [ ] Connect GitHub repo to App Hosting backend `okvevo-web`
+### [x] Connect GitHub repo to App Hosting backend `okvevo-web`
 
 | Field | Value |
 |-------|-------|
-| **Gate** | Should fix before live (ops) |
-| **Risk if skipped** | `okvevo-web` has no connected repository — `git push` to `OkVevo-Web` does not auto-roll. Releases rely on `firebase deploy --only apphosting` (local source). Easy to ship code to GitHub and forget to redeploy the live portal. |
-| **Scope** | Firebase Console → App Hosting → `okvevo-web` → connect `Jaikarans2003/OkVevo-Web` (branch `main`) |
-| **Fix** | Connect repo + enable auto-rollouts on `main`. Confirm `apphosting:rollouts:create --git-commit` works. Keep local `firebase deploy --only apphosting` as fallback. |
-| **Verify** | Push a no-op commit to `main` → App Hosting build starts; backend Repository column non-empty. |
-| **Notes** | Logged 2026-09-11 during ops billing rollout. |
+| **Gate** | Should fix before live (ops) — **superseded** |
+| **Risk if skipped** | `okvevo-web` has no connected repository — `git push` to `OkVevo-Web` does not auto-roll. |
+| **Scope** | Firebase Console → App Hosting → `okvevo-web` |
+| **Fix** | Do **not** connect GitHub auto-rollout. OkVevo-Web `.github/workflows/deploy.yml` runs `firebase deploy --only apphosting,firestore:rules,firestore:indexes,storage` from Actions (Environments `staging` / `production`). |
+| **Verify** | Workflow file exists; `node scripts/render-apphosting.selfcheck.mjs` (OkVevo-Web). |
+| **Notes** | Closed 2026-09-14 as won't-do / replaced by Actions CLI deploy (CI/CD plan item 8). |
 
 ### [ ] Audit Tailwind rounded-* vs --radius-scalar 0.2
 
@@ -464,6 +464,10 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after `desktop-promote.yml`. |
+| Pin packaged agent/runtime to the same release as the shell | 2026-09-14 | extraResources snapshot + stamp re-extract. Vitest `packaged-snapshot` / `pack-agent-snapshot` / bundled installer. |
+| CI must inject OKVEVO_WEB_ORIGIN before the first signed release | 2026-09-14 | `okvevo-pack-env.json` + `STAGING_*`/`PROD_*` secrets. Vitest `write-okvevo-pack-env` / `okvevo-env`. |
+| Connect GitHub repo to App Hosting backend `okvevo-web` | 2026-09-14 | **Won't-do.** Replaced by OkVevo-Web Actions `deploy.yml` (no Firebase GitHub auto-rollout). |
 | Wire Cloud Scheduler → `/api/cron/allocation-refresh` | 2026-09-11 | `nia-allocation-refresh` ENABLED; SM secrets + grantaccess; local apphosting deploy; Scheduler run-now → HTTP 200. Plan: `ops_billing_rollout_875b8a3c`. |
 | Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers | 2026-09-11 | pending commit. Selfchecks: `credits.selfcheck`, `reserve.selfcheck` (FIFO 100+50 spend 120→0+30; Jan 31→Feb 28). Desktop vitest `okvevo-billing-listener.test.ts`. Ops cron/secrets closed same day — see Scheduler row above. |
 | Settings → Gateway / OS keychain toggle | 2026-09-07 | pending commit. Public hides the whole Gateways tab (nav, palette, `?tab=gateway` / `connections` bounce to Appearance). Internal keeps the OS keychain toggle. |

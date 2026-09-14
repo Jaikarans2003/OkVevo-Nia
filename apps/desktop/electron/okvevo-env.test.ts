@@ -5,7 +5,7 @@ import path from 'node:path'
 
 import { test } from 'vitest'
 
-import { loadHermesDotenvIntoProcess } from './okvevo-env'
+import { loadHermesDotenvIntoProcess, applyPackEnv, loadPackEnvFile } from './okvevo-env'
 
 test('shell wins; hermes home fills; unpackaged repo fills remaining', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-env-'))
@@ -38,4 +38,27 @@ test('packaged path skips repo env', () => {
   loadHermesDotenvIntoProcess({ hermesHome, unpackagedRepoEnv: null, env })
 
   assert.equal(env.REPO_ONLY, undefined)
+})
+
+test('pack-env fills only unset keys after dotenv', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-pack-env-'))
+  const file = path.join(root, 'okvevo-pack-env.json')
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      OKVEVO_WEB_ORIGIN: 'https://from-pack.example',
+      NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging',
+      NIA_UPDATE_CHANNEL: 'latest'
+    })
+  )
+
+  const env: NodeJS.ProcessEnv = { OKVEVO_WEB_ORIGIN: 'https://from-home.example' }
+  const applied = applyPackEnv(loadPackEnvFile(file), env)
+
+  assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://from-home.example')
+  assert.equal(env.NIA_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
+  assert.equal(env.NIA_UPDATE_CHANNEL, 'latest')
+  assert.deepEqual(applied.sort(), ['NIA_UPDATE_CHANNEL', 'NIA_UPDATE_FEED_URL'])
+
+  fs.rmSync(root, { recursive: true, force: true })
 })

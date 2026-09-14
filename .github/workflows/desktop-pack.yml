@@ -1,0 +1,240 @@
+# Reusable public-channel pack + sign + artifact upload.
+# Callers: desktop-staging.yml, desktop-production.yml.
+# Never uses GitHub Environments (Free-plan private-safe). Never pack:internal.
+
+name: Desktop pack (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      pack_target:
+        description: staging or production
+        required: true
+        type: string
+      feed_prefix:
+        description: S3 key prefix (staging) or empty (production root)
+        required: false
+        default: ''
+        type: string
+      yml_mode:
+        description: staging (keep latest*.yml) or production-internal (rename to internal*.yml)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  require-secrets:
+    name: Fail closed if signing or pack-env secrets are missing
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+      - name: Map prefixed repository secrets
+        shell: bash
+        env:
+          PACK_TARGET: ${{ inputs.pack_target }}
+          STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
+          PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
+          STAGING_UPDATE_FEED_URL: ${{ secrets.STAGING_UPDATE_FEED_URL }}
+          PROD_UPDATE_FEED_URL: ${{ secrets.PROD_UPDATE_FEED_URL }}
+          STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
+          PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
+          STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_APP_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_APP_ID }}
+        run: node apps/desktop/scripts/ci-map-pack-env.mjs
+      - name: Require signing secrets
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          RELEASES_S3_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+        run: node apps/desktop/scripts/require-release-secrets.mjs
+      - name: Require pack-env secrets
+        run: node apps/desktop/scripts/write-okvevo-pack-env.mjs --require
+
+  macos:
+    name: macOS arm64 signed zip+dmg
+    needs: require-secrets
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      NIA_REQUIRE_NOTARIZE: '1'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm --version | grep -q '^12\.' || npm i -g npm@12
+      - run: npm ci
+      - name: Map prefixed repository secrets
+        shell: bash
+        env:
+          PACK_TARGET: ${{ inputs.pack_target }}
+          STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
+          PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
+          STAGING_UPDATE_FEED_URL: ${{ secrets.STAGING_UPDATE_FEED_URL }}
+          PROD_UPDATE_FEED_URL: ${{ secrets.PROD_UPDATE_FEED_URL }}
+          STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
+          PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
+          STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_APP_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_APP_ID }}
+        run: node apps/desktop/scripts/ci-map-pack-env.mjs
+      - name: Require pack-env
+        working-directory: apps/desktop
+        run: node scripts/write-okvevo-pack-env.mjs --require
+      - name: Stamp version and pack (public channel, publish never)
+        working-directory: apps/desktop
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          PKG_VER=$(node -p "require('./package.json').version")
+          VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          echo "NIA_CI_VERSION=$VERSION" >> "$GITHUB_ENV"
+          npm run build
+          npm run builder -- --mac dmg zip --publish never \
+            -c.extraMetadata.version="$VERSION" \
+            -c.publish.url="$NIA_UPDATE_FEED_URL"
+      - name: Verify Developer ID signature
+        run: |
+          app=$(ls -d apps/desktop/release/mac*/Nia.app | head -1)
+          codesign --verify --deep --strict "$app"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nia-mac
+          path: |
+            apps/desktop/release/Nia-*.dmg
+            apps/desktop/release/Nia-*.zip
+            apps/desktop/release/latest-mac.yml
+
+  windows:
+    name: Windows x64 signed NSIS
+    needs: require-secrets
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      NIA_REQUIRE_WIN_SIGN: '1'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm --version | grep -q '^12\.' || npm i -g npm@12
+        shell: bash
+      - run: npm ci
+      - name: Map prefixed repository secrets
+        shell: bash
+        env:
+          PACK_TARGET: ${{ inputs.pack_target }}
+          STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
+          PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
+          STAGING_UPDATE_FEED_URL: ${{ secrets.STAGING_UPDATE_FEED_URL }}
+          PROD_UPDATE_FEED_URL: ${{ secrets.PROD_UPDATE_FEED_URL }}
+          STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
+          PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
+          STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_APP_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_APP_ID }}
+        run: node apps/desktop/scripts/ci-map-pack-env.mjs
+      - name: Require pack-env
+        working-directory: apps/desktop
+        shell: bash
+        run: node scripts/write-okvevo-pack-env.mjs --require
+      - name: Stamp version and pack (public channel, publish never)
+        working-directory: apps/desktop
+        shell: bash
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          PKG_VER=$(node -p "require('./package.json').version")
+          VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          npm run build
+          npm run builder -- --win nsis --publish never \
+            -c.extraMetadata.version="$VERSION" \
+            -c.publish.url="$NIA_UPDATE_FEED_URL"
+      - name: Verify Authenticode
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path apps/desktop/release -Filter 'Nia-*.exe' | Select-Object -First 1
+          $sig = Get-AuthenticodeSignature $exe.FullName
+          if ($sig.Status -ne 'Valid') { throw "Authenticode $($sig.Status) for $($exe.Name)" }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nia-win
+          path: |
+            apps/desktop/release/Nia-*.exe
+            apps/desktop/release/latest.yml
+
+  publish-feed:
+    name: Upload signed feed
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: feed
+          merge-multiple: true
+      - name: Publish to S3/R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          extra=()
+          prefix="${{ inputs.feed_prefix }}"
+          if [ -n "$prefix" ]; then
+            extra+=(--prefix "$prefix")
+          fi
+          node apps/desktop/scripts/publish-release-feed.mjs sync --dir feed --mode "${{ inputs.yml_mode }}" "${extra[@]}"

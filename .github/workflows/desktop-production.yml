@@ -1,0 +1,26 @@
+# Public pack on push to production. Uploads versioned Nia-* + internal.yml only.
+# Does not overwrite latest.yml — that is desktop-promote.yml (workflow_dispatch).
+# Reaching this branch is gated by branch protection (reviewed PR). No Environments.
+
+name: Desktop production (internal channel)
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-production-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pack:
+    uses: ./.github/workflows/desktop-pack.yml
+    with:
+      pack_target: production
+      feed_prefix: ''
+      yml_mode: production-internal
+    secrets: inherit

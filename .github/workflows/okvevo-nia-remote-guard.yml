@@ -5,9 +5,9 @@ name: OkVevo-Nia remote guard
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging, production]
   pull_request:
-    branches: [main]
+    branches: [main, staging, production]
   workflow_dispatch:
 
 permissions:

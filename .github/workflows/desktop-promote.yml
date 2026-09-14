@@ -1,0 +1,82 @@
+# Customer ship gate. Copies internal.yml → latest.yml (and mac). Copies the
+# matching DMG/NSIS to stable website names. Does not rebuild.
+# Free-plan replacement for Environment required-reviewers: this job never
+# runs on merge — Karan starts it in Actions → Run workflow.
+
+name: Desktop promote to latest
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_tag:
+        description: Create git tag v{version} on this production commit (okvevo repo only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote internal feed to latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require production branch
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/production" ]; then
+            echo "::error::Run desktop-promote.yml from the production branch. Current: ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+
+      - name: Copy internal.yml to latest.yml and stable installer names
+        id: promote
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          json=$(node apps/desktop/scripts/publish-release-feed.mjs promote)
+          echo "$json"
+          printf '%s\n' "$json" > promote.json
+          echo "version=$(node -p "require('./promote.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Tag this commit v{version} on OkVevo-Nia
+        if: ${{ inputs.create_tag && steps.promote.outputs.version }}
+        env:
+          VERSION: ${{ steps.promote.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REPOSITORY}" = "NousResearch/hermes-agent" ]; then
+            echo "::error::Refusing to tag NousResearch/hermes-agent"
+            exit 1
+          fi
+          if [ "${GITHUB_REPOSITORY}" != "Jaikarans2003/OkVevo-Nia" ]; then
+            echo "::error::Expected Jaikarans2003/OkVevo-Nia, got ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          origin_url=$(git remote get-url origin)
+          case "$origin_url" in
+            *NousResearch*) echo "::error::origin is Nous ($origin_url)"; exit 1 ;;
+          esac
+          git fetch --tags origin
+          if git rev-parse "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists; leaving it in place"
+            exit 0
+          fi
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"

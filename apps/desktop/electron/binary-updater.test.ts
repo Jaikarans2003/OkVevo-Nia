@@ -21,6 +21,8 @@ test('feed URL is the releases subdomain, not www.okvevo.com', () => {
   assert.equal(BINARY_UPDATE_FEED_URL, 'https://releases.okvevo.com')
   assert.equal(desktopPkg.build.publish.provider, 'generic')
   assert.equal(desktopPkg.build.publish.url, BINARY_UPDATE_FEED_URL)
+  assert.equal(desktopPkg.build.publish.channel, 'latest')
+  assert.equal(desktopPkg.build.detectUpdateChannel, false)
   assert.deepEqual(desktopPkg.build.win.signtoolOptions.publisherName, [BINARY_UPDATE_PUBLISHER_NAME])
   assert.doesNotMatch(BINARY_UPDATE_FEED_URL, /www\.okvevo\.com/)
 })
@@ -48,23 +50,47 @@ test('mapBinaryCheckResult uses updateAvailable + null behind, not a fake commit
   assert.equal(current.targetSha, undefined)
 })
 
-test('configureBinaryUpdater points at the generic feed and disables silent download', () => {
+test('configureBinaryUpdater points at the generic feed, channel latest, and disables silent download', () => {
   const calls: unknown[] = []
   const updater = {
     autoDownload: true,
     autoInstallOnAppQuit: true,
     allowDowngrade: true,
-    setFeedURL: (opts: { provider: string; url: string }) => calls.push(opts),
+    setFeedURL: (opts: { provider: string; url: string; channel?: string }) => calls.push(opts),
     checkForUpdates: async () => null,
     downloadUpdate: async () => {},
     quitAndInstall: () => {},
     on: () => {}
   }
 
-  configureBinaryUpdater(updater)
+  configureBinaryUpdater(updater, { env: {} })
   assert.equal(updater.autoDownload, false)
   assert.equal(updater.autoInstallOnAppQuit, false)
-  assert.deepEqual(calls, [{ provider: 'generic', url: BINARY_UPDATE_FEED_URL }])
+  assert.deepEqual(calls, [{ provider: 'generic', url: BINARY_UPDATE_FEED_URL, channel: 'latest' }])
+})
+
+test('configureBinaryUpdater honors NIA_UPDATE_FEED_URL and NIA_UPDATE_CHANNEL', () => {
+  const calls: unknown[] = []
+  const updater = {
+    autoDownload: false,
+    autoInstallOnAppQuit: false,
+    allowDowngrade: false,
+    setFeedURL: (opts: { provider: string; url: string; channel?: string }) => calls.push(opts),
+    checkForUpdates: async () => null,
+    downloadUpdate: async () => {},
+    quitAndInstall: () => {},
+    on: () => {}
+  }
+
+  configureBinaryUpdater(updater, {
+    env: {
+      NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging/',
+      NIA_UPDATE_CHANNEL: 'internal'
+    }
+  })
+  assert.deepEqual(calls, [
+    { provider: 'generic', url: 'https://releases.okvevo.com/staging', channel: 'internal' }
+  ])
 })
 
 test('checkBinaryUpdate maps a mocked updater and never throws', async () => {
