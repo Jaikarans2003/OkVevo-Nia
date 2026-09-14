@@ -212,13 +212,16 @@ describe('message timeline timestamps', () => {
 })
 
 describe('reasoning accordion channel', () => {
-  it('hides the thinking disclosure in product mode', async () => {
+  it('keeps the thinking header but hides the reasoning body in product mode', async () => {
     $toolViewMode.set('product')
     const { container } = render(<Harness />)
 
     await screen.findByText('done')
 
-    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeNull()
+    // The header (with its live timer) is the only "still working" signal
+    // during a long reasoning phase — it must stay. The text must not.
+    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeTruthy()
+    expect(container.querySelector('[data-slot="aui_thinking-body"]')).toBeNull()
     expect(container.textContent).not.toContain('checked carefully')
   })
 

@@ -748,11 +748,15 @@ describe('assistant-ui streaming renderer', () => {
     expect(container.textContent).toContain('Interim answer.')
   })
 
-  it('hides the thinking disclosure in product mode', () => {
+  it('shows a live thinking header with no body while streaming in product mode', () => {
     $toolViewMode.set('product')
-    const { container } = render(<ReasoningHarness />)
+    const { container } = render(<RunningReasoningHarness />)
 
-    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeNull()
+    const disclosure = container.querySelector('[data-slot="aui_thinking-disclosure"]')
+    expect(disclosure).toBeTruthy()
+    expect(within(container).getByRole('button', { name: /thinking/i })).toBeTruthy()
+    expect(container.querySelector('[data-slot="aui_thinking-body"]')).toBeNull()
+    expect(container.querySelector('[data-slot="aui_reasoning-text"]')).toBeNull()
   })
 
   it('does not render an inline todo panel — todos live in the composer status stack', () => {

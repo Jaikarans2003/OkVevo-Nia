@@ -154,13 +154,16 @@ const TimelineMarkdownText: FC<TimelineTextPartProps> = ({ completedAt, timestam
 const ThinkingDisclosure: FC<{
   children: ReactNode
   completedAt?: number
+  // Product mode: keep the "Thinking… 12s" header (the only live signal during
+  // a long reasoning phase) but never paint the reasoning body.
+  headerOnly?: boolean
   messageRunning?: boolean
   pending?: boolean
   timestamp?: number
   // Required: the block's duration is remembered against this key, so a
   // component that mounts after the block finished can still report it.
   timerKey: string
-}> = ({ children, completedAt, messageRunning = false, pending = false, timestamp, timerKey }) => {
+}> = ({ children, completedAt, headerOnly = false, messageRunning = false, pending = false, timestamp, timerKey }) => {
   const { t } = useI18n()
   const reasoningCollapsedByDefault = useStore($reasoningCollapsedByDefault)
   // `null` = no explicit user toggle yet. Live reasoning remains visible by
@@ -183,8 +186,8 @@ const ThinkingDisclosure: FC<{
 
   // The collapsed-by-default preference outranks the latch: it opts out of
   // live previews entirely, so there is nothing to hold open.
-  const showPreview = !reasoningCollapsedByDefault && (pending || sawLivePreview)
-  const open = userOpen ?? showPreview
+  const showPreview = !headerOnly && !reasoningCollapsedByDefault && (pending || sawLivePreview)
+  const open = headerOnly ? false : (userOpen ?? showPreview)
   const isPreview = userOpen === null && showPreview
 
   // Three ways a finished block can report itself. With a measured duration it
@@ -252,7 +255,7 @@ const ThinkingDisclosure: FC<{
       ref={enterRef}
     >
       <ScaffoldRow
-        onToggle={() => setUserOpen(!open)}
+        onToggle={headerOnly ? undefined : () => setUserOpen(!open)}
         open={open}
         trailing={
           <span className="flex shrink-0 items-center gap-1.5">
@@ -334,7 +337,7 @@ const ReasoningAccordionGroup: FC<{ children?: ReactNode; endIndex: number; star
 
   const toolViewMode = useStore($toolViewMode)
 
-  if (toolViewMode === 'product' || !hasContent) {
+  if (!hasContent) {
     return null
   }
 
@@ -343,8 +346,14 @@ const ReasoningAccordionGroup: FC<{ children?: ReactNode; endIndex: number; star
     // of a key the same origin, so a turn that thinks three separate times used
     // to measure the second and third blocks from the first one's start and
     // report the running total as each block's duration.
+    //
+    // Product mode hides the reasoning TEXT, not the header: the pre-first-token
+    // spinner unmounts on the first reasoning delta and the quiet-gap indicator
+    // never fires while tokens flow, so this header's timer is the only thing
+    // telling the user a 60s thinking phase is alive (2026-09-14 regression).
     <ThinkingDisclosure
       completedAt={completedAt}
+      headerOnly={toolViewMode === 'product'}
       messageRunning={messageRunning}
       pending={pending}
       timerKey={`reasoning:${messageId}:${startIndex}`}
