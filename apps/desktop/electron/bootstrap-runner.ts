@@ -341,7 +341,7 @@ async function resolveInstallScript({
   sourceRepoRoot,
   hermesHome,
   emit,
-  resourcesPath,
+  resourcesPath = undefined,
   _download = downloadInstallScript
 }) {
   // 1. Dev shortcut: prefer a local checkout's installer so we can iterate

@@ -36,7 +36,7 @@ vi.mock('@/lib/build-channel', () => ({
 }))
 
 vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
-  const actual = await importOriginal()
+  const actual = (await importOriginal()) as Record<string, unknown>
 
   return { ...actual, isByokChromeVisible }
 })

@@ -90,7 +90,7 @@ describe('scrubUserFacingText (brand scrub, no default-deny)', () => {
   it('rewrites vendor names but keeps the message on public builds', () => {
     isByokChromeVisibleMock.mockReturnValue(false)
 
-    expect(scrubUserFacingText('Hermes gateway restarted')).toBe('Nia gateway restarted')
+    expect(scrubUserFacingText('Hermes gateway restarted')).toBe('Nia app restarted')
     expect(scrubUserFacingText('Grant spent · $12.00 top-up left')).toBe('Grant spent · $12.00 top-up left')
   })
 

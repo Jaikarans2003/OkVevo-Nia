@@ -112,26 +112,28 @@ export function useSettingsSearchCatalog(enabled: boolean) {
   const appearance = t.settings.appearance
 
   const appearanceEntries: SettingsSearchEntry[] = isSettingsViewVisible('config:appearance')
-    ? [
-        {
-          context: appearanceContext,
-          description: t.language.description,
-          icon: Palette,
-          id: `setting:${APPEARANCE_SETTING_IDS.language}`,
-          keywords: ['locale'],
-          label: t.language.label,
-          target: { setting: APPEARANCE_SETTING_IDS.language, view: 'config:appearance' }
-        },
-        {
-          context: appearanceContext,
-          description: appearance.toolViewDesc,
-          icon: Palette,
-          id: `setting:${APPEARANCE_SETTING_IDS.toolView}`,
-          keywords: ['tool display', 'technical'],
-          label: appearance.toolViewTitle,
-          target: { setting: APPEARANCE_SETTING_IDS.toolView, view: 'config:appearance' }
-        }
-      ].filter(entry => isAppearanceSettingVisible(entry.target.setting ?? ''))
+    ? (
+        [
+          {
+            context: appearanceContext,
+            description: t.language.description,
+            icon: Palette,
+            id: `setting:${APPEARANCE_SETTING_IDS.language}`,
+            keywords: ['locale'],
+            label: t.language.label,
+            target: { setting: APPEARANCE_SETTING_IDS.language, view: 'config:appearance' as const }
+          },
+          {
+            context: appearanceContext,
+            description: appearance.toolViewDesc,
+            icon: Palette,
+            id: `setting:${APPEARANCE_SETTING_IDS.toolView}`,
+            keywords: ['tool display', 'technical'],
+            label: appearance.toolViewTitle,
+            target: { setting: APPEARANCE_SETTING_IDS.toolView, view: 'config:appearance' as const }
+          }
+        ] satisfies SettingsSearchEntry[]
+      ).filter(entry => isAppearanceSettingVisible(entry.target.setting ?? ''))
     : []
 
   const credentialEntries = isSettingsViewVisible('keys')

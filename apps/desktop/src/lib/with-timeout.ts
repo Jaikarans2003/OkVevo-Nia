@@ -58,9 +58,9 @@ export function withSuspendableTimeout<T>(
     let settled = false
     let timer: ReturnType<typeof setInterval> | null = null
 
-    const finish = (fn: (value: T | TimeoutError) => void, value: T | TimeoutError) => {
+    const settle = () => {
       if (settled) {
-        return
+        return false
       }
 
       settled = true
@@ -69,7 +69,7 @@ export function withSuspendableTimeout<T>(
         clearInterval(timer)
       }
 
-      fn(value)
+      return true
     }
 
     const tick = () => {
@@ -83,7 +83,9 @@ export function withSuspendableTimeout<T>(
         elapsed += now - lastTick
 
         if (elapsed >= ms) {
-          finish(reject, new TimeoutError(message))
+          if (settle()) {
+            reject(new TimeoutError(message))
+          }
 
           return
         }
@@ -96,8 +98,16 @@ export function withSuspendableTimeout<T>(
     lastTick = Date.now()
 
     Promise.resolve(promise).then(
-      value => finish(resolve, value),
-      err => finish(reject, err)
+      value => {
+        if (settle()) {
+          resolve(value)
+        }
+      },
+      err => {
+        if (settle()) {
+          reject(err)
+        }
+      }
     )
   })
 }

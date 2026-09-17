@@ -14,7 +14,13 @@ vi.mock('@/components/pane-shell/tree/store', async () => {
   return { $narrowViewport: atom(false) }
 })
 vi.mock('@/contrib/events', () => ({ onGatewayEvent: vi.fn() }))
-vi.mock('@/hermes', () => ({ deleteProfile: vi.fn(), getLogs: vi.fn(), getStatus: vi.fn(), hermesApi: vi.fn() }))
+vi.mock('@/hermes', () => ({
+  deleteProfile: vi.fn(),
+  getLogs: vi.fn(),
+  getStatus: vi.fn(),
+  hermesApi: vi.fn(),
+  setApiRequestProfile: vi.fn()
+}))
 vi.mock('@/store/notifications', () => ({ notify: vi.fn(), notifyError: vi.fn() }))
 vi.mock('@/store/system-actions', () => ({ runGatewayRestart: vi.fn() }))
 vi.mock('@/store/session', async () => {
@@ -29,6 +35,7 @@ vi.mock('@/store/session', async () => {
     $currentCwd: atom(''),
     $currentModel: atom(''),
     $gatewayState: atom('open'),
+    $busy: atom(false),
     $messages: atom([]),
     $messagingSessions: atom([]),
     $selectedStoredSessionId: atom(null),

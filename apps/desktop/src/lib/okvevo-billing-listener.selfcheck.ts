@@ -11,7 +11,7 @@ import {
   formatRemainingPct,
   periodRemainingDisplay,
   remainingPct
-} from './okvevo-billing-listener.ts'
+} from './okvevo-billing-listener'
 
 assert.equal(remainingPct(20000, 10000), 50)
 assert.equal(remainingPct(0, 100), 0)
