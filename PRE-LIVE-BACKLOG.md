@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-09-14 (CI/CD staging/production pipeline; origin injection, agent snapshot, download URLs closed in code; signed-release + privatize still ops)
+**Last reviewed:** 2026-09-17 (staging unsigned pack allowed until Apple/Windows certs; signed-release still a hard gate)
 
 ---
 
@@ -41,8 +41,8 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
 | **Scope** | `.github/workflows/desktop-staging.yml`, `desktop-production.yml`, `desktop-promote.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
 | **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Merge to `production` packs `internal.yml`; Karan runs **Desktop promote to latest**. Do not tag until secrets exist — missing certs fail the job on purpose. `v*` tags no longer ship. |
-| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. After secrets: staging + production workflows green; after promote, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
-| **Notes** | Code path landed 2026-09-14 (CI/CD plan). **Ops remaining:** signing certs, R2/DNS. Do not check this box until a signed promote exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
+| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `NIA_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + production workflows green; after promote, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
+| **Notes** | Code path landed 2026-09-14 (CI/CD plan). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). Staging may pack **unsigned** so portal/feed CI can run before Apple/Windows certs exist; production and promote stay fail-closed. Do not check this box until a signed promote exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
 
 ### [ ] Private repo breaks DMG first-install bootstrap
 

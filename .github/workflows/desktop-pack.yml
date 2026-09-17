@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   require-secrets:
-    name: Fail closed if signing or pack-env secrets are missing
+    name: Fail closed if required pack secrets are missing
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -55,8 +55,9 @@ jobs:
           STAGING_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_APP_ID }}
           PROD_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_APP_ID }}
         run: node apps/desktop/scripts/ci-map-pack-env.mjs
-      - name: Require signing secrets
+      - name: Require feed and signing secrets
         env:
+          NIA_ALLOW_UNSIGNED: ${{ inputs.pack_target == 'staging' && '1' || '' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -82,7 +83,8 @@ jobs:
       APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
       APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
       APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      NIA_REQUIRE_NOTARIZE: '1'
+      CSC_IDENTITY_AUTO_DISCOVERY: ${{ (inputs.pack_target == 'production' || secrets.CSC_LINK != '') && 'true' || 'false' }}
+      NIA_REQUIRE_NOTARIZE: ${{ (inputs.pack_target == 'production' || secrets.APPLE_API_KEY != '') && '1' || '0' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -129,6 +131,7 @@ jobs:
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
       - name: Verify Developer ID signature
+        if: ${{ inputs.pack_target == 'production' || secrets.CSC_LINK != '' }}
         run: |
           app=$(ls -d apps/desktop/release/mac*/Nia.app | head -1)
           codesign --verify --deep --strict "$app"
@@ -148,7 +151,7 @@ jobs:
     env:
       WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
       WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      NIA_REQUIRE_WIN_SIGN: '1'
+      NIA_REQUIRE_WIN_SIGN: ${{ (inputs.pack_target == 'production' || secrets.WIN_CSC_LINK != '') && '1' || '0' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -197,6 +200,7 @@ jobs:
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
       - name: Verify Authenticode
+        if: ${{ inputs.pack_target == 'production' || secrets.WIN_CSC_LINK != '' }}
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path apps/desktop/release -Filter 'Nia-*.exe' | Select-Object -First 1

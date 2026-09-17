@@ -1,16 +1,18 @@
 # CI/CD — staging and production (Nia desktop)
 
-OkVevo-Nia stays **Environment-free** so privatizing the repo on GitHub Free does not drop secrets. Secrets are plain repository secrets. `production` is protected by branch protection. Customer `latest.yml` is **`workflow_dispatch`** (`desktop-promote.yml`), not a merge.
+OkVevo-Nia stays **Environment-free** so privatizing the repo on GitHub Free does not drop secrets. Secrets are plain repository secrets. `production` is protected by branch protection. Customer `latest.yml` is `workflow_dispatch` (`desktop-promote.yml`), not a merge.
 
 Web portal CI lives in `OkVevo-Web/docs/CI-CD.md`.
 
 ## Branches
 
-| Branch | What happens |
-|--------|----------------|
-| `staging` | Public pack, `STAGING_*` secrets, upload to `s3://$BUCKET/staging/` including `latest*.yml` |
-| `production` | Public pack, `PROD_*` secrets, upload versioned `Nia-*` + `internal.yml` / `internal-mac.yml` only |
+
+| Branch                                            | What happens                                                                                                                           |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `staging`                                         | Public pack, `STAGING_*` secrets, upload to `s3://$BUCKET/staging/` including `latest*.yml`                                            |
+| `production`                                      | Public pack, `PROD_*` secrets, upload versioned `Nia-*` + `internal.yml` / `internal-mac.yml` only                                     |
 | `workflow_dispatch` **Desktop promote to latest** | Copy `internal*.yml` → `latest*.yml`; copy DMG/NSIS to `Nia-mac-arm64.dmg` / `Nia-win-x64.exe`; optional tag `v{version}` on this repo |
+
 
 Keep GitHub default as `main` until the first green staging pack, then rename default → `staging`. Do not push product work to `origin` (Nous). Local remote for push is `okvevo`.
 
@@ -18,24 +20,28 @@ Keep GitHub default as `main` until the first green staging pack, then rename de
 
 ## Repository secrets (Settings → Secrets and variables → Actions)
 
+
+
 ### Shared (signing + feed)
 
 See [FINISH-SIGNED-RELEASE.md](FINISH-SIGNED-RELEASE.md): `CSC_*`, `APPLE_API_*`, `WIN_CSC_*`, `RELEASES_S3_*`.
 
 ### Prefixed (mapped by branch)
 
-| Staging | Production |
-|---------|------------|
-| `STAGING_OKVEVO_WEB_ORIGIN` | `PROD_OKVEVO_WEB_ORIGIN` |
-| `STAGING_UPDATE_FEED_URL` = `https://releases.okvevo.com/staging` | `PROD_UPDATE_FEED_URL` = `https://releases.okvevo.com` |
-| `STAGING_VITE_OKVEVO_FIREBASE_API_KEY` | `PROD_VITE_OKVEVO_FIREBASE_*` (same six Firebase web fields) |
-| `STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN` | |
-| `STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID` | |
-| `STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET` | |
-| `STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID` | |
-| `STAGING_VITE_OKVEVO_FIREBASE_APP_ID` | |
 
-Missing origin/feed/Firebase Vite keys **fail the job** (`write-okvevo-pack-env.mjs --require`). Missing signing/R2 secrets fail (`require-release-secrets.mjs`).
+| Staging                                                           | Production                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ |
+| `STAGING_OKVEVO_WEB_ORIGIN`                                       | `PROD_OKVEVO_WEB_ORIGIN`                                     |
+| `STAGING_UPDATE_FEED_URL` = `https://releases.okvevo.com/staging` | `PROD_UPDATE_FEED_URL` = `https://releases.okvevo.com`       |
+| `STAGING_VITE_OKVEVO_FIREBASE_API_KEY`                            | `PROD_VITE_OKVEVO_FIREBASE_*` (same six Firebase web fields) |
+| `STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN`                        |                                                              |
+| `STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID`                         |                                                              |
+| `STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET`                     |                                                              |
+| `STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID`                |                                                              |
+| `STAGING_VITE_OKVEVO_FIREBASE_APP_ID`                             |                                                              |
+
+
+Missing origin/feed/Firebase Vite keys **fail the job** (`write-okvevo-pack-env.mjs --require`). Missing R2 secrets fail (`require-release-secrets.mjs`). Signing secrets fail-closed for **production**; staging may pack unsigned (`NIA_ALLOW_UNSIGNED=1`) until certs exist.
 
 ## Updater channels (`NIA_UPDATE_CHANNEL` vs `NIA_BUILD_CHANNEL`)
 
@@ -55,6 +61,8 @@ Missing origin/feed/Firebase Vite keys **fail the job** (`write-okvevo-pack-env.
 3. After a production pack: verify Sign In against the **prod** portal on Mac **and** Windows.
 4. Then Actions → **Desktop promote to latest**.
 5. Only then privatize `Jaikarans2003/OkVevo-Nia` (fresh-install test must still work with GitHub blocked).
+
+
 
 ## Branch protection (`production`)
 

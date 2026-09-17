@@ -5,7 +5,13 @@ import { fileURLToPath } from 'node:url'
 
 import { test } from 'vitest'
 
-import { formatMissingReleaseSecrets, missingReleaseSecrets, REQUIRED_RELEASE_SECRETS } from './require-release-secrets.mjs'
+import {
+  formatMissingReleaseSecrets,
+  missingReleaseSecrets,
+  REQUIRED_FEED_SECRETS,
+  REQUIRED_RELEASE_SECRETS,
+  unsignedPackAllowed
+} from './require-release-secrets.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const script = path.join(here, 'require-release-secrets.mjs')
@@ -54,4 +60,31 @@ test('CLI exits 0 when every secret is set', () => {
 
 test('error copy names the finish doc', () => {
   assert.match(formatMissingReleaseSecrets(['CSC_LINK']), /FINISH-SIGNED-RELEASE\.md/)
+})
+
+test('unsigned pack only requires feed secrets', () => {
+  assert.deepEqual(missingReleaseSecrets({}, { allowUnsigned: true }), REQUIRED_FEED_SECRETS)
+  const feedOnly = Object.fromEntries(REQUIRED_FEED_SECRETS.map(name => [name, 'x']))
+  assert.deepEqual(missingReleaseSecrets(feedOnly, { allowUnsigned: true }), [])
+  assert.ok(missingReleaseSecrets(feedOnly).includes('CSC_LINK'))
+})
+
+test('NIA_ALLOW_UNSIGNED and --allow-unsigned enable the staging path', () => {
+  assert.equal(unsignedPackAllowed({}, []), false)
+  assert.equal(unsignedPackAllowed({ NIA_ALLOW_UNSIGNED: '1' }, []), true)
+  assert.equal(unsignedPackAllowed({}, ['--allow-unsigned']), true)
+})
+
+test('CLI --allow-unsigned exits 0 with only feed secrets', () => {
+  const env = { ...process.env }
+  for (const name of REQUIRED_RELEASE_SECRETS) {
+    delete env[name]
+  }
+  for (const name of REQUIRED_FEED_SECRETS) {
+    env[name] = 'placeholder'
+  }
+
+  const result = spawnSync(process.execPath, [script, '--allow-unsigned'], { env, encoding: 'utf8' })
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /unsigned pack allowed/)
 })
