@@ -71,6 +71,7 @@ import {
   shouldLatchHostKeyChangedFailure,
   shouldLatchRemoteReauthFailure
 } from './backend-start-failure'
+import { applyBinaryUpdate, checkBinaryUpdate } from './binary-updater'
 import {
   detectRemoteDisplay,
   isWindowsBinaryPathInWsl,
@@ -267,41 +268,41 @@ import {
 } from './native-oauth'
 import { runNativeLogin } from './native-oauth-login'
 import { loadNativeTokenSet, type NativeTokenStoreIo, persistNativeTokenSet } from './native-token-store'
+import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
+import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition'
 import {
   buildOkvevoPortalUrl,
   hermesProtocolForDev,
-  okvevoIdTokenFilePath,
   OKVEVO_ORIGIN_MISSING_ERROR,
   OKVEVO_ORIGIN_MISSING_TITLE,
+  okvevoIdTokenFilePath,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
   refreshDelayMs,
   resolveOkvevoWebOrigin,
   shouldDeliverDeepLinkToRenderer
 } from './okvevo-auth'
+import {
+  completeOkvevoAuthCallback,
+  type OkvevoAuthFlowDeps,
+  refreshOkvevoAuth,
+  signOutOkvevo,
+  startOkvevoSignIn
+} from './okvevo-auth-flow'
+import {
+  loadOkvevoAuthPending,
+  loadOkvevoAuthSession,
+  type OkvevoAuthStoreIo,
+  persistOkvevoAuthPending,
+  persistOkvevoAuthSession,
+  rewriteOkvevoAuthSecret
+} from './okvevo-auth-store'
 import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile } from './okvevo-env'
 import {
   packagedSnapshotLayout,
   readPackStamp,
   shouldRebootstrapFromPackagedSnapshot
 } from './packaged-snapshot'
-import {
-  completeOkvevoAuthCallback,
-  refreshOkvevoAuth,
-  signOutOkvevo,
-  startOkvevoSignIn,
-  type OkvevoAuthFlowDeps
-} from './okvevo-auth-flow'
-import {
-  loadOkvevoAuthPending,
-  loadOkvevoAuthSession,
-  persistOkvevoAuthPending,
-  persistOkvevoAuthSession,
-  rewriteOkvevoAuthSecret,
-  type OkvevoAuthStoreIo
-} from './okvevo-auth-store'
-import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
-import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition'
 import { createParentStartMarkerResolver, parentWatchdogEnv } from './parent-process-identity'
 import { registerPetOverlayIpc } from './pet-overlay-ipc'
 import {
@@ -398,7 +399,6 @@ import {
   windowOpacityFor,
   windowOpacityOptions
 } from './translucency'
-import { applyBinaryUpdate, checkBinaryUpdate } from './binary-updater'
 import {
   compareApiUrl,
   parseCompareBehindCount,
@@ -938,8 +938,10 @@ const BOOT_FAKE_STEP_MS = (() => {
 
 const NIA_BUILD_CHANNEL =
   typeof __NIA_BUILD_CHANNEL__ !== 'undefined' && __NIA_BUILD_CHANNEL__ === 'internal' ? 'internal' : 'public'
+
 const APP_NAME =
   process.env.HERMES_DESKTOP_APP_NAME || (NIA_BUILD_CHANNEL === 'internal' ? 'NiaInternal' : 'Nia')
+
 const APP_USER_MODEL_ID = NIA_BUILD_CHANNEL === 'internal' ? 'com.okvevo.nia.internal' : 'com.okvevo.nia'
 const HUD_WINDOW_TITLE = `${APP_NAME} HUD`
 const TITLEBAR_HEIGHT = 34

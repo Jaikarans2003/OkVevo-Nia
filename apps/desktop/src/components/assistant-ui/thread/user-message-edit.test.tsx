@@ -16,6 +16,7 @@ import { useIncrementalExternalStoreRuntime } from '@/lib/incremental-external-s
 import { assistantMessage, stubThreadEnvironment, stubThreadViewportSize, userMessage } from '../test-utils'
 
 import { USER_BUBBLE_BASE_CLASS } from './user-message'
+
 import { Thread } from '.'
 stubThreadEnvironment()
 

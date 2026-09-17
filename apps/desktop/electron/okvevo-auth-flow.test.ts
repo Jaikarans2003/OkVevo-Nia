@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { completeOkvevoAuthCallback, signOutOkvevo, startOkvevoSignIn, type OkvevoAuthFlowDeps } from './okvevo-auth-flow'
 import type { OkvevoAuthSession } from './okvevo-auth'
+import { completeOkvevoAuthCallback, type OkvevoAuthFlowDeps, signOutOkvevo, startOkvevoSignIn } from './okvevo-auth-flow'
 import type { OkvevoAuthPending } from './okvevo-auth-store'
 
 function deps(overrides: Partial<OkvevoAuthFlowDeps> = {}): OkvevoAuthFlowDeps & {

@@ -5,7 +5,7 @@ import path from 'node:path'
 
 import { test } from 'vitest'
 
-import { loadHermesDotenvIntoProcess, applyPackEnv, loadPackEnvFile } from './okvevo-env'
+import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile } from './okvevo-env'
 
 test('shell wins; hermes home fills; unpackaged repo fills remaining', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-env-'))

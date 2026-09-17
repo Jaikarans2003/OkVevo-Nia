@@ -7,10 +7,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
 
-vi.mock('@/lib/build-channel', () => ({
-  isByokChromeVisible
-}))
-
 vi.mock('@hermes/plugin-sdk', () => ({
   Button: (props: React.ComponentProps<'button'>) => <button {...props} />,
   cn: (...parts: unknown[]) => parts.filter(Boolean).join(' '),
@@ -18,6 +14,7 @@ vi.mock('@hermes/plugin-sdk', () => ({
   ColorSwatches: () => null,
   GlyphSpinner: () => null,
   host: { notifyError: vi.fn(), request: vi.fn() },
+  isByokChromeVisible,
   PROFILE_SWATCHES: [],
   RowButton: (props: React.ComponentProps<'button'>) => <button {...props} />,
   SegmentedControl: ({

@@ -38,13 +38,13 @@ import fsp from 'node:fs/promises'
 import https from 'node:https'
 import path from 'node:path'
 
-import { hiddenWindowsChildOptions } from './windows-child-options'
 import {
   extractPackagedSnapshot,
   packagedSnapshotLayout,
   readPackStamp,
   shouldRebootstrapFromPackagedSnapshot
 } from './packaged-snapshot'
+import { hiddenWindowsChildOptions } from './windows-child-options'
 
 const IS_WINDOWS = process.platform === 'win32'
 
@@ -953,6 +953,7 @@ async function runBootstrap(opts) {
 
   try {
     const snapshot = packagedSnapshotLayout(resourcesPath)
+
     if (
       snapshot &&
       installStamp?.commit &&
@@ -999,6 +1000,7 @@ async function runBootstrap(opts) {
       emit,
       resourcesPath
     })
+
     const installerKind = scriptInfo.kind || 'powershell'
 
     // 2. Fetch manifest
@@ -1032,6 +1034,7 @@ async function runBootstrap(opts) {
 
       if (skipRepository && stage.name === 'repository') {
         emit({ type: 'stage', name: stage.name, state: 'skipped', durationMs: 0, json: { ok: true, skipped: true, stage: stage.name } })
+
         continue
       }
 

@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { spawnSync } from 'node:child_process'
 
 import { test } from 'vitest'
 
 import {
-  PACK_STAMP_FILENAME,
   extractPackagedSnapshot,
+  PACK_STAMP_FILENAME,
   packagedSnapshotLayout,
   readPackStamp,
   shouldRebootstrapFromPackagedSnapshot,

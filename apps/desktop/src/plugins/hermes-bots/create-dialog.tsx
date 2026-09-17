@@ -23,6 +23,7 @@ import {
   GlyphSpinner,
   host,
   Input,
+  isByokChromeVisible,
   queryClient,
   RowButton,
   SearchField,
@@ -37,8 +38,6 @@ import {
   useValue
 } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
-
-import { isByokChromeVisible } from '@/lib/build-channel'
 
 import { avatarColor, blobatarSvg, botAppearance, BotFace } from './avatar'
 import { isBackfilledFacePng } from './avatar-image'

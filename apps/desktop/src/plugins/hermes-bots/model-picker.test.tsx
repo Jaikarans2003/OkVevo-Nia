@@ -35,10 +35,6 @@ const { hostMock, isByokChromeVisible } = vi.hoisted(() => ({
   isByokChromeVisible: vi.fn(() => true)
 }))
 
-vi.mock('@/lib/build-channel', () => ({
-  isByokChromeVisible
-}))
-
 vi.mock('@hermes/plugin-sdk', async () => {
   const { useQuery } = await import('@tanstack/react-query')
 
@@ -46,7 +42,9 @@ vi.mock('@hermes/plugin-sdk', async () => {
     Button: (props: React.ComponentProps<'button'>) => <button {...props} />,
     GlyphSpinner: () => <span data-testid="spinner" />,
     brandModelOptionsResponse: <T,>(options: T) => options,
+    brandProviderSlug: (slug: string) => (!isByokChromeVisible() && slug === 'openrouter' ? 'OkVevo' : slug),
     host: hostMock,
+    isByokChromeVisible,
     Input: (props: React.ComponentProps<'input'>) => <input {...props} />,
     Select: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
