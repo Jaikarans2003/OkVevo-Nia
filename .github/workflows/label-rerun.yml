@@ -28,7 +28,8 @@ concurrency:
 jobs:
   rerun-review-labels:
     name: Rerun review-labels job
-    if: github.event.label.name == 'ci-reviewed'
+    # OkVevo-Nia: ci-reviewed label gate is Nous maintainer theater.
+    if: github.repository == 'NousResearch/hermes-agent' && github.event.label.name == 'ci-reviewed'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

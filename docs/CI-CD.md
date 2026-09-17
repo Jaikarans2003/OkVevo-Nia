@@ -4,6 +4,19 @@ OkVevo-Nia stays **Environment-free** so privatizing the repo on GitHub Free doe
 
 Web portal CI lives in `OkVevo-Web/docs/CI-CD.md`.
 
+## Product CI vs leftover Hermes workflows
+
+Two kinds of Actions runs fire on this repo:
+
+| Workflow | Job for Nia |
+| -------- | ----------- |
+| **Desktop staging** / **Desktop production** / **Desktop promote** | Ship path — packs and uploads to `releases.okvevo.com` |
+| **CI** (`ci.yaml`) | Product regression gate on standard GitHub runners (`ubuntu-latest` / `macos-latest` / `windows-latest`) — Python/JS/Rust/installer/OSV/etc. |
+
+Do **not** treat Hermes OSS checks (contributor attribution, Docs Site / Docusaurus, PR infographics, `ci-reviewed` label, Docker Hub image, Nix flake, curl\|install.sh upgrade matrix, live PR comment poller) as ship blockers. Those workflow files stay in `.github/workflows/` for accidental Nous syncs but are unplugged from `ci.yaml` or gated with `if: github.repository == 'NousResearch/hermes-agent'`.
+
+Do **not** require branch protection to wait on Nous-sized larger runners (`ubuntu-latest-96-core`, `ubuntu-latest-32-core`). OkVevo-Nia has none of those labels.
+
 ## Branches
 
 

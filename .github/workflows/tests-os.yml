@@ -48,7 +48,8 @@ jobs:
             runner: macos-latest
             marker: macos_only
           - name: Windows-only tests
-            runner: windows-latest-32-core
+            # OkVevo-Nia: standard windows-latest (no Nous 32-core larger runner).
+            runner: windows-latest
             marker: windows_only
     steps:
       - name: Checkout code

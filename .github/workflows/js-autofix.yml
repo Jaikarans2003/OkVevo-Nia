@@ -57,6 +57,8 @@ concurrency:
 jobs:
   generate-patch:
     name: Generate eslint --fix patch
+    # OkVevo-Nia: GitHub App + trusted-automation Environment are Nous-only.
+    if: github.repository == 'NousResearch/hermes-agent'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -136,7 +138,8 @@ jobs:
     needs: generate-patch
     # Skip entirely when generate-patch found no fixes — saves a runner,
     # avoids a redundant checkout/download, and keeps the job graph honest.
-    if: needs.generate-patch.outputs.has-fixes == 'true'
+    # OkVevo-Nia: GitHub App + trusted-automation Environment are Nous-only.
+    if: github.repository == 'NousResearch/hermes-agent' && needs.generate-patch.outputs.has-fixes == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: trusted-automation
