@@ -79,7 +79,7 @@ def test_setup_model_provider_preserves_auxiliary_choices_written_by_picker(tmp_
     _clear_provider_env(monkeypatch)
 
     config = load_config()
-    assert config["auxiliary"]["compression"]["provider"] == "auto"
+    assert config["auxiliary"]["compression"]["provider"] == "openrouter"
 
     def fake_select():
         _write_aux_config("compression", "gemini", "gemini-2.5-flash")

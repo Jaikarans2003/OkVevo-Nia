@@ -175,6 +175,7 @@ class TestVisionModelOverride:
         with (
             patch("tools.vision_tools.vision_analyze_tool", new_callable=AsyncMock) as mock_tool,
             patch("tools.vision_tools._should_use_native_vision_fast_path", return_value=False),
+            patch("hermes_cli.config.load_config", return_value={"auxiliary": {"vision": {}}}),
         ):
             mock_tool.return_value = '{"success": true}'
             await _handle_vision_analyze({"image_url": "http://test.jpg", "question": "test"})
@@ -193,9 +194,8 @@ class TestVisionModelOverride:
             mock_tool.return_value = '{"success": true}'
             await _handle_vision_analyze({"image_url": "http://test.jpg", "question": "test"})
             call_args = mock_tool.call_args
-            # With no AUXILIARY_VISION_MODEL env var, model should be None
-            # (the centralized call_llm router picks the provider default)
-            assert call_args[0][2] is None
+            # With no AUXILIARY_VISION_MODEL env var, config.yaml default wins
+            assert call_args[0][2] == "z-ai/glm-5.3-flash"
 
 
 # ── DEFAULT_CONFIG shape tests ───────────────────────────────────────────────
@@ -213,8 +213,8 @@ class TestDefaultConfigShape:
         vision = DEFAULT_CONFIG["auxiliary"]["vision"]
         assert "provider" in vision
         assert "model" in vision
-        assert vision["provider"] == "auto"
-        assert vision["model"] == ""
+        assert vision["provider"] == "openrouter"
+        assert vision["model"] == "z-ai/glm-5.3-flash"
 
     def test_web_extract_task_removed(self):
         """web_extract no longer summarizes via LLM — no aux slot."""

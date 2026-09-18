@@ -126,6 +126,8 @@ jobs:
           PKG_VER=$(node -p "require('./package.json').version")
           VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
           echo "NIA_CI_VERSION=$VERSION" >> "$GITHUB_ENV"
+          # Empty CSC_LINK makes electron-builder treat cwd as a cert file.
+          if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           npm run build
           npm run builder -- --mac dmg zip --publish never \
             -c.extraMetadata.version="$VERSION" \
@@ -197,6 +199,9 @@ jobs:
           set -euo pipefail
           PKG_VER=$(node -p "require('./package.json').version")
           VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          echo "NIA_CI_VERSION=$VERSION" >> "$GITHUB_ENV"
+          if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
+          if [ -z "${WIN_CSC_LINK:-}" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD || true; fi
           npm run build
           npm run builder -- --win nsis --publish never \
             -c.extraMetadata.version="$VERSION" \

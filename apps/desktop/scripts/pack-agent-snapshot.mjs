@@ -7,9 +7,8 @@
  *
  * Not a prebuilt venv — first launch still runs uv / python-deps against PyPI.
  */
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 import { isMain } from './utils.mjs'
@@ -120,18 +119,21 @@ export function packAgentSnapshot({
   const members = existingSnapshotPaths(repoRoot)
   assertSnapshotAllowlist(members)
   mkdirSync(dirname(outFile), { recursive: true })
-  const staging = mkdtempSync(join(tmpdir(), 'nia-agent-snapshot-'))
-  const archive = join(staging, 'agent-snapshot.tar.gz')
-  const result = exec('tar', ['-czf', archive, '-C', repoRoot, ...SNAPSHOT_TAR_EXCLUDES, ...members], {
-    encoding: 'utf8'
-  })
+  // Git-for-Windows tar treats a colon in the archive path as host:file
+  // (`Cannot connect to C:`). Prefer a cwd-relative dest; --force-local
+  // covers leftover absolute Windows paths.
+  const rel = relative(process.cwd(), outFile)
+  const dest = rel && !rel.startsWith('..') && !rel.startsWith(sep)
+    ? rel.split(sep).join('/')
+    : outFile
+  const args = ['-czf', dest, '-C', repoRoot, ...SNAPSHOT_TAR_EXCLUDES, ...members]
+  if (process.platform === 'win32' || String(dest).includes(':')) {
+    args.unshift('--force-local')
+  }
+  const result = exec('tar', args, { encoding: 'utf8' })
   if (result.status !== 0) {
-    rmSync(staging, { recursive: true, force: true })
     throw new Error(`tar snapshot failed: ${result.stderr || result.stdout || result.status}`)
   }
-  mkdirSync(dirname(outFile), { recursive: true })
-  copyFileSync(archive, outFile)
-  rmSync(staging, { recursive: true, force: true })
   return { outFile, members }
 }
 

@@ -471,6 +471,20 @@ def _explicit_aux_vision_override(cfg: Optional[Dict[str, Any]]) -> bool:
     # "auto" / "" / blank = not explicit
     if provider in {"", "auto"} and not model and not base_url:
         return False
+    # Nia ships a vision default in DEFAULT_CONFIG so vision_analyze works
+    # out of the box. That is not a user naming a backend — native attach
+    # still wins when the main model supports vision.
+    try:
+        from hermes_cli.config_defaults import DEFAULT_CONFIG
+        default_vision = (DEFAULT_CONFIG.get("auxiliary") or {}).get("vision") or {}
+        if isinstance(default_vision, dict) and (
+            provider == str(default_vision.get("provider") or "").strip().lower()
+            and model == str(default_vision.get("model") or "").strip()
+            and base_url == str(default_vision.get("base_url") or "").strip()
+        ):
+            return False
+    except Exception:
+        pass
     return True
 
 

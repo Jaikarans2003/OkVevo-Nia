@@ -80,6 +80,14 @@ class TestDecideImageInputMode:
             with patch("agent.image_routing._lookup_supports_vision", return_value=True):
                 assert decide_image_input_mode("anthropic", "claude-sonnet-4", cfg) == "native"
 
+    def test_shipped_default_vision_is_not_a_user_override(self):
+        from hermes_cli.config_defaults import DEFAULT_CONFIG
+        assert _explicit_aux_vision_override(DEFAULT_CONFIG) is False
+        with patch("agent.image_routing._lookup_supports_vision", return_value=True):
+            assert decide_image_input_mode(
+                "anthropic", "claude-sonnet-4", DEFAULT_CONFIG
+            ) == "native"
+
     def test_image_input_mode_native_overrides_aux_backend(self):
         """agent.image_input_mode: native stays the absolute escape hatch —
         forces native attach even with an explicit aux backend."""

@@ -3191,6 +3191,10 @@ class TestVisionAutoSkipsKimiCoding:
             "agent.auxiliary_client._resolve_strict_vision_backend",
             fake_strict,
         )
+        monkeypatch.setattr(
+            "agent.auxiliary_client._resolve_task_provider_model",
+            lambda *a, **k: ("auto", None, None, None, None),
+        )
 
         provider, client, model = resolve_vision_provider_client()
         assert provider == "openrouter"

@@ -94,6 +94,10 @@ class TestHandleVideoAnalyze:
         video_file.write_bytes(b"\x00" * 100)
         monkeypatch.setenv("AUXILIARY_VIDEO_MODEL", "")
         monkeypatch.setenv("AUXILIARY_VISION_MODEL", "")
+        monkeypatch.setattr(
+            "hermes_cli.config.load_config",
+            lambda: {"auxiliary": {"vision": {}, "video": {}}},
+        )
 
         with patch("tools.vision_tools.video_analyze_tool", new_callable=AsyncMock) as mock_tool:
             mock_tool.return_value = json.dumps({"success": True, "analysis": "test"})
@@ -107,6 +111,10 @@ class TestHandleVideoAnalyze:
     def test_falls_back_to_vision_model_env(self, tmp_path, monkeypatch):
         monkeypatch.setenv("AUXILIARY_VIDEO_MODEL", "")
         monkeypatch.setenv("AUXILIARY_VISION_MODEL", "google/gemini-flash")
+        monkeypatch.setattr(
+            "hermes_cli.config.load_config",
+            lambda: {"auxiliary": {"vision": {}, "video": {}}},
+        )
 
         with patch("tools.vision_tools.video_analyze_tool", new_callable=AsyncMock) as mock_tool:
             mock_tool.return_value = json.dumps({"success": True, "analysis": "ok"})
