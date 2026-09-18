@@ -79,14 +79,14 @@ test('staging sync keeps latest yml names under prefix and copies stable names',
   assert.ok(
     calls.some(
       a =>
-        a.includes('s3://releases/staging/Nia-0.17.8-mac-arm64.dmg') &&
+        a.includes(path.join(dir, 'Nia-0.17.8-mac-arm64.dmg')) &&
         a.includes(`s3://releases/staging/${STABLE_MAC_NAME}`)
     )
   )
   assert.ok(
     calls.some(
       a =>
-        a.includes('s3://releases/staging/Nia-0.17.8-win-x64.exe') &&
+        a.includes(path.join(dir, 'Nia-0.17.8-win-x64.exe')) &&
         a.includes(`s3://releases/staging/${STABLE_WIN_NAME}`)
     )
   )
@@ -111,6 +111,6 @@ test('promote copies yml to latest and artifacts to stable names', () => {
   assert.equal(result.stableMac, STABLE_MAC_NAME)
   assert.equal(result.stableWin, STABLE_WIN_NAME)
   assert.ok(calls.some(a => a.includes('s3://releases/latest-mac.yml')))
-  assert.ok(calls.some(a => a.includes(`s3://releases/${STABLE_MAC_NAME}`)))
-  assert.ok(calls.some(a => a.includes(`s3://releases/${STABLE_WIN_NAME}`)))
+  assert.ok(calls.some(a => a.includes(`s3://releases/${STABLE_MAC_NAME}`) && a.includes('--copy-props') && a.includes('none')))
+  assert.ok(calls.some(a => a.includes(`s3://releases/${STABLE_WIN_NAME}`) && a.includes('--copy-props') && a.includes('none')))
 })

@@ -121,28 +121,27 @@ export function syncFeed({
     }
     const macDmg = artifactNameFor(mac.version, 'mac-dmg')
     const winExe = artifactNameFor(win.version, 'win-nsis')
-    aws(
-      [
-        's3',
-        'cp',
-        s3Uri(bucket, `${destPrefix}${macDmg}`),
-        s3Uri(bucket, `${destPrefix}${STABLE_MAC_NAME}`),
-        '--cache-control',
-        'public,max-age=300'
-      ],
-      env
-    )
-    aws(
-      [
-        's3',
-        'cp',
-        s3Uri(bucket, `${destPrefix}${winExe}`),
-        s3Uri(bucket, `${destPrefix}${STABLE_WIN_NAME}`),
-        '--cache-control',
-        'public,max-age=300'
-      ],
-      env
-    )
+    // Local→S3 (not S3→S3): R2 rejects GetObjectTagging on server-side copy.
+    for (const [srcName, destName] of [
+      [macDmg, STABLE_MAC_NAME],
+      [winExe, STABLE_WIN_NAME]
+    ]) {
+      const src = path.join(feedDir, srcName)
+      if (!fs.existsSync(src)) {
+        throw new Error(`Missing ${srcName} in ${feedDir}`)
+      }
+      aws(
+        [
+          's3',
+          'cp',
+          src,
+          s3Uri(bucket, `${destPrefix}${destName}`),
+          '--cache-control',
+          'public,max-age=300'
+        ],
+        env
+      )
+    }
   }
 }
 
@@ -164,6 +163,8 @@ export function promoteInternalToLatest({
         'cp',
         s3Uri(bucket, from),
         s3Uri(bucket, to),
+        '--copy-props',
+        'none',
         '--content-type',
         'text/yaml',
         '--cache-control',
@@ -185,8 +186,33 @@ export function promoteInternalToLatest({
 
   const macDmg = artifactNameFor(mac.version, 'mac-dmg')
   const winExe = artifactNameFor(win.version, 'win-nsis')
-  aws(['s3', 'cp', s3Uri(bucket, macDmg), s3Uri(bucket, STABLE_MAC_NAME), '--cache-control', 'public,max-age=300'], env)
-  aws(['s3', 'cp', s3Uri(bucket, winExe), s3Uri(bucket, STABLE_WIN_NAME), '--cache-control', 'public,max-age=300'], env)
+  // --copy-props none: R2 does not implement GetObjectTagging on S3→S3 copy.
+  aws(
+    [
+      's3',
+      'cp',
+      s3Uri(bucket, macDmg),
+      s3Uri(bucket, STABLE_MAC_NAME),
+      '--copy-props',
+      'none',
+      '--cache-control',
+      'public,max-age=300'
+    ],
+    env
+  )
+  aws(
+    [
+      's3',
+      'cp',
+      s3Uri(bucket, winExe),
+      s3Uri(bucket, STABLE_WIN_NAME),
+      '--copy-props',
+      'none',
+      '--cache-control',
+      'public,max-age=300'
+    ],
+    env
+  )
 
   return { version: mac.version, macDmg, winExe, stableMac: STABLE_MAC_NAME, stableWin: STABLE_WIN_NAME }
 }
