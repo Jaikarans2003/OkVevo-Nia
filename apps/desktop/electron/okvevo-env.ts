@@ -80,26 +80,30 @@ export function loadPackEnvFile(filePath: string | null | undefined): PackEnvFil
   }
 }
 
-/** Fill unset keys only. Shell / ~/.hermes/.env already won. */
+/** Non-empty pack values overwrite env (home `.env` / shell / whitespace). Empty pack values skip. */
 export function applyPackEnv(packEnv: PackEnvFile | null | undefined, env: NodeJS.ProcessEnv = process.env): string[] {
-  if (!packEnv) {
-    return []
-  }
-
   const applied: string[] = []
 
-  for (const [key, value] of Object.entries(packEnv)) {
-    if (!key || value === undefined) {
-      continue
-    }
+  if (packEnv) {
+    for (const [key, value] of Object.entries(packEnv)) {
+      if (!key || value === undefined) {
+        continue
+      }
 
-    const trimmed = String(value).trim()
-    if (!trimmed || env[key]) {
-      continue
-    }
+      const trimmed = String(value).trim()
+      if (!trimmed) {
+        continue
+      }
 
-    env[key] = trimmed
-    applied.push(key)
+      env[key] = trimmed
+      applied.push(key)
+    }
+  }
+
+  if (!(env.OKVEVO_WEB_ORIGIN || '').trim()) {
+    console.error(
+      '[hermes] packaged OKVEVO_WEB_ORIGIN is empty (local unsigned pack or missing Resources/okvevo-pack-env.json)'
+    )
   }
 
   return applied

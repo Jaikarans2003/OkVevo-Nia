@@ -839,7 +839,7 @@ if (IS_PACKAGED) {
   const applied = applyPackEnv(loadPackEnvFile(packEnvPath))
 
   if (applied.length) {
-    console.log(`[hermes] pack-env filled ${applied.join(', ')}`)
+    console.log(`[hermes] pack-env applied ${applied.join(', ')}`)
   }
 }
 

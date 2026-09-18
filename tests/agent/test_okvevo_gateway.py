@@ -86,6 +86,7 @@ def test_config_error_message_is_the_chat_string():
     assert str(OkvevoGatewayConfigError(OKVEVO_ORIGIN_MISSING)) == OKVEVO_ORIGIN_MISSING
     assert "traceback" not in OKVEVO_ORIGIN_MISSING.lower()
     assert "www.okvevo.com" not in OKVEVO_ORIGIN_MISSING
+    assert "~/.hermes/.env" not in OKVEVO_ORIGIN_MISSING
 
 
 def test_token_is_reread_every_call(monkeypatch, tmp_path):

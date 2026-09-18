@@ -8,7 +8,7 @@ export const OKVEVO_ID_TOKEN_FILENAME = 'okvevo-firebase-id-token'
 export const PENDING_TTL_MS = 10 * 60 * 1000
 export const OKVEVO_ORIGIN_MISSING_TITLE = 'OkVevo portal URL missing'
 export const OKVEVO_ORIGIN_MISSING_ERROR =
-  'Nia is missing the OkVevo portal URL. Set OKVEVO_WEB_ORIGIN in ~/.hermes/.env and restart Nia.'
+  "Nia is missing the OkVevo portal URL. This build's pack-env is empty or unreadable. Reinstall the official Nia app."
 const PORTAL_PATH_RE = /^\/[A-Za-z0-9/_-]*$/
 
 export type OkvevoAuthPublic = {

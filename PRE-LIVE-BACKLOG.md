@@ -167,9 +167,9 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Gate** | Required before live (hard dependency of the first signed pack) |
 | **Risk if skipped** | After origin fail-closed (no hardcoded `www.okvevo.com`), a Dock/Start-Menu packaged build has no shell env. Sign In, Upgrade, and the LLM gateway show a missing-config error instead of opening the portal. Testers and customers cannot sign in. |
 | **Scope** | `.github/workflows/desktop-pack.yml`, `apps/desktop/scripts/write-okvevo-pack-env.mjs`, `electron/okvevo-env.ts`, [ENVIRONMENT.md](ENVIRONMENT.md) |
-| **Fix** | CI writes `okvevo-pack-env.json` from `STAGING_*` / `PROD_*` repository secrets. Electron applies it after dotenv, unset keys only. Missing secret fails the job. Do **not** hardcode `www.okvevo.com`. |
+| **Fix** | CI writes `okvevo-pack-env.json` from `STAGING_*` / `PROD_*` repository secrets. Electron applies it after dotenv. Missing secret fails the job. Do **not** hardcode `www.okvevo.com`. |
 | **Verify** | `cd apps/desktop && npx vitest run scripts/write-okvevo-pack-env.test.mjs electron/okvevo-env.test.ts`. `rg 'www.okvevo.com' apps/desktop/electron/okvevo-auth.ts agent/okvevo_gateway.py` → 0. |
-| **Notes** | Closed 2026-09-14 with CI/CD Phase B. First signed pack still needs the secrets present (hard gate above). |
+| **Notes** | Closed 2026-09-14 with CI/CD Phase B. First signed pack still needs the secrets present (hard gate above). **2026-09-18: fill-unset was wrong** — leftover `~/.hermes/.env` (wrong / whitespace origin) could hide pack-env; testers were told to edit home `.env` and that misdiagnosed the leftover local `release/` binary. Non-empty pack keys now overwrite; empty pack values still skip. Python restores spawn-injected `OKVEVO_WEB_ORIGIN` after dotenv `override=True`. |
 
 ### [x] Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers
 
@@ -467,7 +467,7 @@ _(Move items here when done.)_
 | www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after `desktop-promote.yml`. |
 | Staging pack publishes stable download names under `staging/` | 2026-09-18 | `syncFeed` staging mode copies `Nia-{ver}-mac-arm64.dmg` / `Nia-{ver}-win-x64.exe` → `Nia-mac-arm64.dmg` / `Nia-win-x64.exe` under the staging prefix (same pattern as promote at root). Vitest `publish-release-feed.test.mjs`. |
 | Pin packaged agent/runtime to the same release as the shell | 2026-09-14 | extraResources snapshot + stamp re-extract. Vitest `packaged-snapshot` / `pack-agent-snapshot` / bundled installer. |
-| CI must inject OKVEVO_WEB_ORIGIN before the first signed release | 2026-09-14 | `okvevo-pack-env.json` + `STAGING_*`/`PROD_*` secrets. Vitest `write-okvevo-pack-env` / `okvevo-env`. |
+| CI must inject OKVEVO_WEB_ORIGIN before the first signed release | 2026-09-14 | `okvevo-pack-env.json` + `STAGING_*`/`PROD_*` secrets. Vitest `write-okvevo-pack-env` / `okvevo-env`. **2026-09-18: fill-unset was wrong; non-empty pack keys overwrite.** |
 | Connect GitHub repo to App Hosting backend `okvevo-web` | 2026-09-14 | **Won't-do.** Replaced by OkVevo-Web Actions `deploy.yml` (no Firebase GitHub auto-rollout). |
 | Wire Cloud Scheduler → `/api/cron/allocation-refresh` | 2026-09-11 | `nia-allocation-refresh` ENABLED; SM secrets + grantaccess; local apphosting deploy; Scheduler run-now → HTTP 200. Plan: `ops_billing_rollout_875b8a3c`. |
 | Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers | 2026-09-11 | pending commit. Selfchecks: `credits.selfcheck`, `reserve.selfcheck` (FIFO 100+50 spend 120→0+30; Jan 31→Feb 28). Desktop vitest `okvevo-billing-listener.test.ts`. Ops cron/secrets closed same day — see Scheduler row above. |

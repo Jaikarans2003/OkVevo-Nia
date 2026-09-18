@@ -6,6 +6,35 @@ import sys
 from hermes_cli.env_loader import load_hermes_dotenv
 
 
+def test_spawn_injected_okvevo_web_origin_survives_dotenv_override(tmp_path, monkeypatch):
+    """Electron pack-env injects OKVEVO_WEB_ORIGIN on spawn; leftover home .env must not win."""
+    home = tmp_path / "hermes"
+    home.mkdir()
+    (home / ".env").write_text(
+        "OKVEVO_WEB_ORIGIN=https://from-home.example\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "https://from-pack.example")
+
+    loaded = load_hermes_dotenv(hermes_home=home)
+
+    assert loaded == [home / ".env"]
+    assert os.environ["OKVEVO_WEB_ORIGIN"] == "https://from-pack.example"
+
+
+def test_spawn_injected_empty_okvevo_web_origin_survives_dotenv_override(tmp_path, monkeypatch):
+    """Empty parent origin (local unsigned pack) stays empty; do not resurrect home .env."""
+    home = tmp_path / "hermes"
+    home.mkdir()
+    (home / ".env").write_text(
+        "OKVEVO_WEB_ORIGIN=https://from-home.example\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "")
+
+    load_hermes_dotenv(hermes_home=home)
+
+    assert os.environ.get("OKVEVO_WEB_ORIGIN") == ""
+
+
 def test_recovered_update_retry_skips_external_secret_sources(tmp_path, monkeypatch):
     """The post-recovery updater must not remap native vault dependencies."""
     import hermes_cli.env_loader as env_loader

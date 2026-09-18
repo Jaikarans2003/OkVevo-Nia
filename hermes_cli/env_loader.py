@@ -477,6 +477,8 @@ def load_hermes_dotenv(
 
     Behavior:
     - `~/.hermes/.env` overrides stale shell-exported values when present.
+    - spawn-injected ``OKVEVO_WEB_ORIGIN`` (desktop pack-env, including ``""``)
+      is restored after dotenv so leftover home ``.env`` cannot win.
     - project `.env` acts as a dev fallback and only fills missing values when
       the user env exists.
     - if no user env exists, the project `.env` also overrides stale shell vars.
@@ -486,73 +488,82 @@ def load_hermes_dotenv(
     """
     loaded: list[Path] = []
 
-    home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
-    user_env = home_path / ".env"
-    project_env_path = Path(project_env) if project_env else None
+    # Desktop spawn injects OKVEVO_WEB_ORIGIN from pack-env (including "").
+    # Restore after override=True dotenv so leftover ~/.hermes/.env cannot win.
+    origin_injected = "OKVEVO_WEB_ORIGIN" in os.environ
+    origin_snapshot = os.environ.get("OKVEVO_WEB_ORIGIN") if origin_injected else None
 
-    # Normalize safe formatting and remove invalid NUL bytes before parsing.
-    if user_env.exists():
-        _sanitize_env_file_if_needed(user_env)
-    if project_env_path and project_env_path.exists():
-        _sanitize_env_file_if_needed(project_env_path)
+    try:
+        home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
+        user_env = home_path / ".env"
+        project_env_path = Path(project_env) if project_env else None
 
-    if user_env.exists():
-        _load_dotenv_with_fallback(user_env, override=True)
-        loaded.append(user_env)
-        # Mirror reload_env() known-key cleanup so inherited Hermes keys
-        # absent from this profile's .env do not leak into the runtime.
-        _clear_known_keys_missing_from_dotenv(user_env)
+        # Normalize safe formatting and remove invalid NUL bytes before parsing.
+        if user_env.exists():
+            _sanitize_env_file_if_needed(user_env)
+        if project_env_path and project_env_path.exists():
+            _sanitize_env_file_if_needed(project_env_path)
 
-    # Load .op.env AFTER .env so that .env values win, but the bootstrap
-    # token (OP_SERVICE_ACCOUNT_TOKEN) becomes available for
-    # apply_onepassword_secrets() even in cron / subprocess environments
-    # that inherit no shell state (no systemd EnvironmentFile, no op run).
-    # .op.env is gitignored — the service-account token never enters the
-    # committed .env file.
-    # Users on systemd can alternatively use:
-    #   EnvironmentFile=-/path/to/.hermes/.op.env
-    # in their gateway unit, which takes precedence (override=False below
-    # ensures .op.env never clobbers a token already in the environment).
-    op_env = home_path / ".op.env"
-    if op_env.exists() and not os.environ.get("OP_SERVICE_ACCOUNT_TOKEN"):
-        _load_dotenv_with_fallback(op_env, override=False)
+        if user_env.exists():
+            _load_dotenv_with_fallback(user_env, override=True)
+            loaded.append(user_env)
+            # Mirror reload_env() known-key cleanup so inherited Hermes keys
+            # absent from this profile's .env do not leak into the runtime.
+            _clear_known_keys_missing_from_dotenv(user_env)
 
-    if project_env_path and project_env_path.exists():
-        _load_dotenv_with_fallback(project_env_path, override=not loaded)
-        loaded.append(project_env_path)
+        # Load .op.env AFTER .env so that .env values win, but the bootstrap
+        # token (OP_SERVICE_ACCOUNT_TOKEN) becomes available for
+        # apply_onepassword_secrets() even in cron / subprocess environments
+        # that inherit no shell state (no systemd EnvironmentFile, no op run).
+        # .op.env is gitignored — the service-account token never enters the
+        # committed .env file.
+        # Users on systemd can alternatively use:
+        #   EnvironmentFile=-/path/to/.hermes/.op.env
+        # in their gateway unit, which takes precedence (override=False below
+        # ensures .op.env never clobbers a token already in the environment).
+        op_env = home_path / ".op.env"
+        if op_env.exists() and not os.environ.get("OP_SERVICE_ACCOUNT_TOKEN"):
+            _load_dotenv_with_fallback(op_env, override=False)
 
-    # External secret sources are skipped in two updater situations:
-    # 1. ``load_external_secrets=False`` — the caller is an ``update``
-    #    invocation that must not import optional secret-manager libraries
-    #    (Bitwarden → cryptography → ``_rust.pyd``) into the process that
-    #    replaces that same environment on Windows (#73381, #86735).
-    # 2. A fresh ``hermes update`` retry just completed a deferred dependency
-    #    install before importing this module.  Do not remap native
-    #    secret-source dependencies in that same updater process or the
-    #    self-lock preflight will recreate the marker and exit 2 again.
-    # Dotenv and managed env still load in both cases; only external source
-    # resolution is unnecessary for the updater.
-    from hermes_cli import _early_recovery
+        if project_env_path and project_env_path.exists():
+            _load_dotenv_with_fallback(project_env_path, override=not loaded)
+            loaded.append(project_env_path)
 
-    if load_external_secrets and not _early_recovery._should_skip_external_secret_sources():
-        _apply_external_secret_sources(home_path)
-    _apply_managed_env()
+        # External secret sources are skipped in two updater situations:
+        # 1. ``load_external_secrets=False`` — the caller is an ``update``
+        #    invocation that must not import optional secret-manager libraries
+        #    (Bitwarden → cryptography → ``_rust.pyd``) into the process that
+        #    replaces that same environment on Windows (#73381, #86735).
+        # 2. A fresh ``hermes update`` retry just completed a deferred dependency
+        #    install before importing this module.  Do not remap native
+        #    secret-source dependencies in that same updater process or the
+        #    self-lock preflight will recreate the marker and exit 2 again.
+        # Dotenv and managed env still load in both cases; only external source
+        # resolution is unnecessary for the updater.
+        from hermes_cli import _early_recovery
 
-    # config.yaml is the documented source of truth for terminal.* settings,
-    # but the dotenv loads above run with override=True — so a stale
-    # TERMINAL_ENV=docker left in ~/.hermes/.env (e.g. written by an older
-    # `hermes setup` before the user switched terminal.backend in config.yaml)
-    # silently wins again on every reload. Startup launchers bridge
-    # config→env once, but long-lived processes (gateway per-turn reload,
-    # cron standalone runs) call load_hermes_dotenv() repeatedly and used to
-    # flip the effective backend back to the stale .env value mid-session
-    # (#29186, #67323). Re-apply config.yaml's explicit terminal keys last so
-    # the documented config path always wins. Runs after _apply_managed_env()
-    # so the merged config (which already carries the managed overlay) is
-    # what lands in the env.
-    _reapply_terminal_config_bridge(home_path)
+        if load_external_secrets and not _early_recovery._should_skip_external_secret_sources():
+            _apply_external_secret_sources(home_path)
+        _apply_managed_env()
 
-    return loaded
+        # config.yaml is the documented source of truth for terminal.* settings,
+        # but the dotenv loads above run with override=True — so a stale
+        # TERMINAL_ENV=docker left in ~/.hermes/.env (e.g. written by an older
+        # `hermes setup` before the user switched terminal.backend in config.yaml)
+        # silently wins again on every reload. Startup launchers bridge
+        # config→env once, but long-lived processes (gateway per-turn reload,
+        # cron standalone runs) call load_hermes_dotenv() repeatedly and used to
+        # flip the effective backend back to the stale .env value mid-session
+        # (#29186, #67323). Re-apply config.yaml's explicit terminal keys last so
+        # the documented config path always wins. Runs after _apply_managed_env()
+        # so the merged config (which already carries the managed overlay) is
+        # what lands in the env.
+        _reapply_terminal_config_bridge(home_path)
+
+        return loaded
+    finally:
+        if origin_injected:
+            os.environ["OKVEVO_WEB_ORIGIN"] = origin_snapshot or ""
 
 
 def _reapply_terminal_config_bridge(home_path: Path) -> None:
