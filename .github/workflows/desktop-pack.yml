@@ -131,7 +131,9 @@ jobs:
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
       - name: Verify Developer ID signature
-        if: ${{ inputs.pack_target == 'production' || secrets.CSC_LINK != '' }}
+        # Reusable workflows cannot use `secrets` in `if:`. Staging is unsigned;
+        # production already fail-closes in require-secrets if certs are missing.
+        if: ${{ inputs.pack_target == 'production' }}
         run: |
           app=$(ls -d apps/desktop/release/mac*/Nia.app | head -1)
           codesign --verify --deep --strict "$app"
@@ -200,7 +202,9 @@ jobs:
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
       - name: Verify Authenticode
-        if: ${{ inputs.pack_target == 'production' || secrets.WIN_CSC_LINK != '' }}
+        # Reusable workflows cannot use `secrets` in `if:`. Staging is unsigned;
+        # production already fail-closes in require-secrets if certs are missing.
+        if: ${{ inputs.pack_target == 'production' }}
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path apps/desktop/release -Filter 'Nia-*.exe' | Select-Object -First 1
