@@ -465,6 +465,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 _(Move items here when done.)_
 
 | www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after `desktop-promote.yml`. |
+| Staging pack publishes stable download names under `staging/` | 2026-09-18 | `syncFeed` staging mode copies `Nia-{ver}-mac-arm64.dmg` / `Nia-{ver}-win-x64.exe` → `Nia-mac-arm64.dmg` / `Nia-win-x64.exe` under the staging prefix (same pattern as promote at root). Vitest `publish-release-feed.test.mjs`. |
 | Pin packaged agent/runtime to the same release as the shell | 2026-09-14 | extraResources snapshot + stamp re-extract. Vitest `packaged-snapshot` / `pack-agent-snapshot` / bundled installer. |
 | CI must inject OKVEVO_WEB_ORIGIN before the first signed release | 2026-09-14 | `okvevo-pack-env.json` + `STAGING_*`/`PROD_*` secrets. Vitest `write-okvevo-pack-env` / `okvevo-env`. |
 | Connect GitHub repo to App Hosting backend `okvevo-web` | 2026-09-14 | **Won't-do.** Replaced by OkVevo-Web Actions `deploy.yml` (no Firebase GitHub auto-rollout). |

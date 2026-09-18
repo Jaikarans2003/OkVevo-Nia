@@ -50,8 +50,18 @@ test('production sync renames latest yml to internal and excludes latest', () =>
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-test('staging sync keeps latest yml names under prefix', () => {
+test('staging sync keeps latest yml names under prefix and copies stable names', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nia-feed-'))
+  fs.writeFileSync(
+    path.join(dir, 'latest-mac.yml'),
+    'version: 0.17.8\npath: Nia-0.17.8-mac-arm64.zip\n'
+  )
+  fs.writeFileSync(
+    path.join(dir, 'latest.yml'),
+    'version: 0.17.8\npath: Nia-0.17.8-win-x64.exe\n'
+  )
+  fs.writeFileSync(path.join(dir, 'Nia-0.17.8-mac-arm64.dmg'), 'x')
+  fs.writeFileSync(path.join(dir, 'Nia-0.17.8-win-x64.exe'), 'x')
   const calls = []
   syncFeed({
     feedDir: dir,
@@ -66,6 +76,20 @@ test('staging sync keeps latest yml names under prefix', () => {
   assert.ok(calls[0].includes('s3://releases/staging/'))
   assert.ok(calls[0].includes('latest*.yml'))
   assert.ok(!calls[0].includes('internal.yml'))
+  assert.ok(
+    calls.some(
+      a =>
+        a.includes('s3://releases/staging/Nia-0.17.8-mac-arm64.dmg') &&
+        a.includes(`s3://releases/staging/${STABLE_MAC_NAME}`)
+    )
+  )
+  assert.ok(
+    calls.some(
+      a =>
+        a.includes('s3://releases/staging/Nia-0.17.8-win-x64.exe') &&
+        a.includes(`s3://releases/staging/${STABLE_WIN_NAME}`)
+    )
+  )
   fs.rmSync(dir, { recursive: true, force: true })
 })
 

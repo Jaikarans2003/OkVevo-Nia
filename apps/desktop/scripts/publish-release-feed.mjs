@@ -1,7 +1,8 @@
 /**
  * Publish signed Nia artifacts to the generic electron-updater feed (S3/R2).
  *
- * Staging: prefix `staging/`, keep electron-builder latest*.yml names.
+ * Staging: prefix `staging/`, keep electron-builder latest*.yml names,
+ *   and copy versioned DMG/EXE → stable names under the prefix.
  * Production: bucket root, rename latest*.yml → internal*.yml (do not touch latest).
  * Promote: copy internal*.yml → latest*.yml and versioned artifacts → stable names.
  */
@@ -105,6 +106,44 @@ export function syncFeed({
     args.push('--exclude', 'latest*.yml')
   }
   aws(args, env)
+
+  // Same "latest stable artifact" pattern as promoteInternalToLatest, under prefix.
+  if (mode === 'staging') {
+    const macYml = fs.readFileSync(path.join(feedDir, 'latest-mac.yml'), 'utf8')
+    const winYml = fs.readFileSync(path.join(feedDir, 'latest.yml'), 'utf8')
+    const mac = parseElectronBuilderYml(macYml)
+    const win = parseElectronBuilderYml(winYml)
+    if (!mac.version || !win.version) {
+      throw new Error('staging latest yml missing version')
+    }
+    if (mac.version !== win.version) {
+      throw new Error(`staging mac version ${mac.version} != win version ${win.version}`)
+    }
+    const macDmg = artifactNameFor(mac.version, 'mac-dmg')
+    const winExe = artifactNameFor(win.version, 'win-nsis')
+    aws(
+      [
+        's3',
+        'cp',
+        s3Uri(bucket, `${destPrefix}${macDmg}`),
+        s3Uri(bucket, `${destPrefix}${STABLE_MAC_NAME}`),
+        '--cache-control',
+        'public,max-age=300'
+      ],
+      env
+    )
+    aws(
+      [
+        's3',
+        'cp',
+        s3Uri(bucket, `${destPrefix}${winExe}`),
+        s3Uri(bucket, `${destPrefix}${STABLE_WIN_NAME}`),
+        '--cache-control',
+        'public,max-age=300'
+      ],
+      env
+    )
+  }
 }
 
 export function promoteInternalToLatest({
