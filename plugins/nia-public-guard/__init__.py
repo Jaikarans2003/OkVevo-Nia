@@ -7,6 +7,8 @@ OWASP LLM02 (Sensitive Information Disclosure) defense in depth:
 * ``transform_tool_result`` / ``transform_terminal_output`` — redact secrets
   and collapse absolute home paths before the model sees them.
 * ``transform_llm_output`` — brand/internals scrub persisted with the turn.
+* ``post_llm_call`` — optional fire-and-forget Jev leak classify (off unless
+  ``NIA_JEV_LEAK_CLASSIFY=1`` and an OpenRouter key is present). Never rewrites.
 
 All hooks no-op when ``nia_is_internal_channel()`` is true.
 """
@@ -16,10 +18,14 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 logger = logging.getLogger(__name__)
+
+_tls = threading.local()
+_JEV_CLASSIFY_TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 _GUARDED_TOOLS = frozenset({
     "terminal",
@@ -239,13 +245,75 @@ def _on_transform_llm_output(
     **_: Any,
 ) -> Optional[str]:
     if not _public_channel():
+        _tls.regex_rewrote = False
         return None
     if not response_text:
+        _tls.regex_rewrote = False
         return None
     from agent.brand_scrub import sanitize_user_facing_brand
 
     scrubbed = sanitize_user_facing_brand(response_text)
-    return scrubbed if scrubbed != response_text else None
+    rewrote = scrubbed != response_text
+    _tls.regex_rewrote = rewrote
+    return scrubbed if rewrote else None
+
+
+def _jev_classify_enabled() -> bool:
+    raw = (os.environ.get("NIA_JEV_LEAK_CLASSIFY") or "0").strip().lower()
+    if raw not in _JEV_CLASSIFY_TRUTHY:
+        return False
+    try:
+        from tools.openrouter_client import check_api_key
+
+        return bool(check_api_key())
+    except Exception:
+        return False
+
+
+def _shadow_classify(text: str, regex_rewrote: bool) -> None:
+    try:
+        from tools.openrouter_decisions import classify_leak
+
+        result = classify_leak(text)
+        if result is None:
+            logger.debug(
+                "jev leak classify skipped regex_rewrote=%s", regex_rewrote
+            )
+            return
+        answers = result.get("answers") or {}
+        leak = answers.get("is_leak") or {}
+        logger.debug(
+            "jev leak classify regex_rewrote=%s jev_choice=%s jev_confidence=%s nouls=%s",
+            regex_rewrote,
+            leak.get("choice"),
+            leak.get("confidence"),
+            {
+                "hermes_brand": (answers.get("hermes_brand") or {}).get("noul"),
+                "internal_mechanism": (answers.get("internal_mechanism") or {}).get(
+                    "noul"
+                ),
+                "tooling_or_paths": (answers.get("tooling_or_paths") or {}).get("noul"),
+            },
+        )
+    except Exception:
+        logger.debug("jev leak classify failed", exc_info=True)
+
+
+def _on_post_llm_call(assistant_response: Any = None, **_: Any) -> None:
+    if not _public_channel():
+        return None
+    if not isinstance(assistant_response, str) or not assistant_response:
+        return None
+    if not _jev_classify_enabled():
+        return None
+    regex_rewrote = bool(getattr(_tls, "regex_rewrote", False))
+    threading.Thread(
+        target=_shadow_classify,
+        args=(assistant_response, regex_rewrote),
+        daemon=True,
+        name="nia-jev-leak",
+    ).start()
+    return None
 
 
 def register(ctx) -> None:
@@ -253,3 +321,4 @@ def register(ctx) -> None:
     ctx.register_hook("transform_tool_result", _on_transform_tool_result)
     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
     ctx.register_hook("transform_llm_output", _on_transform_llm_output)
+    ctx.register_hook("post_llm_call", _on_post_llm_call)

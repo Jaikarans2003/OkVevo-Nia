@@ -134,6 +134,111 @@ class TestOutputRail:
             assert sanitize_user_facing_brand(excerpt).lower() == lowered
 
 
+class TestJevShadowHook:
+    def test_off_by_default_does_not_schedule(self, plugin, monkeypatch):
+        monkeypatch.delenv("NIA_JEV_LEAK_CLASSIFY", raising=False)
+        scheduled = []
+        monkeypatch.setattr(
+            plugin, "_shadow_classify", lambda *a, **k: scheduled.append(1)
+        )
+        assert plugin._on_post_llm_call(assistant_response="I set up Nidhi's bot") is None
+        assert scheduled == []
+
+    def test_env_zero_does_not_schedule(self, plugin, monkeypatch):
+        monkeypatch.setenv("NIA_JEV_LEAK_CLASSIFY", "0")
+        monkeypatch.setattr("tools.openrouter_client.check_api_key", lambda: True)
+        scheduled = []
+        monkeypatch.setattr(
+            plugin, "_shadow_classify", lambda *a, **k: scheduled.append(1)
+        )
+        assert plugin._on_post_llm_call(assistant_response="I set up Nidhi's bot") is None
+        assert scheduled == []
+
+    def test_internal_channel_does_not_schedule(self, plugin, monkeypatch):
+        monkeypatch.setenv("NIA_BUILD_CHANNEL", "internal")
+        monkeypatch.setenv("NIA_JEV_LEAK_CLASSIFY", "1")
+        monkeypatch.setattr("tools.openrouter_client.check_api_key", lambda: True)
+        scheduled = []
+        monkeypatch.setattr(
+            plugin, "_shadow_classify", lambda *a, **k: scheduled.append(1)
+        )
+        assert plugin._on_post_llm_call(assistant_response="I set up Nidhi's bot") is None
+        assert scheduled == []
+
+    def test_no_key_does_not_schedule(self, plugin, monkeypatch):
+        monkeypatch.setenv("NIA_JEV_LEAK_CLASSIFY", "1")
+        monkeypatch.setattr("tools.openrouter_client.check_api_key", lambda: False)
+        scheduled = []
+        monkeypatch.setattr(
+            plugin, "_shadow_classify", lambda *a, **k: scheduled.append(1)
+        )
+        assert plugin._on_post_llm_call(assistant_response="I set up Nidhi's bot") is None
+        assert scheduled == []
+
+    def test_schedules_post_scrub_when_enabled(self, plugin, monkeypatch):
+        import threading
+
+        done = threading.Event()
+        seen = []
+
+        def _capture(text, regex_rewrote):
+            seen.append((text, regex_rewrote))
+            done.set()
+
+        monkeypatch.setenv("NIA_JEV_LEAK_CLASSIFY", "1")
+        monkeypatch.setattr("tools.openrouter_client.check_api_key", lambda: True)
+        monkeypatch.setattr(plugin, "_shadow_classify", _capture)
+        scrubbed = plugin._on_transform_llm_output(response_text=NITISH_EXCERPT)
+        assert plugin._on_post_llm_call(assistant_response=scrubbed) is None
+        assert done.wait(1.0)
+        assert seen == [(scrubbed, True)]
+
+    def test_returns_immediately_on_forced_timeout(self, plugin, monkeypatch):
+        import time
+
+        from agent.brand_scrub import sanitize_user_facing_brand
+
+        monkeypatch.setenv("NIA_JEV_LEAK_CLASSIFY", "1")
+        monkeypatch.setattr("tools.openrouter_client.check_api_key", lambda: True)
+
+        def _hang(*_a, **_k):
+            time.sleep(2.0)
+
+        monkeypatch.setattr(plugin, "_shadow_classify", _hang)
+        expected = sanitize_user_facing_brand(NITISH_EXCERPT)
+        got = plugin._on_transform_llm_output(response_text=NITISH_EXCERPT)
+        assert got == expected
+        t0 = time.perf_counter()
+        assert plugin._on_post_llm_call(assistant_response=got) is None
+        assert (time.perf_counter() - t0) < 0.25
+
+    def test_post_llm_does_not_call_sanitize(self, plugin, monkeypatch):
+        monkeypatch.setenv("NIA_JEV_LEAK_CLASSIFY", "1")
+        monkeypatch.setattr("tools.openrouter_client.check_api_key", lambda: True)
+        monkeypatch.setattr(plugin, "_shadow_classify", lambda *a, **k: None)
+        import agent.brand_scrub as brand_scrub
+
+        calls = {"n": 0}
+        real = brand_scrub.sanitize_user_facing_brand
+
+        def _spy(text):
+            calls["n"] += 1
+            return real(text)
+
+        monkeypatch.setattr(brand_scrub, "sanitize_user_facing_brand", _spy)
+        assert plugin._on_post_llm_call(assistant_response="I set up Nidhi's bot") is None
+        assert calls["n"] == 0
+
+    def test_transform_still_scrubs_when_jev_on(self, plugin, monkeypatch):
+        from agent.brand_scrub import sanitize_user_facing_brand
+
+        monkeypatch.setenv("NIA_JEV_LEAK_CLASSIFY", "1")
+        monkeypatch.setattr("tools.openrouter_client.check_api_key", lambda: True)
+        monkeypatch.setattr(plugin, "_shadow_classify", lambda *a, **k: None)
+        got = plugin._on_transform_llm_output(response_text=NITISH_EXCERPT)
+        assert got == sanitize_user_facing_brand(NITISH_EXCERPT)
+
+
 class TestPluginDiscovery:
     def test_loads_via_plugin_manager(self, public_env, monkeypatch):
         (public_env / "config.yaml").write_text(yaml.safe_dump({"plugins": {"enabled": []}}))

@@ -1,0 +1,94 @@
+{
+  "rows": [
+    {
+      "id": "golden_input",
+      "text": "The Hermes desktop app and Hermes Agent can help. Say hey hermes or hey nia. Ask @hermes later. Run `hermes profile create nidhi` next. Then hermes -p coder chat. I restarted the gateway. The backend process crashed. Check the roster. Stored at ~/.hermes/foo. Saved to ~/Documents/budget.csv. No API key found for provider 'openrouter' or OpenRouter. Also fal.ai and Bedrock. Missing .env, config.yaml, profile.yaml, auth.json, HERMES_HOME, and the credential pool. Model minimax/minimax-m3. I created a profile named Nitish.\nHere:\n```\n~/.hermes/foo\n```\nDone.\nHere:\n```ts\nconst answer = 42\n```\nDone.\nopen hermes://settings and import from @hermes/plugin-sdk.",
+      "expect_regex_hit": true,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "nitish_excerpt",
+      "text": "Created ~/.hermes/profiles/nitish with openrouter and minimax/minimax-m3. No API key found for provider 'openrouter'. Wrote .env and config.yaml.",
+      "expect_regex_hit": true,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "adharsh_excerpt",
+      "text": "Ran `hermes profile create adharsh` then cat ~/.hermes/profiles/adharsh/.env. Configure API keys for OpenRouter / Bedrock.",
+      "expect_regex_hit": true,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "confirmed_gaps",
+      "text": "openrouter .env config.yaml profile.yaml auth.json API key Bedrock minimax/minimax-m3 credential pool hermes -p coder HERMES_HOME created a profile",
+      "expect_regex_hit": true,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "nidhi_cli_backticks",
+      "text": "Run `hermes profile create nidhi` next.",
+      "expect_regex_hit": true,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "nidhi_cli_plain",
+      "text": "I ran hermes profile create nidhi then checked the profile folder.",
+      "expect_regex_hit": true,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "tool_name_narration",
+      "text": "I called write_file to save the sheet, then terminal to run the script, then skill_view to confirm the GTM tracker skill.",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "fenced_python_spreadsheet",
+      "text": "Here is the tracker:\n\n```python\nimport csv\nwith open(\"gtm_tracker.csv\", \"w\") as f:\n    w = csv.writer(f)\n    w.writerow([\"channel\", \"owner\"])\n```\n",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "nidhi_soul_profiles",
+      "text": "I set up Nidhi by editing SOUL.md in the profiles folder so the bot knows its voice.",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": true
+    },
+    {
+      "id": "golden_output",
+      "text": "The Nia desktop app and Nia can help. Say ok nia or ok nia. Ask @nia later. Run a Nia command next. Then a Nia command. I restarted the app. The app crashed. Check the bots list. Stored at your Nia data folder. Saved to ~/Documents/budget.csv. No credentials found for provider 'OkVevo' or OkVevo. Also OkVevo and the cloud. Missing settings file, settings, settings, settings, your Nia data folder, and the credentials. Model the model. I created a bot named Nitish.\nHere:\n[internal details omitted]\nDone.\nHere:\n```ts\nconst answer = 42\n```\nDone.\nopen hermes://settings and import from @hermes/plugin-sdk.",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": false
+    },
+    {
+      "id": "nidhi_bot",
+      "text": "I set up Nidhi's bot",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": false
+    },
+    {
+      "id": "documents_csv",
+      "text": "Saved to ~/Documents/budget.csv.",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": false
+    },
+    {
+      "id": "hermes_protocol",
+      "text": "open hermes://settings to continue.",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": false
+    },
+    {
+      "id": "hermes_plugin_sdk",
+      "text": "import from @hermes/plugin-sdk.",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": false
+    },
+    {
+      "id": "gtm_plan_clean",
+      "text": "Here is a GTM plan: pick three channels, name an owner for each, and review weekly. No tools or file paths.",
+      "expect_regex_hit": false,
+      "expect_semantic_leak": false
+    }
+  ]
+}
