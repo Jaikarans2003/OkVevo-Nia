@@ -1,0 +1,513 @@
+{
+  "wire_model": "openrouter/auto-beta",
+  "plugin_id": "auto-beta-router",
+  "auto_turns_per_mode": 5,
+  "modes": {
+    "intelligence": {
+      "mode": "Intelligence",
+      "cost_tier": "xhigh",
+      "start": [
+        "anthropic/claude-fable-5",
+        "anthropic/claude-opus-5",
+        "anthropic/claude-opus-4.8",
+        "anthropic/claude-sonnet-5",
+        "openai/gpt-5.6-sol",
+        "openai/gpt-5.6-sol-pro",
+        "openai/gpt-5.6-terra",
+        "openai/gpt-5.6-terra-pro",
+        "openai/gpt-5.6-luna",
+        "openai/gpt-5.6-luna-pro",
+        "google/gemini-3.1-pro-preview",
+        "x-ai/grok-4.6",
+        "moonshotai/kimi-k3",
+        "qwen/qwen3.8-max",
+        "z-ai/glm-5.3",
+        "deepseek/deepseek-v4-pro"
+      ],
+      "per_model": [
+        {
+          "model": "anthropic/claude-fable-5",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 4853.9,
+          "response_model": "anthropic/claude-fable-5",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "anthropic/claude-opus-5",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 4756.7,
+          "response_model": "anthropic/claude-opus-5",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "anthropic/claude-opus-4.8",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2596.1,
+          "response_model": "anthropic/claude-opus-4.8",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "anthropic/claude-sonnet-5",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2649.0,
+          "response_model": "anthropic/claude-sonnet-5",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "openai/gpt-5.6-sol",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2584.5,
+          "response_model": "openai/gpt-5.6-sol",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "openai/gpt-5.6-sol-pro",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 5489.3,
+          "response_model": "openai/gpt-5.6-sol-pro",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "openai/gpt-5.6-terra",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2071.2,
+          "response_model": "openai/gpt-5.6-terra",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "openai/gpt-5.6-terra-pro",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 4333.7,
+          "response_model": "openai/gpt-5.6-terra-pro",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "openai/gpt-5.6-luna",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 1506.2,
+          "response_model": "openai/gpt-5.6-luna",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "openai/gpt-5.6-luna-pro",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 5304.1,
+          "response_model": "openai/gpt-5.6-luna-pro",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "google/gemini-3.1-pro-preview",
+          "ok": false,
+          "drop_reason": "no_terminal_tool_call",
+          "status": 200,
+          "latency_ms": 6232.4,
+          "response_model": "google/gemini-3.1-pro-preview",
+          "tool_calls": false,
+          "terminal_tool_call": false
+        },
+        {
+          "model": "x-ai/grok-4.6",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 3034.0,
+          "response_model": "x-ai/grok-4.6",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "moonshotai/kimi-k3",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2312.5,
+          "response_model": "moonshotai/kimi-k3",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "qwen/qwen3.8-max",
+          "ok": false,
+          "drop_reason": "http_400",
+          "status": 400,
+          "latency_ms": 1173.0,
+          "response_model": null,
+          "tool_calls": false,
+          "terminal_tool_call": false
+        },
+        {
+          "model": "z-ai/glm-5.3",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 3763.9,
+          "response_model": "z-ai/glm-5.3",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "deepseek/deepseek-v4-pro",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 4201.6,
+          "response_model": "deepseek/deepseek-v4-pro",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        }
+      ],
+      "survivors_after_tools": [
+        "anthropic/claude-fable-5",
+        "anthropic/claude-opus-5",
+        "anthropic/claude-opus-4.8",
+        "anthropic/claude-sonnet-5",
+        "openai/gpt-5.6-sol",
+        "openai/gpt-5.6-sol-pro",
+        "openai/gpt-5.6-terra",
+        "openai/gpt-5.6-terra-pro",
+        "openai/gpt-5.6-luna",
+        "openai/gpt-5.6-luna-pro",
+        "x-ai/grok-4.6",
+        "moonshotai/kimi-k3",
+        "z-ai/glm-5.3",
+        "deepseek/deepseek-v4-pro"
+      ],
+      "dropped_tools_or_404": [
+        {
+          "model": "google/gemini-3.1-pro-preview",
+          "reason": "no_terminal_tool_call"
+        },
+        {
+          "model": "qwen/qwen3.8-max",
+          "reason": "http_400"
+        }
+      ],
+      "final_allowlist": [
+        "anthropic/claude-fable-5",
+        "anthropic/claude-opus-5",
+        "anthropic/claude-opus-4.8",
+        "anthropic/claude-sonnet-5",
+        "openai/gpt-5.6-sol",
+        "openai/gpt-5.6-sol-pro",
+        "openai/gpt-5.6-terra",
+        "openai/gpt-5.6-terra-pro",
+        "openai/gpt-5.6-luna",
+        "openai/gpt-5.6-luna-pro",
+        "x-ai/grok-4.6",
+        "moonshotai/kimi-k3",
+        "z-ai/glm-5.3",
+        "deepseek/deepseek-v4-pro"
+      ],
+      "auto_turns": [
+        {
+          "turn": 1,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 5382.7,
+          "error": null,
+          "response_model": "anthropic/claude-opus-4.8",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 2,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 5392.1,
+          "error": null,
+          "response_model": "anthropic/claude-opus-4.8",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 3,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 6978.7,
+          "error": null,
+          "response_model": "anthropic/claude-opus-4.8",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 4,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 3933.8,
+          "error": null,
+          "response_model": "anthropic/claude-opus-4.8",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 5,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 4518.3,
+          "error": null,
+          "response_model": "anthropic/claude-opus-4.8",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        }
+      ],
+      "auto_pass": true,
+      "selected_counts": {
+        "anthropic/claude-opus-4.8": 5
+      },
+      "never_selected_informational": [
+        "anthropic/claude-fable-5",
+        "anthropic/claude-opus-5",
+        "anthropic/claude-sonnet-5",
+        "openai/gpt-5.6-sol",
+        "openai/gpt-5.6-sol-pro",
+        "openai/gpt-5.6-terra",
+        "openai/gpt-5.6-terra-pro",
+        "openai/gpt-5.6-luna",
+        "openai/gpt-5.6-luna-pro",
+        "x-ai/grok-4.6",
+        "moonshotai/kimi-k3",
+        "z-ai/glm-5.3",
+        "deepseek/deepseek-v4-pro"
+      ]
+    },
+    "cost": {
+      "mode": "Cost Effective",
+      "cost_tier": "medium",
+      "start": [
+        "anthropic/claude-haiku-4.5",
+        "openai/gpt-5.4-mini",
+        "google/gemini-3.7-flash",
+        "deepseek/deepseek-v4-flash",
+        "qwen/qwen3.8-flash",
+        "z-ai/glm-5.3-flash",
+        "stepfun/step-3.7-flash",
+        "minimax/minimax-m3",
+        "tencent/hy4-preview"
+      ],
+      "per_model": [
+        {
+          "model": "anthropic/claude-haiku-4.5",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 1683.5,
+          "response_model": "anthropic/claude-haiku-4.5",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "openai/gpt-5.4-mini",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 1673.0,
+          "response_model": "openai/gpt-5.4-mini",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "google/gemini-3.7-flash",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2627.9,
+          "response_model": "google/gemini-3.7-flash",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "deepseek/deepseek-v4-flash",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2831.2,
+          "response_model": "deepseek/deepseek-v4-flash",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "qwen/qwen3.8-flash",
+          "ok": false,
+          "drop_reason": "http_400",
+          "status": 400,
+          "latency_ms": 380.4,
+          "response_model": null,
+          "tool_calls": false,
+          "terminal_tool_call": false
+        },
+        {
+          "model": "z-ai/glm-5.3-flash",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 1539.5,
+          "response_model": "z-ai/glm-5.3-flash",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "stepfun/step-3.7-flash",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 2040.6,
+          "response_model": "stepfun/step-3.7-flash",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "minimax/minimax-m3",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 1571.4,
+          "response_model": "minimax/minimax-m3",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "model": "tencent/hy4-preview",
+          "ok": true,
+          "drop_reason": null,
+          "status": 200,
+          "latency_ms": 4461.8,
+          "response_model": "tencent/hy4-preview",
+          "tool_calls": true,
+          "terminal_tool_call": true
+        }
+      ],
+      "survivors_after_tools": [
+        "anthropic/claude-haiku-4.5",
+        "openai/gpt-5.4-mini",
+        "google/gemini-3.7-flash",
+        "deepseek/deepseek-v4-flash",
+        "z-ai/glm-5.3-flash",
+        "stepfun/step-3.7-flash",
+        "minimax/minimax-m3",
+        "tencent/hy4-preview"
+      ],
+      "dropped_tools_or_404": [
+        {
+          "model": "qwen/qwen3.8-flash",
+          "reason": "http_400"
+        }
+      ],
+      "final_allowlist": [
+        "anthropic/claude-haiku-4.5",
+        "openai/gpt-5.4-mini",
+        "google/gemini-3.7-flash",
+        "deepseek/deepseek-v4-flash",
+        "z-ai/glm-5.3-flash",
+        "stepfun/step-3.7-flash",
+        "minimax/minimax-m3",
+        "tencent/hy4-preview"
+      ],
+      "auto_turns": [
+        {
+          "turn": 1,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 15009.9,
+          "error": null,
+          "response_model": "deepseek/deepseek-v4-flash",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 2,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 4690.4,
+          "error": null,
+          "response_model": "deepseek/deepseek-v4-flash",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 3,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 4102.9,
+          "error": null,
+          "response_model": "deepseek/deepseek-v4-flash",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 4,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 3206.5,
+          "error": null,
+          "response_model": "deepseek/deepseek-v4-flash",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        },
+        {
+          "turn": 5,
+          "ok": true,
+          "status": 200,
+          "latency_ms": 5799.5,
+          "error": null,
+          "response_model": "deepseek/deepseek-v4-flash",
+          "on_shortlist": true,
+          "tool_calls": true,
+          "terminal_tool_call": true
+        }
+      ],
+      "auto_pass": true,
+      "selected_counts": {
+        "deepseek/deepseek-v4-flash": 5
+      },
+      "never_selected_informational": [
+        "anthropic/claude-haiku-4.5",
+        "openai/gpt-5.4-mini",
+        "google/gemini-3.7-flash",
+        "z-ai/glm-5.3-flash",
+        "stepfun/step-3.7-flash",
+        "minimax/minimax-m3",
+        "tencent/hy4-preview"
+      ]
+    }
+  },
+  "phase_b_pass": true
+}
