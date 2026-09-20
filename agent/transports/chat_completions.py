@@ -741,6 +741,7 @@ class ChatCompletionsTransport(ProviderTransport):
         provider_profile is passed. Every quirk comes from the profile object.
         """
         from providers.base import OMIT_TEMPERATURE
+        from agent.okvevo_auto_router import wire_model
 
         # Message preprocessing
         sanitized = profile.prepare_messages(sanitized)
@@ -757,7 +758,10 @@ class ChatCompletionsTransport(ProviderTransport):
             sanitized[0] = {**sanitized[0], "role": "developer"}
 
         api_kwargs: dict[str, Any] = {
-            "model": model,
+            # OkVevo Auto virtual ids must never hit OpenRouter (404) —
+            # remap to openrouter/auto-beta. build_extra_body still receives
+            # the original ``model`` below so the auto-beta-router plugin fires.
+            "model": wire_model(model),
             "messages": sanitized,
         }
 

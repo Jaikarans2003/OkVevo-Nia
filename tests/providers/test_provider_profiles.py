@@ -116,6 +116,32 @@ class TestOpenRouterProfile:
             {"id": "pareto-router", "min_coding_score": 0.65}
         ]
 
+    def test_okvevo_auto_intelligence_emits_auto_beta_router(self):
+        p = get_provider_profile("openrouter")
+        body = p.build_extra_body(model="okvevo/auto-intelligence")
+        assert body["plugins"] == [
+            {
+                "id": "auto-beta-router",
+                "cost_tier": "xhigh",
+                "allowed_models": body["plugins"][0]["allowed_models"],
+            }
+        ]
+        assert body["plugins"][0]["allowed_models"]
+        assert "anthropic/claude-opus-4.8" in body["plugins"][0]["allowed_models"]
+
+    def test_okvevo_auto_cost_emits_medium_tier(self):
+        p = get_provider_profile("openrouter")
+        body = p.build_extra_body(model="okvevo/auto-cost")
+        plugin = body["plugins"][0]
+        assert plugin["id"] == "auto-beta-router"
+        assert plugin["cost_tier"] == "medium"
+        assert "deepseek/deepseek-v4-flash" in plugin["allowed_models"]
+
+    def test_normal_model_has_no_auto_plugin(self):
+        p = get_provider_profile("openrouter")
+        body = p.build_extra_body(model="anthropic/claude-sonnet-5")
+        assert "plugins" not in body
+
 
 
 

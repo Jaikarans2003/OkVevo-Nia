@@ -99,6 +99,9 @@ interface ModelCatalogMenuProps {
   /** Render the virtual `moa` provider's presets as a selectable section.
    *  Off for override surfaces, where a MoA preset isn't a worker model. */
   includeMoa?: boolean
+  /** Composer-only OkVevo Auto rows (Intelligence / Cost Effective). Default
+   *  false so kanban/plugin pickers never see them. */
+  includeOkvevoAuto?: boolean
   profile?: string
   /** Session whose catalog to fetch. A live session's catalog can differ from
    *  the profile-global one, and the app invalidates the SESSION-scoped query
@@ -106,6 +109,11 @@ interface ModelCatalogMenuProps {
    *  menu goes stale. Detached surfaces (per-task overrides) omit it. */
   sessionId?: null | string
 }
+
+const OKVEVO_AUTO_ROWS = [
+  { id: 'okvevo/auto-intelligence', label: 'Intelligence' },
+  { id: 'okvevo/auto-cost', label: 'Cost Effective' }
+] as const
 
 interface ProviderGroup {
   families: ModelFamily[]
@@ -124,6 +132,7 @@ export function ModelCatalogMenu({
   footer,
   gateway,
   includeMoa = false,
+  includeOkvevoAuto = false,
   profile = 'default',
   request,
   sessionId = null
@@ -195,6 +204,22 @@ export function ModelCatalogMenu({
     [moaPresets, q]
   )
 
+  const shownOkvevoAuto = useMemo(() => {
+    if (!includeOkvevoAuto) {
+      return [] as Array<(typeof OKVEVO_AUTO_ROWS)[number]>
+    }
+
+    if (!q) {
+      return [...OKVEVO_AUTO_ROWS]
+    }
+
+    return OKVEVO_AUTO_ROWS.filter(
+      row =>
+        `okvevo auto ${row.label} ${row.id}`.toLowerCase().includes(q) ||
+        row.id.toLowerCase().includes(q)
+    )
+  }, [includeOkvevoAuto, q])
+
   const selectFamily = async (family: ModelFamily, provider: ModelOptionProvider) => {
     const caps = provider.capabilities?.[family.id]
     const preset = controller.presetFor(provider.slug, family.id)
@@ -226,15 +251,32 @@ export function ModelCatalogMenu({
     closeMenu()
   }
 
+  const selectOkvevoAuto = async (id: string) => {
+    if ((await controller.select(id, 'openrouter')) === false) {
+      return
+    }
+
+    closeMenu()
+  }
+
   // ── Keyboard selection (cmdk semantics on a Radix menu) ───────────────────
   // One flat list mirroring EXACTLY what's rendered (collapse, filter, presets),
   // so the selection can never sit on a hidden row.
   type KbRow =
     | { family: ModelFamily; key: string; kind: 'family'; provider: ModelOptionProvider }
     | { key: string; kind: 'moa'; preset: string }
+    | { id: string; key: string; kind: 'okvevo-auto'; label: string }
 
   const kbRows = useMemo<KbRow[]>(
     () => [
+      ...shownOkvevoAuto.map(
+        (row): KbRow => ({
+          id: row.id,
+          key: `okvevo-auto:${row.id}`,
+          kind: 'okvevo-auto',
+          label: row.label
+        })
+      ),
       ...groups.flatMap(group =>
         collapsedProviders.includes(group.provider.slug) && !search
           ? []
@@ -247,7 +289,7 @@ export function ModelCatalogMenu({
       ),
       ...shownMoaPresets.map((preset): KbRow => ({ key: `moa:${preset}`, kind: 'moa', preset }))
     ],
-    [groups, collapsedProviders, search, shownMoaPresets]
+    [shownOkvevoAuto, groups, collapsedProviders, search, shownMoaPresets]
   )
 
   const [kbOverride, setKbOverride] = useState<null | number>(null)
@@ -258,8 +300,10 @@ export function ModelCatalogMenu({
   const rowIsCurrent = (row: KbRow) =>
     row.kind === 'moa'
       ? current.provider === 'moa' && row.preset === current.model
-      : isCurrentProvider(row.provider, current.provider) &&
-        (row.family.id === current.model || row.family.fastId === current.model)
+      : row.kind === 'okvevo-auto'
+        ? current.provider === 'openrouter' && row.id === current.model
+        : isCurrentProvider(row.provider, current.provider) &&
+          (row.family.id === current.model || row.family.fastId === current.model)
 
   const autoIndex = q
     ? kbRows.length > 0
@@ -289,6 +333,12 @@ export function ModelCatalogMenu({
 
     if (row.kind === 'moa') {
       void selectMoaPreset(row.preset)
+
+      return
+    }
+
+    if (row.kind === 'okvevo-auto') {
+      void selectOkvevoAuto(row.id)
 
       return
     }
@@ -363,12 +413,39 @@ export function ModelCatalogMenu({
         <DropdownMenuItem className={dropdownMenuRow} disabled>
           {error}
         </DropdownMenuItem>
-      ) : groups.length === 0 && moaPresets.length === 0 ? (
+      ) : groups.length === 0 && moaPresets.length === 0 && shownOkvevoAuto.length === 0 ? (
         <DropdownMenuItem className={dropdownMenuRow} disabled>
           {copy.noModels}
         </DropdownMenuItem>
       ) : (
         <div className={cn('max-h-[max(150px,30dvh)] overflow-y-auto py-0.5', quietRows)} ref={listRef}>
+          {shownOkvevoAuto.length > 0 ? (
+            <DropdownMenuGroup className="py-0.5">
+              <DropdownMenuLabel className={dropdownMenuSectionLabel}>OkVevo Auto</DropdownMenuLabel>
+              {shownOkvevoAuto.map(row => {
+                const isCurrent =
+                  current.provider === 'openrouter' && current.model === row.id
+
+                return (
+                  <DropdownMenuItem
+                    key={`okvevo-auto:${row.id}`}
+                    onSelect={event => {
+                      event.preventDefault()
+                      void selectOkvevoAuto(row.id)
+                    }}
+                    {...kbRowProps(`okvevo-auto:${row.id}`)}
+                  >
+                    <span className="min-w-0 flex-1 truncate">
+                      <HighlightMatches query={search} text={row.label} />
+                    </span>
+                    {isCurrent ? (
+                      <Codicon className="ml-auto text-foreground" name="check" size="0.75rem" />
+                    ) : null}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuGroup>
+          ) : null}
           {groups.map(group => {
             const slug = group.provider.slug
 

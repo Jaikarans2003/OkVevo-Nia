@@ -106,3 +106,61 @@ describe('the catalog owns model curation', () => {
     expect($modelVisibilityOpen.get()).toBe(true)
   })
 })
+
+describe('OkVevo Auto rows (composer-only)', () => {
+  function renderMenuWithAuto(includeOkvevoAuto = true) {
+    const select = vi.fn().mockResolvedValue(true)
+    const controller: ModelMenuController = {
+      applyPreset: vi.fn(),
+      current: { effort: '', fast: false, model: '', provider: '' },
+      presetFor: () => ({}),
+      select,
+      setOptions: vi.fn()
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(
+      <QueryClientProvider client={client}>
+        <DropdownMenu open>
+          <DropdownMenuContent>
+            <ModelCatalogMenu controller={controller} includeOkvevoAuto={includeOkvevoAuto} />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </QueryClientProvider>
+    )
+
+    return select
+  }
+
+  it('shows Intelligence and Cost Effective only when includeOkvevoAuto', async () => {
+    renderMenuWithAuto(true)
+    await screen.findByText(/Gemini 3\.1 Pro/i)
+    expect(screen.getByText('OkVevo Auto')).toBeTruthy()
+    expect(screen.getByText('Intelligence')).toBeTruthy()
+    expect(screen.getByText('Cost Effective')).toBeTruthy()
+  })
+
+  it('hides Auto rows by default (kanban / plugin pickers)', async () => {
+    renderMenuWithAuto(false)
+    await screen.findByText(/Gemini 3\.1 Pro/i)
+    expect(screen.queryByText('OkVevo Auto')).toBeNull()
+    expect(screen.queryByText('Intelligence')).toBeNull()
+    expect(screen.queryByText('Cost Effective')).toBeNull()
+  })
+
+  it('still lists every prior catalog id alongside Auto', async () => {
+    renderMenuWithAuto(true)
+    await screen.findByText(/Gemini 3\.1 Pro/i)
+    expect(screen.getByText(/Gemini 2\.5 Flash/i)).toBeTruthy()
+    expect(screen.getByText('Intelligence')).toBeTruthy()
+  })
+
+  it('selects virtual id with openrouter provider', async () => {
+    const select = renderMenuWithAuto(true)
+    await screen.findByText('Intelligence')
+    fireEvent.click(screen.getByText('Intelligence'))
+    await vi.waitFor(() => {
+      expect(select).toHaveBeenCalledWith('okvevo/auto-intelligence', 'openrouter')
+    })
+  })
+})
