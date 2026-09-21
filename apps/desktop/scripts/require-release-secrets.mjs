@@ -3,7 +3,7 @@
  *
  * Production: missing Apple, Windows, or feed-upload secrets must exit 1 so
  * CI never publishes an unsigned latest.yml.
- * Staging: `--allow-unsigned` / NIA_ALLOW_UNSIGNED=1 checks feed secrets only.
+ * Unsigned: `--allow-unsigned` / NIA_ALLOW_UNSIGNED=1|true checks feed secrets only.
  * Local `npm run pack` does not run this.
  *
  * Usage: node scripts/require-release-secrets.mjs [--allow-unsigned]
@@ -27,7 +27,9 @@ export const REQUIRED_FEED_SECRETS = [
 export const REQUIRED_RELEASE_SECRETS = [...REQUIRED_SIGNING_SECRETS, ...REQUIRED_FEED_SECRETS]
 
 export function unsignedPackAllowed(env = process.env, argv = process.argv.slice(2)) {
-  return argv.includes('--allow-unsigned') || String(env.NIA_ALLOW_UNSIGNED ?? '').trim() === '1'
+  if (argv.includes('--allow-unsigned')) return true
+  const v = String(env.NIA_ALLOW_UNSIGNED ?? '').trim().toLowerCase()
+  return v === '1' || v === 'true'
 }
 
 export function missingReleaseSecrets(env = process.env, options = {}) {

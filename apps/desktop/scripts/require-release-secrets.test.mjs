@@ -69,9 +69,12 @@ test('unsigned pack only requires feed secrets', () => {
   assert.ok(missingReleaseSecrets(feedOnly).includes('CSC_LINK'))
 })
 
-test('NIA_ALLOW_UNSIGNED and --allow-unsigned enable the staging path', () => {
+test('NIA_ALLOW_UNSIGNED and --allow-unsigned enable the unsigned path', () => {
   assert.equal(unsignedPackAllowed({}, []), false)
   assert.equal(unsignedPackAllowed({ NIA_ALLOW_UNSIGNED: '1' }, []), true)
+  assert.equal(unsignedPackAllowed({ NIA_ALLOW_UNSIGNED: 'true' }, []), true)
+  assert.equal(unsignedPackAllowed({ NIA_ALLOW_UNSIGNED: 'TRUE' }, []), true)
+  assert.equal(unsignedPackAllowed({ NIA_ALLOW_UNSIGNED: '0' }, []), false)
   assert.equal(unsignedPackAllowed({}, ['--allow-unsigned']), true)
 })
 

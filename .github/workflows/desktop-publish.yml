@@ -1,0 +1,92 @@
+# Customer ship gate. Copies archived versions/{ver}/ manifests to live
+# pointers: stable names, then releases.json, then latest*.yml last.
+# Free-plan replacement for Environment required-reviewers: this job never
+# runs on merge or tag — Karan starts it in Actions → Run workflow.
+
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Already-archived semver (0.17.15 or v0.17.15)
+        required: true
+        type: string
+      mark_stable:
+        description: Keep this version as catalog stable once it is no longer current
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-production-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Point live feed at archived version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Refuse Nous
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REPOSITORY}" = "NousResearch/hermes-agent" ]; then
+            echo "::error::Refusing to publish NousResearch/hermes-agent"
+            exit 1
+          fi
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+
+      - name: Normalize version and require git tag
+        id: ver
+        run: |
+          set -euo pipefail
+          VERSION=$(node apps/desktop/scripts/ci-desktop-version.mjs --from-tag "${{ inputs.version }}")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          git fetch --tags origin
+          if ! git rev-parse "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Missing git tag v${VERSION} on this repository"
+            exit 1
+          fi
+
+      - name: Verify archived objects
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          node apps/desktop/scripts/publish-release-feed.mjs verify --version "${{ steps.ver.outputs.version }}"
+
+      - name: Flip live pointers
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "${{ inputs.mark_stable }}" = 'true' ]; then
+            extra+=(--mark-stable)
+          fi
+          node apps/desktop/scripts/publish-release-feed.mjs publish --version "${{ steps.ver.outputs.version }}" "${extra[@]}"
+
+      - name: Smoke public feed
+        run: |
+          set -euo pipefail
+          node apps/desktop/scripts/smoke-release-feed.mjs --origin https://releases.okvevo.com

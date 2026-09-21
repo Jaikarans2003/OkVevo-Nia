@@ -23,4 +23,5 @@ jobs:
       pack_target: staging
       feed_prefix: staging
       yml_mode: staging
+      allow_unsigned: true
     secrets: inherit

@@ -1,6 +1,7 @@
-# Reusable public-channel pack + sign + artifact upload.
+# Reusable public-channel pack + sign + feed upload.
 # Callers: desktop-staging.yml, desktop-production.yml.
 # Never uses GitHub Environments (Free-plan private-safe). Never pack:internal.
+# Reusable workflows cannot `if: secrets` — signing presence is a job output.
 
 name: Desktop pack (reusable)
 
@@ -17,9 +18,19 @@ on:
         default: ''
         type: string
       yml_mode:
-        description: staging (keep latest*.yml) or production-internal (rename to internal*.yml)
+        description: staging (GitHub artifacts + prefix sync) or versioned (direct R2 archive)
         required: true
         type: string
+      version:
+        description: vX.Y.Z or X.Y.Z from git tag. Empty stamps major.minor.run_number
+        required: false
+        default: ''
+        type: string
+      allow_unsigned:
+        description: If true, missing Apple/Windows certs do not fail the run (feed secrets still required)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -29,11 +40,22 @@ jobs:
     name: Fail closed if required pack secrets are missing
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      mac_signing: ${{ steps.signing.outputs.mac_signing }}
+      win_signing: ${{ steps.signing.outputs.win_signing }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
+      - name: Check yml_mode
+        run: |
+          set -euo pipefail
+          mode="${{ inputs.yml_mode }}"
+          if [ "$mode" != 'staging' ] && [ "$mode" != 'versioned' ]; then
+            echo "::error::yml_mode must be staging or versioned, got $mode"
+            exit 1
+          fi
       - name: Map prefixed repository secrets
         shell: bash
         env:
@@ -55,9 +77,12 @@ jobs:
           STAGING_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_APP_ID }}
           PROD_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_APP_ID }}
         run: node apps/desktop/scripts/ci-map-pack-env.mjs
+      - name: Unsigned pack warning
+        if: ${{ inputs.allow_unsigned }}
+        run: echo "::warning::UNSIGNED PACK ALLOWED"
       - name: Require feed and signing secrets
         env:
-          NIA_ALLOW_UNSIGNED: ${{ inputs.pack_target == 'staging' && '1' || '' }}
+          NIA_ALLOW_UNSIGNED: ${{ inputs.allow_unsigned && '1' || '' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -71,9 +96,31 @@ jobs:
         run: node apps/desktop/scripts/require-release-secrets.mjs
       - name: Require pack-env secrets
         run: node apps/desktop/scripts/write-okvevo-pack-env.mjs --require
+      - name: Detect signing material
+        id: signing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mac=false
+          win=false
+          if [ -n "${CSC_LINK:-}" ] && [ -n "${CSC_KEY_PASSWORD:-}" ] && [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_KEY_ID:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ]; then
+            mac=true
+          fi
+          if [ -n "${WIN_CSC_LINK:-}" ] && [ -n "${WIN_CSC_KEY_PASSWORD:-}" ]; then
+            win=true
+          fi
+          echo "mac_signing=$mac" >> "$GITHUB_OUTPUT"
+          echo "win_signing=$win" >> "$GITHUB_OUTPUT"
 
   macos:
-    name: macOS arm64 signed zip+dmg
+    name: macOS arm64 zip+dmg
     needs: require-secrets
     runs-on: macos-latest
     timeout-minutes: 90
@@ -83,8 +130,8 @@ jobs:
       APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
       APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
       APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      CSC_IDENTITY_AUTO_DISCOVERY: ${{ (inputs.pack_target == 'production' || secrets.CSC_LINK != '') && 'true' || 'false' }}
-      NIA_REQUIRE_NOTARIZE: ${{ (inputs.pack_target == 'production' || secrets.APPLE_API_KEY != '') && '1' || '0' }}
+      CSC_IDENTITY_AUTO_DISCOVERY: ${{ needs.require-secrets.outputs.mac_signing == 'true' && 'true' || 'false' }}
+      NIA_REQUIRE_NOTARIZE: ${{ needs.require-secrets.outputs.mac_signing == 'true' && '1' || '0' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -121,11 +168,17 @@ jobs:
         working-directory: apps/desktop
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          NIA_PACK_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           PKG_VER=$(node -p "require('./package.json').version")
-          VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          if [ -n "${NIA_PACK_VERSION:-}" ]; then
+            VERSION=$(node scripts/ci-desktop-version.mjs --from-tag "$NIA_PACK_VERSION")
+          else
+            VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          fi
           echo "NIA_CI_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Pack version $VERSION"
           # Empty CSC_LINK makes electron-builder treat cwd as a cert file.
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           npm run build
@@ -133,13 +186,26 @@ jobs:
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
       - name: Verify Developer ID signature
-        # Reusable workflows cannot use `secrets` in `if:`. Staging is unsigned;
-        # production already fail-closes in require-secrets if certs are missing.
-        if: ${{ inputs.pack_target == 'production' }}
+        if: ${{ needs.require-secrets.outputs.mac_signing == 'true' }}
         run: |
           app=$(ls -d apps/desktop/release/mac*/Nia.app | head -1)
           codesign --verify --deep --strict "$app"
+      - name: Archive versioned mac objects to R2
+        if: ${{ inputs.yml_mode == 'versioned' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          node apps/desktop/scripts/publish-release-feed.mjs archive \
+            --dir apps/desktop/release \
+            --platform mac \
+            --version "$NIA_CI_VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ inputs.yml_mode == 'staging' }}
         with:
           name: nia-mac
           path: |
@@ -148,14 +214,14 @@ jobs:
             apps/desktop/release/latest-mac.yml
 
   windows:
-    name: Windows x64 signed NSIS
+    name: Windows x64 NSIS
     needs: require-secrets
     runs-on: windows-latest
     timeout-minutes: 90
     env:
       WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
       WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      NIA_REQUIRE_WIN_SIGN: ${{ (inputs.pack_target == 'production' || secrets.WIN_CSC_LINK != '') && '1' || '0' }}
+      NIA_REQUIRE_WIN_SIGN: ${{ needs.require-secrets.outputs.win_signing == 'true' && '1' || '0' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -195,11 +261,17 @@ jobs:
         shell: bash
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          NIA_PACK_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           PKG_VER=$(node -p "require('./package.json').version")
-          VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          if [ -n "${NIA_PACK_VERSION:-}" ]; then
+            VERSION=$(node scripts/ci-desktop-version.mjs --from-tag "$NIA_PACK_VERSION")
+          else
+            VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          fi
           echo "NIA_CI_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Pack version $VERSION"
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           if [ -z "${WIN_CSC_LINK:-}" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD || true; fi
           npm run build
@@ -207,15 +279,29 @@ jobs:
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
       - name: Verify Authenticode
-        # Reusable workflows cannot use `secrets` in `if:`. Staging is unsigned;
-        # production already fail-closes in require-secrets if certs are missing.
-        if: ${{ inputs.pack_target == 'production' }}
+        if: ${{ needs.require-secrets.outputs.win_signing == 'true' }}
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path apps/desktop/release -Filter 'Nia-*.exe' | Select-Object -First 1
           $sig = Get-AuthenticodeSignature $exe.FullName
           if ($sig.Status -ne 'Valid') { throw "Authenticode $($sig.Status) for $($exe.Name)" }
+      - name: Archive versioned win objects to R2
+        if: ${{ inputs.yml_mode == 'versioned' }}
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          node apps/desktop/scripts/publish-release-feed.mjs archive \
+            --dir apps/desktop/release \
+            --platform win \
+            --version "$NIA_CI_VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ inputs.yml_mode == 'staging' }}
         with:
           name: nia-win
           path: |
@@ -224,6 +310,7 @@ jobs:
 
   publish-feed:
     name: Upload signed feed
+    if: ${{ inputs.yml_mode == 'staging' }}
     needs: [macos, windows]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -250,4 +337,13 @@ jobs:
           if [ -n "$prefix" ]; then
             extra+=(--prefix "$prefix")
           fi
-          node apps/desktop/scripts/publish-release-feed.mjs sync --dir feed --mode "${{ inputs.yml_mode }}" "${extra[@]}"
+          node apps/desktop/scripts/publish-release-feed.mjs sync --dir feed --mode staging "${extra[@]}"
+
+  archive-complete:
+    name: Archive complete
+    if: ${{ inputs.yml_mode == 'versioned' }}
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "archive complete"

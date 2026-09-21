@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-09-17 (staging unsigned pack allowed until Apple/Windows certs; signed-release still a hard gate)
+**Last reviewed:** 2026-09-21 (Phase B tag pack + Publish release; staging unsigned pack allowed until Apple/Windows certs; signed-release still a hard gate)
 
 ---
 
@@ -39,10 +39,10 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 |-------|-------|
 | **Gate** | Hard gate |
 | **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
-| **Scope** | `.github/workflows/desktop-staging.yml`, `desktop-production.yml`, `desktop-promote.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
-| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Merge to `production` packs `internal.yml`; Karan runs **Desktop promote to latest**. Do not tag until secrets exist — missing certs fail the job on purpose. `v*` tags no longer ship. |
-| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `NIA_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + production workflows green; after promote, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
-| **Notes** | Code path landed 2026-09-14 (CI/CD plan). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). Staging may pack **unsigned** so portal/feed CI can run before Apple/Windows certs exist; production and promote stay fail-closed. Do not check this box until a signed promote exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
+| **Scope** | `.github/workflows/desktop-staging.yml`, `desktop-production.yml`, `desktop-pack.yml`, `desktop-publish.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/publish-release-feed.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
+| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Tag `vX.Y.Z` packs versioned R2 objects only; Karan runs **Publish release** to point `latest*.yml`. Unset `PROD_ALLOW_UNSIGNED` before the first signed customer ship — missing certs then fail the job on purpose. |
+| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `NIA_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + tag pack green with **root `latest.yml` unchanged**; after Publish release, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
+| **Notes** | Pack/publish path landed 2026-09-21 (Phase B). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). Staging may pack **unsigned**; production uses `vars.PROD_ALLOW_UNSIGNED` until certs exist. Do not check this box until a **signed** Publish release exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
 
 ### [ ] Private repo breaks DMG first-install bootstrap
 
@@ -53,13 +53,35 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | `apps/desktop/electron/bootstrap-runner.ts`, `apps/desktop/electron/packaged-snapshot.ts`, `apps/desktop/scripts/pack-agent-snapshot.mjs`, extraResources `agent-snapshot.tar.gz` + bundled `install.sh`/`install.ps1`. Product/repo policy: `Jaikarans2003/OkVevo-Nia` visibility. |
 | **Why acceptable now** | Packaged apps no longer fetch GitHub. Repo is still public until a GitHub-blocked fresh-install test passes, then privatize. |
 | **Fix** | **Bundled path (implemented 2026-09-14):** ship `install.sh`/`install.ps1` and a filtered agent snapshot in extraResources; extract on stamp change; venv + python-deps still hit PyPI. Auth/token path was not built. |
-| **Hard gate** | Do **not** flip `Jaikarans2003/OkVevo-Nia` private until a fresh `rm -rf ~/.hermes` install with GitHub blocked completes. Public visibility remains until that test. |
+| **Hard gate** | Do **not** flip `Jaikarans2003/OkVevo-Nia` private until a fresh `rm -rf ~/.hermes` install with GitHub blocked completes **and** the two Phase C privatize items below are closed. Public visibility remains until that test. |
 | **Verify** | 1) Packaged resources contain `agent-snapshot.tar.gz` + `install.sh`. 2) Fresh install: `rm -rf ~/.hermes`, launch, bootstrap log must **not** show `from GitHub` / `raw.githubusercontent.com`. 3) Block GitHub at the network: first install still reaches venv + Nia SOUL. Then privatize. |
-| **Notes** | **Code landed 2026-09-14.** Historical 2026-08-31 404 on raw fetch is why this gate existed. Existing `~/.hermes` git clones are replaced on stamp mismatch. **Ops remaining:** GitHub-blocked fresh-install test, then privatize. |
+| **Notes** | **Code landed 2026-09-14.** Historical 2026-08-31 404 on raw fetch is why this gate existed. Existing `~/.hermes` git clones are replaced on stamp mismatch. **Ops remaining:** GitHub-blocked fresh-install test, then privatize. Phase C: staging still uses GitHub `upload-artifact` (500 MB private Free cap) and `ci.yaml`+pack on every staging push (2,000 min/month). |
 
 ---
 
 ## Required before live
+
+### [ ] Phase C: staging pack must upload installers directly to R2
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (blocks privatize on GitHub Free) |
+| **Risk if skipped** | Private Free artifact storage is **500 MB** shared with Packages. Staging still `upload-artifact`s DMG+zip+NSIS; after privatize the job fails or evicts other artifacts. |
+| **Scope** | `.github/workflows/desktop-pack.yml` staging `yml_mode`, `publish-release-feed.mjs` |
+| **Fix** | Staging pack uploads installers **directly to R2** (same as production `versioned` archive under prefix `staging/`). No GitHub `upload-artifact` for installers. |
+| **Verify** | Staging pack green with no `nia-mac`/`nia-win` artifacts; `https://releases.okvevo.com/staging/latest-mac.yml` updates. |
+| **Notes** | Logged 2026-09-21 with Phase B. Do **not** privatize until this is closed. Production tag pack already skips installer artifacts. |
+
+### [ ] Phase C: staging must not run full pack + ci.yaml on every push
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (blocks privatize on GitHub Free) |
+| **Risk if skipped** | Private Free included minutes are **2,000 / month**. One busy staging day (`ci.yaml` + macos/windows pack) can exhaust the quota; further Actions stop with no payment method. |
+| **Scope** | `.github/workflows/desktop-staging.yml`, `.github/workflows/ci.yaml` |
+| **Fix** | Staging pack `workflow_dispatch` and/or `paths` filters so docs-only commits skip pack. Do not run full `ci.yaml` on every `staging` push once private; keep it on PRs. Optional $0 Actions budget. |
+| **Verify** | A docs-only push to `staging` does not start macos/windows pack; `ci.yaml` still runs on PRs. Settings → Billing after the first private week. |
+| **Notes** | Logged 2026-09-21 with Phase B (report-only in `docs/CI-CD.md`). Multipliers 2×/10× are **not** in current GitHub billing docs — confirm in the Billing UI. |
 
 ### [x] www.okvevo.com download page (Mac / Windows buttons)
 
@@ -68,9 +90,9 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Gate** | Required before live |
 | **Risk if skipped** | About → Get the installer opens the homepage; testers can still download if the homepage has the files, but there is no dedicated Mac/Windows download surface. |
 | **Scope** | OkVevo-Web `src/app/nia/page.tsx`, `src/lib/nia-downloads.ts` |
-| **Fix** | `/nia` Mac/Windows buttons use stable `https://releases.okvevo.com/Nia-mac-arm64.dmg` and `Nia-win-x64.exe` (staging yaml prefixes `/staging`). Promote job overwrites those objects. |
+| **Fix** | `/nia` Mac/Windows buttons use stable `https://releases.okvevo.com/Nia-mac-arm64.dmg` and `Nia-win-x64.exe` (staging yaml prefixes `/staging`). Publish release overwrites those objects. |
 | **Verify** | `node --experimental-strip-types src/lib/nia-downloads.selfcheck.ts` (OkVevo-Web). Opening `/nia` shows Mac/Windows buttons without placeholder copy. |
-| **Notes** | Closed 2026-09-14 with CI/CD plan. Artifacts 404 until the first successful promote. |
+| **Notes** | Closed 2026-09-14 with CI/CD plan. Artifacts 404 until the first successful Publish release. |
 
 ### [x] Pin packaged agent/runtime to the same release as the shell
 
@@ -464,7 +486,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
-| www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after `desktop-promote.yml`. |
+| www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after **Publish release**. |
 | Staging pack publishes stable download names under `staging/` | 2026-09-18 | `syncFeed` staging mode copies `Nia-{ver}-mac-arm64.dmg` / `Nia-{ver}-win-x64.exe` → `Nia-mac-arm64.dmg` / `Nia-win-x64.exe` under the staging prefix (same pattern as promote at root). Vitest `publish-release-feed.test.mjs`. |
 | Pin packaged agent/runtime to the same release as the shell | 2026-09-14 | extraResources snapshot + stamp re-extract. Vitest `packaged-snapshot` / `pack-agent-snapshot` / bundled installer. |
 | CI must inject OKVEVO_WEB_ORIGIN before the first signed release | 2026-09-14 | `okvevo-pack-env.json` + `STAGING_*`/`PROD_*` secrets. Vitest `write-okvevo-pack-env` / `okvevo-env`. **2026-09-18: fill-unset was wrong; non-empty pack keys overwrite.** |
