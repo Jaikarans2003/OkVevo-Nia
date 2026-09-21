@@ -61,7 +61,57 @@ export const $backendUpdateChecking = atom<boolean>(false)
 export type UpdateTarget = 'client' | 'backend'
 export const $updateOverlayTarget = atom<UpdateTarget>('client')
 
-export const setUpdateOverlayOpen = (open: boolean) => $updateOverlayOpen.set(open)
+export const BINARY_UPDATE_HANDOFF_BACKSTOP_MS = 90_000
+
+let handoffBackstopTimer: ReturnType<typeof setTimeout> | null = null
+
+function isBinaryUpdateCode(code: string | null | undefined): boolean {
+  return (
+    code === 'UPD-SIGNATURE' ||
+    code === 'UPD-DOWNLOAD' ||
+    code === 'UPD-INSTALL-TIMEOUT' ||
+    code === 'UPD-UNKNOWN'
+  )
+}
+
+function clearHandoffBackstop(): void {
+  if (handoffBackstopTimer !== null) {
+    clearTimeout(handoffBackstopTimer)
+    handoffBackstopTimer = null
+  }
+}
+
+function armHandoffBackstop(): void {
+  clearHandoffBackstop()
+  handoffBackstopTimer = setTimeout(() => {
+    handoffBackstopTimer = null
+    const current = $updateApply.get()
+
+    if (!$updateOverlayOpen.get()) {
+      return
+    }
+
+    if (current.stage !== 'restart' && !current.applying) {
+      return
+    }
+
+    $updateApply.set({
+      ...current,
+      applying: false,
+      stage: 'error',
+      error: 'UPD-INSTALL-TIMEOUT',
+      message: ''
+    })
+  }, BINARY_UPDATE_HANDOFF_BACKSTOP_MS)
+}
+
+export const setUpdateOverlayOpen = (open: boolean) => {
+  $updateOverlayOpen.set(open)
+
+  if (!open) {
+    clearHandoffBackstop()
+  }
+}
 
 export const openUpdateOverlayFor = (target: UpdateTarget) => {
   $updateOverlayTarget.set(target)
@@ -70,6 +120,7 @@ export const openUpdateOverlayFor = (target: UpdateTarget) => {
 }
 
 export const resetUpdateApplyState = () => {
+  clearHandoffBackstop()
   $updateApply.set(IDLE)
   $backendUpdateApply.set(IDLE)
 }
@@ -435,6 +486,7 @@ export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promis
   }
 
   dismissNotification(UPDATE_TOAST_ID)
+  clearHandoffBackstop()
   $updateApply.set({ ...IDLE, applying: true, stage: 'prepare', message: 'Starting update…' })
 
   try {
@@ -511,15 +563,19 @@ export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promis
           title: translateNow('updates.allSetTitle')
         })
       } else {
+        const error = result?.error ?? 'apply-failed'
+
         $updateApply.set({
           ...$updateApply.get(),
           applying: false,
           stage: 'error',
-          error: result?.error ?? 'apply-failed',
-          message: result?.message ?? translateNow('updates.errorBody'),
+          error,
+          message: isBinaryUpdateCode(error) ? '' : (result?.message ?? translateNow('updates.errorBody')),
           blockers: result?.blockers ?? null
         })
       }
+    } else {
+      armHandoffBackstop()
     }
 
     return result
@@ -936,7 +992,7 @@ function ingestProgress(payload: DesktopUpdateProgress): void {
   $updateApply.set({
     applying: !terminal,
     stage: payload.stage,
-    message: payload.message,
+    message: isBinaryUpdateCode(payload.error) ? '' : payload.message,
     // Streamed log lines carry percent: null; keep the last milestone percent
     // (10/60/…) instead of resetting the bar to indeterminate on every line.
     percent: payload.percent ?? current.percent,

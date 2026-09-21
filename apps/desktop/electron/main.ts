@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url'
 
 import {
   app,
+  autoUpdater as electronNativeAutoUpdater,
   BrowserWindow,
   clipboard,
   dialog,
@@ -3687,7 +3688,20 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
   try {
     if (IS_PACKAGED) {
       return await applyBinaryUpdate({
-        emitProgress: emitUpdateProgress
+        emitProgress: emitUpdateProgress,
+        logRaw: rememberLog,
+        onQuitForHandoff: () => {
+          isQuittingForHandoff = true
+        },
+        quitSignals: {
+          on(event, listener) {
+            if (event === 'before-quit') {
+              app.once('before-quit', listener)
+            } else {
+              electronNativeAutoUpdater.once('before-quit-for-update', listener)
+            }
+          }
+        }
       })
     }
 
@@ -17752,6 +17766,7 @@ app.on('before-quit', event => {
   // install-marker preflight in both POSIX and Windows lifecycle
   // implementations.
   if (
+    !isQuittingForHandoff &&
     !managedUpdateQuitWaitDone &&
     (managedUpdateQuitWait || managedConnectionUpdates.size > 0 || managedConnectionRecoveries.size > 0)
   ) {
@@ -17776,7 +17791,7 @@ app.on('before-quit', event => {
   // already quitting (#91668).
   sshBootstrapCoordinator.shutdown()
 
-  if (!backendQuitTeardownDone) {
+  if (!isQuittingForHandoff && !backendQuitTeardownDone) {
     event.preventDefault()
     void backendShutdown.run().finally(() => {
       backendQuitTeardownDone = true
@@ -17784,7 +17799,11 @@ app.on('before-quit', event => {
     })
   }
 
-  if ((sshConnections.size > 0 || sshBootstrapCoordinator.promises().length > 0) && !sshQuitTeardownDone) {
+  if (
+    !isQuittingForHandoff &&
+    (sshConnections.size > 0 || sshBootstrapCoordinator.promises().length > 0) &&
+    !sshQuitTeardownDone
+  ) {
     event.preventDefault()
     const scopes = [...sshConnections.keys()]
 

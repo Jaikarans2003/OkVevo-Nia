@@ -2147,12 +2147,18 @@ export const zhHant = defineLocale({
     copy: '複製',
     copied: '已複製',
     done: '完成',
-    applyingBody:
-      'Nia 更新程式會在自己的視窗中接管，並在完成後自動重新開啟 Nia。更新期間請勿自行重新開啟 Nia。',
+    applyingBody: '此視窗會在更新期間關閉，隨後 Nia 會自動重新開啟。',
     applyingBodyBackend: '遠端後端正在套用更新並將重新啟動。恢復後 Nia 會自動重新連線。',
     applyingClose: '此視窗會在更新期間關閉，隨後 Nia 會自動重新開啟。',
     errorTitle: '更新未完成',
     errorBody: '沒有資料遺失。您可以現在重試。',
+    downloadLatest: '下載最新版',
+    binaryErrors: {
+      'UPD-SIGNATURE': 'Nia 無法完成更新。請從 okvevo.com 下載最新版本。(UPD-SIGNATURE)',
+      'UPD-DOWNLOAD': 'Nia 無法下載更新。請檢查連線後再試一次。(UPD-DOWNLOAD)',
+      'UPD-INSTALL-TIMEOUT': 'Nia 無法完成更新。請從 okvevo.com 下載最新版本。(UPD-INSTALL-TIMEOUT)',
+      'UPD-UNKNOWN': 'Nia 無法完成更新。請從 okvevo.com 下載最新版本。(UPD-UNKNOWN)'
+    },
     blockerTitle: '關閉本機預覽以更新 Nia？',
     blockerBody: 'Nia 需要在更新前停止這些本機預覽。這不會修改或刪除您的檔案。',
     foreignBlockerTitle: '關閉其他處理程序以更新 Nia',

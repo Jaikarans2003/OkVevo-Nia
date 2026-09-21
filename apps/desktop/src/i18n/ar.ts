@@ -1988,13 +1988,19 @@ export const ar = defineLocale({
     copy: 'نسخ',
     copied: 'تم النسخ',
     done: 'تم',
-    applyingBody:
-      'يتولّى مُحدِّث Nia المهمة في نافذته الخاصة ويعيد فتح Nia تلقائيا عند الانتهاء. الرجاء عدم إعادة فتح Nia بنفسك أثناء التحديث.',
+    applyingBody: 'ستُغلق هذه النافذة أثناء تشغيل التحديث، ثم يعيد Nia فتح نفسه تلقائيا.',
     applyingBodyBackend:
       'تطبّق الواجهة الخلفية البعيدة التحديث وستعيد التشغيل. يعيد Nia الاتصال تلقائيا عند عودتها.',
     applyingClose: 'ستُغلق هذه النافذة أثناء تشغيل التحديث، ثم يعيد Nia فتح نفسه تلقائيا.',
     errorTitle: 'لم يكتمل التحديث',
     errorBody: 'لا داعي للقلق — لم يُفقد شيء. يمكنك إعادة المحاولة الآن.',
+    downloadLatest: 'تنزيل الأحدث',
+    binaryErrors: {
+      'UPD-SIGNATURE': 'تعذر على Nia إكمال التحديث. يرجى تنزيل أحدث إصدار من okvevo.com. (UPD-SIGNATURE)',
+      'UPD-DOWNLOAD': 'تعذر على Nia تنزيل التحديث. تحقق من اتصالك وحاول مرة أخرى. (UPD-DOWNLOAD)',
+      'UPD-INSTALL-TIMEOUT': 'تعذر على Nia إكمال التحديث. يرجى تنزيل أحدث إصدار من okvevo.com. (UPD-INSTALL-TIMEOUT)',
+      'UPD-UNKNOWN': 'تعذر على Nia إكمال التحديث. يرجى تنزيل أحدث إصدار من okvevo.com. (UPD-UNKNOWN)'
+    },
     blockerTitle: 'إغلاق المعاينات المحلية لتحديث Nia؟',
     blockerBody: 'يحتاج Nia إلى إيقاف هذه المعاينات المحلية قبل التحديث. لن يؤدي ذلك إلى تعديل ملفاتك أو حذفها.',
     foreignBlockerTitle: 'أغلق العمليات الأخرى لتحديث Nia',

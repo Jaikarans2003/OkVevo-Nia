@@ -2217,12 +2217,21 @@ export const ja = defineLocale({
     copy: 'コピー',
     copied: 'コピーしました',
     done: '完了',
-    applyingBody:
-      'Nia アップデーターが独自のウィンドウで引き継ぎ、完了後に自動的に Nia を再度開きます。更新中はご自分で Nia を開き直さないでください。',
+    applyingBody: 'このウィンドウは更新中に閉じ、その後 Nia が自動的に再度開きます。',
     applyingBodyBackend: 'リモートバックエンドが更新を適用して再起動します。復帰すると Nia が自動的に再接続します。',
     applyingClose: 'このウィンドウは更新中に閉じ、その後 Nia が自動的に再度開きます。',
     errorTitle: '更新が完了しませんでした',
     errorBody: 'ご安心ください。何も失われていません。今すぐ再試行できます。',
+    downloadLatest: '最新版をダウンロード',
+    binaryErrors: {
+      'UPD-SIGNATURE':
+        'Nia は更新を完了できませんでした。okvevo.com から最新版をダウンロードしてください。(UPD-SIGNATURE)',
+      'UPD-DOWNLOAD': 'Nia は更新をダウンロードできませんでした。接続を確認して再試行してください。(UPD-DOWNLOAD)',
+      'UPD-INSTALL-TIMEOUT':
+        'Nia は更新を完了できませんでした。okvevo.com から最新版をダウンロードしてください。(UPD-INSTALL-TIMEOUT)',
+      'UPD-UNKNOWN':
+        'Nia は更新を完了できませんでした。okvevo.com から最新版をダウンロードしてください。(UPD-UNKNOWN)'
+    },
     blockerTitle: 'Nia を更新するためにローカルプレビューを閉じますか？',
     blockerBody:
       '更新する前に、これらのローカルプレビューを停止する必要があります。ファイルが変更または削除されることはありません。',

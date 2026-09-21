@@ -2761,12 +2761,18 @@ export const zh: Translations = {
     copy: '复制',
     copied: '已复制',
     done: '完成',
-    applyingBody:
-      'Nia 更新器会在自己的窗口中接管，并在完成后自动重新打开 Nia。更新期间请不要自行重新打开 Nia。',
+    applyingBody: '此窗口会在更新期间关闭，随后 Nia 会自动重新打开。',
     applyingBodyBackend: '远程后端正在应用更新并将重启。恢复后 Nia 会自动重新连接。',
     applyingClose: '此窗口会在更新期间关闭，随后 Nia 会自动重新打开。',
     errorTitle: '更新未完成',
     errorBody: '没有数据丢失。你可以现在重试。',
+    downloadLatest: '下载最新版',
+    binaryErrors: {
+      'UPD-SIGNATURE': 'Nia 未能完成更新。请从 okvevo.com 下载最新版本。(UPD-SIGNATURE)',
+      'UPD-DOWNLOAD': 'Nia 未能下载更新。请检查网络后重试。(UPD-DOWNLOAD)',
+      'UPD-INSTALL-TIMEOUT': 'Nia 未能完成更新。请从 okvevo.com 下载最新版本。(UPD-INSTALL-TIMEOUT)',
+      'UPD-UNKNOWN': 'Nia 未能完成更新。请从 okvevo.com 下载最新版本。(UPD-UNKNOWN)'
+    },
     blockerTitle: '关闭本地预览以更新 Nia？',
     blockerBody: 'Nia 需要在更新前停止这些本地预览。这不会修改或删除你的文件。',
     foreignBlockerTitle: '关闭其他进程以更新 Nia',

@@ -2203,6 +2203,13 @@ export interface Translations {
     applyingClose: string
     errorTitle: string
     errorBody: string
+    downloadLatest: string
+    binaryErrors: {
+      'UPD-SIGNATURE': string
+      'UPD-DOWNLOAD': string
+      'UPD-INSTALL-TIMEOUT': string
+      'UPD-UNKNOWN': string
+    }
     blockerTitle: string
     blockerBody: string
     foreignBlockerTitle: string

@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
 
+import { INSTALLER_URL } from '@/app/settings/about-settings'
 import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { writeClipboardText } from '@/components/ui/copy-button'
@@ -128,7 +129,12 @@ export function UpdatesOverlay() {
         ) : null}
 
         {phase === 'error' && !updateBlockers ? (
-          <ErrorView message={apply.message} onDismiss={() => handleClose(false)} onRetry={handleInstall} />
+          <ErrorView
+            error={apply.error}
+            message={apply.message}
+            onDismiss={() => handleClose(false)}
+            onRetry={handleInstall}
+          />
         ) : null}
 
         {phase === 'idle' && (
@@ -530,23 +536,58 @@ export function BlockerView({
   )
 }
 
-function ErrorView({ message, onDismiss, onRetry }: { message: string; onDismiss: () => void; onRetry: () => void }) {
+function isBinaryUpdateCode(
+  code: string | null | undefined
+): code is 'UPD-SIGNATURE' | 'UPD-DOWNLOAD' | 'UPD-INSTALL-TIMEOUT' | 'UPD-UNKNOWN' {
+  return (
+    code === 'UPD-SIGNATURE' ||
+    code === 'UPD-DOWNLOAD' ||
+    code === 'UPD-INSTALL-TIMEOUT' ||
+    code === 'UPD-UNKNOWN'
+  )
+}
+
+function ErrorView({
+  error,
+  message,
+  onDismiss,
+  onRetry
+}: {
+  error: string | null
+  message: string
+  onDismiss: () => void
+  onRetry: () => void
+}) {
   const { t } = useI18n()
   const u = t.updates
+  const body = isBinaryUpdateCode(error)
+    ? (u.binaryErrors[error] ?? u.binaryErrors['UPD-UNKNOWN'])
+    : message || u.errorBody
+  const retryable = error === 'UPD-DOWNLOAD' || !isBinaryUpdateCode(error)
 
   return (
     <ErrorState
       className="px-6 pb-6 pt-7 pr-8"
       description={
         <DialogDescription className="max-w-prose text-center text-sm leading-5 text-muted-foreground">
-          {message || u.errorBody}
+          {body}
         </DialogDescription>
       }
       title={<DialogTitle className="text-center text-xl font-semibold tracking-tight">{u.errorTitle}</DialogTitle>}
     >
-      <Button className="font-semibold" onClick={onRetry} size="lg">
-        {u.tryAgain}
-      </Button>
+      {retryable ? (
+        <Button className="font-semibold" onClick={onRetry} size="lg">
+          {u.tryAgain}
+        </Button>
+      ) : (
+        <Button
+          className="font-semibold"
+          onClick={() => void window.hermesDesktop?.openExternal?.(INSTALLER_URL)}
+          size="lg"
+        >
+          {u.downloadLatest}
+        </Button>
+      )}
       <Button onClick={onDismiss} variant="text">
         {u.notNow}
       </Button>
