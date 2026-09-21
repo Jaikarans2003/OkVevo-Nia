@@ -10,10 +10,10 @@ import { pathToFileURL } from 'node:url'
 
 import {
   app,
-  autoUpdater as electronNativeAutoUpdater,
   BrowserWindow,
   clipboard,
   dialog,
+  autoUpdater as electronNativeAutoUpdater,
   net as electronNet,
   webContents as electronWebContents,
   globalShortcut,

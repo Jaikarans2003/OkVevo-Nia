@@ -222,7 +222,10 @@ describe('ErrorView', () => {
     $updateStatus.set(null)
     resetUpdateApplyState()
     const g = globalThis as unknown as { window?: { hermesDesktop?: unknown } }
-    if (g.window) delete g.window.hermesDesktop
+
+    if (g.window) {
+      delete g.window.hermesDesktop
+    }
   })
 
   function seedError(error: string, message: string) {
