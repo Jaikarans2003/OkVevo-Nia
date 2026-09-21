@@ -221,7 +221,8 @@ describe('ErrorView', () => {
     $updateOverlayTarget.set('client')
     $updateStatus.set(null)
     resetUpdateApplyState()
-    delete (globalThis as unknown as { window?: { hermesDesktop?: unknown } }).window.hermesDesktop
+    const g = globalThis as unknown as { window?: { hermesDesktop?: unknown } }
+    if (g.window) delete g.window.hermesDesktop
   })
 
   function seedError(error: string, message: string) {
