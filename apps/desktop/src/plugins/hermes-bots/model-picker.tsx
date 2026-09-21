@@ -8,9 +8,11 @@
 
 import {
   brandModelOptionsResponse,
+  brandProviderSlug,
   Button,
   GlyphSpinner,
   Input,
+  isByokChromeVisible,
   Select,
   SelectContent,
   SelectItem,
@@ -19,9 +21,6 @@ import {
   useQuery
 } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
-
-import { isByokChromeVisible } from '@/lib/build-channel'
-import { brandProviderSlug } from '@/lib/provider-branding'
 
 import { labeled } from './dialog-parts'
 import { botRouteKey, requestForBot, resolveBotConnectionRoute } from './routing'

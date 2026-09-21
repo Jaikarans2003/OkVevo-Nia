@@ -167,6 +167,7 @@ class TestResolveVisionProviderClientModelNormalization:
     def test_vision_auto_strips_matching_main_provider_prefix(self, tmp_path):
         _write_config(tmp_path, {
             "model": {"default": "zai/glm-5.1", "provider": "zai"},
+            "auxiliary": {"vision": {"provider": "auto", "model": ""}},
         })
         with (
             patch("agent.auxiliary_client._read_nous_auth", return_value=None),

@@ -1,26 +1,64 @@
-# Public pack on push to production. Uploads versioned Nia-* + internal.yml only.
-# Does not overwrite latest.yml — that is desktop-promote.yml (workflow_dispatch).
-# Reaching this branch is gated by branch protection (reviewed PR). No Environments.
+# Tag pack only. Uploads versioned Nia-* + blockmaps + versions/{ver}/latest*.yml.
+# Does not move root latest*.yml, stable names, or releases.json — that is
+# desktop-publish.yml (workflow_dispatch). No GitHub Environments.
 
-name: Desktop production (internal channel)
+name: Desktop production
 
 on:
   push:
-    branches: [production]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: desktop-production-${{ github.ref }}
+  group: desktop-production-pack-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  require-tag:
+    name: Require vX.Y.Z tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Refuse Nous and non-tag refs
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REPOSITORY}" = "NousResearch/hermes-agent" ]; then
+            echo "::error::Refusing to pack NousResearch/hermes-agent"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+            echo "::error::desktop-production.yml only runs on tags vX.Y.Z. Current: ${GITHUB_REF}"
+            exit 1
+          fi
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+      - id: ver
+        name: Parse version from tag
+        run: |
+          set -euo pipefail
+          VERSION=$(node apps/desktop/scripts/ci-desktop-version.mjs --from-tag "${GITHUB_REF_NAME}")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Pack version $VERSION"
+
+  tests:
+    needs: require-tag
+    uses: ./.github/workflows/js-tests.yml
+
   pack:
+    needs: [require-tag, tests]
     uses: ./.github/workflows/desktop-pack.yml
     with:
       pack_target: production
       feed_prefix: ''
-      yml_mode: production-internal
+      yml_mode: versioned
+      version: ${{ needs.require-tag.outputs.version }}
+      allow_unsigned: ${{ vars.PROD_ALLOW_UNSIGNED == '1' || vars.PROD_ALLOW_UNSIGNED == 'true' || vars.PROD_ALLOW_UNSIGNED == 'TRUE' }}
     secrets: inherit

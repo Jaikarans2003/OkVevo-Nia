@@ -29,14 +29,13 @@ import {
   queryClient,
   relativeTime,
   RowButton,
+  sanitizeUserFacingBrand,
   Tip,
   useI18n,
   useValue
 } from '@hermes/plugin-sdk'
 import type { ClipboardEvent, DragEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-
-import { sanitizeUserFacingBrand } from '@/lib/display-path'
 
 import { avatarColor, botAppearance, BotFace } from './avatar'
 import { isBackfilledFacePng } from './avatar-image'

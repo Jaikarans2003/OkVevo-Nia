@@ -36,7 +36,7 @@ vi.mock('./i18n', () => ({
 }))
 
 vi.mock('./routing', async importOriginal => {
-  const actual = await importOriginal<typeof import('./routing')>()
+  const actual = (await importOriginal()) as Record<string, unknown>
 
   return {
     ...actual,

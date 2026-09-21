@@ -265,8 +265,11 @@ def test_xai_text_only_via_tool_surface(matrix_env):
 # tool-level `model` arg overrides config
 # ─────────────────────────────────────────────────────────────────────────
 
-def test_tool_model_arg_overrides_config(matrix_env):
+def test_tool_model_arg_overrides_config(matrix_env, monkeypatch):
     """When the tool call passes model=, it wins over video_gen.model in config."""
+    monkeypatch.setattr(
+        "tools.media_catalog.find_shipped", lambda kind, mid: {"id": mid}
+    )
     home, fal_calls, _ = matrix_env
 
     # Config picks pixverse-v6, but tool call says veo3.1
@@ -282,8 +285,11 @@ def test_tool_model_arg_overrides_config(matrix_env):
     assert fal_calls[0]["endpoint"] == "fal-ai/veo3.1"
 
 
-def test_tool_model_arg_with_image_url_routes_to_override_image_endpoint(matrix_env):
+def test_tool_model_arg_with_image_url_routes_to_override_image_endpoint(matrix_env, monkeypatch):
     """model= override on text+image goes to the override family's image endpoint."""
+    monkeypatch.setattr(
+        "tools.media_catalog.find_shipped", lambda kind, mid: {"id": mid}
+    )
     home, fal_calls, _ = matrix_env
 
     result = _invoke_tool(

@@ -8,8 +8,10 @@ hooks:
   - transform_tool_result
   - transform_terminal_output
   - transform_llm_output
+  - post_llm_call
 provides_hooks:
   - pre_tool_call
   - transform_tool_result
   - transform_terminal_output
   - transform_llm_output
+  - post_llm_call

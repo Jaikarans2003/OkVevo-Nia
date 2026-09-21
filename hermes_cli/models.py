@@ -6608,6 +6608,30 @@ def validate_requested_model(
             "message": "Model names cannot contain spaces.",
         }
 
+    # OkVevo Auto virtual ids — not on OpenRouter /v1/models; accept before
+    # the live-catalog reject so composer config.set persists. OpenRouter-only.
+    try:
+        from agent.okvevo_auto_router import is_okvevo_auto_alias
+
+        if is_okvevo_auto_alias(requested):
+            if normalized is None or normalized == "openrouter":
+                return {
+                    "accepted": True,
+                    "persist": True,
+                    "recognized": True,
+                    "message": None,
+                }
+            return {
+                "accepted": False,
+                "persist": False,
+                "recognized": False,
+                "message": (
+                    f"OkVevo Auto model `{requested}` requires provider `openrouter`."
+                ),
+            }
+    except Exception:
+        pass
+
     if normalized == "lmstudio":
         from hermes_cli.auth import AuthError
         # Use probe_lmstudio_models so we can distinguish None (unreachable

@@ -10,6 +10,7 @@ import {
   ColorSwatches,
   GlyphSpinner,
   host,
+  isByokChromeVisible,
   PROFILE_SWATCHES,
   RowButton,
   SegmentedControl,
@@ -17,8 +18,6 @@ import {
   useValue
 } from '@hermes/plugin-sdk'
 import { useState } from 'react'
-
-import { isByokChromeVisible } from '@/lib/build-channel'
 
 import {
   AVATAR_PICKER_SHAPES,

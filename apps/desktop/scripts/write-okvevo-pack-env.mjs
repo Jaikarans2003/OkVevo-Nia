@@ -2,7 +2,8 @@
  * Pack-time OkVevo env for packaged Nia (Dock / Start Menu has no shell).
  *
  * Writes apps/desktop/build/okvevo-pack-env.json. Electron loads it after
- * dotenv and only fills unset keys (runtime ~/.hermes/.env still wins).
+ * dotenv and a non-empty pack value always overwrites process.env (home
+ * ~/.hermes/.env / shell / whitespace). Empty pack values skip (fail closed).
  *
  * `--require` (CI): fail closed if origin, feed URL, or Vite Firebase keys
  * are missing — same posture as require-release-secrets.mjs.

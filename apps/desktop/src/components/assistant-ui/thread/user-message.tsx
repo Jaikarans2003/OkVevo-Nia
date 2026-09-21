@@ -376,6 +376,13 @@ export const UserMessage: FC<{
 
   useResizeObserver(measureClamp, clampInnerRef)
 
+  const toggleExpanded = useCallback((event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    triggerHaptic('selection')
+    setExpanded(value => !value)
+  }, [])
+
   // Injected background-process notification, not a human prompt — render the
   // compact system-style notice (after all hooks above have run).
   if (PROCESS_NOTIFICATION_RE.test(messageText.trim())) {
@@ -434,13 +441,6 @@ export const UserMessage: FC<{
       </div>
     </div>
   )
-
-  const toggleExpanded = useCallback((event: MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    triggerHaptic('selection')
-    setExpanded(value => !value)
-  }, [])
 
   const seeMoreControl = bodyClamped ? (
     <button

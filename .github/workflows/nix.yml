@@ -31,8 +31,11 @@ jobs:
   # to hermes_cli/ alone can fail `nix flake check` without touching one file
   # under nix/. The `nix` lane therefore follows python_prod as well as the
   # flake inputs. On push the classifier fails open and every lane is true.
+  #
+  # OkVevo-Nia: Nix flake CI is Nous-only (larger runners + flake packaging).
   detect:
     name: Detect affected areas
+    if: github.repository == 'NousResearch/hermes-agent'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -49,7 +52,7 @@ jobs:
   flake-check:
     name: nix flake check
     needs: [detect]
-    if: needs.detect.outputs.nix == 'true'
+    if: github.repository == 'NousResearch/hermes-agent' && needs.detect.outputs.nix == 'true'
     # The build compiles the package and its whole dependency closure, so this
     # takes minutes and not seconds when the cache misses. `nix flake check`
     # builds 21 checks, and --max-jobs defaults to the core count. It uses the

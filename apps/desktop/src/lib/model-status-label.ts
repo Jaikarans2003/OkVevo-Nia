@@ -41,6 +41,12 @@ export function modelBaseId(model: string): string {
   return slash >= 0 ? trimmed.slice(slash + 1) : trimmed
 }
 
+/** OkVevo Auto virtual ids — pill must not read as "Auto Intelligence". */
+const OKVEVO_AUTO_DISPLAY: Readonly<Record<string, string>> = {
+  'okvevo/auto-cost': 'Cost Effective',
+  'okvevo/auto-intelligence': 'Intelligence'
+}
+
 // Trailing model-id variants that should render as a grayed tag beside the
 // name (e.g. "Opus 4.8" + "Fast") rather than collapsing two distinct ids to
 // the same display name.
@@ -72,6 +78,11 @@ function prettifyBase(base: string): string {
 /** Split a model id into a clean display name plus an optional grayed variant
  *  tag, so distinct ids (e.g. `…-4.8` vs `…-4.8-fast`) don't collapse. */
 export function modelDisplayParts(model: string): { name: string; tag: string } {
+  const autoName = OKVEVO_AUTO_DISPLAY[model.trim()]
+  if (autoName) {
+    return { name: autoName, tag: '' }
+  }
+
   let base = modelBaseId(model)
   let tag = ''
 

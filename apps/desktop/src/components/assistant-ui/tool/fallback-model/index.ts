@@ -1,10 +1,10 @@
 import { type ToolTitleKey, translateNow } from '@/i18n'
 import { normalizeExternalUrl } from '@/lib/external-link'
+import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { capitalize, firstStringField, normalize } from '@/lib/text'
 import { isCardTool, isFileEditTool, isSilentTool } from '@/lib/tool-render-class'
 import { extractToolErrorMessage, formatToolResultSummary } from '@/lib/tool-result-summary'
-import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { friendlyErrorText } from '@/lib/user-facing-error'
 import { $toolViewMode } from '@/store/tool-view'
 

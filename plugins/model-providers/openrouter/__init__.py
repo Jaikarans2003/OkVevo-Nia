@@ -145,7 +145,12 @@ class OpenRouterProfile(ProviderProfile):
         # model has no documented effect and would be confusing in logs.
         # See: https://openrouter.ai/docs/guides/routing/routers/pareto-router
         model = (context.get("model") or "")
-        if model == "openrouter/pareto-code":
+        from agent.okvevo_auto_router import auto_plugin
+
+        auto = auto_plugin(model)
+        if auto:
+            body["plugins"] = [auto]
+        elif model == "openrouter/pareto-code":
             score = context.get("openrouter_min_coding_score")
             if score is not None and score != "":
                 try:

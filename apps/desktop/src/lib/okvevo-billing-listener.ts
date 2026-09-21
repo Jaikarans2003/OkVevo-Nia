@@ -20,19 +20,19 @@ export type OkvevoBillingData = OkvevoBillingView
 
 /** 0–100, two-decimal floor. Never round up — 19931/20000 is 99.65, not 100. */
 export function flooredPct(remaining: number, total: number): number {
-  if (!Number.isInteger(total) || total <= 0) return 0
-  if (!Number.isInteger(remaining) || remaining < 0) return 0
+  if (!Number.isInteger(total) || total <= 0) {return 0}
+  if (!Number.isInteger(remaining) || remaining < 0) {return 0}
   return Math.min(100, Math.floor((remaining / total) * 10000) / 100)
 }
 
 /** Trim trailing zeros: 87.5%, 99.86%, 50%, 100%. */
 export function formatPctLabel(pct: number): string {
-  if (!Number.isFinite(pct)) return '0%'
+  if (!Number.isFinite(pct)) {return '0%'}
   const hundredths = Math.round(Math.min(100, Math.max(0, pct)) * 100)
   const whole = Math.floor(hundredths / 100)
   const frac = hundredths % 100
-  if (frac === 0) return `${whole}%`
-  if (frac % 10 === 0) return `${whole}.${frac / 10}%`
+  if (frac === 0) {return `${whole}%`}
+  if (frac % 10 === 0) {return `${whole}.${frac / 10}%`}
   return `${whole}.${String(frac).padStart(2, '0')}%`
 }
 
@@ -95,8 +95,8 @@ function readInt(n: unknown): number {
 }
 
 function toDate(v: unknown): Date | null {
-  if (!v) return null
-  if (v instanceof Date) return v
+  if (!v) {return null}
+  if (v instanceof Date) {return v}
   if (
     typeof v === 'object' &&
     v !== null &&

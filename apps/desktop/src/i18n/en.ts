@@ -2583,13 +2583,21 @@ export const en: Translations = {
     copy: 'Copy',
     copied: 'Copied',
     done: 'Done',
-    applyingBody:
-      'The Nia updater takes over in its own window and reopens Nia automatically when it’s done. Please don’t reopen Nia yourself while it’s updating.',
+    applyingBody: 'This window will close while the update runs, then Nia reopens on its own.',
     applyingBodyBackend:
       'The remote backend is applying the update and will restart. Nia reconnects automatically when it’s back.',
     applyingClose: 'This window will close while the update runs, then Nia reopens on its own.',
     errorTitle: 'Update didn’t finish',
     errorBody: 'No worries — nothing was lost. You can try again now.',
+    downloadLatest: 'Download latest',
+    binaryErrors: {
+      'UPD-SIGNATURE':
+        "Nia couldn't finish updating. Please download the latest version from okvevo.com. (UPD-SIGNATURE)",
+      'UPD-DOWNLOAD': "Nia couldn't download the update. Check your connection and try again. (UPD-DOWNLOAD)",
+      'UPD-INSTALL-TIMEOUT':
+        "Nia couldn't finish updating. Please download the latest version from okvevo.com. (UPD-INSTALL-TIMEOUT)",
+      'UPD-UNKNOWN': "Nia couldn't finish updating. Please download the latest version from okvevo.com. (UPD-UNKNOWN)"
+    },
     blockerTitle: 'Close local previews to update Nia?',
     blockerBody:
       'Nia needs to stop these local previews before updating. This will not modify or delete your files.',

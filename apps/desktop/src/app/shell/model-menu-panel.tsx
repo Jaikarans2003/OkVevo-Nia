@@ -253,6 +253,7 @@ export function ModelMenuPanel({ gateway, onSelectModel, profile = 'default', re
       }
       gateway={gateway}
       includeMoa
+      includeOkvevoAuto
       profile={profile}
       request={requestGateway}
       sessionId={activeSessionId}

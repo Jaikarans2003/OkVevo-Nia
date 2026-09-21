@@ -139,7 +139,7 @@ class TestHandleVisionAnalyze:
     @pytest.mark.asyncio
     async def test_model_resolution_config_then_env_then_default(self):
         """config.yaml auxiliary.vision.model wins; then AUXILIARY_VISION_MODEL;
-        then None, letting the centralized call_llm router pick the default."""
+        then None when both are empty."""
 
         async def resolve(config=None, env_model=None):
             with ExitStack() as st:
@@ -151,10 +151,10 @@ class TestHandleVisionAnalyze:
                     return_value=False,
                 ))
                 st.enter_context(patch.dict(os.environ, {}, clear=False))
-                if config is not None:
-                    st.enter_context(patch(
-                        "hermes_cli.config.load_config", return_value=config,
-                    ))
+                st.enter_context(patch(
+                    "hermes_cli.config.load_config",
+                    return_value=config if config is not None else {"auxiliary": {"vision": {}}},
+                ))
                 if env_model is None:
                     os.environ.pop("AUXILIARY_VISION_MODEL", None)
                 else:

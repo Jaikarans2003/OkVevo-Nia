@@ -34,15 +34,15 @@ Testing origin is the App Hosting URL `https://<BACKEND_ID>--okvevo-testing.us-c
 
 Electron loads the same files Python already uses (`node:util.parseEnv`, no dotenv npm):
 
-1. Existing `process.env` (shell / CI) wins — never overwritten.
+1. Existing `process.env` (shell / CI) is fill-in only for dotenv — never overwritten by `~/.hermes/.env` when already set.
 2. `~/.hermes/.env` (or `$HERMES_HOME/.env`) fills missing keys.
 3. Unpackaged only: `hermes-agent/.env` (source checkout) fills remaining keys.
 
-Then `buildDesktopBackendEnv` copies `OKVEVO_WEB_ORIGIN` and `OKVEVO_FIREBASE_ID_TOKEN_FILE` into the Python spawn. Python `load_hermes_dotenv()` still reads `~/.hermes/.env` with `override=True` — keep the two files consistent.
+**Packaged app (Dock / Start Menu):** no shell. CI writes `okvevo-pack-env.json` into extraResources (`write-okvevo-pack-env.mjs`). Electron loads it **after** dotenv. A **non-empty** pack value **always overwrites** `process.env` (leftover home `.env`, shell, whitespace). Empty pack values skip — fail closed; do not invent `www.okvevo.com`. `npm run dev` does not apply pack-env (`IS_PACKAGED` false). Missing origin/feed in CI fails the job. See [docs/CI-CD.md](docs/CI-CD.md).
 
-**Packaged app (Dock / Start Menu):** no shell. CI writes `okvevo-pack-env.json` into extraResources (`write-okvevo-pack-env.mjs`). Electron loads it **after** dotenv and only fills unset keys — Sign In works with an empty `~/.hermes/.env`. Runtime `~/.hermes/.env` still overrides. Missing origin/feed in CI fails the job. They must not guess `www.okvevo.com` or `okvevo-testing.web.app`. See [docs/CI-CD.md](docs/CI-CD.md).
+Then `buildDesktopBackendEnv` copies `OKVEVO_WEB_ORIGIN` and `OKVEVO_FIREBASE_ID_TOKEN_FILE` into the Python spawn. `load_hermes_dotenv()` still reads `~/.hermes/.env` with `override=True`, then **restores** a spawn-injected `OKVEVO_WEB_ORIGIN` (including `""`) so home `.env` cannot resurrect a stale portal URL.
 
-Copy [`.env.example`](.env.example) → `hermes-agent/.env` and/or `~/.hermes/.env`. Never commit secrets.
+Copy [`.env.example`](.env.example) → `hermes-agent/.env` and/or `~/.hermes/.env`. Never commit secrets. Packaged Sign In missing-origin means **this build’s** pack-env is empty/unreadable — reinstall the official app; do not debug by editing `~/.hermes/.env`.
 
 ---
 
@@ -94,9 +94,9 @@ LLM provider keys for **desktop BYOK** (`OPENROUTER_API_KEY`, Fireworks, etc.) s
 
 | URL | Where | Role | This pass |
 |-----|-------|------|-----------|
-| `https://releases.okvevo.com` | `apps/desktop/electron/binary-updater.ts` | electron-updater **default** feed. Staging packs bake `NIA_UPDATE_FEED_URL` (`…/staging`). Runtime `NIA_UPDATE_CHANNEL` selects `latest` vs `internal`. | Pack-env + `setFeedURL({ channel })`. |
+| `https://releases.okvevo.com` | `apps/desktop/electron/binary-updater.ts` | electron-updater **default** feed. Staging packs bake `NIA_UPDATE_FEED_URL` (`…/staging`). Runtime `NIA_UPDATE_CHANNEL` defaults to `latest` (production no longer publishes `internal.yml`). | Pack-env + `setFeedURL({ channel })`. |
 | `https://www.okvevo.com` | `apps/desktop/src/app/settings/about-settings.tsx` | Get installer / release notes | Leave (marketing). |
-| `https://releases.okvevo.com/Nia-mac-arm64.dmg` | OkVevo-Web `src/lib/nia-downloads.ts` | Download CTAs (stable names; promote job overwrites) | Staging yaml uses `/staging` prefix |
+| `https://releases.okvevo.com/Nia-mac-arm64.dmg` | OkVevo-Web `src/lib/nia-downloads.ts` | Download CTAs (stable names; Publish release overwrites) | Staging yaml uses `/staging` prefix |
 | `Jaikarans2003/OkVevo-Nia` raw/git URLs | unpackaged / legacy bootstrap only | Packaged apps use extraResources snapshot | Phase C |
 
 ---
@@ -112,7 +112,7 @@ LLM provider keys for **desktop BYOK** (`OPENROUTER_API_KEY`, Fireworks, etc.) s
 ## Switching testing ⇄ production (checklist)
 
 1. OkVevo-Web: put public vars in `apphosting.yaml` `value:` and secrets in Secret Manager. Deploy: `npm run deploy` → `firebase deploy --only apphosting --project testing`. `.firebaserc` alias `testing` → `okvevo-testing` until you point that file (manually) at another project.
-2. Desktop: set `OKVEVO_WEB_ORIGIN` in `~/.hermes/.env` to the **hosted.app** URL (and restart Nia). Do not add an `if (testing)` in source.
+2. Desktop unpackaged / `npm run dev`: set `OKVEVO_WEB_ORIGIN` in `~/.hermes/.env` to the **hosted.app** URL (and restart Nia). Packaged builds: pack-env overwrites that key — a missing-URL dialog means this **build’s** `okvevo-pack-env.json` is empty or you launched a leftover local `release/` binary, not a bad home `.env`. Do not add an `if (testing)` in source.
 3. Firebase Auth authorized domains, Razorpay webhook URL, and `ALLOWED_ORIGINS` must include that same origin.
-4. First **signed** customer build: CI injects `OKVEVO_WEB_ORIGIN` via pack-env (staging vs prod secrets). Do not revive a hardcoded domain. Promote to `latest.yml` is `desktop-promote.yml`, not a `v*` tag.
+4. First **signed** customer build: CI injects `OKVEVO_WEB_ORIGIN` via pack-env (staging vs prod secrets). Do not revive a hardcoded domain. Tag `vX.Y.Z` packs versioned objects; **Publish release** points `latest.yml`.
 5. After first App Hosting rollout: Cloud Run default request timeout is 300s (old Functions ceiling was 800). Raise toward 800 only if streamed chats die at 5 minutes. Do not set `minInstances: 1` unless the live test stalls.

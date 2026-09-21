@@ -4,9 +4,9 @@
  */
 
 import {
+  buildOkvevoLoginUrl,
   type OkvevoAuthPublic,
   type OkvevoAuthSession,
-  buildOkvevoLoginUrl,
   PENDING_TTL_MS,
   publicOkvevoAuthSnapshot,
   sessionFromTokenResponse
@@ -87,6 +87,7 @@ export async function refreshOkvevoAuth(deps: OkvevoAuthFlowDeps): Promise<Okvev
   const body = await deps.postJson(`${deps.webOrigin.replace(/\/$/, '')}/api/auth/desktop/refresh`, {
     refreshToken: current.refreshToken
   })
+
   const session = sessionFromTokenResponse(body as Parameters<typeof sessionFromTokenResponse>[0], deps.now())
 
   if (!session) {

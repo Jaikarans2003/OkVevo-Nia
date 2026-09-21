@@ -1,5 +1,5 @@
 # Public pack on push to staging. Feed: https://releases.okvevo.com/staging/
-# Secrets: STAGING_* + shared CSC_*/WIN_CSC_*/RELEASES_S3_*/APPLE_API_*
+# Secrets: STAGING_* + RELEASES_S3_*. CSC_*/WIN_CSC_*/APPLE_API_* optional until certs exist.
 # No GitHub Environments.
 
 name: Desktop staging
@@ -23,4 +23,5 @@ jobs:
       pack_target: staging
       feed_prefix: staging
       yml_mode: staging
+      allow_unsigned: true
     secrets: inherit

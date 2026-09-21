@@ -211,3 +211,86 @@ describe('BlockerView', () => {
     expect(onStopAndUpdate).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('ErrorView', () => {
+  const openExternal = vi.fn()
+
+  afterEach(() => {
+    cleanup()
+    $updateOverlayOpen.set(false)
+    $updateOverlayTarget.set('client')
+    $updateStatus.set(null)
+    resetUpdateApplyState()
+    const g = globalThis as unknown as { window?: { hermesDesktop?: unknown } }
+
+    if (g.window) {
+      delete g.window.hermesDesktop
+    }
+  })
+
+  function seedError(error: string, message: string) {
+    $updateOverlayTarget.set('client')
+    $updateOverlayOpen.set(true)
+    $updateStatus.set({
+      supported: true,
+      updateAvailable: true,
+      behind: 1,
+      commits: []
+    } as DesktopUpdateStatus)
+    $updateApply.set({
+      applying: false,
+      stage: 'error',
+      message,
+      percent: null,
+      error,
+      command: null,
+      log: []
+    })
+    Object.defineProperty(window, 'hermesDesktop', {
+      configurable: true,
+      value: { openExternal }
+    })
+  }
+
+  it('UPD-SIGNATURE shows Download latest, branded copy, and none of the raw internals', async () => {
+    openExternal.mockReset()
+    seedError(
+      'UPD-SIGNATURE',
+      String.raw`New version 0.17.14 is not signed by the application owner: publisherNames: OkVevo, raw info: {
+  "Path": "C:\\Users\\karan\\AppData\\Local\\hermes-updater\\pending\\temp-Nia-0.17.14-win-x64.exe",
+  "StatusMessage": "PowerShell Execution_Policies"
+}`
+    )
+
+    await renderUpdatesOverlay()
+
+    const body = screen.getByText(/Nia couldn't finish updating/i)
+
+    expect(body.textContent).toMatch(/Nia/)
+    expect(body.textContent).toMatch(/UPD-SIGNATURE/)
+    expect(body.textContent).not.toMatch(/hermes/i)
+    expect(body.textContent).not.toMatch(/PowerShell/)
+    expect(body.textContent).not.toMatch(/publisherNames/)
+    expect(body.textContent).not.toMatch(/Execution_Policies/)
+    expect(body.textContent).not.toMatch(/karan/)
+    expect(body.textContent).not.toMatch(/C:\\Users/)
+    expect(screen.getByRole('button', { name: 'Download latest' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Not now' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download latest' }))
+    expect(openExternal).toHaveBeenCalledWith('https://www.okvevo.com')
+  })
+
+  it('UPD-DOWNLOAD shows Try again', async () => {
+    seedError('UPD-DOWNLOAD', 'net::ERR_CONNECTION_RESET')
+
+    await renderUpdatesOverlay()
+
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Not now' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Download latest' })).toBeNull()
+    expect(screen.getByText(/UPD-DOWNLOAD/)).toBeTruthy()
+    expect(screen.queryByText(/net::ERR_CONNECTION_RESET/)).toBeNull()
+  })
+})

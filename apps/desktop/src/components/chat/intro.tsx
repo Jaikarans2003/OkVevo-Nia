@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { capitalize, normalize } from '@/lib/text'
-import { useOkvevoAuth, type OkvevoAuthPublic } from '@/store/okvevo-auth'
+import { type OkvevoAuthPublic, useOkvevoAuth } from '@/store/okvevo-auth'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
 

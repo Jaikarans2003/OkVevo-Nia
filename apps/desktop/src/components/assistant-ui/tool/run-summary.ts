@@ -1,5 +1,5 @@
-import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { sanitizePublicText } from '@/lib/display-path'
+import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { firstStringField } from '@/lib/text'
 

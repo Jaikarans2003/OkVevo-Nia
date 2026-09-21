@@ -1600,9 +1600,13 @@ export {
  *  Plugins must route animation clocks through this instead of raw rAF loops
  *  so a disabled plugin or an empty roster costs zero frames. */
 export { type BudgetedLoop, type BudgetedLoopOptions, createBudgetedLoop } from '@/lib/budgeted-loop'
+/** Public vs internal chrome. Plugins hide BYOK / vendor rows the same way core does. */
+export { isByokChromeVisible } from '@/lib/build-channel'
 /** The blank transcript as a contribution area: claim the sessions you own and
  *  render what stands in the gap. Core's own splash keeps a fresh draft. */
 export { CHAT_EMPTY_AREA, type ChatEmptyContribution, type ChatEmptyProps } from '@/lib/chat-empty'
+/** Rewrite leftover Hermes/gateway wording in plugin-rendered user-facing text. */
+export { sanitizeUserFacingBrand } from '@/lib/display-path'
 /** THE compact-number formatter — every user-facing count/token figure goes
  *  through here (1230 → "1.2k", 1_500_000 → "1.5M"). Don't hand-roll `/1000`. */
 export { compactNumber } from '@/lib/format'
@@ -1634,7 +1638,7 @@ export { LruCache } from '@/lib/lru-cache'
  *  instead of literal hex, which can't follow the theme. */
 export { PROFILE_SWATCHES, profileColor, profileColorSoft } from '@/lib/profile-color'
 /** Public-pack catalog branding: OpenRouter → OkVevo, hide OpenCode. */
-export { brandModelOptionsResponse } from '@/lib/provider-branding'
+export { brandModelOptionsResponse, brandProviderSlug } from '@/lib/provider-branding'
 /** The shared client itself, for invalidation OUTSIDE React (e.g. a
  *  `ctx.socket` frame invalidating a query). Inside components keep using
  *  `useQueryClient`. */

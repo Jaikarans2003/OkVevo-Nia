@@ -20,7 +20,6 @@ import { AlertCircle, ChevronDown, Loader2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $gateway } from '@/store/gateway'
 import { notifyError } from '@/store/notifications'
-import { $toolViewMode } from '@/store/tool-view'
 import {
   type ApprovalRequest,
   clearApprovalRequest,
@@ -30,6 +29,7 @@ import {
   sessionApprovalRequest
 } from '@/store/prompts'
 import { requestForOwnedSession } from '@/store/session-states'
+import { $toolViewMode } from '@/store/tool-view'
 
 import type { ToolPart } from './fallback-model'
 

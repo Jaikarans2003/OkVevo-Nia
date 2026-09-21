@@ -7,8 +7,8 @@ Covers:
   * execution_guidance_text() drops web_search lines when web tools are off.
   * The coding operating brief drops the `todo` sentence when the todo tool
     isn't loaded.
-  * ESSENTIAL_SKILLS can't be disabled via config, and the CLI writer strips
-    them from persisted disabled lists.
+  * ESSENTIAL_SKILLS (empty on Nia) are stripped from disabled lists; the
+    shipped-excluded hermes-agent skill is not pinned.
 """
 
 from pathlib import Path
@@ -82,7 +82,7 @@ class TestCodingBriefTodoGating:
 
 
 class TestEssentialSkillsUndisableable:
-    def test_agent_side_reader_strips_essential(self, monkeypatch, tmp_path):
+    def test_agent_side_reader_does_not_pin_hermes_agent(self, monkeypatch, tmp_path):
         import agent.skill_utils as su
         cfg = tmp_path / "config.yaml"
         cfg.write_text(
@@ -92,34 +92,32 @@ class TestEssentialSkillsUndisableable:
         monkeypatch.setattr(su, "get_config_path", lambda: cfg)
         su._RAW_CONFIG_CACHE.clear()
         disabled = su.get_disabled_skill_names(platform="cli")
-        assert "hermes-agent" not in disabled
+        assert "hermes-agent" in disabled
         assert "some-other-skill" in disabled
 
-    def test_cli_side_reader_strips_essential(self):
+    def test_cli_side_reader_does_not_pin_hermes_agent(self):
         from hermes_cli.skills_config import get_disabled_skills
         cfg = {"skills": {"disabled": ["hermes-agent", "other"]}}
         disabled = get_disabled_skills(cfg)
-        assert "hermes-agent" not in disabled
+        assert "hermes-agent" in disabled
         assert "other" in disabled
 
-    def test_cli_side_writer_strips_essential(self, monkeypatch):
+    def test_cli_side_writer_does_not_strip_hermes_agent(self, monkeypatch):
         import hermes_cli.skills_config as sc
         saved = {}
         monkeypatch.setattr(sc, "save_config", lambda cfg: saved.update(cfg))
         cfg = {}
         sc.save_disabled_skills(cfg, {"hermes-agent", "other"})
-        assert cfg["skills"]["disabled"] == ["other"]
+        assert set(cfg["skills"]["disabled"]) == {"hermes-agent", "other"}
 
-    def test_skill_manage_delete_refused(self):
+    def test_skill_manage_delete_allows_non_essential(self):
         from tools.skill_manager_tool import _pinned_guard
-        msg = _pinned_guard("hermes-agent")
-        assert msg is not None
-        assert "essential" in msg.lower()
+        assert _pinned_guard("hermes-agent") is None
 
 
 class TestEssentialOnlySync:
-    def test_opted_out_sync_seeds_only_essential(self, monkeypatch, tmp_path):
-        """A profile with .no-bundled-skills still gets the hermes-agent skill."""
+    def test_opted_out_sync_seeds_nothing_when_none_essential(self, monkeypatch, tmp_path):
+        """Nia has no essential skills; opt-out copies nothing, including hermes-agent."""
         import tools.skills_sync as ss
 
         home = tmp_path / ".hermes"
@@ -145,6 +143,6 @@ class TestEssentialOnlySync:
         result = ss.sync_skills(quiet=True)
 
         assert result["skipped_opt_out"] is True
-        assert result["copied"] == ["hermes-agent"]
-        assert (home / "skills" / "autonomous-ai-agents" / "hermes-agent" / "SKILL.md").exists()
+        assert result["copied"] == []
+        assert not (home / "skills" / "autonomous-ai-agents" / "hermes-agent" / "SKILL.md").exists()
         assert not (home / "skills" / "media").exists()

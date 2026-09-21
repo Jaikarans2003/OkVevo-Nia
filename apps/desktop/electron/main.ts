@@ -13,6 +13,7 @@ import {
   BrowserWindow,
   clipboard,
   dialog,
+  autoUpdater as electronNativeAutoUpdater,
   net as electronNet,
   webContents as electronWebContents,
   globalShortcut,
@@ -71,6 +72,7 @@ import {
   shouldLatchHostKeyChangedFailure,
   shouldLatchRemoteReauthFailure
 } from './backend-start-failure'
+import { applyBinaryUpdate, checkBinaryUpdate } from './binary-updater'
 import {
   detectRemoteDisplay,
   isWindowsBinaryPathInWsl,
@@ -267,41 +269,41 @@ import {
 } from './native-oauth'
 import { runNativeLogin } from './native-oauth-login'
 import { loadNativeTokenSet, type NativeTokenStoreIo, persistNativeTokenSet } from './native-token-store'
+import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
+import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition'
 import {
   buildOkvevoPortalUrl,
   hermesProtocolForDev,
-  okvevoIdTokenFilePath,
   OKVEVO_ORIGIN_MISSING_ERROR,
   OKVEVO_ORIGIN_MISSING_TITLE,
+  okvevoIdTokenFilePath,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
   refreshDelayMs,
   resolveOkvevoWebOrigin,
   shouldDeliverDeepLinkToRenderer
 } from './okvevo-auth'
+import {
+  completeOkvevoAuthCallback,
+  type OkvevoAuthFlowDeps,
+  refreshOkvevoAuth,
+  signOutOkvevo,
+  startOkvevoSignIn
+} from './okvevo-auth-flow'
+import {
+  loadOkvevoAuthPending,
+  loadOkvevoAuthSession,
+  type OkvevoAuthStoreIo,
+  persistOkvevoAuthPending,
+  persistOkvevoAuthSession,
+  rewriteOkvevoAuthSecret
+} from './okvevo-auth-store'
 import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile } from './okvevo-env'
 import {
   packagedSnapshotLayout,
   readPackStamp,
   shouldRebootstrapFromPackagedSnapshot
 } from './packaged-snapshot'
-import {
-  completeOkvevoAuthCallback,
-  refreshOkvevoAuth,
-  signOutOkvevo,
-  startOkvevoSignIn,
-  type OkvevoAuthFlowDeps
-} from './okvevo-auth-flow'
-import {
-  loadOkvevoAuthPending,
-  loadOkvevoAuthSession,
-  persistOkvevoAuthPending,
-  persistOkvevoAuthSession,
-  rewriteOkvevoAuthSecret,
-  type OkvevoAuthStoreIo
-} from './okvevo-auth-store'
-import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
-import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition'
 import { createParentStartMarkerResolver, parentWatchdogEnv } from './parent-process-identity'
 import { registerPetOverlayIpc } from './pet-overlay-ipc'
 import {
@@ -398,7 +400,6 @@ import {
   windowOpacityFor,
   windowOpacityOptions
 } from './translucency'
-import { applyBinaryUpdate, checkBinaryUpdate } from './binary-updater'
 import {
   compareApiUrl,
   parseCompareBehindCount,
@@ -839,7 +840,7 @@ if (IS_PACKAGED) {
   const applied = applyPackEnv(loadPackEnvFile(packEnvPath))
 
   if (applied.length) {
-    console.log(`[hermes] pack-env filled ${applied.join(', ')}`)
+    console.log(`[hermes] pack-env applied ${applied.join(', ')}`)
   }
 }
 
@@ -938,8 +939,10 @@ const BOOT_FAKE_STEP_MS = (() => {
 
 const NIA_BUILD_CHANNEL =
   typeof __NIA_BUILD_CHANNEL__ !== 'undefined' && __NIA_BUILD_CHANNEL__ === 'internal' ? 'internal' : 'public'
+
 const APP_NAME =
   process.env.HERMES_DESKTOP_APP_NAME || (NIA_BUILD_CHANNEL === 'internal' ? 'NiaInternal' : 'Nia')
+
 const APP_USER_MODEL_ID = NIA_BUILD_CHANNEL === 'internal' ? 'com.okvevo.nia.internal' : 'com.okvevo.nia'
 const HUD_WINDOW_TITLE = `${APP_NAME} HUD`
 const TITLEBAR_HEIGHT = 34
@@ -3685,7 +3688,20 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
   try {
     if (IS_PACKAGED) {
       return await applyBinaryUpdate({
-        emitProgress: emitUpdateProgress
+        emitProgress: emitUpdateProgress,
+        logRaw: rememberLog,
+        onQuitForHandoff: () => {
+          isQuittingForHandoff = true
+        },
+        quitSignals: {
+          on(event, listener) {
+            if (event === 'before-quit') {
+              app.once('before-quit', listener)
+            } else {
+              electronNativeAutoUpdater.once('before-quit-for-update', listener)
+            }
+          }
+        }
       })
     }
 
@@ -17750,6 +17766,7 @@ app.on('before-quit', event => {
   // install-marker preflight in both POSIX and Windows lifecycle
   // implementations.
   if (
+    !isQuittingForHandoff &&
     !managedUpdateQuitWaitDone &&
     (managedUpdateQuitWait || managedConnectionUpdates.size > 0 || managedConnectionRecoveries.size > 0)
   ) {
@@ -17774,7 +17791,7 @@ app.on('before-quit', event => {
   // already quitting (#91668).
   sshBootstrapCoordinator.shutdown()
 
-  if (!backendQuitTeardownDone) {
+  if (!isQuittingForHandoff && !backendQuitTeardownDone) {
     event.preventDefault()
     void backendShutdown.run().finally(() => {
       backendQuitTeardownDone = true
@@ -17782,7 +17799,11 @@ app.on('before-quit', event => {
     })
   }
 
-  if ((sshConnections.size > 0 || sshBootstrapCoordinator.promises().length > 0) && !sshQuitTeardownDone) {
+  if (
+    !isQuittingForHandoff &&
+    (sshConnections.size > 0 || sshBootstrapCoordinator.promises().length > 0) &&
+    !sshQuitTeardownDone
+  ) {
     event.preventDefault()
     const scopes = [...sshConnections.keys()]
 

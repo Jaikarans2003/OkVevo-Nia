@@ -27,14 +27,15 @@ import * as path from 'node:path'
 
 import { _electron, type ElectronApplication, type Page } from '@playwright/test'
 
-import { DEFAULT_ZOOM_LEVEL } from '../electron/zoom'
-
 import { startMockServer, type MockServerOptions } from './mock-server'
 import { installErrorBannerGuard } from './test'
 
 const DESKTOP_ROOT = path.resolve(import.meta.dirname, '..')
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..', '..')
 const RELEASE_ROOT = path.join(DESKTOP_ROOT, 'release')
+
+// Keep in sync with electron/zoom.ts — e2e tsconfig cannot import electron/.
+const DEFAULT_ZOOM_LEVEL = Math.log(110 / 100) / Math.log(1.2)
 
 // ─── Credential stripping (matches launch.spec.ts) ──────────────────────
 

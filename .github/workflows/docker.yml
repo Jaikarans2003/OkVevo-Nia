@@ -34,8 +34,11 @@ jobs:
   # its own ``detect`` outputs; now that this workflow triggers itself, it
   # runs the same composite action. On push and release the classifier fails
   # open (every lane true), so post-merge validation is never weakened.
+  #
+  # OkVevo-Nia: entire workflow is Nous-only (image is nousresearch/hermes-agent).
   detect:
     name: Detect affected areas
+    if: github.repository == 'NousResearch/hermes-agent'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:

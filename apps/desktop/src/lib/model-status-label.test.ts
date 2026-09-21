@@ -11,6 +11,11 @@ describe('model-status-label', () => {
     expect(displayModelName('openai/gpt-5.5')).toBe('GPT-5.5')
   })
 
+  it('names OkVevo Auto aliases for the pill', () => {
+    expect(displayModelName('okvevo/auto-intelligence')).toBe('Intelligence')
+    expect(displayModelName('okvevo/auto-cost')).toBe('Cost Effective')
+  })
+
   it('strips trailing date-pin snapshots from the display name', () => {
     expect(displayModelName('claude-opus-4-5-20251101')).toBe('Opus 4 5')
     expect(displayModelName('anthropic/claude-haiku-4-5-20251001')).toBe('Haiku 4 5')

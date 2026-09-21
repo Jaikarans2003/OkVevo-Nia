@@ -5,8 +5,11 @@
  * This module is the only updater the shipped Nia.app / Nia.exe should call.
  */
 
+import { formatRawUpdateError, mapBinaryUpdateError } from './binary-update-error'
+
 export const BINARY_UPDATE_FEED_URL = 'https://releases.okvevo.com'
 export const BINARY_UPDATE_PUBLISHER_NAME = 'OkVevo'
+export const BINARY_UPDATE_QUIT_TIMEOUT_MS = 60_000
 
 export type BinaryUpdateCheckInput = {
   currentVersion: string
@@ -25,11 +28,17 @@ export type BinaryUpdateStatus = {
   message?: string
 }
 
+export type BinaryUpdateQuitEvent = 'before-quit-for-update' | 'before-quit'
+
+export type BinaryUpdateQuitSignals = {
+  on: (event: BinaryUpdateQuitEvent, listener: () => void) => void
+}
+
 type UpdaterLike = {
   autoDownload: boolean
   autoInstallOnAppQuit: boolean
   allowDowngrade: boolean
-  verifyUpdateCodeSignature?: boolean
+  logger?: null | { error: (...args: unknown[]) => void }
   setFeedURL: (opts: { provider: string; url: string; channel?: string }) => void
   checkForUpdates: () => Promise<{ isUpdateAvailable?: boolean; updateInfo?: { version: string } } | null>
   downloadUpdate: () => Promise<unknown>
@@ -38,6 +47,16 @@ type UpdaterLike = {
 }
 
 type ProgressEmitter = (payload: { stage: string; message: string; percent: number | null; error?: string | null }) => void
+
+export type ApplyBinaryUpdateOpts = {
+  emitProgress: ProgressEmitter
+  logRaw?: (line: string) => void
+  onQuitForHandoff?: () => void
+  quitSignals?: BinaryUpdateQuitSignals
+  quitTimeoutMs?: number
+}
+
+export type ApplyBinaryUpdateResult = { ok: boolean; handedOff?: boolean; error?: string }
 
 let injectedUpdater: null | UpdaterLike = null
 let configured = false
@@ -89,10 +108,6 @@ export function configureBinaryUpdater(
   updater.allowDowngrade = false
   updater.setFeedURL({ provider: 'generic', url: feedUrl, channel })
 
-  if (process.platform === 'darwin') {
-    updater.verifyUpdateCodeSignature = true
-  }
-
   configured = true
 }
 
@@ -101,9 +116,15 @@ async function loadUpdater(): Promise<UpdaterLike> {
     return injectedUpdater
   }
 
-  const mod = await import('electron-updater')
+  const [{ autoUpdater }, logMod] = await Promise.all([import('electron-updater'), import('electron-log/main')])
+  const log = 'transports' in logMod && logMod.transports ? logMod : logMod.default
 
-  return mod.autoUpdater as UpdaterLike
+  // Mac: ~/Library/Logs/Nia/main.log  Windows: %USERPROFILE%\AppData\Roaming\Nia\logs\main.log
+  // ShipIt (Mac install): ~/Library/Caches/com.okvevo.nia.ShipIt/ShipIt_stderr.log
+  log.transports.file.level = 'debug'
+  autoUpdater.logger = log
+
+  return autoUpdater as UpdaterLike
 }
 
 export async function checkBinaryUpdate(opts: { currentVersion: string }): Promise<BinaryUpdateStatus> {
@@ -134,9 +155,27 @@ export async function checkBinaryUpdate(opts: { currentVersion: string }): Promi
   }
 }
 
-export async function applyBinaryUpdate(opts: {
-  emitProgress: ProgressEmitter
-}): Promise<{ ok: boolean; handedOff?: boolean; error?: string; message?: string }> {
+function logRawUpdateFailure(updater: UpdaterLike, logRaw: ((line: string) => void) | undefined, error: unknown) {
+  const raw = formatRawUpdateError(error)
+
+  logRaw?.(raw)
+  updater.logger?.error(raw)
+}
+
+function failApply(
+  updater: UpdaterLike,
+  opts: ApplyBinaryUpdateOpts,
+  error: unknown
+): ApplyBinaryUpdateResult {
+  logRawUpdateFailure(updater, opts.logRaw, error)
+  const code = mapBinaryUpdateError(error)
+
+  opts.emitProgress({ stage: 'error', message: '', percent: null, error: code })
+
+  return { ok: false, error: code }
+}
+
+export async function applyBinaryUpdate(opts: ApplyBinaryUpdateOpts): Promise<ApplyBinaryUpdateResult> {
   const updater = await loadUpdater()
 
   if (!configured) {
@@ -153,22 +192,65 @@ export async function applyBinaryUpdate(opts: {
 
   updater.on('download-progress', onProgress)
 
+  const nextError = new Promise<unknown>(resolve => {
+    updater.on('error', error => resolve(error))
+  })
+
   try {
     opts.emitProgress({ stage: 'fetch', message: 'Downloading…', percent: 0 })
-    await updater.downloadUpdate()
-    opts.emitProgress({ stage: 'update', message: 'Verifying…', percent: 90 })
-    opts.emitProgress({
-      stage: 'restart',
-      message: 'Restarting Nia…',
-      percent: 100
+
+    const downloaded = new Promise<void>(resolve => {
+      updater.on('update-downloaded', () => resolve())
     })
-    updater.quitAndInstall(false, true)
 
-    return { ok: true, handedOff: true }
+    const download = updater.downloadUpdate().then(() => downloaded)
+
+    const early = await Promise.race([download.then(() => null), nextError])
+
+    if (early != null) {
+      return failApply(updater, opts, early)
+    }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    opts.emitProgress({ stage: 'error', message, percent: null, error: 'apply-failed' })
-
-    return { ok: false, error: 'apply-failed', message }
+    return failApply(updater, opts, error)
   }
+
+  opts.emitProgress({ stage: 'update', message: 'Verifying…', percent: 90 })
+  opts.emitProgress({
+    stage: 'restart',
+    message: 'Restarting Nia…',
+    percent: 100
+  })
+
+  // Lifecycle only — skips quit blockers. Not proof that Electron started quitting.
+  opts.onQuitForHandoff?.()
+
+  const timeoutMs = opts.quitTimeoutMs ?? BINARY_UPDATE_QUIT_TIMEOUT_MS
+
+  const quitSeen = new Promise<'quit'>(resolve => {
+    const onQuit = () => resolve('quit')
+
+    opts.quitSignals?.on('before-quit-for-update', onQuit)
+    opts.quitSignals?.on('before-quit', onQuit)
+  })
+
+  const timedOut = new Promise<'timeout'>(resolve => {
+    setTimeout(() => resolve('timeout'), timeoutMs)
+  })
+
+  updater.quitAndInstall(false, true)
+
+  const outcome = await Promise.race([quitSeen, nextError.then(error => ({ error })), timedOut])
+
+  if (outcome === 'quit') {
+    return { ok: true, handedOff: true }
+  }
+
+  if (outcome === 'timeout') {
+    logRawUpdateFailure(updater, opts.logRaw, new Error('UPD-INSTALL-TIMEOUT'))
+    opts.emitProgress({ stage: 'error', message: '', percent: null, error: 'UPD-INSTALL-TIMEOUT' })
+
+    return { ok: false, error: 'UPD-INSTALL-TIMEOUT' }
+  }
+
+  return failApply(updater, opts, outcome.error)
 }

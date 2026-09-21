@@ -27,7 +27,7 @@ test('allowlist includes hermes_cli and pyproject, not apps/desktop', () => {
   assert.throws(() => assertSnapshotAllowlist(['pyproject.toml']), /missing hermes_cli/)
 })
 
-test('repo snapshot members exist and pack a readable tar.gz', () => {
+test('repo snapshot members exist and pack a readable tar.gz', { timeout: 60_000 }, () => {
   const members = existingSnapshotPaths(REPO_ROOT)
   assert.ok(members.includes('hermes_cli'))
   assert.ok(members.includes('pyproject.toml'))

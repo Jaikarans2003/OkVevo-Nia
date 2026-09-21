@@ -17,11 +17,9 @@ import {
 } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
-import { AnsiText } from '@/components/assistant-ui/ansi-text'
 import { TimelineTimestamp } from '@/components/assistant-ui/thread/timeline-timestamp'
 import { useElapsedSeconds } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
-import { CompactMarkdown } from '@/components/chat/compact-markdown'
 import { FileDiffPanel } from '@/components/chat/diff-lines'
 import { DisclosureRow } from '@/components/chat/disclosure-row'
 import {
@@ -44,7 +42,6 @@ import { useI18n } from '@/i18n'
 import { sanitizePublicText } from '@/lib/display-path'
 import { PrettyLink, LinkifiedText as SharedLinkifiedText, urlSlugTitleLabel } from '@/lib/external-link'
 import { AlertCircle, CheckCircle2 } from '@/lib/icons'
-import { normalize } from '@/lib/text'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
 import { recordPreviewArtifact } from '@/store/preview-status'
@@ -63,7 +60,6 @@ import {
   isCardTool,
   isFileEditTool,
   isPreviewableTarget,
-  looksRedundant,
   type SearchResultRow,
   selectMessageRunning,
   stripInlineDiffChrome,

@@ -89,6 +89,7 @@ const {
   applyUpdates,
   applyEverythingUpdate,
   hasMultipleUpdateTargets,
+  BINARY_UPDATE_HANDOFF_BACKSTOP_MS,
   $updateApply,
   $updateEverything,
   $updateOverlayOpen,
@@ -715,6 +716,37 @@ describe('applyUpdates terminal state', () => {
     expect($updateApply.get().applying).toBe(false)
     expect($updateApply.get().stage).toBe('error')
     expect($updateApply.get().error).toBe('rebuild-failed')
+  })
+
+  it('stores binary update codes with no raw message', async () => {
+    applyMock.mockResolvedValue({
+      ok: false,
+      error: 'UPD-SIGNATURE',
+      message: 'New version is not signed by the application owner: publisherNames: OkVevo'
+    })
+
+    await applyUpdates()
+
+    expect($updateApply.get().error).toBe('UPD-SIGNATURE')
+    expect($updateApply.get().message).toBe('')
+    expect($updateApply.get().stage).toBe('error')
+  })
+
+  it('trips a 90s closeable backstop after handoff if the process is still alive', async () => {
+    vi.useFakeTimers()
+    applyMock.mockResolvedValue({ ok: true, handedOff: true })
+
+    await applyUpdates()
+
+    expect($updateApply.get().error).toBeNull()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect($updateApply.get().stage).not.toBe('error')
+    expect($updateApply.get().error).toBeNull()
+    await vi.advanceTimersByTimeAsync(BINARY_UPDATE_HANDOFF_BACKSTOP_MS - 60_000)
+    expect($updateApply.get().error).toBe('UPD-INSTALL-TIMEOUT')
+    expect($updateApply.get().stage).toBe('error')
+    expect($updateApply.get().applying).toBe(false)
+    expect($updateOverlayOpen.get()).toBe(true)
   })
 
   it('preserves structured safe blockers for the close-and-update prompt', async () => {

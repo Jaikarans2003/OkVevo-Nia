@@ -32,7 +32,7 @@ _NATIVE_ADAPTER_DOMAINS = (
 )
 OKVEVO_ORIGIN_MISSING = (
     "Nia is signed in but the OkVevo portal URL is not configured. "
-    "Set OKVEVO_WEB_ORIGIN in ~/.hermes/.env and restart Nia."
+    "This build's pack-env is empty or unreadable. Reinstall the official Nia app."
 )
 
 

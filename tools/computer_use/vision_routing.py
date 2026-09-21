@@ -56,28 +56,12 @@ logger = logging.getLogger(__name__)
 def _explicit_aux_vision_override(cfg: Optional[Dict[str, Any]]) -> bool:
     """True when ``auxiliary.vision`` carries a non-default user override.
 
-    Mirrors ``agent.image_routing._explicit_aux_vision_override`` so the
-    capture path and the user-attached-image path agree on what counts as
-    an explicit user request for the aux vision pipeline. ``provider:
-    "auto"``, blank values, or a missing block all count as *not*
-    explicit.
+    Delegates to ``agent.image_routing._explicit_aux_vision_override`` so
+    capture routing and user-attached-image routing agree, including the
+    Nia shipped-default skip.
     """
-    if not isinstance(cfg, dict):
-        return False
-    aux = cfg.get("auxiliary") or {}
-    if not isinstance(aux, dict):
-        return False
-    vision = aux.get("vision") or {}
-    if not isinstance(vision, dict):
-        return False
-
-    provider = str(vision.get("provider") or "").strip().lower()
-    model = str(vision.get("model") or "").strip()
-    base_url = str(vision.get("base_url") or "").strip()
-
-    if provider in ("", "auto") and not model and not base_url:
-        return False
-    return True
+    from agent.image_routing import _explicit_aux_vision_override as _impl
+    return _impl(cfg)
 
 
 def _lookup_user_declared_supports_vision(
