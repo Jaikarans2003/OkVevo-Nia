@@ -377,8 +377,19 @@ export function verifyArchivedVersion({
 }
 
 function copyS3({ aws, env, bucket, fromKey, toKey, extra = [] }) {
+  // R2 CopyObject implements metadata-directive, Content-Type, and Cache-Control.
+  // It rejects x-amz-tagging-directive. `aws s3 cp --copy-props` (including `none`)
+  // sets that header to REPLACE; an explicit metadata directive skips those subscribers.
   aws(
-    ['s3', 'cp', s3Uri(bucket, fromKey), s3Uri(bucket, toKey), '--copy-props', 'none', ...extra],
+    [
+      's3',
+      'cp',
+      s3Uri(bucket, fromKey),
+      s3Uri(bucket, toKey),
+      '--metadata-directive',
+      'REPLACE',
+      ...extra
+    ],
     env
   )
 }
