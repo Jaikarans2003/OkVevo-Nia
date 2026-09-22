@@ -8,6 +8,14 @@ import {
   buildOkvevoPortalUrl,
   hermesProtocolForDev,
   isAllowedOkvevoPortalPath,
+  OKVEVO_ORIGIN_MISSING_ERROR,
+  OKVEVO_ORIGIN_MISSING_TITLE,
+  OKVEVO_PORTAL_URL_INVALID_ERROR,
+  OKVEVO_PORTAL_URL_INVALID_TITLE,
+  OKVEVO_SIGN_IN_FAILED_ERROR,
+  OKVEVO_SIGN_IN_FAILED_TITLE,
+  OKVEVO_SIGN_IN_TIMEOUT_ERROR,
+  OKVEVO_SIGN_IN_TIMEOUT_TITLE,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
   refreshDelayMs,
@@ -54,12 +62,37 @@ test('login URL carries allowlisted redirect + state', () => {
     protocol: 'hermes-dev',
     state: 'csrf-state-value'
   })
+
+  assert.ok(url)
   const parsed = new URL(url)
 
   assert.equal(parsed.origin, 'https://www.okvevo.com')
   assert.equal(parsed.pathname, '/login')
   assert.equal(parsed.searchParams.get('redirect'), 'hermes-dev://auth-callback')
   assert.equal(parsed.searchParams.get('state'), 'csrf-state-value')
+})
+
+test('login URL returns null for a host with no scheme and still parses localhost', () => {
+  assert.equal(buildOkvevoLoginUrl({ origin: 'www.okvevo.com', protocol: 'hermes', state: 's' }), null)
+  const url = buildOkvevoLoginUrl({ origin: 'http://localhost:3000', protocol: 'hermes-dev', state: 's' })
+  assert.ok(url)
+  assert.equal(new URL(url).origin, 'http://localhost:3000')
+})
+
+test('sign-in dialog copy names Nia and OkVevo', () => {
+  for (const text of [
+    OKVEVO_ORIGIN_MISSING_TITLE,
+    OKVEVO_ORIGIN_MISSING_ERROR,
+    OKVEVO_PORTAL_URL_INVALID_TITLE,
+    OKVEVO_PORTAL_URL_INVALID_ERROR,
+    OKVEVO_SIGN_IN_TIMEOUT_TITLE,
+    OKVEVO_SIGN_IN_TIMEOUT_ERROR,
+    OKVEVO_SIGN_IN_FAILED_TITLE,
+    OKVEVO_SIGN_IN_FAILED_ERROR
+  ]) {
+    assert.match(text, /Nia/)
+    assert.match(text, /OkVevo/)
+  }
 })
 
 test('parses hermes://auth-callback?code&state', () => {
@@ -91,6 +124,7 @@ test('public snapshot never includes tokens', () => {
     email: 'a@b.c',
     displayName: 'Karan'
   })
+
   const json = JSON.stringify(snap)
 
   assert.equal(snap.signedIn, true)
@@ -103,6 +137,7 @@ test('public snapshot never includes tokens', () => {
 
 test('public snapshot reads name claim from id token when displayName missing', () => {
   const payload = Buffer.from(JSON.stringify({ name: 'From Token' })).toString('base64url')
+
   const snap = publicOkvevoAuthSnapshot({
     refreshToken: 'rt',
     idToken: `hdr.${payload}.sig`,
@@ -117,6 +152,7 @@ test('public snapshot reads name claim from id token when displayName missing', 
 
 test('sessionFromTokenResponse requires tokens + uid', () => {
   assert.equal(sessionFromTokenResponse({}), null)
+
   const session = sessionFromTokenResponse(
     {
       refreshToken: 'rt',

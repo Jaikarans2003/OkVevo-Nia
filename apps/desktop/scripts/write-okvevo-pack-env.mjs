@@ -6,7 +6,8 @@
  * ~/.hermes/.env / shell / whitespace). Empty pack values skip (fail closed).
  *
  * `--require` (CI): fail closed if origin, feed URL, or Vite Firebase keys
- * are missing — same posture as require-release-secrets.mjs.
+ * are missing or not well-formed — same posture as require-release-secrets.mjs.
+ * Error text names the keys only. It does not print secret values.
  *
  * Local `npm run build` without --require writes whatever is present so
  * extraResources always has a file.
@@ -45,6 +46,65 @@ export function formatMissingPackSecrets(missing) {
   ].join('\n')
 }
 
+function parseHttpsUrl(value) {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:' || url.username || url.password || !url.hostname || url.search || url.hash) {
+      return null
+    }
+    return url
+  } catch {
+    return null
+  }
+}
+
+/** Absolute https origin: no path, query, hash, or userinfo. */
+export function isAbsoluteHttpsOrigin(value) {
+  const url = parseHttpsUrl(value)
+  return Boolean(url && (url.pathname === '/' || url.pathname === ''))
+}
+
+/** Absolute https URL. A path is allowed (staging feed is /staging). */
+export function isAbsoluteHttpsUrl(value) {
+  return parseHttpsUrl(value) !== null
+}
+
+/** Firebase auth domain is a hostname. A scheme (https://...) is rejected. */
+export function isBareHostname(value) {
+  const host = String(value ?? '').trim()
+  if (!host || host.length > 253) return false
+  if (/[:/?#@\\\s]/.test(host)) return false
+  if (host.startsWith('.') || host.endsWith('.') || host.includes('..')) return false
+  return /^[a-z0-9.-]+$/i.test(host)
+}
+
+export function invalidPackSecretShapes(env = process.env) {
+  const invalid = []
+  const originRaw = String(env.OKVEVO_WEB_ORIGIN ?? '').trim()
+  if (originRaw && !isAbsoluteHttpsOrigin(stripSlash(originRaw))) {
+    invalid.push('OKVEVO_WEB_ORIGIN')
+  }
+  const feedRaw = String(env.NIA_UPDATE_FEED_URL ?? '').trim()
+  if (feedRaw && !isAbsoluteHttpsUrl(stripSlash(feedRaw))) {
+    invalid.push('NIA_UPDATE_FEED_URL')
+  }
+  const authDomain = String(env.VITE_OKVEVO_FIREBASE_AUTH_DOMAIN ?? '').trim()
+  if (authDomain && !isBareHostname(authDomain)) {
+    invalid.push('VITE_OKVEVO_FIREBASE_AUTH_DOMAIN')
+  }
+  return invalid
+}
+
+export function formatInvalidPackSecrets(invalid) {
+  return [
+    'Packaged Nia builds are fail-closed: portal origin, update feed, or Firebase auth domain is not well-formed.',
+    `Invalid: ${invalid.join(', ')}`,
+    'OKVEVO_WEB_ORIGIN must be an absolute https URL with no path, query, or hash.',
+    'NIA_UPDATE_FEED_URL must be an absolute https URL. A path is allowed.',
+    'VITE_OKVEVO_FIREBASE_AUTH_DOMAIN must be a bare hostname with no scheme.'
+  ].join('\n')
+}
+
 function stripSlash(value) {
   return String(value || '').trim().replace(/\/+$/, '')
 }
@@ -72,6 +132,11 @@ if (runAsMain) {
     const missing = missingPackSecrets()
     if (missing.length) {
       console.error(formatMissingPackSecrets(missing))
+      process.exit(1)
+    }
+    const invalid = invalidPackSecretShapes()
+    if (invalid.length) {
+      console.error(formatInvalidPackSecrets(invalid))
       process.exit(1)
     }
   }
