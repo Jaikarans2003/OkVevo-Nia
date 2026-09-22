@@ -415,6 +415,19 @@ test('publishPointers no-store on pointers and stable names; rollback republishe
   assert.ok(calls.filter(a => destArg(a) === RELEASES_JSON_KEY).every(a => cacheControlOf(a) === CACHE_CONTROL_NO_STORE))
   assert.ok(calls.filter(a => destArg(a) === 'latest.yml').every(a => cacheControlOf(a) === CACHE_CONTROL_NO_STORE))
   assert.ok(calls.filter(a => destArg(a) === 'latest-mac.yml').every(a => cacheControlOf(a) === CACHE_CONTROL_NO_STORE))
+  const serverCopies = calls.filter(
+    a => a[1] === 'cp' && String(a[2]).startsWith('s3://') && String(a[3]).startsWith('s3://')
+  )
+  assert.equal(serverCopies.length, 4)
+  for (const args of serverCopies) {
+    assert.equal(args.includes('--copy-props'), false)
+    assert.equal(args.includes('--tagging-directive'), false)
+    assert.equal(args[args.indexOf('--metadata-directive') + 1], 'REPLACE')
+  }
+  for (const name of ['latest.yml', 'latest-mac.yml']) {
+    const args = serverCopies.find(a => destArg(a) === name)
+    assert.equal(args[args.indexOf('--content-type') + 1], 'text/yaml')
+  }
   fs.rmSync(dirOld, { recursive: true, force: true })
   fs.rmSync(dirNew, { recursive: true, force: true })
 })
