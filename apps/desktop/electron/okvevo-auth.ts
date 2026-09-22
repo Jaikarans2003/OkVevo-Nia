@@ -6,9 +6,19 @@
 export const AUTH_CALLBACK_KIND = 'auth-callback'
 export const OKVEVO_ID_TOKEN_FILENAME = 'okvevo-firebase-id-token'
 export const PENDING_TTL_MS = 10 * 60 * 1000
-export const OKVEVO_ORIGIN_MISSING_TITLE = 'OkVevo portal URL missing'
+export const OKVEVO_INVALID_PORTAL_URL = 'invalid_portal_url'
+export const OKVEVO_ORIGIN_MISSING_TITLE = 'Nia is missing the OkVevo portal URL'
 export const OKVEVO_ORIGIN_MISSING_ERROR =
   "Nia is missing the OkVevo portal URL. This build's pack-env is empty or unreadable. Reinstall the official Nia app."
+export const OKVEVO_PORTAL_URL_INVALID_TITLE = 'Nia could not open OkVevo'
+export const OKVEVO_PORTAL_URL_INVALID_ERROR =
+  "Nia could not open the OkVevo sign-in page. This build's portal address is not a valid web URL. Reinstall the official Nia app."
+export const OKVEVO_SIGN_IN_TIMEOUT_TITLE = 'Nia sign-in to OkVevo timed out'
+export const OKVEVO_SIGN_IN_TIMEOUT_ERROR =
+  'Nia did not receive the OkVevo sign-in callback in time. Click Sign In in Nia and try again.'
+export const OKVEVO_SIGN_IN_FAILED_TITLE = 'Nia could not sign in to OkVevo'
+export const OKVEVO_SIGN_IN_FAILED_ERROR =
+  'Nia could not finish signing in to OkVevo. Click Sign In in Nia and try again.'
 const PORTAL_PATH_RE = /^\/[A-Za-z0-9/_-]*$/
 
 export type OkvevoAuthPublic = {
@@ -81,14 +91,19 @@ export function buildOkvevoPortalUrl(origin: string, portalPath: string): string
   return `${trimmed}${portalPath}`
 }
 
-export function buildOkvevoLoginUrl(opts: { origin: string; protocol: string; state: string }): string {
+export function buildOkvevoLoginUrl(opts: { origin: string; protocol: string; state: string }): string | null {
   const origin = opts.origin.replace(/\/$/, '')
-  const url = new URL(`${origin}/login`)
 
-  url.searchParams.set('redirect', `${opts.protocol}://${AUTH_CALLBACK_KIND}`)
-  url.searchParams.set('state', opts.state)
+  try {
+    const url = new URL(`${origin}/login`)
 
-  return url.toString()
+    url.searchParams.set('redirect', `${opts.protocol}://${AUTH_CALLBACK_KIND}`)
+    url.searchParams.set('state', opts.state)
+
+    return url.toString()
+  } catch {
+    return null
+  }
 }
 
 export function parseHermesAuthCallback(url: string): { code: string; state: string } | null {

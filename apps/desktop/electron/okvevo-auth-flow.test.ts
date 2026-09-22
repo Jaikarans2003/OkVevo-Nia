@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import type { OkvevoAuthSession } from './okvevo-auth'
+import { OKVEVO_INVALID_PORTAL_URL, type OkvevoAuthSession, PENDING_TTL_MS } from './okvevo-auth'
 import { completeOkvevoAuthCallback, type OkvevoAuthFlowDeps, signOutOkvevo, startOkvevoSignIn } from './okvevo-auth-flow'
 import type { OkvevoAuthPending } from './okvevo-auth-store'
 
@@ -102,6 +102,136 @@ test('mismatched state does not POST exchange', async () => {
   await assert.rejects(() => completeOkvevoAuthCallback('one-time-code', 'other-state', d), /invalid_state/)
   assert.equal(d.posts.length, 0)
   assert.equal(d.loadSession(), null)
+})
+
+test('invalid portal URL throws before pending state or the browser', async () => {
+  const d = deps({ webOrigin: 'www.okvevo.com' })
+
+  await assert.rejects(() => startOkvevoSignIn(d), new RegExp(OKVEVO_INVALID_PORTAL_URL))
+  assert.equal(d.opened.length, 0)
+  assert.equal(d.getPending(), null)
+})
+
+test('expiry with no callback clears that pending sign-in, signals the dialog, and a second Sign In works', async () => {
+  let n = 0
+  const timers: Array<{ ms: number; fn: () => void }> = []
+  let signals = 0
+
+  const d = deps({
+    generateState: () => `state-${++n}`,
+    scheduleTimeout: (ms, fn) => {
+      timers.push({ ms, fn })
+
+      return () => {}
+    },
+    onSignInExpired: () => {
+      signals += 1
+    }
+  })
+
+  await startOkvevoSignIn(d)
+  assert.equal(timers[0].ms, PENDING_TTL_MS)
+  timers[0].fn()
+  assert.equal(d.getPending(), null)
+  assert.equal(signals, 1)
+
+  const url = await startOkvevoSignIn(d)
+
+  assert.ok(url)
+  assert.equal(d.getPending()?.state, 'state-2')
+  assert.equal(signals, 1)
+})
+
+test('an earlier sign-in timer does not clear a newer pending state', async () => {
+  let n = 0
+  const timers: Array<() => void> = []
+  let signals = 0
+
+  const d = deps({
+    generateState: () => `state-${++n}`,
+    scheduleTimeout: (_ms, fn) => {
+      timers.push(fn)
+
+      return () => {}
+    },
+    onSignInExpired: () => {
+      signals += 1
+    }
+  })
+
+  await startOkvevoSignIn(d)
+  await startOkvevoSignIn(d)
+  timers[0]()
+  assert.equal(d.getPending()?.state, 'state-2')
+  assert.equal(signals, 0)
+  timers[1]()
+  assert.equal(d.getPending(), null)
+  assert.equal(signals, 1)
+})
+
+test('a successful callback does not fire the sign-in timeout dialog', async () => {
+  const timers: Array<() => void> = []
+  let signals = 0
+
+  const d = deps({
+    scheduleTimeout: (_ms, fn) => {
+      timers.push(fn)
+
+      return () => {}
+    },
+    onSignInExpired: () => {
+      signals += 1
+    }
+  })
+
+  await startOkvevoSignIn(d)
+  await completeOkvevoAuthCallback('one-time-code', 'csrf-state-value', d)
+  timers[0]()
+  assert.equal(signals, 0)
+  assert.equal(d.loadSession()?.uid, 'u1')
+})
+
+test('exchange timeout clears only the pending sign-in that failed', async () => {
+  const d = deps({
+    postJson: async () => {
+      throw new Error('Timed out connecting to Nia after 15000ms')
+    }
+  })
+
+  await startOkvevoSignIn(d)
+  await assert.rejects(() => completeOkvevoAuthCallback('c', 'csrf-state-value', d), /Timed out/)
+  assert.equal(d.getPending(), null)
+})
+
+test('exchange timeout does not clear a newer pending sign-in', async () => {
+  let duringPost: (() => void) | undefined
+
+  const d = deps({
+    postJson: async () => {
+      duringPost?.()
+      throw new Error('Timed out connecting to Nia after 15000ms')
+    }
+  })
+
+  await startOkvevoSignIn(d)
+  const started = d.getPending()
+
+  duringPost = () => {
+    d.setPending({ state: 'newer', exp: (started?.exp ?? 0) + 1 })
+  }
+
+  await assert.rejects(() => completeOkvevoAuthCallback('c', 'csrf-state-value', d), /Timed out/)
+  assert.equal(d.getPending()?.state, 'newer')
+})
+
+test('invalid_grant clears the matching pending sign-in', async () => {
+  const d = deps({
+    postJson: async () => ({})
+  })
+
+  await startOkvevoSignIn(d)
+  await assert.rejects(() => completeOkvevoAuthCallback('c', 'csrf-state-value', d), /invalid_grant/)
+  assert.equal(d.getPending(), null)
 })
 
 test('signOut clears session', async () => {

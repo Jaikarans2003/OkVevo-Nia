@@ -274,8 +274,15 @@ import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition
 import {
   buildOkvevoPortalUrl,
   hermesProtocolForDev,
+  OKVEVO_INVALID_PORTAL_URL,
   OKVEVO_ORIGIN_MISSING_ERROR,
   OKVEVO_ORIGIN_MISSING_TITLE,
+  OKVEVO_PORTAL_URL_INVALID_ERROR,
+  OKVEVO_PORTAL_URL_INVALID_TITLE,
+  OKVEVO_SIGN_IN_FAILED_ERROR,
+  OKVEVO_SIGN_IN_FAILED_TITLE,
+  OKVEVO_SIGN_IN_TIMEOUT_ERROR,
+  OKVEVO_SIGN_IN_TIMEOUT_TITLE,
   okvevoIdTokenFilePath,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
@@ -7611,7 +7618,10 @@ function _okvevoAuthFlowDeps(): OkvevoAuthFlowDeps {
     writeIdTokenFile: _writeOkvevoIdTokenFile,
     clearIdTokenFile: _clearOkvevoIdTokenFile,
     rememberLog,
-    onChange: _notifyOkvevoAuth
+    onChange: _notifyOkvevoAuth,
+    onSignInExpired: () => {
+      dialog.showErrorBox(OKVEVO_SIGN_IN_TIMEOUT_TITLE, OKVEVO_SIGN_IN_TIMEOUT_ERROR)
+    }
   }
 }
 
@@ -7659,7 +7669,15 @@ async function _finishOkvevoAuthCallback(code: string, state: string) {
     await completeOkvevoAuthCallback(code, state, _okvevoAuthFlowDeps())
     _scheduleOkvevoRefresh()
   } catch (error) {
-    rememberLog(`[okvevo-auth] callback failed: ${error instanceof Error ? error.message : String(error)}`)
+    const message = error instanceof Error ? error.message : String(error)
+
+    rememberLog(`[okvevo-auth] callback failed: ${message}`)
+
+    if (message === 'invalid_state') {
+      return
+    }
+
+    dialog.showErrorBox(OKVEVO_SIGN_IN_FAILED_TITLE, OKVEVO_SIGN_IN_FAILED_ERROR)
   }
 }
 
@@ -16851,7 +16869,17 @@ ipcMain.handle('hermes:okvevo-auth:start', async () => {
     return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
   }
 
-  await startOkvevoSignIn(_okvevoAuthFlowDeps())
+  try {
+    await startOkvevoSignIn(_okvevoAuthFlowDeps())
+  } catch (error) {
+    if (error instanceof Error && error.message === OKVEVO_INVALID_PORTAL_URL) {
+      dialog.showErrorBox(OKVEVO_PORTAL_URL_INVALID_TITLE, OKVEVO_PORTAL_URL_INVALID_ERROR)
+
+      return { ok: false, error: OKVEVO_PORTAL_URL_INVALID_ERROR }
+    }
+
+    throw error
+  }
 
   return { ok: true }
 })

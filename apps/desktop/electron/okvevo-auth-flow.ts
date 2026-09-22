@@ -5,6 +5,7 @@
 
 import {
   buildOkvevoLoginUrl,
+  OKVEVO_INVALID_PORTAL_URL,
   type OkvevoAuthPublic,
   type OkvevoAuthSession,
   PENDING_TTL_MS,
@@ -28,6 +29,73 @@ export interface OkvevoAuthFlowDeps {
   clearIdTokenFile: () => void
   rememberLog?: (message: string) => void
   onChange?: (snapshot: OkvevoAuthPublic) => void
+  scheduleTimeout?: (ms: number, fn: () => void) => () => void
+  onSignInExpired?: () => void
+}
+
+type ArmedSignIn = { state: string; exp: number; cancel: () => void }
+
+let armedSignIn: ArmedSignIn | null = null
+
+function defaultScheduleTimeout(ms: number, fn: () => void): () => void {
+  const id = setTimeout(fn, ms)
+
+  if (typeof id.unref === 'function') {
+    id.unref()
+  }
+
+  return () => clearTimeout(id)
+}
+
+function disarmSignInTimer(state: string, exp: number): void {
+  if (!armedSignIn || armedSignIn.state !== state || armedSignIn.exp !== exp) {
+    return
+  }
+
+  armedSignIn.cancel()
+  armedSignIn = null
+}
+
+function pendingMatches(pending: OkvevoAuthPending | null, state: string, exp: number): pending is OkvevoAuthPending {
+  return Boolean(pending && pending.state === state && pending.exp === exp)
+}
+
+function armSignInTimer(deps: OkvevoAuthFlowDeps, state: string, exp: number): void {
+  if (armedSignIn) {
+    armedSignIn.cancel()
+    armedSignIn = null
+  }
+
+  const schedule = deps.scheduleTimeout ?? defaultScheduleTimeout
+  const delay = Math.max(0, exp - deps.now())
+
+  const cancel = schedule(delay, () => {
+    if (armedSignIn?.state === state && armedSignIn.exp === exp) {
+      armedSignIn = null
+    }
+
+    const pending = deps.getPending()
+
+    if (!pendingMatches(pending, state, exp)) {
+      return
+    }
+
+    deps.setPending(null)
+    deps.onSignInExpired?.()
+  })
+
+  armedSignIn = { state, exp, cancel }
+}
+
+function clearPendingIfSame(deps: OkvevoAuthFlowDeps, state: string, exp: number): void {
+  const pending = deps.getPending()
+
+  if (!pendingMatches(pending, state, exp)) {
+    return
+  }
+
+  disarmSignInTimer(state, exp)
+  deps.setPending(null)
 }
 
 function notify(deps: OkvevoAuthFlowDeps, session: OkvevoAuthSession | null): OkvevoAuthPublic {
@@ -40,10 +108,16 @@ function notify(deps: OkvevoAuthFlowDeps, session: OkvevoAuthSession | null): Ok
 
 export async function startOkvevoSignIn(deps: OkvevoAuthFlowDeps): Promise<string> {
   const state = deps.generateState()
-
-  deps.setPending({ state, exp: deps.now() + PENDING_TTL_MS })
-
   const url = buildOkvevoLoginUrl({ origin: deps.webOrigin, protocol: deps.protocol, state })
+
+  if (!url) {
+    throw new Error(OKVEVO_INVALID_PORTAL_URL)
+  }
+
+  const exp = deps.now() + PENDING_TTL_MS
+
+  deps.setPending({ state, exp })
+  armSignInTimer(deps, state, exp)
 
   await deps.openExternal(url)
   deps.rememberLog?.('[okvevo-auth] opened login')
@@ -62,15 +136,25 @@ export async function completeOkvevoAuthCallback(
     throw new Error('invalid_state')
   }
 
-  const body = await deps.postJson(`${deps.webOrigin.replace(/\/$/, '')}/api/auth/desktop/exchange`, { code, state })
+  const matched = { state: pending.state, exp: pending.exp }
+  let body: unknown
+
+  try {
+    body = await deps.postJson(`${deps.webOrigin.replace(/\/$/, '')}/api/auth/desktop/exchange`, { code, state })
+  } catch (error) {
+    clearPendingIfSame(deps, matched.state, matched.exp)
+    throw error
+  }
+
   const session = sessionFromTokenResponse(body as Parameters<typeof sessionFromTokenResponse>[0], deps.now())
 
   if (!session) {
+    clearPendingIfSame(deps, matched.state, matched.exp)
     throw new Error('invalid_grant')
   }
 
   deps.persistSession(session)
-  deps.setPending(null)
+  clearPendingIfSame(deps, matched.state, matched.exp)
   deps.writeIdTokenFile(session.idToken)
   deps.rememberLog?.(`[okvevo-auth] signed in ${session.uid}`)
 
