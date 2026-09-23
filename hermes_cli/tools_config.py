@@ -12,6 +12,7 @@ the `platform_toolsets` key.
 import json as _json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -965,6 +966,16 @@ def _pip_install(
 # answer from the binary itself — same tag-resolution as the installer,
 # no Python-side duplication.
 
+# P0 computer-use pin: cua-driver binary and npm `@trycua/cua-driver` must
+# be the same release. Bump this constant when the P2 bake-off is re-run.
+PINNED_CUA_DRIVER_VERSION = "0.28.2"
+
+
+def _parse_cua_driver_semver(text: str) -> Optional[str]:
+    """Pull ``X.Y.Z`` out of ``cua-driver 0.28.2`` / ``v0.28.2`` / ``0.28.2``."""
+    match = re.search(r"v?(\d+\.\d+\.\d+)", str(text or ""))
+    return match.group(1) if match else None
+
 
 def _cua_install_target_writable() -> bool:
     """Return whether the upstream installer can write its app bundle target."""
@@ -1081,7 +1092,10 @@ def install_cua_driver(
         # Pre-install asset probe deleted — see comment near the top of
         # tools_config.py for why. install.sh has CUA_DRIVER_RS_BAKED_VERSION
         # baked in by CD and errors cleanly on missing-arch assets.
-        return _run_cua_driver_installer(label="Installing")
+        return _run_cua_driver_installer(
+            label="Installing",
+            pin_version=PINNED_CUA_DRIVER_VERSION,
+        )
 
     # An installed driver that fails Hermes' runtime contract (version floor,
     # missing manifest verbs) is repaired regardless of the caller's mode.
@@ -1094,8 +1108,9 @@ def install_cua_driver(
     contract = _cua_driver_contract_status(binary) if binary else None
     repair_existing = bool(binary and contract and not contract.get("ready"))
 
-    # A compatible existing installation needs no download. Finish the small
-    # host-specific setup that the upstream installer normally owns.
+    # A compatible existing installation needs no download unless it is off
+    # the P0 pin (binary 0.23.x vs npm 0.28.x was the scored-run mismatch).
+    off_pin = False
     if binary and not upgrade and not repair_existing:
         try:
             version = subprocess.run(
@@ -1103,24 +1118,33 @@ def install_cua_driver(
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5, env=_cua_driver_env(),
                 creationflags=_post_setup_no_window_flags(),
             ).stdout.strip()
-            _print_success(f"    {driver_cmd} already installed: {version or 'unknown version'}")
         except Exception:
-            _print_success(f"    {driver_cmd} already installed.")
-        if is_windows:
-            if not _repair_cua_driver_autostart_windows(binary, verbose=False):
-                _print_warning(
-                    "    cua-driver is compatible, but Windows autostart repair failed."
-                )
-                return False
-            _print_info("    cua-driver may spawn a UIAccess worker (cua-driver-uia.exe);")
-            _print_info("    Windows/SmartScreen may prompt the first time it runs.")
-        elif is_linux:
-            _print_warning("    Linux support is alpha.")
-        else:
-            _print_info("    Grant macOS permissions if not done yet:")
-            _print_info("      System Settings > Privacy & Security > Accessibility")
-            _print_info("      System Settings > Privacy & Security > Screen Recording")
-        return True
+            version = ""
+        have = _parse_cua_driver_semver(version) or _parse_cua_driver_semver(
+            str((contract or {}).get("version") or "")
+        )
+        if have == PINNED_CUA_DRIVER_VERSION:
+            _print_success(f"    {driver_cmd} already installed: {version or have}")
+            if is_windows:
+                if not _repair_cua_driver_autostart_windows(binary, verbose=False):
+                    _print_warning(
+                        "    cua-driver is compatible, but Windows autostart repair failed."
+                    )
+                    return False
+                _print_info("    cua-driver may spawn a UIAccess worker (cua-driver-uia.exe);")
+                _print_info("    Windows/SmartScreen may prompt the first time it runs.")
+            elif is_linux:
+                _print_warning("    Linux support is alpha.")
+            else:
+                _print_info("    Grant macOS permissions if not done yet:")
+                _print_info("      System Settings > Privacy & Security > Accessibility")
+                _print_info("      System Settings > Privacy & Security > Screen Recording")
+            return True
+        off_pin = True
+        _print_info(
+            f"    {driver_cmd} {have or version or 'unknown'} is off pin "
+            f"{PINNED_CUA_DRIVER_VERSION}; refreshing."
+        )
 
     if repair_existing:
         version = contract.get("version") or "unknown version"
@@ -1182,7 +1206,7 @@ def install_cua_driver(
             _state = cua_driver_update_check()
         except Exception:
             _state = None
-        if _state is not None and not _state.get("update_available"):
+        if _state is not None and not _state.get("update_available") and not off_pin:
             _print_success(
                 f"    {driver_cmd} is already on the latest release "
                 f"({_state.get('current_version') or 'unknown'})."
@@ -1253,7 +1277,7 @@ def install_cua_driver(
     ok = _run_cua_driver_installer(
         label="Repairing" if repair_existing else "Refreshing",
         verbose=False,
-        pin_version=confirmed_version,
+        pin_version=confirmed_version or (PINNED_CUA_DRIVER_VERSION if off_pin else None),
         show_progress=show_installer_progress,
         installer_timeout=(
             _CUA_BACKGROUND_UPDATE_TIMEOUT

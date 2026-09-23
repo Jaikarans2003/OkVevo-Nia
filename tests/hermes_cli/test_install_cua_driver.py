@@ -362,8 +362,11 @@ class TestInstallCuaDriverUpgrade:
             assert writable is True
 
     def test_non_upgrade_with_binary_skips_install(self):
+        from unittest.mock import MagicMock
+
         from hermes_cli import tools_config
 
+        pinned = tools_config.PINNED_CUA_DRIVER_VERSION
         with patch.object(tools_config.shutil, "which",
                           side_effect=lambda n: "/usr/local/bin/" + n
                                                  if n in {"cua-driver", "curl"} else None), \
@@ -371,16 +374,59 @@ class TestInstallCuaDriverUpgrade:
              patch.object(
                  tools_config,
                  "_cua_driver_contract_status",
-                 return_value={"ready": True, "version": "0.20.0", "reason": ""},
+                 return_value={"ready": True, "version": pinned, "reason": ""},
              ), \
              patch.object(
                  tools_config,
                  "_repair_cua_driver_autostart_windows",
                  return_value=True,
              ), \
-             patch("subprocess.run"):
+             patch(
+                 "subprocess.run",
+                 return_value=MagicMock(
+                     stdout=f"cua-driver {pinned}", returncode=0
+                 ),
+             ):
             assert tools_config.install_cua_driver(upgrade=False) is True
             runner.assert_not_called()
+
+    def test_non_upgrade_off_pin_refreshes_to_pinned_release(self):
+        from unittest.mock import MagicMock
+
+        from hermes_cli import tools_config
+
+        pinned = tools_config.PINNED_CUA_DRIVER_VERSION
+        with patch.object(tools_config.shutil, "which",
+                          side_effect=lambda n: "/usr/local/bin/" + n
+                                                 if n in {"cua-driver", "curl"} else None), \
+             patch.object(tools_config, "_cua_install_target_writable",
+                          return_value=True), \
+             patch.object(
+                 tools_config,
+                 "_cua_driver_contract_status",
+                 return_value={"ready": True, "version": "0.23.2", "reason": ""},
+             ), \
+             patch(
+                 "tools.computer_use.cua_backend.cua_driver_update_check",
+                 return_value={
+                     "current_version": "0.23.2",
+                     "latest_version": pinned,
+                     "update_available": True,
+                 },
+             ), \
+             patch.object(tools_config, "_run_cua_driver_installer",
+                          return_value=True) as runner, \
+             patch(
+                 "subprocess.run",
+                 return_value=MagicMock(
+                     stdout="cua-driver 0.23.2", returncode=0
+                 ),
+             ), \
+             patch.object(tools_config, "_print_success"), \
+             patch.object(tools_config, "_print_warning"), \
+             patch.object(tools_config, "_print_info"):
+            assert tools_config.install_cua_driver(upgrade=False) is True
+        assert runner.call_args.kwargs.get("pin_version") == pinned
 
     def test_non_upgrade_repairs_incompatible_existing_driver(self):
         from hermes_cli import tools_config
@@ -465,6 +511,7 @@ class TestInstallCuaDriverUpgrade:
                           return_value=True) as runner:
             assert tools_config.install_cua_driver(upgrade=False) is True
             runner.assert_called_once()
+            assert runner.call_args.kwargs.get("pin_version") == tools_config.PINNED_CUA_DRIVER_VERSION
 
 
 class TestRequireConfirmedUpdate:
@@ -783,6 +830,7 @@ class TestArchProbeRemoval:
                           return_value=True) as runner:
             assert tools_config.install_cua_driver(upgrade=False) is True
             runner.assert_called_once()
+            assert runner.call_args.kwargs.get("pin_version") == tools_config.PINNED_CUA_DRIVER_VERSION
             urlopen.assert_not_called()
 
     def test_upgrade_with_binary_does_not_call_github_api_directly(self):
