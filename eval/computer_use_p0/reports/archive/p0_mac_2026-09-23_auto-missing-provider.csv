@@ -1,0 +1,73 @@
+suite,task_id,rep,os,prompt,first_tool,expect_first,routed_model,wall_s,llm_turns,tokens,credits,checker_ok,checker_reason,status
+d7,d7_su_01_whatsapp_open,1,mac,"Open WhatsApp and message ***CONTACT***: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 8d27170a",,computer_use,okvevo/auto-intelligence,21.12,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_01_whatsapp_open,2,mac,"Open WhatsApp and message ***CONTACT***: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 6cbd7319",,computer_use,okvevo/auto-intelligence,12.47,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_01_whatsapp_open,3,mac,"Open WhatsApp and message ***CONTACT***: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 63c5c938",,computer_use,okvevo/auto-intelligence,11.27,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_02_notes_put,1,mac,Put this in Notes with title 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=76da577b,,computer_use,okvevo/auto-intelligence,10.67,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_02_notes_put,2,mac,Put this in Notes with title 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=99cdab23,,computer_use,okvevo/auto-intelligence,9.86,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_02_notes_put,3,mac,Put this in Notes with title 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=1863a45b,,computer_use,okvevo/auto-intelligence,9.25,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_03_whatsapp_send,1,mac,"Send ***CONTACT*** a WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 80297422",,computer_use,okvevo/auto-intelligence,9.46,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_03_whatsapp_send,2,mac,"Send ***CONTACT*** a WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — d2362bcb",,computer_use,okvevo/auto-intelligence,9.86,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_03_whatsapp_send,3,mac,"Send ***CONTACT*** a WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 59f52307",,computer_use,okvevo/auto-intelligence,11.47,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_04_notes_type,1,mac,Type a note in Notes titled 'Nia P0 test note' that says: P0 D7 note about tomorrow's call. marker=98aab7f7,,computer_use,okvevo/auto-intelligence,10.06,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_04_notes_type,2,mac,Type a note in Notes titled 'Nia P0 test note' that says: P0 D7 note about tomorrow's call. marker=663936d3,,computer_use,okvevo/auto-intelligence,10.07,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_04_notes_type,3,mac,Type a note in Notes titled 'Nia P0 test note' that says: P0 D7 note about tomorrow's call. marker=4e471071,,computer_use,okvevo/auto-intelligence,11.87,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_05_whatsapp_someone,1,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 3b757763",,computer_use,okvevo/auto-intelligence,10.47,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_05_whatsapp_someone,2,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — d0a3b089",,computer_use,okvevo/auto-intelligence,11.47,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_05_whatsapp_someone,3,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — dd960a0d",,computer_use,okvevo/auto-intelligence,9.46,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_06_notes_open,1,mac,Open the Notes app and write this as 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=4aed9307,,computer_use,okvevo/auto-intelligence,10.07,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_06_notes_open,2,mac,Open the Notes app and write this as 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=f9664a90,,computer_use,okvevo/auto-intelligence,9.26,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_06_notes_open,3,mac,Open the Notes app and write this as 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=8e3529ce,,computer_use,okvevo/auto-intelligence,11.27,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_07_whatsapp_late,1,mac,"WhatsApp ***CONTACT*** that I'm running late. Also send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — af21d070",,computer_use,okvevo/auto-intelligence,165.19,,,,,d7_first_tool_only,timeout
+d7,d7_su_07_whatsapp_late,2,mac,"WhatsApp ***CONTACT*** that I'm running late. Also send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 5d71d4c2",,computer_use,okvevo/auto-intelligence,10.67,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_07_whatsapp_late,3,mac,"WhatsApp ***CONTACT*** that I'm running late. Also send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 63980883",,computer_use,okvevo/auto-intelligence,9.46,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_08_notes_drop,1,mac,Drop this into Notes titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=c1fffcb5,,computer_use,okvevo/auto-intelligence,9.87,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_08_notes_drop,2,mac,Drop this into Notes titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=0842ff9f,,computer_use,okvevo/auto-intelligence,10.07,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_08_notes_drop,3,mac,Drop this into Notes titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=437c28a8,,computer_use,okvevo/auto-intelligence,8.87,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_09_whatsapp_start,1,mac,"Start a WhatsApp chat with ***CONTACT*** and send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — cf55c5b2",,computer_use,okvevo/auto-intelligence,9.47,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_09_whatsapp_start,2,mac,"Start a WhatsApp chat with ***CONTACT*** and send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — cdd02257",,computer_use,okvevo/auto-intelligence,9.47,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_09_whatsapp_start,3,mac,"Start a WhatsApp chat with ***CONTACT*** and send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — d99c8604",,computer_use,okvevo/auto-intelligence,10.68,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_10_notes_add,1,mac,Add a note in the Notes app about tomorrow's call titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=e6c9484f,,computer_use,okvevo/auto-intelligence,9.27,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_10_notes_add,2,mac,Add a note in the Notes app about tomorrow's call titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=e0d8ef45,,computer_use,okvevo/auto-intelligence,8.87,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_10_notes_add,3,mac,Add a note in the Notes app about tomorrow's call titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=68420546,,computer_use,okvevo/auto-intelligence,10.48,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_11_tally,1,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors",,computer_use,okvevo/auto-intelligence,,,,,,windows_only,skipped
+d7,d7_su_11_tally,2,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors",,computer_use,okvevo/auto-intelligence,,,,,,windows_only,skipped
+d7,d7_su_11_tally,3,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors",,computer_use,okvevo/auto-intelligence,,,,,,windows_only,skipped
+d7,d7_su_12_multi,1,mac,Copy the Notes note 'Nia P0 test note' into a WhatsApp message to ***CONTACT***,,computer_use,okvevo/auto-intelligence,13.7,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_12_multi,2,mac,Copy the Notes note 'Nia P0 test note' into a WhatsApp message to ***CONTACT***,,computer_use,okvevo/auto-intelligence,10.88,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_12_multi,3,mac,Copy the Notes note 'Nia P0 test note' into a WhatsApp message to ***CONTACT***,,computer_use,okvevo/auto-intelligence,10.07,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_13_calc,1,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4",,computer_use,okvevo/auto-intelligence,165.17,,,,,d7_first_tool_only,timeout
+d7,d7_su_13_calc,2,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4",,computer_use,okvevo/auto-intelligence,10.28,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_su_13_calc,3,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4",,computer_use,okvevo/auto-intelligence,10.07,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_sn_01_ls,1,mac,List the files in this folder,,not_computer_use,okvevo/auto-intelligence,8.67,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_sn_01_ls,2,mac,List the files in this folder,,not_computer_use,okvevo/auto-intelligence,9.87,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error
+d7,d7_sn_01_ls,3,mac,List the files in this folder,,not_computer_use,okvevo/auto-intelligence,9.27,,,,,An error occurred (ValidationException) when calling the ConverseStream operation: The provided model identifier is invalid.,error

@@ -1,0 +1,102 @@
+suite,task_id,rep,os,prompt,first_tool,expect_first,routed_model,wall_s,llm_turns,tokens,credits,checker_ok,checker_reason,status
+d7,d7_su_01_whatsapp_open,1,mac,"Open WhatsApp and message ***CONTACT***: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — af20ab81",,computer_use,okvevo/auto-intelligence,132.33,,,,,d7_first_tool_only,error
+d7,d7_su_01_whatsapp_open,2,mac,"Open WhatsApp and message ***CONTACT***: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 3a54f93d",,computer_use,okvevo/auto-intelligence,11.87,,,,,d7_first_tool_only,error
+d7,d7_su_01_whatsapp_open,3,mac,"Open WhatsApp and message ***CONTACT***: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 148ecd23",,computer_use,okvevo/auto-intelligence,10.07,,,,,d7_first_tool_only,error
+d7,d7_su_02_notes_put,1,mac,Put this in Notes with title 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=776fe95b,,computer_use,okvevo/auto-intelligence,12.71,,,,,d7_first_tool_only,error
+d7,d7_su_02_notes_put,2,mac,Put this in Notes with title 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=07db20cb,,computer_use,okvevo/auto-intelligence,9.06,,,,,d7_first_tool_only,error
+d7,d7_su_02_notes_put,3,mac,Put this in Notes with title 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=1cd8139f,,computer_use,okvevo/auto-intelligence,20.74,,,,,d7_first_tool_only,error
+d7,d7_su_03_whatsapp_send,1,mac,"Send ***CONTACT*** a WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 9d9dbae2",,computer_use,okvevo/auto-intelligence,165.17,,,,,d7_first_tool_only,timeout
+d7,d7_su_03_whatsapp_send,2,mac,"Send ***CONTACT*** a WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — dc01c648",,computer_use,okvevo/auto-intelligence,73.85,,,,,d7_first_tool_only,error
+d7,d7_su_03_whatsapp_send,3,mac,"Send ***CONTACT*** a WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 6cdb4eb2",,computer_use,okvevo/auto-intelligence,10.87,,,,,d7_first_tool_only,error
+d7,d7_su_04_notes_type,1,mac,Type a note in Notes titled 'Nia P0 test note' that says: P0 D7 note about tomorrow's call. marker=83fe95e2,,computer_use,okvevo/auto-intelligence,10.27,,,,,d7_first_tool_only,error
+d7,d7_su_04_notes_type,2,mac,Type a note in Notes titled 'Nia P0 test note' that says: P0 D7 note about tomorrow's call. marker=bb61a523,,computer_use,okvevo/auto-intelligence,11.48,,,,,d7_first_tool_only,error
+d7,d7_su_04_notes_type,3,mac,Type a note in Notes titled 'Nia P0 test note' that says: P0 D7 note about tomorrow's call. marker=046c1e61,,computer_use,okvevo/auto-intelligence,10.27,,,,,d7_first_tool_only,error
+d7,d7_su_05_whatsapp_someone,1,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — de48c0fe",,computer_use,okvevo/auto-intelligence,10.27,,,,,d7_first_tool_only,error
+d7,d7_su_05_whatsapp_someone,2,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 1c6e2a65",,computer_use,okvevo/auto-intelligence,13.69,,,,,d7_first_tool_only,error
+d7,d7_su_05_whatsapp_someone,3,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 5082b6ec",,computer_use,okvevo/auto-intelligence,11.88,,,,,d7_first_tool_only,error
+d7,d7_su_06_notes_open,1,mac,Open the Notes app and write this as 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=99acc951,,computer_use,okvevo/auto-intelligence,12.29,,,,,d7_first_tool_only,error
+d7,d7_su_06_notes_open,2,mac,Open the Notes app and write this as 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=7b8356e0,,computer_use,okvevo/auto-intelligence,12.29,,,,,d7_first_tool_only,error
+d7,d7_su_06_notes_open,3,mac,Open the Notes app and write this as 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=c9b6e1fc,,computer_use,okvevo/auto-intelligence,12.5,,,,,d7_first_tool_only,error
+d7,d7_su_07_whatsapp_late,1,mac,"WhatsApp ***CONTACT*** that I'm running late. Also send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 31e37a2d",,computer_use,okvevo/auto-intelligence,11.68,,,,,d7_first_tool_only,error
+d7,d7_su_07_whatsapp_late,2,mac,"WhatsApp ***CONTACT*** that I'm running late. Also send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 5a5b139c",,computer_use,okvevo/auto-intelligence,12.9,,,,,d7_first_tool_only,error
+d7,d7_su_07_whatsapp_late,3,mac,"WhatsApp ***CONTACT*** that I'm running late. Also send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 24af9781",,computer_use,okvevo/auto-intelligence,10.08,,,,,d7_first_tool_only,error
+d7,d7_su_08_notes_drop,1,mac,Drop this into Notes titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=a1e4a50d,,computer_use,okvevo/auto-intelligence,12.69,,,,,d7_first_tool_only,error
+d7,d7_su_08_notes_drop,2,mac,Drop this into Notes titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=85b4319d,,computer_use,okvevo/auto-intelligence,11.29,,,,,d7_first_tool_only,error
+d7,d7_su_08_notes_drop,3,mac,Drop this into Notes titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=93c91c49,,computer_use,okvevo/auto-intelligence,14.91,,,,,d7_first_tool_only,error
+d7,d7_su_09_whatsapp_start,1,mac,"Start a WhatsApp chat with ***CONTACT*** and send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 102223f2",,computer_use,okvevo/auto-intelligence,31.83,,,,,d7_first_tool_only,error
+d7,d7_su_09_whatsapp_start,2,mac,"Start a WhatsApp chat with ***CONTACT*** and send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 999eb633",,computer_use,okvevo/auto-intelligence,149.21,,,,,d7_first_tool_only,error
+d7,d7_su_09_whatsapp_start,3,mac,"Start a WhatsApp chat with ***CONTACT*** and send: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 73db5326",,computer_use,okvevo/auto-intelligence,12.89,,,,,d7_first_tool_only,error
+d7,d7_su_10_notes_add,1,mac,Add a note in the Notes app about tomorrow's call titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=bffe1e80,,computer_use,okvevo/auto-intelligence,11.31,,,,,d7_first_tool_only,error
+d7,d7_su_10_notes_add,2,mac,Add a note in the Notes app about tomorrow's call titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=14bf6258,,computer_use,okvevo/auto-intelligence,10.88,,,,,d7_first_tool_only,error
+d7,d7_su_10_notes_add,3,mac,Add a note in the Notes app about tomorrow's call titled 'Nia P0 test note': P0 D7 note about tomorrow's call. marker=87b2a678,,computer_use,okvevo/auto-intelligence,9.28,,,,,d7_first_tool_only,error
+d7,d7_su_11_tally,1,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors",,computer_use,okvevo/auto-intelligence,,,,,,windows_only,skipped
+d7,d7_su_11_tally,2,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors",,computer_use,okvevo/auto-intelligence,,,,,,windows_only,skipped
+d7,d7_su_11_tally,3,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors",,computer_use,okvevo/auto-intelligence,,,,,,windows_only,skipped
+d7,d7_su_12_multi,1,mac,Copy the Notes note 'Nia P0 test note' into a WhatsApp message to ***CONTACT***,,computer_use,okvevo/auto-intelligence,9.7,,,,,d7_first_tool_only,error
+d7,d7_su_12_multi,2,mac,Copy the Notes note 'Nia P0 test note' into a WhatsApp message to ***CONTACT***,,computer_use,okvevo/auto-intelligence,10.48,,,,,d7_first_tool_only,error
+d7,d7_su_12_multi,3,mac,Copy the Notes note 'Nia P0 test note' into a WhatsApp message to ***CONTACT***,,computer_use,okvevo/auto-intelligence,12.3,,,,,d7_first_tool_only,error
+d7,d7_su_13_calc,1,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4",,computer_use,okvevo/auto-intelligence,11.89,,,,,d7_first_tool_only,error
+d7,d7_su_13_calc,2,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4",,computer_use,okvevo/auto-intelligence,19.54,,,,,d7_first_tool_only,error
+d7,d7_su_13_calc,3,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4",,computer_use,okvevo/auto-intelligence,28.62,,,,,d7_first_tool_only,error
+d7,d7_sn_01_ls,1,mac,List the files in this folder,,not_computer_use,okvevo/auto-intelligence,12.5,,,,,d7_first_tool_only,error
+d7,d7_sn_01_ls,2,mac,List the files in this folder,,not_computer_use,okvevo/auto-intelligence,11.5,,,,,d7_first_tool_only,error
+d7,d7_sn_01_ls,3,mac,List the files in this folder,,not_computer_use,okvevo/auto-intelligence,12.1,,,,,d7_first_tool_only,error
+d7,d7_sn_02_web,1,mac,Search the web for the current Nia version,,not_computer_use,okvevo/auto-intelligence,13.71,,,,,d7_first_tool_only,error
+d7,d7_sn_02_web,2,mac,Search the web for the current Nia version,,not_computer_use,okvevo/auto-intelligence,12.51,,,,,d7_first_tool_only,error
+d7,d7_sn_02_web,3,mac,Search the web for the current Nia version,,not_computer_use,okvevo/auto-intelligence,11.9,,,,,d7_first_tool_only,error
+d7,d7_sn_03_edit,1,mac,Edit foo.py and add a comment,,not_computer_use,okvevo/auto-intelligence,11.69,,,,,d7_first_tool_only,error
+d7,d7_sn_03_edit,2,mac,Edit foo.py and add a comment,,not_computer_use,okvevo/auto-intelligence,12.1,,,,,d7_first_tool_only,error
+d7,d7_sn_03_edit,3,mac,Edit foo.py and add a comment,,not_computer_use,okvevo/auto-intelligence,12.11,,,,,d7_first_tool_only,error
+d7,d7_sn_04_git,1,mac,Run git status in the project,,not_computer_use,okvevo/auto-intelligence,9.67,,,,,d7_first_tool_only,error
+d7,d7_sn_04_git,2,mac,Run git status in the project,,not_computer_use,okvevo/auto-intelligence,10.68,,,,,d7_first_tool_only,error
+d7,d7_sn_04_git,3,mac,Run git status in the project,,not_computer_use,okvevo/auto-intelligence,12.71,,,,,d7_first_tool_only,error
+d7,d7_sn_05_math,1,mac,"What's 18% of 2,450?",,not_computer_use,okvevo/auto-intelligence,10.29,,,,,d7_first_tool_only,error
+d7,d7_sn_05_math,2,mac,"What's 18% of 2,450?",,not_computer_use,okvevo/auto-intelligence,10.49,,,,,d7_first_tool_only,error
+d7,d7_sn_05_math,3,mac,"What's 18% of 2,450?",,not_computer_use,okvevo/auto-intelligence,12.52,,,,,d7_first_tool_only,error
+bakeoff,bake_whatsapp__anthropic_claude-sonnet-5,1,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type this 3-line message, and send it:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 71ce3677",computer_use,,anthropic/claude-sonnet-5,600.28,24,1359408,,False,marker_not_in_ax,interrupted
+bakeoff,bake_whatsapp__anthropic_claude-sonnet-5,2,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type this 3-line message, and send it:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 0154bfb9",computer_use,,anthropic/claude-sonnet-5,630.07,44,2831445,,False,marker_not_in_ax,timeout
+bakeoff,bake_whatsapp__anthropic_claude-sonnet-5,3,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type this 3-line message, and send it:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — c30523bf",computer_use,,anthropic/claude-sonnet-5,630.2,27,1704582,,False,marker_not_in_ax,timeout
+bakeoff,bake_notes__anthropic_claude-sonnet-5,1,mac,Open Notes and create a note titled 'Nia P0 test note' with body: P0 bake-off note marker=b4bb7827,skill_view,,anthropic/claude-sonnet-5,28.23,4,131916,,True,ok,complete
+bakeoff,bake_notes__anthropic_claude-sonnet-5,2,mac,Open Notes and create a note titled 'Nia P0 test note' with body: P0 bake-off note marker=a1c2b687,skill_view,,anthropic/claude-sonnet-5,18.56,3,98364,,True,ok,complete
+bakeoff,bake_notes__anthropic_claude-sonnet-5,3,mac,Open Notes and create a note titled 'Nia P0 test note' with body: P0 bake-off note marker=ac081502,skill_view,,anthropic/claude-sonnet-5,630.25,4,131844,,True,ok,timeout
+bakeoff,bake_calc__anthropic_claude-sonnet-5,1,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4 so A4 equals 60.",computer_use,,anthropic/claude-sonnet-5,630.29,37,2116549,,False,a4_not_in_ax,timeout
+bakeoff,bake_calc__anthropic_claude-sonnet-5,2,mac,"In LibreOffice Calc, type 10, 20, 30 in A1–A3 and total them in A4 so A4 equals 60.",computer_use,,anthropic/claude-sonnet-5,630.3,46,2330995,,False,a4_not_in_ax,timeout

@@ -1,0 +1,22 @@
+{
+  "TEST_CONTACT": "Paste the exact WhatsApp chat title here (a test contact, not a phone number in git)",
+  "note_title": "Nia P0 test note",
+  "note_body": "P0 baseline note: tomorrow's call is at 3pm.",
+  "tally_ledger": "Test Ledger",
+  "tally_under": "Sundry Debtors",
+  "calc_values": [10, 20, 30],
+  "calc_total": 60,
+  "gateway_url": "",
+  "d7_reps": 3,
+  "bakeoff_reps": 3,
+  "baseline_reps": 3,
+  "d7_timeout_s": 120,
+  "task_timeout_s": 600,
+  "max_llm_turns": 12,
+  "max_tokens": 150000,
+  "bakeoff_models": [
+    "anthropic/claude-haiku-4.5",
+    "openai/gpt-5.4-mini",
+    "google/gemini-3.7-flash"
+  ]
+}

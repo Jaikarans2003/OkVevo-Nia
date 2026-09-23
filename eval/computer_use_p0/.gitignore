@@ -1,0 +1,9 @@
+# Local P0 eval secrets and machine output
+config.local.json
+config.local.yaml
+node_modules/
+__pycache__/
+dumps/raw/
+dumps/*.json
+*.pyc
+.DS_Store
