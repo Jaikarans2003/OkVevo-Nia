@@ -171,6 +171,17 @@ jobs:
     name: OSV scan
     uses: ./.github/workflows/osv-scanner.yml
 
+  # OkVevo-Nia: always-on identity floor (SOUL / package.json / install URLs).
+  # Not lane-gated — branding regressions must block even docs-only PRs.
+  nia-branding:
+    name: Nia branding check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: check_nia_branding
+        run: python3 scripts/check_nia_branding.py
+
   # ─────────────────────────────────────────────────────────────────────
   # Gate: runs after everything. ``if: always()`` ensures it reports a
   # status even when some deps were skipped. Only actual ``failure``
@@ -197,6 +208,7 @@ jobs:
       - lockfile-diff
       - supply-chain
       - osv-scanner
+      - nia-branding
       # The image build runs in its own workflow (docker.yml) and reports
       # its own check. It was never required here, because it is too slow
       # to block a merge. A separate run also stops it from holding this
