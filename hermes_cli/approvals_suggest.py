@@ -284,7 +284,7 @@ def derive_glob(normalized: str) -> Optional[str]:
     allowlist matcher refuses those anyway) and for commands anchored on an
     unsafe root binary.
     """
-    from tools.approval import _has_allowlist_shell_operator
+    from tools.approval_floors import _has_allowlist_shell_operator
 
     if _has_allowlist_shell_operator(normalized):
         return None

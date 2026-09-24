@@ -1579,6 +1579,17 @@ def _build_no_backend_setup_message() -> str:
     return "\n".join(lines)
 
 
+def _get_plugin_provider(name: str, *, force: bool = False):
+    """Discover plugins (local import: importing this module must not trigger discovery) and return the named provider."""
+    from agent.image_gen_registry import get_provider
+    from hermes_cli.plugins import _ensure_plugins_discovered
+    if force:
+        _ensure_plugins_discovered(force=True)
+    else:
+        _ensure_plugins_discovered()
+    return get_provider(name)
+
+
 def check_image_generation_requirements() -> bool:
     """True if FAL or the explicitly configured image backend is available."""
     from agent.okvevo_gateway import nia_is_internal_channel

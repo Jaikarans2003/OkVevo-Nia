@@ -1,0 +1,37 @@
+suite,task_id,rep,os,prompt,first_tool,expect_first,routed_model,wall_s,llm_turns,tokens,credits,screenshots,checker_ok,checker_reason,status
+baseline,base_whatsapp_regression,1,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 54c15cbe",,,,631.92,33,1113191,350,0,False,marker_not_in_ax,budget_exceeded
+baseline,base_whatsapp_regression,2,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 24831db1",computer_use,,,44.68,6,167867,83,3,False,marker_not_in_ax,budget_exceeded
+baseline,base_whatsapp_regression,3,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 4245e920",computer_use,,,49.38,6,153338,31,2,False,marker_not_in_ax,budget_exceeded
+baseline,base_notes,1,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=4722e5d7,terminal,,,50.41,7,160243,36,0,True,ok,budget_exceeded
+baseline,base_notes,2,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=05e179a6,terminal,,,49.61,7,160235,83,0,False,note_missing_marker,budget_exceeded
+baseline,base_notes,3,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=77c59746,computer_use,,,46.73,6,158280,33,3,False,note_missing_marker,budget_exceeded
+baseline,base_tally,1,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors.",,,okvevo/auto-cost,,,,,,,windows_only,skipped
+baseline,base_tally,2,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors.",,,okvevo/auto-cost,,,,,,,windows_only,skipped
+baseline,base_tally,3,mac,"In TallyPrime Educational Mode, create a ledger ""Test Ledger"" under Sundry Debtors.",,,okvevo/auto-cost,,,,,,,windows_only,skipped
+baseline,base_calc,1,mac,"In LibreOffice Calc, type 10 in A1, 20 in A2, 30 in A3, and put the total in A4.",,,okvevo/auto-cost,,,,,,,not_in_only_tasks,skipped
+baseline,base_calc,2,mac,"In LibreOffice Calc, type 10 in A1, 20 in A2, 30 in A3, and put the total in A4.",,,okvevo/auto-cost,,,,,,,not_in_only_tasks,skipped
+baseline,base_calc,3,mac,"In LibreOffice Calc, type 10 in A1, 20 in A2, 30 in A3, and put the total in A4.",,,okvevo/auto-cost,,,,,,,not_in_only_tasks,skipped
+baseline,base_vague_whatsapp,1,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 59b32b39",,,okvevo/auto-cost,,,,,,,not_in_only_tasks,skipped
+baseline,base_vague_whatsapp,2,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 38d528ec",,,okvevo/auto-cost,,,,,,,not_in_only_tasks,skipped
+baseline,base_vague_whatsapp,3,mac,"Message ***CONTACT*** on WhatsApp: P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 74d72a2b",,,okvevo/auto-cost,,,,,,,not_in_only_tasks,skipped
+baseline,base_vague_notes,1,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=1d8a8bc6,terminal,,,28.66,3,66076,16,0,True,ok,complete
+baseline,base_vague_notes,2,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=9004871f,terminal,,,49.05,7,161520,33,0,False,note_missing_marker,budget_exceeded
+baseline,base_vague_notes,3,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=2fd3dc94,terminal,,,45.44,6,135986,27,0,True,ok,complete
+baseline,base_vague_notes2,1,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=83725923,terminal,,,25.44,3,66028,16,0,True,ok,complete
+baseline,base_vague_notes2,2,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=aa3436c2,terminal,,,57.18,7,160659,31,0,False,note_missing_marker,budget_exceeded
+baseline,base_vague_notes2,3,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=f3d2b999,terminal,,,53.16,7,158795,32,0,True,ok,budget_exceeded

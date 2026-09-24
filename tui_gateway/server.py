@@ -5723,7 +5723,7 @@ def _load_approval_mode() -> str:
     overlays and ``${VAR}`` env expansion that the TUI's raw YAML read did
     not fully mirror).
     """
-    from tools.approval import _get_approval_mode
+    from tools.approval_context import _get_approval_mode
 
     mode = _get_approval_mode()
     return mode if mode in _APPROVAL_MODES else "manual"
@@ -14268,7 +14268,7 @@ def _(rid, params: dict) -> dict:
                 return not current
 
             if scope == "global":
-                from tools.approval import _normalize_approval_mode
+                from tools.approval_context import _normalize_approval_mode
 
                 cfg = _load_cfg()
                 appr = cfg.get("approvals") if isinstance(cfg, dict) else None

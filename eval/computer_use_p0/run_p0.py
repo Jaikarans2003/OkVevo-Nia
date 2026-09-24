@@ -209,9 +209,12 @@ async def run_turn(
     }
 
 
-def skip_task(task: dict[str, Any]) -> str | None:
+def skip_task(task: dict[str, Any], cfg: dict[str, Any] | None = None) -> str | None:
     if task.get("windows_only") and sys.platform != "win32":
         return "windows_only"
+    only = (cfg or {}).get("only_tasks")
+    if only and task.get("id") not in only:
+        return "not_in_only_tasks"
     return None
 
 
@@ -233,7 +236,7 @@ async def run_suite(
     score: bool,
 ) -> None:
     for task in tasks:
-        why = skip_task(task)
+        why = skip_task(task, cfg)
         tid = task["id"]
         if suite == "bakeoff":
             tid = f"{task['id']}__{model.replace('/', '_')}"

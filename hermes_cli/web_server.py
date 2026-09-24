@@ -15261,13 +15261,13 @@ def _resolve_toolset_model_plugin(ts_key: str, provider_row: dict) -> Optional[s
     """Map a provider picker row to its model-catalog plugin name.
 
     Plugin-backed rows carry ``image_gen_plugin_name`` / ``video_gen_plugin_name``;
-    the managed "Nous Subscription" image row instead carries the legacy
-    ``imagegen_backend: "fal"`` marker (same underlying FAL catalog).
+    a managed image row's ``imagegen_backend`` names its IMAGEGEN_BACKENDS catalog
+    (``nous`` = managed union, ``fal`` = direct FAL).
     """
     if ts_key == "image_gen":
-        return provider_row.get("image_gen_plugin_name") or (
-            "fal" if provider_row.get("imagegen_backend") else None
-        )
+        # Nia fork delta (upstream sync): pass the ``imagegen_backend`` marker through
+        # verbatim — "nous" selects the managed union catalog via IMAGEGEN_BACKENDS.
+        return provider_row.get("image_gen_plugin_name") or provider_row.get("imagegen_backend")
     if ts_key == "video_gen":
         return provider_row.get("video_gen_plugin_name")
     return None
@@ -15276,11 +15276,18 @@ def _resolve_toolset_model_plugin(ts_key: str, provider_row: dict) -> Optional[s
 def _toolset_model_catalog(ts_key: str, plugin_name: str):
     """Return ``(catalog_dict, default_model)`` for a toolset's plugin backend."""
     from hermes_cli.tools_config import (
+        IMAGEGEN_BACKENDS,
         _plugin_image_gen_catalog,
         _plugin_video_gen_catalog,
     )
 
     if ts_key == "image_gen":
+        # Nia fork delta (upstream sync): an ``imagegen_backend`` row (``fal``, or the
+        # managed ``nous`` union spanning FAL + Krea + Portal) resolves through
+        # IMAGEGEN_BACKENDS; plain plugin rows keep the plugin catalog path.
+        backend = IMAGEGEN_BACKENDS.get(plugin_name)
+        if backend:
+            return backend["catalog_fn"](load_config())
         return _plugin_image_gen_catalog(plugin_name)
     return _plugin_video_gen_catalog(plugin_name)
 

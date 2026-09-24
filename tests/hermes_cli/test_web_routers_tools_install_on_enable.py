@@ -11,6 +11,12 @@ the binary.
 
 import pytest
 
+# Nia fork delta: after the tools_config split, the cua-driver install
+# predicates live in (and are read from) these two modules — patch them here,
+# not the tools_config re-export shell.
+import hermes_cli.tools_config_cua as tools_config_cua
+import hermes_cli.tools_config_post_setup as tools_config_post_setup
+
 
 class TestToggleToolsetInstallOnEnable:
     @pytest.fixture(autouse=True)
@@ -53,10 +59,10 @@ class TestToggleToolsetInstallOnEnable:
         calls = self._spawn_recorder(monkeypatch)
         # Binary missing → the cua_driver predicate reports unsatisfied.
         monkeypatch.setattr(
-            tools_config, "_resolved_cua_driver_cmd", lambda: None
+tools_config_cua, "_resolved_cua_driver_cmd", lambda: None
         )
         monkeypatch.setattr(
-            tools_config, "_cua_driver_install_ready", lambda: False
+tools_config_post_setup, "_cua_driver_install_ready", lambda: False
         )
 
         resp = self.client.put(
@@ -81,7 +87,7 @@ class TestToggleToolsetInstallOnEnable:
             tools_config, "_resolved_cua_driver_cmd", lambda: "/usr/bin/cua-driver"
         )
         monkeypatch.setattr(
-            tools_config, "_cua_driver_install_ready", lambda: True
+tools_config_post_setup, "_cua_driver_install_ready", lambda: True
         )
 
         resp = self.client.put(
@@ -96,10 +102,10 @@ class TestToggleToolsetInstallOnEnable:
 
         calls = self._spawn_recorder(monkeypatch)
         monkeypatch.setattr(
-            tools_config, "_resolved_cua_driver_cmd", lambda: None
+tools_config_cua, "_resolved_cua_driver_cmd", lambda: None
         )
         monkeypatch.setattr(
-            tools_config, "_cua_driver_install_ready", lambda: False
+tools_config_post_setup, "_cua_driver_install_ready", lambda: False
         )
 
         resp = self.client.put(
@@ -114,10 +120,10 @@ class TestToggleToolsetInstallOnEnable:
         import hermes_cli.web_server as web_server
 
         monkeypatch.setattr(
-            tools_config, "_resolved_cua_driver_cmd", lambda: None
+tools_config_cua, "_resolved_cua_driver_cmd", lambda: None
         )
         monkeypatch.setattr(
-            tools_config, "_cua_driver_install_ready", lambda: False
+tools_config_post_setup, "_cua_driver_install_ready", lambda: False
         )
 
         def _boom(subcommand, name, **kwargs):

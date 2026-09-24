@@ -198,7 +198,7 @@ def current_tool_call_id() -> str:
     back from the same context. Bare/offline callers have no binding.
     """
     try:
-        from tools.approval import _approval_tool_call_id
+        from tools.approval_context import _approval_tool_call_id
 
         return _approval_tool_call_id.get() or ""
     except Exception:
