@@ -28,6 +28,7 @@ from client import (  # noqa: E402
     budget_exceeded,
     credits_from_usage,
     observed_models,
+    tokens_used,
     wait_until,
 )
 from config_load import load_config, redact, require_test_contact  # noqa: E402
@@ -150,7 +151,15 @@ async def run_turn(
     )
     deadline = time.monotonic() + timeout_s
     hit_budget = False
+    next_usage_poll = time.monotonic()
     while time.monotonic() < deadline:
+        now = time.monotonic()
+        if now >= next_usage_poll:
+            try:
+                await gw.refresh_usage(sid)
+            except Exception:
+                pass
+            next_usage_poll = now + 1.0
         usage_now = gw.latest_usage(sid)
         if budget_exceeded(usage_now, max_llm_turns, max_tokens):
             hit_budget = True
@@ -201,7 +210,7 @@ async def run_turn(
         "routed_model": routed,
         "wall_s": wall,
         "llm_turns": usage.get("calls") or gw.latest_usage(sid).get("calls") or "",
-        "tokens": usage.get("total") or gw.latest_usage(sid).get("total") or "",
+        "tokens": tokens_used(usage) or tokens_used(gw.latest_usage(sid)) or "",
         "credits": credits,
         "screenshots": gw.screenshot_count(sid),
         "status": status,

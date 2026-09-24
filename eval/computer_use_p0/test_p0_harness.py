@@ -165,8 +165,92 @@ def test_screenshot_and_budget():
     assert screenshot_count(events) == 2
     assert budget_exceeded({"calls": 12, "total": 10}, 12, 150000)
     assert budget_exceeded({"calls": 1, "total": 150000}, 12, 150000)
+    assert budget_exceeded({"calls": 1, "total": 10000, "aux_total": 140000}, 12, 150000)
     assert not budget_exceeded({"calls": 1, "total": 100}, 12, 150000)
+    assert not budget_exceeded({"calls": 1, "total": 10000, "aux_total": 10000}, 12, 150000)
     assert not budget_exceeded({"calls": 0, "total": 0}, 12, 150000)
+
+
+def test_run_stops_when_token_cap_exceeded():
+    """A FakeGateway that reports 160k (100k + 60k aux) must stop as budget_exceeded."""
+    import asyncio
+
+    import run_p0
+
+    class FakeGW:
+        def __init__(self) -> None:
+            self.interrupted = False
+            self._usage_rpc: dict = {}
+
+        async def request(self, method: str, params=None, timeout: float = 60):
+            del params, timeout
+            if method == "session.create":
+                return {"session_id": "s-cap"}
+            if method == "session.usage":
+                return {"calls": 2, "total": 100000, "aux_total": 60000}
+            if method == "session.interrupt":
+                self.interrupted = True
+                return {}
+            return {}
+
+        def latest_usage(self, session_id: str) -> dict:
+            from client import merge_usage
+
+            return merge_usage(self._usage_rpc.get(session_id))
+
+        def first_action_tool(self, session_id: str) -> str:
+            del session_id
+            return ""
+
+        def complete(self, session_id: str):
+            del session_id
+            return {"status": "interrupted"} if self.interrupted else None
+
+        def routed_model(self, session_id: str) -> str:
+            del session_id
+            return "openai/gpt-5.4-mini"
+
+        def screenshot_count(self, session_id: str) -> int:
+            del session_id
+            return 0
+
+        def usage(self, session_id: str) -> dict:
+            return self._usage_rpc.get(session_id) or {}
+
+        async def refresh_usage(self, session_id: str) -> dict:
+            snap = await self.request("session.usage", {"session_id": session_id})
+            self._usage_rpc[session_id] = snap
+            return snap
+
+    class DummyLedger:
+        ready = False
+
+        def open(self) -> None:
+            return None
+
+        def finish(self):
+            return "", []
+
+    gw = FakeGW()
+    orig = run_p0.RunLedger
+    run_p0.RunLedger = DummyLedger  # type: ignore[assignment]
+    try:
+        result = asyncio.run(
+            run_p0.run_turn(
+                gw,  # type: ignore[arg-type]
+                model="openai/gpt-5.4-mini",
+                prompt="hi",
+                timeout_s=8,
+                stop_after_first_tool=False,
+                max_llm_turns=12,
+                max_tokens=150000,
+            )
+        )
+    finally:
+        run_p0.RunLedger = orig
+    assert result["status"] == "budget_exceeded", result
+    assert gw.interrupted
+    assert int(result["tokens"] or 0) >= 160000
 
 
 def test_ledger_window_and_balance():
@@ -311,6 +395,7 @@ if __name__ == "__main__":
             test_d7_scores_first_action_not_skill_lookup()
             test_routed_model_is_response_not_alias()
             test_screenshot_and_budget()
+            test_run_stops_when_token_cap_exceeded()
             test_ledger_window_and_balance()
             test_bakeoff_requires_pinned_models()
             print("ok test_redact_contact")
@@ -321,6 +406,7 @@ if __name__ == "__main__":
             print("ok test_d7_scores_first_action_not_skill_lookup")
             print("ok test_routed_model_is_response_not_alias")
             print("ok test_screenshot_and_budget")
+            print("ok test_run_stops_when_token_cap_exceeded")
             print("ok test_ledger_window_and_balance")
             print("ok test_bakeoff_requires_pinned_models")
         except Exception:

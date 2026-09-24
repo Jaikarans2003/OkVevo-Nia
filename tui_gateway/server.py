@@ -7311,10 +7311,22 @@ def _session_usage_snapshot(session: dict | None) -> dict:
     agent = (session or {}).get("agent")
     mirror_usage = _metadata_mirror(session).get("usage")
     if (session or {}).get("_compute_host_active") and isinstance(mirror_usage, dict):
-        return dict(mirror_usage)
-    if agent is not None:
-        return _get_usage(agent)
-    return dict(mirror_usage) if isinstance(mirror_usage, dict) else {}
+        usage = dict(mirror_usage)
+    elif agent is not None:
+        usage = _get_usage(agent)
+    else:
+        usage = dict(mirror_usage) if isinstance(mirror_usage, dict) else {}
+    # Aux vision/compression live in session_model_usage (task != ''), not
+    # session_total_tokens. Harness H3 sums this into the 150k cap.
+    if usage:
+        try:
+            sid = str((session or {}).get("id") or "")
+            with _session_db(session or {}) as db:
+                if db is not None and sid:
+                    usage["aux_total"] = int(db.auxiliary_token_total(sid) or 0)
+        except Exception:
+            usage.setdefault("aux_total", 0)
+    return usage
 
 
 def _project_info_for_cwd(cwd: str) -> dict | None:

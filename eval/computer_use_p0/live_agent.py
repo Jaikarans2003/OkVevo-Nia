@@ -38,13 +38,16 @@ def _run(cmd: list[str], timeout: float = 10) -> str:
 
 
 def _has_pin(root: Path) -> str:
-    path = root / "hermes_cli" / "tools_config.py"
-    if not path.exists():
-        return "missing"
-    try:
-        return "0.28.2" if "PINNED_CUA_DRIVER_VERSION" in path.read_text(encoding="utf-8") else "unpinned"
-    except OSError:
-        return "unreadable"
+    for rel in ("hermes_cli/tools_config_cua.py", "hermes_cli/tools_config.py"):
+        path = root / rel
+        if not path.exists():
+            continue
+        try:
+            if "PINNED_CUA_DRIVER_VERSION" in path.read_text(encoding="utf-8"):
+                return "0.28.2"
+        except OSError:
+            return "unreadable"
+    return "missing" if not (root / "hermes_cli" / "tools_config.py").exists() else "unpinned"
 
 
 def _serve_pid() -> int | None:
@@ -270,10 +273,65 @@ def live_uses_checkout(info: dict[str, Any] | None = None) -> bool:
     return bool(data.get("using_this_checkout") and data.get("gateway_pid"))
 
 
+def _checkout_has_venv(root: Path) -> bool:
+    for rel in ("venv/bin/python", "venv/bin/python3", ".venv/bin/python"):
+        if (root / rel).is_file():
+            return True
+    return False
+
+
+def _wait_rsync_gateway(*, wait_s: float) -> dict[str, Any]:
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        info = inspect_backend()
+        if live_uses_checkout(info) or (info.get("gateway_pid") and _has_pin(ACTIVE) == "0.28.2"):
+            print(f"Gateway pid {info.get('gateway_pid')} serving synced {ACTIVE}", flush=True)
+            return inspect_backend()
+        time.sleep(0.5)
+    return inspect_backend()
+
+
+def bind_via_rsync(*, wait_s: float = 40) -> dict[str, Any]:
+    """Copy this checkout into ~/.hermes (keep venv), then open packaged Nia.
+
+    A bare git worktree has no venv. HERMES_DESKTOP_HERMES_ROOT then starts
+    system Python and dies on ``import yaml`` (Nia “couldn't start”).
+    """
+    if not (CHECKOUT / "hermes_cli" / "main.py").is_file():
+        raise SystemExit(f"Not a hermes-agent checkout: {CHECKOUT}")
+    print("Quitting Nia", flush=True)
+    quit_nia()
+    print(f"Rsync {CHECKOUT} -> {ACTIVE} (keep venv)", flush=True)
+    rsync_checkout_into_active()
+    _write_bind_stamp("rsync")
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-a", "Nia"], timeout=20)
+    else:
+        exe = nia_executable()
+        if exe is None:
+            raise SystemExit("Installed Nia executable not found")
+        env = os.environ.copy()
+        env.pop("HERMES_DESKTOP_HERMES_ROOT", None)
+        BIND_LOG.parent.mkdir(parents=True, exist_ok=True)
+        logf = open(BIND_LOG, "ab")
+        subprocess.Popen(
+            [str(exe)],
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=logf,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    return _wait_rsync_gateway(wait_s=wait_s)
+
+
 def bind_checkout(*, wait_s: float = 40) -> dict[str, Any]:
     """Quit Nia, start the installed app on this checkout's Python, wait for serve."""
     if not (CHECKOUT / "hermes_cli" / "main.py").is_file():
         raise SystemExit(f"Not a hermes-agent checkout: {CHECKOUT}")
+    if not _checkout_has_venv(CHECKOUT):
+        print("Checkout has no venv; rsync into ~/.hermes", flush=True)
+        return bind_via_rsync(wait_s=wait_s)
     print("Quitting Nia", flush=True)
     quit_nia()
     print(f"Launching installed Nia with HERMES_DESKTOP_HERMES_ROOT={CHECKOUT}", flush=True)
@@ -287,24 +345,7 @@ def bind_checkout(*, wait_s: float = 40) -> dict[str, Any]:
             return inspect_backend()
         time.sleep(0.5)
     print("Env bind did not stick; copying checkout into ~/.hermes (keep venv)", flush=True)
-    quit_nia()
-    rsync_checkout_into_active()
-    _write_bind_stamp("rsync")
-    if sys.platform == "darwin":
-        subprocess.run(["open", "-a", "Nia"], timeout=20)
-    else:
-        launch_nia_bound()
-    deadline = time.monotonic() + wait_s
-    while time.monotonic() < deadline:
-        info = inspect_backend()
-        if live_uses_checkout(info) or (info.get("gateway_pid") and _has_pin(ACTIVE) == "0.28.2"):
-            # rsync path: cmdline is ACTIVE/venv/python; stamp+pin is the check
-            if not info.get("using_this_checkout"):
-                info = inspect_backend()
-            print(f"Gateway pid {info.get('gateway_pid')} serving synced {ACTIVE}", flush=True)
-            return inspect_backend()
-        time.sleep(0.5)
-    return inspect_backend()
+    return bind_via_rsync(wait_s=wait_s)
 
 
 def require_checkout_backend() -> dict[str, Any]:

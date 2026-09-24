@@ -78,6 +78,40 @@ def latest_usage(events: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def tokens_used(usage: dict[str, Any] | None) -> int:
+    """Cumulative tokens for the H3 cap: main-loop ``total`` plus aux vision/compression.
+
+    Why r1 hit ~1.1M: ``run_turn`` only read streamed session.usage events
+    (this module L70) and polled the session.usage RPC after the loop
+    (run_p0.py refresh_usage). Mid-turn totals never reached the harness, so
+    the 150k check never fired until the 600s wall timeout. Aux tokens are
+    stored separately (hermes_state.record_auxiliary_usage) and were never
+    in ``total``.
+    """
+    if not isinstance(usage, dict):
+        return 0
+    return _as_int(usage.get("total")) + _as_int(usage.get("aux_total"))
+
+
+def merge_usage(*parts: dict[str, Any] | None) -> dict[str, Any]:
+    """Keep the higher call/token counts across streamed events and RPC snapshots."""
+    out: dict[str, Any] = {}
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        merged = dict(out)
+        merged.update(part)
+        if tokens_used(part) >= tokens_used(out) and _as_int(part.get("calls")) >= _as_int(out.get("calls")):
+            out = merged
+        elif tokens_used(part) > tokens_used(out):
+            out = merged
+        else:
+            for key in ("calls", "total", "aux_total"):
+                if _as_int(part.get(key)) > _as_int(out.get(key)):
+                    out[key] = part.get(key)
+    return out
+
+
 def screenshot_count(events: list[dict[str, Any]]) -> int:
     """computer_use captures. ``capture`` and ``capture_after`` each count as one."""
     by_id: dict[str, dict[str, Any]] = {}
@@ -141,7 +175,7 @@ def budget_exceeded(usage: dict[str, Any] | None, max_turns: int, max_tokens: in
     if not isinstance(usage, dict):
         return False
     calls = _as_int(usage.get("calls"))
-    tokens = _as_int(usage.get("total"))
+    tokens = tokens_used(usage)
     if max_turns and calls >= max_turns:
         return True
     if max_tokens and tokens >= max_tokens:
@@ -265,7 +299,7 @@ class Gateway:
         return ";".join(observed_models(self.events_for(session_id)))
 
     def latest_usage(self, session_id: str) -> dict[str, Any]:
-        return latest_usage(self.events_for(session_id))
+        return merge_usage(latest_usage(self.events_for(session_id)), self._usage_rpc.get(session_id))
 
     def screenshot_count(self, session_id: str) -> int:
         return screenshot_count(self.events_for(session_id))

@@ -9212,6 +9212,26 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
             )
         self._execute_write(_do)
 
+    def auxiliary_token_total(self, session_id: str) -> int:
+        """Sum aux-task tokens for *session_id* (vision/compression/…). Main-loop rows (task='') are excluded."""
+        if not session_id:
+            return 0
+        try:
+            with self._read_ctx() as conn:
+                row = conn.execute(
+                    """SELECT COALESCE(SUM(
+                         COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)
+                         + COALESCE(cache_read_tokens, 0) + COALESCE(cache_write_tokens, 0)
+                         + COALESCE(reasoning_tokens, 0)
+                       ), 0)
+                       FROM session_model_usage
+                       WHERE session_id = ? AND task != ''""",
+                    (session_id,),
+                ).fetchone()
+        except Exception:
+            return 0
+        return int(row[0] or 0) if row is not None else 0
+
     def prune_empty_ghost_sessions(self, sessions_dir: "Optional[Path]" = None) -> int:
         """Remove empty TUI ghost sessions (no messages, no title, >24hr old)."""
         cutoff = time.time() - 86400  # Only sessions older than 24 hours
