@@ -241,6 +241,12 @@ class _CaptureMixin:
         from tools.computer_use import cua_backend as _cb  # lazy: cua_backend imports this module at import time
         if capped := _cb._cua_configured_ax_max_elements():
             args["max_elements"] = capped
+        # cua-driver 0.28.2 get_window_state: query projects matching rows + ancestors
+        # without renumbering element_index (confirmed via `cua-driver describe`).
+        if query := getattr(self, "_capture_query", None):
+            args["query"] = query
+        if getattr(self, "_capture_mode", None) == "ax":
+            args["include_screenshot"] = False
         return args
 
     def _capture_vision(self) -> Tuple[Optional[str], Optional[str], List[UIElement], str]:
@@ -288,13 +294,15 @@ class _CaptureMixin:
         self._snapshot_tokens = {e.index: e.element_token for e in elements if e.element_token}
         return *_image_from_tool_result(gws_out), elements, window_title
 
-    def capture(self, mode: str = "som", app: Optional[str] = None, pid: Optional[int] = None,
-                window_id: Optional[int] = None) -> CaptureResult:
+    def capture(self, mode: str = "ax", app: Optional[str] = None, pid: Optional[int] = None,
+                window_id: Optional[int] = None, query: Optional[str] = None) -> CaptureResult:
         """Capture the frontmost on-screen window or an exact known target: `list_windows` +
         `get_window_state` (ax/som) or `screenshot` (vision). Only the structured
         ``structuredContent.windows`` shape is supported."""
         # Schema-filler ids (models zero-fill optional properties) must not read as a targeting request.
         pid, window_id = [None if _is_placeholder_id(v) else v for v in (pid, window_id)]
+        self._capture_query = str(query).strip() if query else None
+        self._capture_mode = mode
         exact_target = pid is not None or window_id is not None
         # Full-screen lane bypasses enumeration entirely (also keeps screenshots working when Windows UIA
         # enumeration hangs). app='desktop' deliberately does NOT take it: desktop icons stay clickable.

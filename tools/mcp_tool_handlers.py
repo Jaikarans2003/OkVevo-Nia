@@ -552,6 +552,73 @@ def _render_call_tool_result(result, server_name: str) -> str:
         return json.dumps({"result": text_result}, ensure_ascii=False)
 
 
+_EXECUTABLE_ARG_KEYS = frozenset({"command", "cmd", "code", "script", "shell"})
+
+
+def _property_marked_code(name: str, spec: Any) -> bool:
+    if str(name).lower() in _EXECUTABLE_ARG_KEYS:
+        return True
+    if not isinstance(spec, dict):
+        return False
+    if spec.get("x-hermes-code") or spec.get("x-code"):
+        return True
+    media = str(spec.get("contentMediaType") or spec.get("content_media_type") or "").lower()
+    if any(token in media for token in ("x-sh", "x-python", "javascript", "x-shell")):
+        return True
+    return str(spec.get("format") or "").lower() in {"code", "shell", "python"}
+
+
+def _mcp_input_schema(server_name: str, tool_name: str) -> Dict[str, Any]:
+    try:
+        from tools.mcp_tool_scope import _resolve_server_key
+        raw = getattr(_core, "_tool_input_schemas", {}).get(_resolve_server_key(server_name), {}).get(tool_name)
+        if isinstance(raw, dict):
+            return raw
+    except Exception:
+        pass
+    return {}
+
+
+def _mcp_executable_texts(server_name: str, tool_name: str, args: Optional[dict]) -> List[str]:
+    """Scan only executable arguments — never note/text/description/prompt."""
+    schema = _mcp_input_schema(server_name, tool_name)
+    props = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+    texts: List[str] = []
+    for key, val in (args or {}).items():
+        if not isinstance(val, str) or not val:
+            continue
+        spec = props.get(key) if isinstance(props, dict) else None
+        if str(key).lower() in _EXECUTABLE_ARG_KEYS or _property_marked_code(key, spec):
+            texts.append(val)
+    return texts
+
+
+def _gui_injection_approval(server_name: str, tool_name: str, args: Optional[dict]) -> Optional[str]:
+    """C3: executable-arg GUI injection requires approval — not a hard-block. Note/text is ignored."""
+    from tools.approval_detection import detect_gui_injection
+    hit = None
+    for text in _mcp_executable_texts(server_name, tool_name, args):
+        is_gui, desc = detect_gui_injection(text)
+        if is_gui:
+            hit = desc
+            break
+    if not hit:
+        return None
+    try:
+        from tools.approval import request_tool_approval
+        result = request_tool_approval(
+            f"mcp:{server_name}/{tool_name}",
+            f"{hit}. Approve this MCP executable argument, or deny and use computer_use.",
+            rule_key=f"gui-injection:{server_name}:{tool_name}",
+        )
+    except Exception as exc:
+        logger.error("MCP GUI-injection approval failed for %s/%s: %s", server_name, tool_name, exc)
+        return tool_error(f"MCP tool '{tool_name}' was blocked: GUI-injection approval unavailable (fail-closed).")
+    if result.get("approved"):
+        return None
+    return tool_error(result.get("message") or f"MCP tool '{tool_name}' denied: {hit}")
+
+
 def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float):
     """Sync registry handler (``handler(args_dict, **kwargs) -> str``) calling an MCP tool via the background loop."""
     op = f"tools/call {tool_name}"
@@ -560,6 +627,8 @@ def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float):
         # Security boundary: untrusted-server write tools need approval before ANY transport work (incl. lazy spawn).
         error = _trust_gate_check(server_name, tool_name) or _check_circuit_breaker(server_name)
         if error is not None:
+            return error
+        if (error := _gui_injection_approval(server_name, tool_name, args)) is not None:
             return error
         server, error = _acquire_call_server(server_name, tool_timeout)
         if server is None:

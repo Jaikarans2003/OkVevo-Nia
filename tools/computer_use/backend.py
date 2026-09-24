@@ -129,8 +129,8 @@ class ComputerUseBackend(ABC):
     def is_available(self) -> bool: ...  # usable on this host right now (check_fn gating, setup wizard)
 
     @abstractmethod
-    def capture(self, mode: str = "som", app: Optional[str] = None, pid: Optional[int] = None,
-                window_id: Optional[int] = None) -> CaptureResult: ...
+    def capture(self, mode: str = "ax", app: Optional[str] = None, pid: Optional[int] = None,
+                window_id: Optional[int] = None, query: Optional[str] = None) -> CaptureResult: ...
 
     @abstractmethod
     def click(self, *, element: Optional[int] = None, x: Optional[int] = None, y: Optional[int] = None,
@@ -165,6 +165,9 @@ class ComputerUseBackend(ABC):
 
     @abstractmethod
     def focus_app(self, app: str, raise_window: bool = False) -> ActionResult: ...  # route input to `app` (name / bundle ID)
+
+    @abstractmethod
+    def launch_app(self, *, name: Optional[str] = None, bundle_id: Optional[str] = None) -> ActionResult: ...
 
     @abstractmethod
     def set_value(self, value: str, element: Optional[int] = None) -> ActionResult: ...  # e.g. AXPopUpButton selection

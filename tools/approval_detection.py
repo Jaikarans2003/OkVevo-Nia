@@ -205,6 +205,37 @@ def detect_hardline_command(command: str) -> tuple:
     return (False, None)
 
 
+# GUI injection via terminal / execute_code / MCP executable args. Hard-block on
+# terminal and execute_code; MCP requires approval (not a hard-block).
+_GUI_INJECTION_COMPILED = (
+    (re.compile(r"tell\s+application\s+['\"]system events['\"]", re.I), "osascript System Events"),
+    (re.compile(r"\bsystem events\b.{0,80}\b(?:keystroke|key code|click)\b", re.I | re.S),
+     "osascript System Events input"),
+    (re.compile(r"\b(?:keystroke|key code)\b.{0,80}\bsystem events\b", re.I | re.S),
+     "osascript System Events input"),
+    (re.compile(r"\bcliclick\b", re.I), "cliclick"),
+    (re.compile(r"\bxdotool\b", re.I), "xdotool"),
+    (re.compile(r"\bpyautogui\b", re.I), "pyautogui"),
+    (re.compile(r"\bpynput\b", re.I), "pynput"),
+    (re.compile(r"\bCGEventPost\b"), "CGEventPost"),
+    (re.compile(r"\bSendInput\b"), "SendInput"),
+    (re.compile(r"\bSendKeys\b"), "SendKeys"),
+    (re.compile(r"\bAutoHotkey\b", re.I), "AutoHotkey"),
+    (re.compile(r"\b(?:ahk\.exe|AutoHotkey(?:U32|U64|32|64)?\.exe)\b", re.I), "AutoHotkey"),
+    (re.compile(r"\bnircmd(?:\.exe)?\b", re.I), "nircmd"),
+)
+
+
+def detect_gui_injection(text: str) -> tuple:
+    """Detect terminal/code GUI injection (never click/type from terminal) -> (is_hit, description)."""
+    if not text:
+        return (False, None)
+    for pattern_re, kind in _GUI_INJECTION_COMPILED:
+        if pattern_re.search(text):
+            return (True, f"GUI injection ({kind}): never click/type from terminal; use computer_use")
+    return (False, None)
+
+
 # ---- Dangerous command patterns -----------------------------------------------------------
 DANGEROUS_PATTERNS = [
     (r'\brm\s+(-[^\s]*\s+)*/', "delete in root path"),

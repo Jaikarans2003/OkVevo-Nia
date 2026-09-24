@@ -32,16 +32,20 @@ skill installed by `cua-driver skills install`. Hermes autodetection is a
 planned cua-driver follow-up, so currently point Hermes at the resulting
 `~/.cua-driver/skills/cua-driver` directory or symlink it into your skill space.
 
+Office files (xlsx/docx/pptx/csv) → the bundled Office skills (edit the file directly). Any app with a skill → follow the skill. Otherwise → computer_use. Never click/type from terminal. Never click/type from terminal (osascript System Events / SendKeys); use computer_use. Ask the user only about task ambiguity or before send/save/post/pay.
+
 ## The canonical workflow
 
 **Step 1 — Capture first.** Almost every task starts with:
 
 ```
-computer_use(action="capture", mode="som", app="<the app you're driving>")
+computer_use(action="open_app", app="<Notes | WhatsApp | com.apple.Notes>")
+computer_use(action="capture", mode="ax", app="<the app you're driving>", query="<label or role if known>")
 ```
 
-Returns a screenshot with numbered overlays on every interactable
-element AND an AX-tree index like:
+Default capture is the accessibility tree. Screenshot overlay (`som`) is
+only added when that tree is empty or 0×0. When the tree is populated you
+get an AX-tree index like:
 
 ```
 #1  AXButton 'Back' @ (12, 80, 28, 28) [Chrome]
@@ -75,21 +79,22 @@ computer_use(action="click", element=7, capture_after=True)
 
 | `mode` | Returns | Best for |
 |---|---|---|
-| `som` (default) | Screenshot + numbered overlays + AX index | Vision models; preferred default |
+| `ax` (default) | AX tree only, no image | First capture; screenshot only if empty/0×0 |
+| `som` | Screenshot + numbered overlays + AX index | Empty tree, or when you asked for pixels |
 | `vision` | Plain screenshot | When SOM overlay interferes with what you want to verify |
-| `ax` | AX tree only, no image | Text-only models, or when you don't need to see pixels |
 
 ## Actions
 
 ```
-capture           mode=som|vision|ax   app=…  (default: current app)
+open_app          app="<name or bundle id>"   (launch; then capture)
+capture           mode=ax|som|vision   app=…  query=…  (default mode=ax)
 click             element=N     OR     coordinate=[x, y]    button=left|right|middle
 double_click      element=N     OR     coordinate=[x, y]
 right_click       element=N     OR     coordinate=[x, y]
 middle_click      element=N     OR     coordinate=[x, y]
 drag              from_element=N, to_element=M        (or from/to_coordinate)
 scroll            direction=up|down|left|right   amount=3 (ticks)
-type              text="…"
+type              text="…"   (newlines are Shift+Return, never Return-as-send)
 key               keys="<save shortcut>" | "return" | "escape" | "<modifier>+t"
 wait              seconds=0.5
 list_apps
@@ -295,10 +300,14 @@ in your conversation context.
   needs the user's actual native apps (Finder/Explorer/Files, Mail/
   Outlook/Thunderbird, native chat clients, Figma, Logic, games,
   anything non-web).
+- **Office files (xlsx/docx/pptx/csv)** — bundled Office skills; edit the
+  file directly. Do not drive Excel/Word/PowerPoint via `computer_use`
+  when a file-level skill exists.
 - **File edits** — use `read_file` / `write_file` / `patch`, not
   `type` into an editor window.
-- **Shell commands** — use `terminal`, not `type` into Terminal.app /
-  Windows Terminal / gnome-terminal.
+- **Real shell commands** (`ls`, `git`, `npm`) — use `terminal`. Never
+  click or type into a GUI from `terminal` (`osascript` System Events,
+  `SendKeys`, `pyautogui`). That is `computer_use`.
 
 ## Going deeper — read the cua-driver skill pack
 

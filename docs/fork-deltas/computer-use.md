@@ -278,6 +278,26 @@ there; left untouched (no test required it).
 
 
 
+### 15. `tools/computer_use/schema.py` — model-facing description (byte-frozen)
+
+- **What:** One stable edit to `COMPUTER_USE_SCHEMA` description + `open_app`
+  on the action enum + `query` property. Restored SAFETY / doctor /
+  "Requires cua-driver" lines upstream dropped. Added C2 routing sentence
+  (no Tally until S7) and
+  `Never click/type from terminal (osascript System Events / SendKeys); use computer_use`.
+  Default capture documented as `ax`. **Do not re-edit this description**
+  (prompt cache).
+- **Why:** R2 A/B first-tool mix on WhatsApp collapsed after upstream
+  shortened the schema (B 1/3 `computer_use` vs A 3/3). Schema is the
+  contract the model sees every turn.
+- **Re-apply:** restore the description block on `COMPUTER_USE_SCHEMA` in
+  `schema.py`; keep `open_app` in the enum and `query` in `_PROPERTIES`.
+  Pair with tool.py `open_app` / fail-closed / Shift+Return / 2-retry /
+  AX-first / `query` plumbing (S3, same session).
+- **Verify:** `python3 -c "from tools.computer_use.schema import COMPUTER_USE_SCHEMA; d=COMPUTER_USE_SCHEMA['description']; assert 'open_app' in COMPUTER_USE_SCHEMA['parameters']['properties']['action']['enum']; assert 'Never click/type from terminal' in d; assert 'SAFETY' in d; assert 'Requires cua-driver' in d; assert 'Tally' not in d"`
+
+
+
 ## Bot Screen inertness (verified 2026-09-24)
 
 Upstream's "Bot Screen" (`tools/bot_desktop/`, `computer-use screen`

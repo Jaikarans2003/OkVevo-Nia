@@ -1,0 +1,43 @@
+suite,task_id,rep,os,prompt,first_tool,expect_first,routed_model,wall_s,llm_turns,tokens,credits,screenshots,checker_ok,checker_reason,status
+r2_A,base_whatsapp_regression,1,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 8a37f940",computer_use,,qwen/qwen3.8-27b,34.94,5,158512,141,1,False,marker_not_in_ax,budget_exceeded
+r2_B,base_whatsapp_regression,1,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 9d4e3313",,,qwen/qwen3.8-27b,69.89,5,150582,146,0,False,marker_not_in_ax,budget_exceeded
+r2_A,base_whatsapp_regression,2,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 30835402",,,qwen/qwen3.8-27b,125.49,6,164551,156,0,False,marker_not_in_ax,budget_exceeded
+r2_B,base_whatsapp_regression,2,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — b78a0d51",,,qwen/qwen3.8-27b,69.21,6,154044,147,0,False,marker_not_in_ax,budget_exceeded
+r2_A,base_whatsapp_regression,3,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 6d73e999",computer_use,,qwen/qwen3.8-27b,78.4,5,159274,146,0,False,marker_not_in_ax,budget_exceeded
+r2_B,base_whatsapp_regression,3,mac,"Open WhatsApp, search ***CONTACT***, open the first result, type a 3-line message, and send:
+P0 line one — running a computer-use eval.
+P0 line two — please ignore this test message.
+P0 line three — 86acd3d3",,,qwen/qwen3.8-27b,98.3,6,169073,161,0,False,marker_not_in_ax,budget_exceeded
+r2_A,base_notes,1,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=7d8fc77f,terminal,,qwen/qwen3.8-27b,617.56,4,99280,93,0,True,ok,timeout
+r2_B,base_notes,1,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=3b222623,computer_use,,qwen/qwen3.8-27b,77.22,7,174447,164,3,False,note_missing_marker,budget_exceeded
+r2_A,base_notes,2,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=251b88ed,terminal,,qwen/qwen3.8-27b,61.79,5,124174,120,0,True,ok,complete
+r2_B,base_notes,2,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=956c9774,terminal,,qwen/qwen3.8-27b,37.7,4,96475,94,0,False,note_missing_marker,error
+r2_A,base_notes,3,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=62941e87,terminal,,qwen/qwen3.8-27b,45.23,6,148527,136,0,True,ok,complete
+r2_B,base_notes,3,mac,Open the Notes app and write a note titled 'Nia P0 test note' about tomorrow's call. Body: P0 baseline note marker=faed3283,,,qwen/qwen3.8-27b,630.91,4,94959,,0,True,ok,timeout
+r2_A,base_vague_notes,1,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=42ea8ada,terminal,,qwen/qwen3.8-27b,77.36,6,151341,145,0,False,note_missing_marker,budget_exceeded
+r2_B,base_vague_notes,1,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=d10f5916,terminal,,qwen/qwen3.8-27b,180.67,7,172945,167,0,False,note_missing_marker,budget_exceeded
+r2_A,base_vague_notes,2,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=b7c46cb4,terminal,,qwen/qwen3.8-27b,86.41,7,175282,161,0,True,ok,budget_exceeded
+r2_B,base_vague_notes,2,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=44508f83,terminal,,qwen/qwen3.8-27b,125.22,7,170904,161,0,False,note_missing_marker,budget_exceeded
+r2_A,base_vague_notes,3,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=7fd740a4,terminal,,qwen/qwen3.8-27b,30.28,6,150809,140,0,False,note_missing_marker,budget_exceeded
+r2_B,base_vague_notes,3,mac,Drop this into Notes titled 'Nia P0 test note': P0 vague note marker=b8a6302e,terminal,,qwen/qwen3.8-27b,45.54,5,118986,111,0,True,ok,complete
+r2_A,base_vague_notes2,1,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=4b34cb34,terminal,,qwen/qwen3.8-27b,78.78,7,175151,164,0,False,note_missing_marker,budget_exceeded
+r2_B,base_vague_notes2,1,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=6768e9bd,terminal,,qwen/qwen3.8-27b,66.22,7,168007,154,0,True,ok,budget_exceeded
+r2_A,base_vague_notes2,2,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=e05c0cb4,terminal,,qwen/qwen3.8-27b,43.76,7,173510,190,0,False,note_missing_marker,budget_exceeded
+r2_B,base_vague_notes2,2,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=3eaef8aa,terminal,,qwen/qwen3.8-27b,53.29,7,169562,153,0,False,note_missing_marker,budget_exceeded
+r2_A,base_vague_notes2,3,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=d21ee475,terminal,,qwen/qwen3.8-27b,71.09,7,175977,162,0,False,note_missing_marker,budget_exceeded
+r2_B,base_vague_notes2,3,mac,Put this in Notes as 'Nia P0 test note': P0 second vague note marker=62f52628,terminal,,qwen/qwen3.8-27b,53.11,7,171552,160,0,False,note_missing_marker,budget_exceeded

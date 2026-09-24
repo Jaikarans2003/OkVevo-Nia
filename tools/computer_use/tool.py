@@ -68,6 +68,68 @@ def _reject_unsafe(action: str, args: Dict[str, Any]) -> Optional[str]:
                            "code": "bring_to_front_requires_foreground"})
     return None
 
+# Per-session failed-verify tally. Schema: max 2, then ask. Cleared in reset_backend_for_tests.
+_VERIFY_FAILS: Dict[str, int] = {}
+_MAX_VERIFY_FAILS = 2
+
+
+def _not_ready_refuse(action: str) -> Optional[str]:
+    """Fail closed when OS grants / driver health are not ready. Keep the tool offered (check_fn stays binary-only)."""
+    if not os.environ.get("HERMES_COMPUTER_USE_FORCE_READY_CHECK") and (
+            os.environ.get("HERMES_COMPUTER_USE_BACKEND") == "noop" or os.environ.get("PYTEST_CURRENT_TEST")):
+        return None
+    from tools.computer_use.permissions import computer_use_status
+    status = computer_use_status()
+    if status.get("ready") is True:
+        return None
+    return json.dumps({
+        "ok": False,
+        "action": action,
+        "code": "not_ready",
+        "error": "computer_use is not ready on this machine (missing Accessibility/Screen Recording grant or driver health).",
+        "status": {k: status.get(k) for k in ("platform", "installed", "ready", "accessibility", "screen_recording", "error")},
+        "grant": "Open Nia Settings → Computer Use, or run request_permissions_grant / `cua-driver permissions grant`.",
+        "doctor": "Run `hermes computer-use doctor` (run_doctor).",
+        "hint": "Do not click or type from terminal. Ask the user to grant permissions, then retry computer_use.",
+    })
+
+
+def _result_payload(result: Any) -> Optional[Dict[str, Any]]:
+    payload = result
+    if isinstance(result, dict) and result.get("_multimodal"):
+        with contextlib.suppress(Exception):
+            payload = json.loads(result.get("text_summary") or "")
+    if isinstance(payload, str):
+        with contextlib.suppress(Exception):
+            payload = json.loads(payload)
+    return payload if isinstance(payload, dict) else None
+
+
+def _failed_verify(result: Any) -> bool:
+    payload = _result_payload(result)
+    if payload is None:
+        return False
+    verdict = payload.get("verdict")
+    if isinstance(verdict, dict) and verdict.get("decision") == "escalate":
+        return True
+    return payload.get("effect") == "suspected_noop" or payload.get("code") == "suspected_noop"
+
+
+def _cap_failed_verifies(session_id: str, result: Any) -> Any:
+    if not _failed_verify(result):
+        return result
+    key = session_id or "_"
+    _VERIFY_FAILS[key] = _VERIFY_FAILS.get(key, 0) + 1
+    if _VERIFY_FAILS[key] <= _MAX_VERIFY_FAILS:
+        return result
+    return json.dumps({
+        "ok": False,
+        "action": "ask",
+        "code": "ask_user",
+        "error": "Two verify retries failed. Ask the user how to proceed; do not loop.",
+        "verdict": {"decision": "ask", "hint": "Max 2 failed verifies reached."},
+    })
+
 def _input_target_mismatch(backend, requested_app: str) -> Optional[str]:
     """Current sticky-target app when it provably differs from *requested_app*: both known and neither a substring
     of the other ('Google-chrome' vs 'chrome'). Unknown target -> None (fail open; the verify ladder catches it)."""
@@ -297,6 +359,7 @@ def _shutdown_backend_atexit() -> None:
 def reset_backend_for_tests() -> None:  # pragma: no cover — tear down the cached backend and per-session state
     _shutdown_backend_atexit()
     _AUX_VISION_ROUTE_CACHE.clear()
+    _VERIFY_FAILS.clear()
     _reset_screenshot_dedup()
 
 def _noop_stub(name: str, *params: str, result: Any = None):
@@ -314,12 +377,13 @@ class _NoopBackend(ComputerUseBackend):  # pragma: no cover
     start = stop = lambda self: None
     def is_available(self) -> bool: return True
 
-    capture = _noop_stub("capture", "mode", "app", "pid", "window_id", result=lambda kw: CaptureResult(
-        mode=kw["mode"] or "som", width=1024, height=768, png_b64=None, elements=[], app=kw["app"] or "", window_title=""))
+    capture = _noop_stub("capture", "mode", "app", "pid", "window_id", "query", result=lambda kw: CaptureResult(
+        mode=kw["mode"] or "ax", width=1024, height=768, png_b64=None, elements=[], app=kw["app"] or "", window_title=""))
     click, drag, scroll = _noop_stub("click"), _noop_stub("drag"), _noop_stub("scroll")
     type_text, key, set_value = _noop_stub("type", "text"), _noop_stub("key", "keys"), _noop_stub("set_value", "value", "element")
     list_apps, list_windows = _noop_stub("list_apps", result=[]), _noop_stub("list_windows", result=[])
     focus_app = _noop_stub("focus_app", "app", "raise_window")
+    launch_app = _noop_stub("launch_app", "name", "bundle_id")
 
 # ── Dispatch ────────────────────────────────────────────────────────────────
 def handle_computer_use(args: Dict[str, Any], **kwargs) -> Any:
@@ -341,6 +405,8 @@ def handle_computer_use(args: Dict[str, Any], **kwargs) -> Any:
         return _refused(e)
     _bd_ensure_started()  # headless gateway: bring the profile's screen up before the backend probes DISPLAY
     if (err := _reject_unsafe(action, args)) is not None:
+        return err
+    if (err := _not_ready_refuse(action)) is not None:
         return err
     scopes = ([action] if action in _ACTIONS and _ACTIONS[action].destructive else []) + (
         ["bring_to_front"] if args.get("bring_to_front") or (action == "focus_app" and args.get("raise_window")) else [])
@@ -377,7 +443,7 @@ def handle_computer_use(args: Dict[str, Any], **kwargs) -> Any:
             _fence()  # input actions never receive fence=; refuse before the device op starts
             result = _dispatch(backend, action, args, fence=_fence, session_id=session_id or None)
             _fence()
-            return result
+            return _cap_failed_verifies(session_id, result)
     except _bd_lease.HumanHasControl as e:
         return _refused(e)
     except Exception as e:
@@ -441,13 +507,60 @@ def _do_scroll(backend, action, args, **delivery):
     return backend.scroll(direction=args.get("direction", "down"), amount=int(args.get("amount", 3)),
                           element=args.get("element"), **_scroll_xy(args), modifiers=args.get("modifiers"), **delivery)
 
+def _call_capture(backend, **kw):
+    """Forward query= when the backend accepts it; test fakes / older backends drop it."""
+    try:
+        return backend.capture(**kw)
+    except TypeError:
+        return backend.capture(**{k: v for k, v in kw.items() if k != "query"})
+
+
+def _ax_unusable(cap: CaptureResult) -> bool:
+    if not cap.elements:
+        return True
+    return cap.width == 0 and cap.height == 0
+
+
 def _do_capture(backend, action, args, fence=lambda: None, session_id=None, **_):
-    if (mode := str(args.get("mode", "som"))) not in {"som", "vision", "ax"}:
+    if (mode := str(args.get("mode") or "ax")) not in {"som", "vision", "ax"}:
         return json.dumps({"error": f"bad mode {mode!r}; use som|vision|ax"})
-    # pid/window_id forwarded only when given so older backends keep their defaults.
-    cap = backend.capture(mode=mode, app=args.get("app"), **{k: args[k] for k in ("pid", "window_id") if args.get(k) is not None})
+    extra = {k: args[k] for k in ("pid", "window_id") if args.get(k) is not None}
+    query = args.get("query")
+    cap = _call_capture(backend, mode=mode, app=args.get("app"), query=query, **extra)
+    if mode == "ax" and _ax_unusable(cap):
+        cap = _call_capture(backend, mode="som", app=args.get("app"), query=query, **extra)
     fence()
     return _capture_response(cap, session_id=session_id)
+
+
+def _do_type(backend, action, args, **delivery):
+    """Newlines are Shift+Return, never Return (Return-as-send is a confirmed click)."""
+    text = str(args.get("text") or "")
+    if "\n" not in text:
+        return backend.type_text(text, **delivery)
+    last: Any = None
+    parts = text.split("\n")
+    for i, part in enumerate(parts):
+        if part:
+            last = backend.type_text(part, **delivery)
+            if isinstance(last, ActionResult) and not last.ok:
+                return last
+        if i < len(parts) - 1:
+            last = backend.key("shift+return", **delivery)
+            if isinstance(last, ActionResult) and not last.ok:
+                return last
+    return last if last is not None else ActionResult(ok=True, action="type", message="typed")
+
+
+def _do_open_app(backend, action, args, **_):
+    app = str(args.get("app") or "").strip()
+    if not app:
+        return json.dumps({"error": "open_app requires `app`"})
+    kw = {"bundle_id": app} if ("." in app and " " not in app) else {"name": app}
+    raw = backend.launch_app(**kw)
+    if isinstance(raw, ActionResult):
+        return raw
+    return json.dumps({"ok": True, "action": "open_app", "app": app, "result": raw})
 
 def _do_listing(backend, action, args, key, **_):
     return json.dumps({key: (items := getattr(backend, action)()), "count": len(items)})
@@ -472,7 +585,7 @@ _ACTIONS: Dict[str, _ActionSpec] = {
     "drag": _input(_do_drag, summarize=lambda a, args, fg: (f"drag {args.get('from_element') or args.get('from_coordinate')} → "
                                                              f"{args.get('to_element') or args.get('to_coordinate')}{fg}")),
     "scroll": _input(_do_scroll, summarize=lambda a, args, fg: f"scroll {args.get('direction', '?')} x{args.get('amount', 3)}{fg}"),
-    "type": _input(lambda backend, action, args, **delivery: backend.type_text(args.get("text", ""), **delivery),
+    "type": _input(_do_type,
                    summarize=lambda a, args, fg: f"type {args.get('text', '')[:60]!r}" + ("..." if len(args.get("text", "")) > 60 else "") + fg),
     "key": _input(lambda backend, action, args, **delivery: backend.key(args.get("keys", ""), **delivery),
                   summarize=lambda a, args, fg: f"key {args.get('keys', '')!r}{fg}"),
@@ -483,6 +596,8 @@ _ACTIONS: Dict[str, _ActionSpec] = {
         json.dumps({"error": "focus_app requires `app`"}) if not args.get("app")
         else backend.focus_app(args["app"], raise_window=bool(args.get("raise_window")))), destructive=True,
         summarize=lambda a, args, fg: f"focus {args.get('app', '')!r}" + (" (raise)" if args.get("raise_window") else "")),
+    "open_app": _ActionSpec(_do_open_app, destructive=True,
+                            summarize=lambda a, args, fg: f"open {args.get('app', '')!r}"),
     "capture": _ActionSpec(_do_capture),
     "wait": _ActionSpec(lambda backend, action, args, **_: _text_response(backend.wait(float(args.get("seconds", 1.0))))),
     "list_apps": _ActionSpec(partial(_do_listing, key="apps")),
@@ -495,6 +610,7 @@ _INPUT_ACTIONS = frozenset(a for a, s in _ACTIONS.items() if s.input)
 _ACTION_SUGGESTIONS = {
     "hotkey": "key", "press_key": "key", "keypress": "key", "key_combo": "key", "shortcut": "key", "type_text": "type",
     "input_text": "type", "screenshot": "capture", "get_window_state": "capture", "left_click": "click", "mouse_click": "click",
+    "launch_app": "open_app", "open": "open_app",
 }
 
 def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any], fence: Callable[[], None] = lambda: None,
@@ -827,12 +943,12 @@ def _should_route_through_aux_vision() -> bool:
         return False
 
 def _capture_after_mode() -> str:
-    """Mode for ``capture_after`` follow-ups. Default ``som`` (screenshot)."""
+    """Mode for ``capture_after`` follow-ups. Default ``ax`` (tree only; screenshot if empty/0×0)."""
     with contextlib.suppress(Exception):
         from hermes_cli.config import load_config
-        mode = str(((load_config() or {}).get("computer_use") or {}).get("capture_after_mode", "som") or "som")
-        return mode if (mode := mode.strip().lower()) in {"som", "vision", "ax"} else "som"
-    return "som"
+        mode = str(((load_config() or {}).get("computer_use") or {}).get("capture_after_mode", "ax") or "ax")
+        return mode if (mode := mode.strip().lower()) in {"som", "vision", "ax"} else "ax"
+    return "ax"
 
 _VISION_PROMPT = ("Describe what is visible in this desktop application screenshot in concise but specific terms. Mention "
                   "the app name and window title if visible, the overall layout, any labelled buttons, menus or text fields, "

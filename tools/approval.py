@@ -28,7 +28,8 @@ from tools.approval_context import (
     _tirith_fail_open, get_current_session_key,
 )
 from tools.approval_detection import (
-    _approval_key_aliases, _check_sudo_stdin_guard, detect_dangerous_command, detect_hardline_command,
+    _approval_key_aliases, _check_sudo_stdin_guard, detect_dangerous_command, detect_gui_injection,
+    detect_hardline_command,
 )
 from tools.approval_floors import (
     _command_matches_permanent_allowlist, _hardline_block_result, _match_user_deny_rule, _sudo_stdin_block_result,
@@ -1065,6 +1066,10 @@ def _floor_block(command: str, *, sudo_guard: bool = False) -> dict | None:
     if is_hardline:
         logger.warning("Hardline block: %s (command: %s)", hardline_desc, command[:200])
         return _hardline_block_result(hardline_desc, command)
+    is_gui, gui_desc = detect_gui_injection(command)
+    if is_gui:
+        logger.warning("GUI-injection block: %s (command: %s)", gui_desc, command[:200])
+        return _hardline_block_result(gui_desc, command)
     if sudo_guard:
         is_sudo_guess, sudo_guess_desc = _check_sudo_stdin_guard(command)
         if is_sudo_guess:
@@ -1261,6 +1266,15 @@ def check_execute_code_guard(code: str, env_type: str, has_host_access: bool = F
     """
     pattern_key = "execute_code"
     description = _EXECUTE_CODE_DESCRIPTION
+
+    is_gui, gui_desc = detect_gui_injection(code)
+    if is_gui:
+        logger.warning("GUI-injection block in execute_code: %s", gui_desc)
+        return _hardline_block_result(gui_desc, code)
+    is_hardline, hardline_desc = detect_hardline_command(code)
+    if is_hardline:
+        logger.warning("Hardline block in execute_code: %s", hardline_desc)
+        return _hardline_block_result(hardline_desc, code)
 
     # Isolated backends already sandbox the child. vercel_sandbox has no host-bind concept so it stays always-skipped.
     if env_type == "vercel_sandbox":

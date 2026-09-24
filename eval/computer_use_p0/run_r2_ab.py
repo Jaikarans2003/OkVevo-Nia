@@ -31,7 +31,7 @@ from run_p0 import OS_NAME, done_keys, run_turn  # noqa: E402
 from tasks import baseline_tasks  # noqa: E402
 
 SHA_A = "e1d855e275"
-SHA_B = "3b5b1bd005"
+SHA_B = "WORKING_TREE"  # S3 exit: current hermes-agent checkout (not a SHA)
 # S4 standard list, ranked. First priced hit wins. Not Auto.
 S4_SLUGS = (
     "qwen/qwen3.8-27b",  # exact S4 name; qwen/qwen3.8-max is 404 on OpenRouter
@@ -152,7 +152,8 @@ def wait_gateway(explicit: str, tries: int = 40) -> tuple[str, str]:
 
 def csv_file() -> Path:
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return reports_dir() / f"r2_ab_{OS_NAME}_{day}.csv"
+    # S3 exit must not resume the R2 CSV (same UTC day would skip all 24 rows).
+    return reports_dir() / f"s3_ab_{OS_NAME}_{day}.csv"
 
 
 def summarize(rows: list[dict[str, str]]) -> None:
@@ -204,6 +205,14 @@ def summarize(rows: list[dict[str, str]]) -> None:
     print(
         f"pass={passed} (B≥A success {b_rate:.0%} vs {a_rate:.0%}; "
         f"credits/success B={b_cps} A={a_cps} cap=+20%)",
+        flush=True,
+    )
+    wa = [r for r in b if r.get("task_id") == "base_whatsapp_regression"]
+    wa_cu = sum(1 for r in wa if (r.get("first_tool") or "") == "computer_use")
+    s3_pass = b_ok > a_ok and wa_cu == 3 and len(wa) == 3
+    print(
+        f"S3_exit pass={s3_pass} (S3 success {b_ok} > A {a_ok}; "
+        f"WhatsApp first_tool computer_use {wa_cu}/{len(wa)})",
         flush=True,
     )
 
