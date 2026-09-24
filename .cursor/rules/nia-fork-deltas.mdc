@@ -1,0 +1,33 @@
+---
+description: Preserve Nia fork deltas vs Hermes; rebrand before any upstream merge
+alwaysApply: true
+---
+
+# Nia fork deltas
+
+Before editing agent/desktop/portal paths, read the matching file under
+`hermes-agent/docs/fork-deltas/` (branding, portal-gateway-billing,
+providers-auto-router, desktop-packaging-updater, ui-lockdowns,
+computer-use, SYNC-LOG). Entries are tagged `[agent]` / `[desktop]` /
+`[portal]`.
+
+## Must
+
+- If a Nia delta changes, update that ledger file in the **same commit**.
+- Before merging any upstream Hermes/Nous change: rebrand user-facing
+  strings, window names, icons, bundle IDs, URLs, CLI help, telemetry
+  endpoints, default provider (OkVevo portal), and update/channel URLs.
+- Run `python3 scripts/check_nia_branding.py` before commits that touch
+  user-facing product copy or identity files.
+- Keep `LICENSE` / NOTICE / copyright attribution. Keep internal ids:
+  `~/.hermes`, `hermes` CLI, `hermes://`, `HERMES_*`, Python module paths.
+- Push only `okvevo` (`Jaikarans2003/OkVevo-Nia`). Never push `origin` (Nous).
+- Land syncs on `staging` only after review. Follow
+  `.cursor/plans/upstream-sync-v1_2559f0c6.plan.md` and the
+  `upstream-sync` skill (explicit invoke; stops for approval).
+
+## Do not
+
+- Blind-merge `origin/main`.
+- Strip attribution or rename wire/internal Hermes identifiers for fun.
+- Treat Hermes Cloud / Nous billing / Skills Hub Nous origin as Nia product.
