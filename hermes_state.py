@@ -26,6 +26,7 @@ import queue
 import random
 import re
 import sqlite3
+import stat
 import sys
 import threading
 import time
@@ -647,36 +648,59 @@ def _secure_state_db_files(db_path: Path, *, create_main: bool = False) -> None:
     """Create/tighten a writable state database and its sidecars to 0600.
 
     SQLite otherwise creates ``state.db``, ``-wal``, and ``-shm`` according to
-    the process umask (commonly 0644 under 0022). Use file descriptors so a
-    missing main database is private from its first byte and O_NOFOLLOW can
-    refuse a planted symlink. Read-only SessionDB attachments never call this
-    helper and remain observational.
+    the process umask (commonly 0644 under 0022). Read-only SessionDB
+    attachments never call this helper and remain observational.
+
+    Existing files are tightened with ``chmod(2)`` on the path: opening the
+    file and closing that descriptor would drop every POSIX ``fcntl`` lock the
+    process holds on its inode — including the locks of an already-open SQLite
+    connection to the same database. A lock-losing close in one process lets a
+    sibling's connection take the shared-memory DMS exclusively at its own
+    close, checkpoint, and unlink the sidecars while long-lived holders
+    (gateway, desktop ``hermes serve``) keep using the deleted inodes.
     """
     if os.name == "nt":
         return
 
-    for index, path in enumerate(
-        (
-            db_path,
-            db_path.with_name(db_path.name + "-wal"),
-            db_path.with_name(db_path.name + "-shm"),
-        )
-    ):
-        flags = os.O_RDONLY
-        if index == 0 and create_main:
-            flags = os.O_WRONLY | os.O_CREAT
+    main_path = db_path
+    if create_main:
+        # O_EXCL: only a brand-new inode gets a descriptor. Opening an existing
+        # file here and closing it would drop this process's POSIX locks on it.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         if hasattr(os, "O_CLOEXEC"):
             flags |= os.O_CLOEXEC
         try:
-            fd = os.open(path, flags, 0o600)
+            fd = os.open(main_path, flags, 0o600)
+        except FileExistsError:
+            pass
+        except IsADirectoryError:
+            # Not a database file at all; sqlite3.connect() raises the
+            # canonical error for this, and a directory leaks no row data.
+            return
+        else:
+            os.close(fd)
+
+    for path in (
+        main_path,
+        db_path.with_name(db_path.name + "-wal"),
+        db_path.with_name(db_path.name + "-shm"),
+    ):
+        # fchmod on an fd of a pre-existing file cannot be used here: close(fd)
+        # would release this process's POSIX locks on that inode, stripping the
+        # locks of any live SQLite connection to the same database. chmod(2)
+        # never opens the file, so it leaves the lock state untouched.
+        try:
+            st = os.lstat(path)
         except FileNotFoundError:
             continue
-        try:
-            os.fchmod(fd, 0o600)
-        finally:
-            os.close(fd)
+        if stat.S_ISLNK(st.st_mode):
+            # Refuse a planted symlink exactly like O_NOFOLLOW would.
+            continue
+        if not stat.S_ISREG(st.st_mode):
+            continue
+        os.chmod(path, 0o600)
 
 
 # ---------------------------------------------------------------------------
@@ -4695,17 +4719,20 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
 
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Create/tighten the main database before sqlite3.connect() so a
-            # permissive process umask can never expose a fresh profile store.
-            if not read_only:
-                _secure_state_db_files(self.db_path, create_main=True)
-
             # Read-only file/sidecar preflight (port of kilocode#12508):
             # repair-or-refuse BEFORE the first connection so users get an
             # actionable message instead of an opaque "attempt to write a
             # readonly database" from deep inside _init_schema.
+            # Must run before _secure_state_db_files: owner-chmod to 0600 would
+            # silently "heal" a 0444 store outside HERMES_HOME and skip the
+            # actionable refuse path (upstream SessionDB open order).
             if not read_only:
                 preflight_db_writability(self.db_path, db_label="state.db")
+
+            # Create/tighten the main database before sqlite3.connect() so a
+            # permissive process umask can never expose a fresh profile store.
+            if not read_only:
+                _secure_state_db_files(self.db_path, create_main=True)
 
             # #68474: zeroed state.db (size>0, all-NUL header) used to fail as a
             # generic "file is not a database" with no recovery path. Quarantine

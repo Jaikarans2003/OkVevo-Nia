@@ -51,6 +51,7 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-09-25 | `f6234d00c5` | completed | Cherry-pick had left `harden_git_argv` / callers but **dropped** `GIT_CONFIG_*` pins inside `noninteractive_git_env` (conflict resolve kept only prompt/GCM env). Restored full override block. |
 | 2026-09-25 | `01a3206e90` / `02200f0b65` | backported into same helper | `_user_safe_directories` + ordered replay so blanking global/system config does not break NFS/`safe.directory` |
 | 2026-09-25 | `9f0bf22ce2` | included | `core.sshCommand=ssh -o BatchMode=yes` in `_GIT_CONFIG_OVERRIDES` |
+| 2026-09-25 | fixture align | **done** | Ported upstream `_neutralize_git_safe_directory_read` autouse; `_secure_state_db_files` O_EXCL+chmod(2)+`IsADirectoryError`; preflight-before-secure open order; FakePopen `__enter__`/`__exit__`. Quarantined flaky `virtualHistoryOffsetCache` compensation test → [#17](https://github.com/Jaikarans2003/OkVevo-Nia/issues/17). |
 
 ## Pre-existing (not Batch 1)
 
