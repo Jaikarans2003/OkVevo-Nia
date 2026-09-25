@@ -89,6 +89,7 @@ import {
   buildBrowserWindowUrl
 } from './browser-windows'
 import { detectBundleSkew } from './bundle-skew'
+import { readClipboardPng } from './clipboard-image'
 import { applyConnectionChange, teardownSshState } from './connection-apply'
 import {
   apiRequestRegistryConnectionId,
@@ -16345,6 +16346,11 @@ ipcMain.handle('hermes:notify', (_event, payload) => {
       tag: payload?.tag
     })
   })
+  // Electron 42+: macOS uses UNNotification; unsigned staging builds may fail
+  // delivery. Log instead of silently dropping so smoke tests can spot it.
+  notification.on('failed', (_event, error) => {
+    console.warn('[hermes:notify] notification failed', error)
+  })
   notification.show()
 
   return true
@@ -16503,8 +16509,9 @@ ipcMain.handle('hermes:selectPaths', async (_event, options: any = {}) => {
   return result.filePaths
 })
 
-ipcMain.handle('hermes:writeClipboard', (_event, text) => {
-  clipboard.writeText(String(text || ''))
+ipcMain.handle('hermes:writeClipboard', async (_event, text) => {
+  // Electron 44: clipboard.writeText returns a Promise (W3C-aligned).
+  await clipboard.writeText(String(text || ''))
 
   return true
 })
@@ -16529,7 +16536,7 @@ ipcMain.handle('hermes:selectSavePath', async (_event, options: any = {}) => {
 // navigator.clipboard.readText() throws "Document is not focused" whenever a
 // portaled overlay has focus, and there's no way to route a read through the
 // canvas. The main process has no such gate.
-ipcMain.handle('hermes:readClipboard', () => clipboard.readText())
+ipcMain.handle('hermes:readClipboard', async () => clipboard.readText())
 
 ipcMain.handle('hermes:saveGatewayFile', (_event, payload) => saveGatewayFile(payload))
 
@@ -16600,20 +16607,21 @@ ipcMain.handle('hermes:saveImageBuffer', async (_event, payload) => {
 })
 
 ipcMain.handle('hermes:saveClipboardImage', async () => {
-  const image = clipboard.readImage()
+  // Electron 44 removed clipboard.readImage(); use ClipboardItem image/* MIME.
+  const png = await readClipboardPng()
 
-  if (image && !image.isEmpty()) {
-    return writeComposerImage(image.toPNG(), '.png')
+  if (png) {
+    return writeComposerImage(png, '.png')
   }
 
   // WSL2/WSLg doesn't bridge clipboard *images* from the Windows host to the
   // Linux clipboard Electron reads, so a host screenshot looks empty above.
   // Pull it straight off the Windows clipboard via PowerShell as a fallback.
   if (IS_WSL) {
-    const png = readWslWindowsClipboardImage()
+    const wslPng = readWslWindowsClipboardImage()
 
-    if (png) {
-      return writeComposerImage(png, '.png')
+    if (wslPng) {
+      return writeComposerImage(wslPng, '.png')
     }
   }
 

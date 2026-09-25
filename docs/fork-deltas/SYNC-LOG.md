@@ -6,6 +6,19 @@ Append one row after each approved sync batch lands on `staging`.
 |------|-------------------------------|----------|-----|-------|
 | _(none yet)_ | — | — | — | Batch 0 created this file; no Hermes code synced. |
 | 2026-09-25 | (Batch 1 SECURITY in flight on `sync/batch1-security`) | **B** selective cherry-picks | _(PR pending)_ | Replay rejected (U3). See Backports + Batch 1 ratio. |
+| 2026-09-25 | n/a (Electron major, not Hermes sha) | **Phase 4** Electron 40→44 | _(PR pending `sync/electron-major`)_ | Target **44.4.5** (latest supported stable per releases.electronjs.org). Shell-only; see Phase 4 notes. |
+
+## Phase 4 — Electron major (2026-09-25)
+
+| Field | Value |
+|-------|-------|
+| From → To | `40.10.6` → `44.4.5` |
+| Supported majors (schedule) | 42, 43, 44 (latest stable 44.4.5) |
+| Builder | `electron-builder` `26.16.1` (was 26.15.3); `electron-updater` stays `6.8.9` |
+| Code fixes | Clipboard Promise/`readImage` → `clipboard-image.ts`; `ensure-electron-binary.mjs` (no postinstall download); macOS 13 min; notify `failed` log |
+| Security prefs | Unchanged: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false` |
+| Local baseline fail (not Phase 4) | `managed-ssh-update.test.ts` POSIX exit 127 — same as staging tip |
+| Revert | `git revert` the Phase 4 squash on `staging`, or reset branch; re-download prior staging DMG/EXE |
 
 ## Backport ratio (per batch)
 

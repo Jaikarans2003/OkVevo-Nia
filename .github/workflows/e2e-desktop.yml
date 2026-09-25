@@ -48,12 +48,15 @@ jobs:
         run: |
           npm i -g npm@12
 
-      # Full npm ci (not --ignore-scripts): electron's postinstall
-      # downloads the binary we launch, and node-pty's native build is
-      # needed for the terminal pane.
+      # Full npm ci (not --ignore-scripts): node-pty's native build is needed
+      # for the terminal pane. Electron 42+ no longer downloads via postinstall;
+      # ensure:electron unpacks the binary into node_modules/electron/dist.
       - uses: ./.github/actions/retry
         with:
           command: npm ci
+
+      - name: Ensure Electron binary
+        run: npm run ensure:electron
 
       # ── Python (for the hermes serve backend) ──────────────────────────
       - name: Install uv

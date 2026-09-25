@@ -181,8 +181,8 @@
     "bippy": "0.5.43",
     "concurrently": "10.0.4",
     "cross-env": "10.1.0",
-    "electron": "40.10.6",
-    "electron-builder": "26.15.3",
+    "electron": "44.4.5",
+    "electron-builder": "26.16.1",
     "esbuild": "0.28.1",
     "jsdom": "29.1.1",
     "prettier": "3.9.5",
@@ -194,7 +194,7 @@
     "wait-on": "9.0.10"
   },
   "build": {
-    "electronVersion": "40.10.6",
+    "electronVersion": "44.4.5",
     "appId": "com.okvevo.nia",
     "productName": "Nia",
     "executableName": "Nia",
@@ -262,6 +262,7 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
+      "minimumSystemVersion": "13.0",
       "entitlements": "electron/entitlements.mac.plist",
       "entitlementsInherit": "electron/entitlements.mac.inherit.plist",
       "extendInfo": {
