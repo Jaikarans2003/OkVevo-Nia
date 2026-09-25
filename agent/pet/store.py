@@ -355,14 +355,15 @@ def thumbnail_png(slug: str, *, source_url: str = "", timeout: float = 30.0) -> 
 
     if sheet_bytes is None and source_url and _is_petdex_host(source_url):
         try:
-            import httpx
+            from tools.url_safety import create_ssrf_safe_client, is_safe_url
 
-            resp = httpx.get(
-                source_url,
-                timeout=timeout,
-                follow_redirects=True,
-                headers={"User-Agent": "hermes-agent-petdex"},
-            )
+            if not is_safe_url(source_url):
+                raise ValueError(f"Pet thumb URL failed the SSRF safety check: {source_url}")
+            with create_ssrf_safe_client(timeout=timeout, follow_redirects=True) as client:
+                resp = client.get(
+                    source_url,
+                    headers={"User-Agent": "hermes-agent-petdex"},
+                )
             resp.raise_for_status()
             sheet_bytes = resp.content
         except Exception as exc:  # noqa: BLE001 - cosmetic, degrade to placeholder
