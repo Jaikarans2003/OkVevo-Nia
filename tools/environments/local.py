@@ -437,6 +437,16 @@ def _build_provider_env_blocklist() -> frozenset:
 
 _HERMES_PROVIDER_ENV_BLOCKLIST = _build_provider_env_blocklist()
 
+
+def _is_provider_env_blocklisted(name: str) -> bool:
+    """Blocklisted provider/tool credential, matched exact + case-folded.
+
+    On Windows the environment block is case-insensitive, so ``openai_api_key``
+    IS ``OPENAI_API_KEY`` (GHSA-rhgp-j443-p4rf follow-up b534f4b8c8).
+    """
+    return name in _HERMES_PROVIDER_ENV_BLOCKLIST or name.upper() in _HERMES_PROVIDER_ENV_BLOCKLIST
+
+
 # Active-virtualenv markers that must NOT leak into terminal subprocesses.
 # The gateway runs inside its own venv, so its process environment carries
 # VIRTUAL_ENV (and possibly CONDA_PREFIX). If those leak into commands the
@@ -605,7 +615,7 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
         if key in _plugin_strip:
             continue
         passthrough = _is_passthrough(key)
-        if key in _HERMES_PROVIDER_ENV_BLOCKLIST and not passthrough:
+        if _is_provider_env_blocklisted(key) and not passthrough:
             continue
         resolved = _resolve_passthrough_value(key, value) if passthrough else value
         if resolved is not None:
@@ -623,7 +633,7 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
             continue
         else:
             passthrough = _is_passthrough(key)
-            if key in _HERMES_PROVIDER_ENV_BLOCKLIST and not passthrough:
+            if _is_provider_env_blocklisted(key) and not passthrough:
                 continue
             resolved = _resolve_passthrough_value(key, value) if passthrough else value
             if resolved is not None:
@@ -769,8 +779,10 @@ def hermes_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str
 
     if not inherit_credentials:
         # Tier 2 — strip provider/tool credentials unless explicitly inherited.
-        for key in _HERMES_PROVIDER_ENV_BLOCKLIST:
-            env.pop(key, None)
+        # Case-folded: Windows env is case-insensitive (b534f4b8c8).
+        for key in list(env):
+            if _is_provider_env_blocklisted(key):
+                env.pop(key, None)
 
     # Windows UTF-8 safety for spawned processes (#31420).
     env.setdefault("PYTHONUTF8", "1")
@@ -1434,7 +1446,7 @@ def _make_run_env(env: dict) -> dict:
             continue
         else:
             passthrough = _is_passthrough(k)
-            if k in _HERMES_PROVIDER_ENV_BLOCKLIST and not passthrough:
+            if _is_provider_env_blocklisted(k) and not passthrough:
                 continue
             value = _resolve_passthrough_value(k, v) if passthrough else v
             if value is not None:
