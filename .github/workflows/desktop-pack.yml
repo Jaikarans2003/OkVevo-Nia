@@ -81,6 +81,7 @@ jobs:
         if: ${{ inputs.allow_unsigned }}
         run: echo "::warning::UNSIGNED PACK ALLOWED"
       - name: Require feed and signing secrets
+        if: ${{ inputs.yml_mode != 'artifacts' }}
         env:
           NIA_ALLOW_UNSIGNED: ${{ inputs.allow_unsigned && '1' || '' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -94,6 +95,11 @@ jobs:
           RELEASES_S3_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
           RELEASES_S3_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
         run: node apps/desktop/scripts/require-release-secrets.mjs
+      - name: Artifacts-only note
+        if: ${{ inputs.yml_mode == 'artifacts' }}
+        run: |
+          echo "yml_mode=artifacts: skip RELEASES_S3 / feed gate; no R2 publish-feed job."
+          echo "Pack still uses STAGING_* portal env for an installable smoke binary."
       - name: Require pack-env secrets
         run: node apps/desktop/scripts/write-okvevo-pack-env.mjs --require
       - name: Detect signing material

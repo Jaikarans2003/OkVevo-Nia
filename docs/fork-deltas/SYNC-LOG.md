@@ -27,7 +27,26 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-09-25 | `fc83fb42d3` | **picked** | `uv.lock` tornado 6.5.8 | Clean |
 | 2026-09-25 | `d3fc0cca0f` | **picked** | mcp_oauth XSS | Clean (or minor) |
 | 2026-09-25 | `0997a23e57` | **picked** + follow-up | `agent/redact.py` | Clean pick missed `_command_segments`; added helper (NameError fix) |
-| 2026-09-25 | `56d2438a45` | **skipped / listed-for-Karan** | `config_home.py` | Module absent on Nia; Nia `config.py` always `_secure_dir`. Residual if `config_home` lands later |
+| 2026-09-25 | `56d2438a45` | **skipped — risk accepted** | `hermes_cli/config.py` | See **Risk acceptance: 56d2438a45** below |
+
+## Risk acceptance: `56d2438a45` (HERMES_HOME symlink / ancestor skip)
+
+**Upstream bug (plain language):** Hermes started putting home-init in `config_home.py`. When *any* parent of `HERMES_HOME` was a symlink (normal on macOS: `/var` → `/private/var`), it **skipped** locking down directory modes. Fresh `~/.hermes` and subdirs could stay world-traversable `0o755` instead of owner-only `0o700`.
+
+**Is Nia exploitable by the same attack?** **No.** Nia never took `config_home.py`. Home init lives in `ensure_hermes_home()` and **always** calls `_secure_dir` after mkdir — there is no “skip if ancestor is a symlink” branch:
+
+- `hermes_cli/config.py` L975–983: `home.mkdir` → `_secure_dir(home)` → each subdir `mkdir` → `_secure_dir(d)`
+- `_secure_dir` at L841–870: `os.chmod(..., 0o700)` (unless managed / `HERMES_HOME_MODE`)
+
+**Minimal backport (if we ever needed one):** not required on current Nia. If `config_home` is imported later, port only `_operator_owned_links` + the `secure and not _operator_owned_links(...)` guard — do **not** wholesale-take upstream `config_home.py`.
+
+**Sign-off:** Skip of `56d2438a45` is accepted for Batch 1; no residual exposure on Nia’s current home init path. Re-check if/when `hermes_cli/config_home.py` lands.
+
+## Pre-existing (not Batch 1)
+
+| Check | Result |
+|-------|--------|
+| `apps/desktop/electron/managed-ssh-update.test.ts` POSIX launcher exit 127 | **Fails on `okvevo/staging` tip and on this branch** — pre-existing local/CI env issue, not introduced by Batch 1 |
 | 2026-09-25 | `e7cd1848c9` + `1c0d95badb` | **backported** | `tools/file_safety.py` | Single backport of final write-deny intent onto Nia shapes |
 | 2026-09-25 | `3933fdf63b` | **backported** | image_gen / openai / tui SSRF | Onto `image_gen_provider` (no `provider_media`); pet thumb follow-up |
 | 2026-09-25 | `1916cb249d` | **backported** | state.db owner-only | Nia hermes_state/backup paths |
