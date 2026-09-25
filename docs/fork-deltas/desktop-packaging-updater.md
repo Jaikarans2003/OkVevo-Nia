@@ -13,6 +13,17 @@
 | **Re-apply** | Prefer Nia publish URLs; keep unsigned-update error UX |
 | **Check** | Packaged updater channel smoke; `docs/CI-CD.md` |
 
+### Electron runtime pin
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[desktop]` |
+| **Files** | `apps/desktop/package.json` (`electron` + `build.electronVersion` + `build.mac.minimumSystemVersion`); `scripts/ensure-electron-binary.mjs`; `.github/workflows/{js-tests,e2e-desktop,desktop-pack}.yml`; `electron/clipboard-image.ts` |
+| **What** | Electron **44.4.5** (supported stable); builder **26.16.1**; explicit `ensure:electron` after npm ci (Electron 42+ dropped postinstall download); macOS **13.0+** |
+| **Why** | Electron 40.x EOL 2026-06-30; Chromium CVEs stop landing on 40 |
+| **Re-apply** | Keep exact pin (no `^`); keep `ensure:electron` in CI; prefer Nia clipboard IPC over renderer Electron clipboard |
+| **Check** | `desktop-electron-pin.test.ts`; `npm run ensure:electron`; Desktop preview / staging pack |
+
 ### CI pack / publish
 
 | Field | Value |
