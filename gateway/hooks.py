@@ -41,6 +41,7 @@ and ``thread_id`` is non-empty.
 import asyncio
 import importlib.util
 import sys
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import yaml

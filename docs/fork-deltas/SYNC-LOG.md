@@ -27,7 +27,7 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-09-25 | `fc83fb42d3` | **picked** | `uv.lock` tornado 6.5.8 | Clean |
 | 2026-09-25 | `d3fc0cca0f` | **picked** | mcp_oauth XSS | Clean (or minor) |
 | 2026-09-25 | `0997a23e57` | **picked** + follow-up | `agent/redact.py` | Clean pick missed `_command_segments`; added helper (NameError fix) |
-| 2026-09-25 | `56d2438a45` | **skipped — risk accepted** | `hermes_cli/config.py` | See **Risk acceptance: 56d2438a45** below |
+| 2026-09-25 | `56d2438a45` | **skipped — risk accepted (Karan signed off 2026-09-25)** | `hermes_cli/config.py` | See **Risk acceptance: 56d2438a45** below |
 
 ## Risk acceptance: `56d2438a45` (HERMES_HOME symlink / ancestor skip)
 
@@ -41,6 +41,16 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 **Minimal backport (if we ever needed one):** not required on current Nia. If `config_home` is imported later, port only `_operator_owned_links` + the `secure and not _operator_owned_links(...)` guard — do **not** wholesale-take upstream `config_home.py`.
 
 **Sign-off:** Skip of `56d2438a45` is accepted for Batch 1; no residual exposure on Nia’s current home init path. Re-check if/when `hermes_cli/config_home.py` lands.
+
+**Karan sign-off (2026-09-25):** Approved risk acceptance for `56d2438a45` as recorded above.
+
+## GitSpawn completion (post-CI fix)
+
+| Date | Upstream sha | Status | Notes |
+|------|--------------|--------|-------|
+| 2026-09-25 | `f6234d00c5` | completed | Cherry-pick had left `harden_git_argv` / callers but **dropped** `GIT_CONFIG_*` pins inside `noninteractive_git_env` (conflict resolve kept only prompt/GCM env). Restored full override block. |
+| 2026-09-25 | `01a3206e90` / `02200f0b65` | backported into same helper | `_user_safe_directories` + ordered replay so blanking global/system config does not break NFS/`safe.directory` |
+| 2026-09-25 | `9f0bf22ce2` | included | `core.sshCommand=ssh -o BatchMode=yes` in `_GIT_CONFIG_OVERRIDES` |
 
 ## Pre-existing (not Batch 1)
 

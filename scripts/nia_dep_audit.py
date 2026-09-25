@@ -26,7 +26,7 @@ def allowlisted() -> set[str]:
     if not ALLOWLIST.is_file():
         return set()
     out: set[str] = set()
-    for line in ALLOWLIST.read_text().splitlines():
+    for line in ALLOWLIST.read_text(encoding="utf-8").splitlines():
         s = line.strip()
         if s and not s.startswith("#"):
             out.add(s.upper())
@@ -34,7 +34,15 @@ def allowlisted() -> set[str]:
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, check=False)
+    return subprocess.run(
+        cmd,
+        cwd=ROOT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=False,
+    )
 
 
 def main() -> int:

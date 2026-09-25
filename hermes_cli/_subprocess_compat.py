@@ -397,6 +397,99 @@ def windows_detach_popen_kwargs() -> dict:
 # -----------------------------------------------------------------------------
 
 
+# GIT_CONFIG_KEY_n/VALUE_n overrides for internal git children: no credential/askpass
+# prompts, no repo-configured fsmonitor/hooks/pager/editor/external-diff programs
+# (GHSA-7x36-8jrh-v4pw). Follow-ups on upstream: 01a3206e90 / 02200f0b65 (safe.directory
+# carry), 9f0bf22ce2 (BatchMode ssh).
+_GIT_CONFIG_INJECT_PREFIXES = ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+_GIT_CONFIG_OVERRIDES = {
+    "credential.helper": "",
+    "core.askPass": "",
+    "core.fsmonitor": "false",
+    "core.untrackedCache": "false",
+    "core.hooksPath": os.devnull,
+    "core.pager": "cat",
+    "core.editor": "true",
+    "sequence.editor": "true",
+    "diff.external": "",
+    # ssh bypasses stdin=DEVNULL/GIT_TERMINAL_PROMPT and opens /dev/tty directly;
+    # BatchMode makes ssh fail instead of prompting (#104591 / 9f0bf22ce2).
+    "core.sshCommand": "ssh -o BatchMode=yes",
+}
+
+
+def _safe_directory_cache_key(env: "Mapping[str, str]") -> tuple:
+    """Inputs that decide which files ``git config --system/--global`` reads."""
+    home = env.get("HOME", "")
+    xdg = env.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
+    candidates = (
+        env.get("GIT_CONFIG_SYSTEM") or "/etc/gitconfig",
+        env.get("GIT_CONFIG_GLOBAL") or os.path.join(home, ".gitconfig"),
+        os.path.join(xdg, "git", "config"),
+    )
+    stamps = []
+    for path in candidates:
+        try:
+            stamps.append(os.stat(path).st_mtime_ns)
+        except OSError:
+            stamps.append(None)
+    return (
+        env.get("GIT_CONFIG_GLOBAL"),
+        env.get("GIT_CONFIG_SYSTEM"),
+        env.get("GIT_CONFIG_NOSYSTEM"),
+        home,
+        env.get("XDG_CONFIG_HOME"),
+        env.get("PATH"),
+        *stamps,
+    )
+
+
+_safe_directory_cache: dict[tuple, list[str]] = {}
+
+
+def _user_safe_directories(base_env: "Mapping[str, str]") -> list[str]:
+    """User ``safe.directory`` values in git's effective order (system then global).
+
+    Replayed into ``noninteractive_git_env`` after blanking global/system config so
+    NFS/shared checkouts keep working (01a3206e90 / 02200f0b65). Empty reset markers
+    are preserved; no de-duplication.
+    """
+    cache_key = _safe_directory_cache_key(base_env)
+    cached = _safe_directory_cache.get(cache_key)
+    if cached is not None:
+        return list(cached)
+    env = dict(base_env)
+    for key in list(env):
+        if key == "GIT_CONFIG_PARAMETERS" or key.startswith(_GIT_CONFIG_INJECT_PREFIXES):
+            env.pop(key, None)
+    env.pop("GIT_CONFIG_COUNT", None)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    values: list[str] = []
+    for scope in ("--system", "--global"):
+        try:
+            proc = subprocess.run(
+                ["git", "config", scope, "-z", "--get-all", "safe.directory"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5,
+                stdin=subprocess.DEVNULL,
+                env=env,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if proc.returncode != 0:
+            continue
+        records = proc.stdout.split("\0")
+        if records and records[-1] == "":
+            records.pop()
+        values.extend(records)
+    _safe_directory_cache[cache_key] = list(values)
+    return values
+
+
 def noninteractive_git_env(
     base: "Mapping[str, str] | None" = None,
 ) -> dict[str, str]:
@@ -418,11 +511,16 @@ def noninteractive_git_env(
       instead of prompting for credentials.
     * ``GCM_INTERACTIVE=Never`` — Git Credential Manager (the default
       credential helper on Windows installs) never pops its own dialog.
+    * Isolated git config via ``GIT_CONFIG_*`` (GHSA-7x36-8jrh-v4pw): blank
+      global/system config, pin ``core.fsmonitor``/``core.hooksPath``/pager/
+      editor/credential sinks to inert values, and replay the user's
+      ``safe.directory`` entries so NFS/shared checkouts keep working.
 
     ``GIT_ASKPASS`` / ``SSH_ASKPASS`` are deliberately left alone: when the
     user has a *working* askpass helper or ssh-agent configured, auth should
     still succeed non-interactively. The env only disables paths that block
-    on a human.
+    on a human. ``core.sshCommand`` is pinned to BatchMode so ssh fails
+    instead of prompting on ``/dev/tty``.
 
     Pair with ``stdin=subprocess.DEVNULL`` so git (and any credential helper
     it spawns) also can't read the parent's inherited stdin.
@@ -432,8 +530,26 @@ def noninteractive_git_env(
     legitimate.
     """
     env = dict(base if base is not None else os.environ)
+    # Captured before isolation rewrites GIT_CONFIG_GLOBAL/SYSTEM to /dev/null.
+    safe_directories = _user_safe_directories(base if base is not None else os.environ)
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "Never"
+    for key in list(env):
+        if key == "GIT_CONFIG_PARAMETERS" or key.startswith(_GIT_CONFIG_INJECT_PREFIXES):
+            env.pop(key, None)
+    env.pop("GIT_CONFIG_COUNT", None)
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_SYSTEM"] = os.devnull
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_PAGER"] = "cat"
+    env["PAGER"] = "cat"
+    env["GIT_EDITOR"] = "true"
+    overrides = list(_GIT_CONFIG_OVERRIDES.items())
+    overrides.extend(("safe.directory", value) for value in safe_directories)
+    env["GIT_CONFIG_COUNT"] = str(len(overrides))
+    for idx, (key, value) in enumerate(overrides):
+        env[f"GIT_CONFIG_KEY_{idx}"] = key
+        env[f"GIT_CONFIG_VALUE_{idx}"] = value
     return env
 
 

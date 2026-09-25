@@ -194,7 +194,7 @@
     "wait-on": "9.0.10"
   },
   "build": {
-    "electronVersion": "40.10.2",
+    "electronVersion": "40.10.6",
     "appId": "com.okvevo.nia",
     "productName": "Nia",
     "executableName": "Nia",
