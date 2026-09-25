@@ -44,6 +44,7 @@ Configuration in config.yaml::
 
 import asyncio
 import contextvars
+import html
 import json
 import logging
 import os
@@ -400,6 +401,18 @@ def _can_open_browser() -> bool:
     return False
 
 
+
+def _safe_corrupt_detail(exc: BaseException) -> object:
+    """Log-safe detail for corrupt token/client JSON — never echo raw token material."""
+    if hasattr(exc, "errors"):  # pydantic ValidationError
+        try:
+            return "validation failed for " + ", ".join(
+                ".".join(map(str, e.get("loc", ()))) for e in exc.errors(include_input=False)
+            )
+        except Exception:
+            return type(exc).__name__
+    return exc
+
 def _read_json(path: Path) -> dict | None:
     """Read a JSON file, returning None if it doesn't exist or is invalid."""
     if not path.exists():
@@ -521,7 +534,7 @@ class HermesTokenStorage:
         try:
             return OAuthToken.model_validate(data)
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt tokens at %s -- ignoring: %s", self._tokens_path(), exc)
+            logger.warning("Corrupt tokens at %s -- ignoring: %s", self._tokens_path(), _safe_corrupt_detail(exc))
             return None
 
     async def set_tokens(self, tokens: "OAuthToken") -> None:
@@ -566,7 +579,7 @@ class HermesTokenStorage:
                 _write_json(self._client_info_path(), info.model_dump(mode="json", exclude_none=True))
             return info
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt client info at %s -- ignoring: %s", self._client_info_path(), exc)
+            logger.warning("Corrupt client info at %s -- ignoring: %s", self._client_info_path(), _safe_corrupt_detail(exc))
             return None
 
     async def set_client_info(self, client_info: "OAuthClientInformationFull") -> None:
@@ -602,7 +615,7 @@ class HermesTokenStorage:
         try:
             return OAuthMetadata.model_validate(data)
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt OAuth metadata at %s -- ignoring: %s", self._meta_path(), exc)
+            logger.warning("Corrupt OAuth metadata at %s -- ignoring: %s", self._meta_path(), _safe_corrupt_detail(exc))
             return None
 
     # -- CIMD refusal ------------------------------------------------------
@@ -779,7 +792,7 @@ def _make_callback_handler() -> tuple[type, dict]:
                 "<p>You can close this tab and return to Hermes.</p></body></html>"
             ) if code else (
                 "<html><body><h2>Authorization Failed</h2>"
-                f"<p>Error: {error or 'unknown'}</p></body></html>"
+                f"<p>Error: {html.escape(error or 'unknown')}</p></body></html>"
             )
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")

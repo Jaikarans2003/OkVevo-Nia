@@ -485,7 +485,27 @@ def load_hermes_dotenv(
     - callers that only maintain the installation can set
       ``load_external_secrets=False`` to avoid loading optional secret-manager
       dependencies into the process that replaces that same environment.
+    - routed multiplex profile loads hydrate external sources into the
+      profile's private secret snapshot without mutating the shared process
+      environment; unscoped startup loads retain the normal behavior above.
     """
+    home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
+
+    # A multiplex gateway hosts every profile in one process. While a routed
+    # profile-home override is active, copying that profile's .env into
+    # os.environ would expose its credentials to sibling turns. Keep Nia's
+    # OKVEVO_WEB_ORIGIN restore on the unscoped path below.
+    from agent.secret_scope import is_multiplex_active
+    from hermes_constants import get_hermes_home_override
+
+    if is_multiplex_active() and get_hermes_home_override() is not None:
+        if load_external_secrets:
+            from hermes_cli import _early_recovery
+
+            if not _early_recovery._should_skip_external_secret_sources():
+                hydrate_profile_secret_sources(home_path)
+        return []
+
     loaded: list[Path] = []
 
     # Desktop spawn injects OKVEVO_WEB_ORIGIN from pack-env (including "").
@@ -494,7 +514,6 @@ def load_hermes_dotenv(
     origin_snapshot = os.environ.get("OKVEVO_WEB_ORIGIN") if origin_injected else None
 
     try:
-        home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
         user_env = home_path / ".env"
         project_env_path = Path(project_env) if project_env else None
 

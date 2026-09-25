@@ -18,7 +18,7 @@ on:
         default: ''
         type: string
       yml_mode:
-        description: staging (GitHub artifacts + prefix sync) or versioned (direct R2 archive)
+        description: staging (artifacts + R2 sync), versioned (direct R2 archive), or artifacts (GitHub artifacts only, no feed publish)
         required: true
         type: string
       version:
@@ -52,8 +52,8 @@ jobs:
         run: |
           set -euo pipefail
           mode="${{ inputs.yml_mode }}"
-          if [ "$mode" != 'staging' ] && [ "$mode" != 'versioned' ]; then
-            echo "::error::yml_mode must be staging or versioned, got $mode"
+          if [ "$mode" != 'staging' ] && [ "$mode" != 'versioned' ] && [ "$mode" != 'artifacts' ]; then
+            echo "::error::yml_mode must be staging, versioned, or artifacts, got $mode"
             exit 1
           fi
       - name: Map prefixed repository secrets
@@ -81,6 +81,7 @@ jobs:
         if: ${{ inputs.allow_unsigned }}
         run: echo "::warning::UNSIGNED PACK ALLOWED"
       - name: Require feed and signing secrets
+        if: ${{ inputs.yml_mode != 'artifacts' }}
         env:
           NIA_ALLOW_UNSIGNED: ${{ inputs.allow_unsigned && '1' || '' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -94,6 +95,11 @@ jobs:
           RELEASES_S3_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
           RELEASES_S3_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
         run: node apps/desktop/scripts/require-release-secrets.mjs
+      - name: Artifacts-only note
+        if: ${{ inputs.yml_mode == 'artifacts' }}
+        run: |
+          echo "yml_mode=artifacts: skip RELEASES_S3 / feed gate; no R2 publish-feed job."
+          echo "Pack still uses STAGING_* portal env for an installable smoke binary."
       - name: Require pack-env secrets
         run: node apps/desktop/scripts/write-okvevo-pack-env.mjs --require
       - name: Detect signing material
@@ -205,7 +211,7 @@ jobs:
             --platform mac \
             --version "$NIA_CI_VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: ${{ inputs.yml_mode == 'staging' }}
+        if: ${{ inputs.yml_mode == 'staging' || inputs.yml_mode == 'artifacts' }}
         with:
           name: nia-mac
           path: |
@@ -301,7 +307,7 @@ jobs:
             --platform win \
             --version "$NIA_CI_VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: ${{ inputs.yml_mode == 'staging' }}
+        if: ${{ inputs.yml_mode == 'staging' || inputs.yml_mode == 'artifacts' }}
         with:
           name: nia-win
           path: |

@@ -56,7 +56,12 @@ def build_write_denied_paths(home: str) -> set[str]:
             # Top-level Anthropic PKCE credential store remains sensitive even
             # when a profile is active; default/non-profile sessions still read it.
             str(hermes_root / ".anthropic_oauth.json"),
-            # Bitwarden Secrets Manager encrypted disk cache.
+            # Google OAuth token store (read-denied already; was writable via write_file/patch).
+            str(hermes_home / "auth" / "google_oauth.json"),
+            str(hermes_root / "auth" / "google_oauth.json"),
+            # Bitwarden Secrets Manager plaintext + encrypted disk caches.
+            str(hermes_home / "cache" / "bws_cache.json"),
+            str(hermes_root / "cache" / "bws_cache.json"),
             str(hermes_home / "cache" / "bws_cache.enc.json"),
             str(hermes_root / "cache" / "bws_cache.enc.json"),
             os.path.join(home, ".netrc"),
@@ -69,6 +74,13 @@ def build_write_denied_paths(home: str) -> set[str]:
             "/etc/shadow",
         ]
     }
+
+
+# Read-denied directories that are also secret material, so writes are blocked
+# too. Kept as its own tuple (not derived from the read-deny list) so adding a
+# read-only convenience deny later cannot silently become a write deny.
+# Backport of upstream 1c0d95badb / e7cd1848c9 (GHSA follow-up on credential writes).
+_WRITE_DENIED_SECRET_DIRS = ("vault", "browser-profile")
 
 
 def build_write_denied_prefixes(home: str) -> list[str]:
@@ -183,6 +195,15 @@ def _classify_write_denial(path: str) -> Optional[str]:
                 return "credential"
         except Exception:
             pass
+        # vault/ (key + ciphertext) and browser-profile/ (copied cookies/logins)
+        # are secret stores — write-deny them even though auth.json stays writable.
+        for sub in _WRITE_DENIED_SECRET_DIRS:
+            try:
+                secret_real = os.path.realpath(os.path.join(base_real, sub))
+                if resolved == secret_real or resolved.startswith(secret_real + os.sep):
+                    return "credential"
+            except Exception:
+                pass
 
     safe_roots = get_safe_write_roots()
     if safe_roots:

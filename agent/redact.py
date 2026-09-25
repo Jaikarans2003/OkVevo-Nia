@@ -1027,6 +1027,11 @@ _FILE_READ_COMMANDS = frozenset({
     "cat", "head", "tail", "type", "bat", "less", "more", "nl",
     "zcat", "tac", "view", "batcat",
 })
+_SECRET_BEARING_FILE_BASENAMES = frozenset({
+    ".bashrc", ".bash_profile", ".bash_login", ".profile",
+    ".zshrc", ".zprofile", ".zlogin", ".zshenv",
+})
+_TEXT_FILE_READ_COMMANDS = frozenset({"grep", "awk", "sed"})
 
 # Basenames that are treated as ``.env`` files for redaction purposes are
 # imported at module top as ``_ENV_FILE_BASENAMES`` (see the
@@ -1074,6 +1079,71 @@ def _command_reads_env_file(command: str | None) -> bool:
     return False
 
 
+def _command_segments(command: str) -> list[str]:
+    """Pipeline/sequence segments, split only on unquoted ``| ; &``.
+
+    Keeps ``awk '{print $1; print $2}'`` / ``grep 'foo|bar'`` as one segment.
+    Backslash is not an escape (Windows ``C:\\Users\\...``).
+    """
+    segments: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    for ch in command:
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "'\"":
+            quote = ch
+            buf.append(ch)
+            continue
+        if ch in "|;&":
+            seg = "".join(buf).strip()
+            if seg:
+                segments.append(seg)
+            buf = []
+            continue
+        buf.append(ch)
+    seg = "".join(buf).strip()
+    if seg:
+        segments.append(seg)
+    return segments
+
+
+def _is_secret_bearing_file_arg(arg: str) -> bool:
+    """Recognize explicit Hermes config and standard shell startup paths."""
+    path = arg.strip("\"'").replace("\\", "/")
+    if "$" in path:
+        return False
+    parts = [part.lower() for part in path.split("/") if part]
+    if not parts:
+        return False
+    if parts[-1] in _SECRET_BEARING_FILE_BASENAMES:
+        return True
+    return parts[-1] == "config.yaml" and ".hermes" in parts[:-1]
+
+
+def _command_reads_secret_bearing_file(command: str | None) -> bool:
+    """True for direct stdout reads of known secret-bearing config files."""
+    if not command or not isinstance(command, str):
+        return False
+    for seg in _command_segments(command):
+        tokens = seg.split()  # preserve Windows path separators; see _command_reads_env_file
+        if not tokens:
+            continue
+        reader = tokens[0].rsplit("/", 1)[-1].lower()
+        if reader in _FILE_READ_COMMANDS:
+            if any(_is_secret_bearing_file_arg(arg) for arg in tokens[1:] if not arg.startswith("-")):
+                return True
+            continue
+        if reader in _TEXT_FILE_READ_COMMANDS:
+            positional = [arg for arg in tokens[1:] if not arg.startswith("-")]
+            if any(_is_secret_bearing_file_arg(arg) for arg in positional[1:]):
+                return True
+    return False
+
+
 def is_env_dump_command(command: str | None) -> bool:
     """Return True if ``command`` dumps environment variables to stdout.
 
@@ -1117,6 +1187,8 @@ def redact_terminal_output(
       Per AGENTS.md, ``.env`` files contain only secrets, so the generic
       ENV pass is the right one (keys whose names carry no secret keyword
       can still slip through it — same limit as the env-dump path).
+    - file-read of known secret-bearing configs (``~/.hermes/config.yaml``,
+      shell startup files) → ``code_file=False`` as well.
     - anything else (or unknown command) → ``code_file=True`` to avoid
       false positives on source/config dumps.
 
@@ -1126,7 +1198,11 @@ def redact_terminal_output(
     if not output:
         return output
     cmd = command or ""
-    code_file = not (is_env_dump_command(cmd) or _command_reads_env_file(cmd))
+    code_file = not (
+        is_env_dump_command(cmd)
+        or _command_reads_env_file(cmd)
+        or _command_reads_secret_bearing_file(cmd)
+    )
     return redact_sensitive_text(output, force=force, code_file=code_file)
 
 

@@ -1,6 +1,9 @@
 # Public pack on push to staging. Feed: https://releases.okvevo.com/staging/
-# Secrets: STAGING_* + RELEASES_S3_*. CSC_*/WIN_CSC_*/APPLE_API_* optional until certs exist.
+# Secrets: STAGING_* (+ RELEASES_S3_* when publishing feed). CSC_*/WIN_CSC_*/APPLE_API_* optional until certs exist.
 # No GitHub Environments.
+#
+# workflow_dispatch artifacts_only=true → GitHub artifacts only (no R2 publish-feed).
+# Prefer that for PR/branch smoke; do not use it to overwrite the team staging feed.
 
 name: Desktop staging
 
@@ -8,6 +11,12 @@ on:
   push:
     branches: [staging]
   workflow_dispatch:
+    inputs:
+      artifacts_only:
+        description: If true, upload nia-mac/nia-win artifacts only (no R2 feed sync)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,7 +30,7 @@ jobs:
     uses: ./.github/workflows/desktop-pack.yml
     with:
       pack_target: staging
-      feed_prefix: staging
-      yml_mode: staging
+      feed_prefix: ${{ github.event_name == 'workflow_dispatch' && inputs.artifacts_only && '' || 'staging' }}
+      yml_mode: ${{ github.event_name == 'workflow_dispatch' && inputs.artifacts_only && 'artifacts' || 'staging' }}
       allow_unsigned: true
     secrets: inherit
