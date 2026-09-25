@@ -1079,6 +1079,38 @@ def _command_reads_env_file(command: str | None) -> bool:
     return False
 
 
+def _command_segments(command: str) -> list[str]:
+    """Pipeline/sequence segments, split only on unquoted ``| ; &``.
+
+    Keeps ``awk '{print $1; print $2}'`` / ``grep 'foo|bar'`` as one segment.
+    Backslash is not an escape (Windows ``C:\\Users\\...``).
+    """
+    segments: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    for ch in command:
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "'\"":
+            quote = ch
+            buf.append(ch)
+            continue
+        if ch in "|;&":
+            seg = "".join(buf).strip()
+            if seg:
+                segments.append(seg)
+            buf = []
+            continue
+        buf.append(ch)
+    seg = "".join(buf).strip()
+    if seg:
+        segments.append(seg)
+    return segments
+
+
 def _is_secret_bearing_file_arg(arg: str) -> bool:
     """Recognize explicit Hermes config and standard shell startup paths."""
     path = arg.strip("\"'").replace("\\", "/")

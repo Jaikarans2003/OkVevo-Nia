@@ -1,0 +1,25 @@
+# Branch preview pack: GitHub artifacts only. No R2 sync, no updater feed write.
+# Use for sync batches / PR smoke before merge to staging.
+# Download: Actions run → Artifacts → nia-mac / nia-win.
+
+name: Desktop preview (artifacts only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pack:
+    uses: ./.github/workflows/desktop-pack.yml
+    with:
+      pack_target: staging
+      feed_prefix: ''
+      yml_mode: artifacts
+      allow_unsigned: true
+    secrets: inherit
