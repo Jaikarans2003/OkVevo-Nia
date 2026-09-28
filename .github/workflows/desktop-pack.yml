@@ -146,6 +146,7 @@ jobs:
           cache: npm
       - run: npm --version | grep -q '^12\.' || npm i -g npm@12
       - run: npm ci
+      - run: npm run ensure:electron
       - name: Map prefixed repository secrets
         shell: bash
         env:
@@ -237,6 +238,7 @@ jobs:
       - run: npm --version | grep -q '^12\.' || npm i -g npm@12
         shell: bash
       - run: npm ci
+      - run: npm run ensure:electron
       - name: Map prefixed repository secrets
         shell: bash
         env:
