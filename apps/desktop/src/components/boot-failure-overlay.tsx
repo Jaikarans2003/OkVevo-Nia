@@ -306,7 +306,7 @@ export function BootFailureOverlay() {
       {
         key: 'portal',
         label: copy.cloudDownCheckPortal,
-        onClick: () => openExternalLink('https://portal.nousresearch.com'),
+        onClick: () => openExternalLink('https://www.okvevo.com'),
         icon: <ExternalLink />
       },
       localAction,
@@ -314,7 +314,7 @@ export function BootFailureOverlay() {
       {
         key: 'discord',
         label: copy.cloudDownDiscord,
-        onClick: () => openExternalLink('https://discord.gg/NousResearch'),
+        onClick: () => openExternalLink('https://www.okvevo.com'),
         variant: 'ghost'
       },
       { ...settingsAction, variant: 'ghost' }
