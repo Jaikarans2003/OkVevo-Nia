@@ -1177,7 +1177,7 @@ export const en: Translations = {
       activeBackend: 'Active',
       activeBackendHint: 'This is your active backend',
       useBackend: 'Use this backend',
-      nousIncluded: 'Included with a OkVevo subscription — sign in to OkVevo Portal to activate.',
+      nousIncluded: 'Included with an OkVevo subscription — sign in to OkVevo Portal to activate.',
       nousAuthNeededTitle: 'Sign in to OkVevo Portal',
       nousAuthNeededMessage: provider => `${provider} is saved but won't activate until you sign in to OkVevo Portal.`,
       nousAuthSignIn: 'Sign in',
