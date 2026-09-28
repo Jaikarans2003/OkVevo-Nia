@@ -65,6 +65,15 @@ def _make_fake_popen(spawns, *, stdout="ok\n", returncode=0):
         def kill(self):  # pragma: no cover - never reached on the fast path
             raise AssertionError("kill() must not run when git returns in time")
 
+        # subprocess.run() does `with Popen(...) as proc` — required when a
+        # test patches Popen and another helper (e.g. noninteractive_git_env
+        # under @pytest.mark.real_safe_directory) still calls run().
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
     return _FakePopen
 
 

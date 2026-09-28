@@ -1,0 +1,3 @@
+# Accepted CRITICAL dependency findings for scripts/nia_dep_audit.py.
+# One GHSA-… or CVE-… id per line. Empty = fail closed on any CRITICAL.
+# Add only with explicit review; never silence HIGH by listing it here.

@@ -7,7 +7,8 @@ Instructions for AI coding assistants and developers working on the hermes-agent
 > **OkVevo / Nia fork — push target (hard rule)**  
 > Canonical product remote: **`Jaikarans2003/OkVevo-Nia`** only (`git push okvevo …`).  
 > **Never** push or open product PRs to **`NousResearch/hermes-agent`**. Local `origin` pointing at Nous is fetch/reference only.  
-> See `.cursor/rules/okvevo-nia-remote.mdc` and `.github/workflows/okvevo-nia-remote-guard.yml`.
+> See `.cursor/rules/okvevo-nia-remote.mdc` and `.github/workflows/okvevo-nia-remote-guard.yml`.  
+> Nia fork deltas (do not overwrite on upstream sync): `docs/fork-deltas/`.
 
 ## What Hermes Is
 

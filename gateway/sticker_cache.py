@@ -12,12 +12,20 @@ import json
 import os
 import tempfile
 import time
+from pathlib import Path
 from typing import Optional
 
 from hermes_cli.config import get_hermes_home
 
 
 CACHE_PATH = get_hermes_home() / "sticker_cache.json"
+_CACHE_PATH_AT_IMPORT = CACHE_PATH
+
+
+def _resolve_cache_path() -> Path:
+    """Active profile's cache file at call time (multiplex-safe)."""
+    return CACHE_PATH if CACHE_PATH != _CACHE_PATH_AT_IMPORT else get_hermes_home() / "sticker_cache.json"
+
 
 # Vision prompt for describing stickers -- kept concise to save tokens
 STICKER_VISION_PROMPT = (
@@ -28,9 +36,10 @@ STICKER_VISION_PROMPT = (
 
 def _load_cache() -> dict:
     """Load the sticker cache from disk."""
-    if CACHE_PATH.exists():
+    path = _resolve_cache_path()
+    if path.exists():
         try:
-            return json.loads(CACHE_PATH.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return {}
     return {}
@@ -38,16 +47,17 @@ def _load_cache() -> dict:
 
 def _save_cache(cache: dict) -> None:
     """Save the sticker cache to disk atomically."""
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    path = _resolve_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(
-        dir=str(CACHE_PATH.parent), suffix=".tmp"
+        dir=str(path.parent), suffix=".tmp"
     )
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(cache, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp_path, str(CACHE_PATH))
+        os.replace(tmp_path, str(path))
     except BaseException:
         try:
             os.unlink(tmp_path)

@@ -295,6 +295,15 @@ class TestTerminalIntegration:
         assert blocked_var not in result
         assert "PATH" in result
 
+
+    def test_passthrough_case_variant_of_blocklist_rejected(self):
+        """Case-variant registration (openai_api_key) must be refused (b534f4b8c8)."""
+        for var in ("openai_api_key", "OpenAi_Api_Key", "anthropic_api_key",
+                    "Aws_Bearer_Token_Bedrock"):
+            register_env_passthrough([var])
+            assert not is_env_passthrough(var), (
+                f"{var} should be refused passthrough registration")
+
     def test_passthrough_cannot_override_internal_dynamic_secret(self):
         """A skill must NOT be able to register dynamically-named Hermes
         secrets (AUXILIARY_*_API_KEY / _BASE_URL, GATEWAY_RELAY_* auth) as

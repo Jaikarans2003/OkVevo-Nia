@@ -274,6 +274,9 @@ _URL_IMAGE_CONTENT_TYPES = {
     "image/gif": "gif",
 }
 
+_REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
+_MAX_SAVE_URL_REDIRECTS = 5
+
 
 def save_url_image(
     url: str,
@@ -290,58 +293,80 @@ def save_url_image(
     them, so we materialise the bytes locally at tool-completion time.
     Mirrors :func:`save_b64_image`'s shape so providers can swap in one line.
 
+    The URL is provider-supplied, so every hop is validated with
+    ``tools.url_safety`` before a socket opens (and again at TCP connect by the
+    guarded transport). Caller-supplied auth headers are not used here.
+
     Returns the absolute :class:`Path` to the saved file.  Raises on any
     network / HTTP / oversize / non-image-content-type error so callers can
     fall back to returning the bare URL with a clear error message.
     """
-    import requests
+    from urllib.parse import urljoin
 
-    response = requests.get(url, timeout=timeout, stream=True)
-    response.raise_for_status()
+    from tools.url_safety import create_ssrf_safe_client, is_safe_url
 
-    # Infer extension from the response content-type, falling back to the
-    # URL suffix when xAI / OpenAI omit a precise type (some CDNs return
-    # ``application/octet-stream``).  Defaults to ``png``.
-    content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-    extension = _URL_IMAGE_CONTENT_TYPES.get(content_type)
-    if extension is None:
-        url_path = url.split("?", 1)[0].lower()
-        for ext in ("png", "jpg", "jpeg", "webp", "gif"):
-            if url_path.endswith(f".{ext}"):
-                extension = "jpg" if ext == "jpeg" else ext
-                break
-    if extension is None:
-        extension = "png"
+    current_url = url
+    for _ in range(_MAX_SAVE_URL_REDIRECTS + 1):
+        if not is_safe_url(current_url):
+            raise ValueError(f"Image URL failed the SSRF safety check: {current_url}")
+        with create_ssrf_safe_client(timeout=timeout, follow_redirects=False) as client:
+            with client.stream("GET", current_url) as response:
+                if response.status_code in _REDIRECT_STATUS_CODES:
+                    location = response.headers.get("location")
+                    if not location:
+                        raise ValueError(
+                            f"Image download redirected without a Location: {current_url}"
+                        )
+                    current_url = urljoin(current_url, location)
+                    continue
+                if not response.is_success:
+                    response.read()
+                    response.raise_for_status()
 
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    short = uuid.uuid4().hex[:8]
-    path = _images_cache_dir() / f"{prefix}_{ts}_{short}.{extension}"
-
-    bytes_written = 0
-    with path.open("wb") as fh:
-        for chunk in response.iter_content(chunk_size=64 * 1024):
-            if not chunk:
-                continue
-            bytes_written += len(chunk)
-            if bytes_written > max_bytes:
-                fh.close()
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
-                raise ValueError(
-                    f"Image at {url} exceeds {max_bytes // (1024 * 1024)}MB cap; refusing to cache."
+                content_type = (
+                    (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
                 )
-            fh.write(chunk)
+                extension = _URL_IMAGE_CONTENT_TYPES.get(content_type)
+                if extension is None:
+                    url_path = current_url.split("?", 1)[0].lower()
+                    for ext in ("png", "jpg", "jpeg", "webp", "gif"):
+                        if url_path.endswith(f".{ext}"):
+                            extension = "jpg" if ext == "jpeg" else ext
+                            break
+                if extension is None:
+                    extension = "png"
 
-    if bytes_written == 0:
-        try:
-            path.unlink()
-        except OSError:
-            pass
-        raise ValueError(f"Image at {url} returned 0 bytes; refusing to cache.")
+                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                short = uuid.uuid4().hex[:8]
+                path = _images_cache_dir() / f"{prefix}_{ts}_{short}.{extension}"
 
-    return path
+                bytes_written = 0
+                with path.open("wb") as fh:
+                    for chunk in response.iter_bytes(chunk_size=64 * 1024):
+                        if not chunk:
+                            continue
+                        bytes_written += len(chunk)
+                        if bytes_written > max_bytes:
+                            fh.close()
+                            try:
+                                path.unlink()
+                            except OSError:
+                                pass
+                            raise ValueError(
+                                f"Image at {url} exceeds {max_bytes // (1024 * 1024)}MB cap; "
+                                "refusing to cache."
+                            )
+                        fh.write(chunk)
+
+                if bytes_written == 0:
+                    try:
+                        path.unlink()
+                    except OSError:
+                        pass
+                    raise ValueError(f"Image at {url} returned 0 bytes; refusing to cache.")
+
+                return path
+    raise ValueError(f"Image download exceeded {_MAX_SAVE_URL_REDIRECTS} redirects: {url}")
 
 
 def success_response(

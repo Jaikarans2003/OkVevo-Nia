@@ -46,7 +46,62 @@ __all__ = [
     "bounded_git_probe",
     "bounded_probe_run",
     "noninteractive_git_env",
+    "NO_DRIVER_DIFF_FLAGS",
 ]
+
+# Flags that neutralize *attribute-scoped* diff drivers on any diff-rendering
+# git command (``diff``, ``log -p``, ``show``, ``blame``). A malicious repo can
+# name a driver in ``.gitattributes`` (``* diff=evil``) and point it at an
+# arbitrary program via ``[diff "evil"] command=/textconv=`` in ``.git/config``.
+# Because the attacker chooses the driver name, ``GIT_CONFIG_KEY`` overrides in
+# ``noninteractive_git_env`` cannot enumerate and disable it — only these
+# command-line flags do. ``--no-ext-diff`` kills ``command=``; ``--no-textconv``
+# kills ``textconv=``. Both are required (verified empirically: each alone
+# leaves the other live). Smudge/clean filters are neutralized by the env
+# layer's ``core.hooksPath`` + running against the index without checkout.
+NO_DRIVER_DIFF_FLAGS = ("--no-ext-diff", "--no-textconv")
+
+# Subcommands that render diffs and therefore invoke ``.gitattributes``-scoped
+# diff/textconv drivers. Only these accept ``NO_DRIVER_DIFF_FLAGS`` — ``status``
+# and friends reject the flags (``unknown option``), so the helper must gate on
+# this set rather than blanket-prepending.
+_DIFF_RENDERING_SUBCOMMANDS = frozenset({"diff", "show", "log", "blame"})
+
+
+def harden_git_argv(args: Sequence[str]) -> list[str]:
+    """Return a copy of subcommand-first git *args* with diff-driver flags
+    inserted for diff-rendering subcommands.
+
+    *args* is the argument list WITHOUT the leading ``"git"`` (e.g.
+    ``["diff", "HEAD"]`` or ``["-c", "core.quotePath=false", "diff", ...]``).
+    The first non-option token is treated as the subcommand; if it is one of
+    :data:`_DIFF_RENDERING_SUBCOMMANDS`, :data:`NO_DRIVER_DIFF_FLAGS` is
+    inserted immediately after it. Non-diff subcommands are returned unchanged.
+
+    Pair with :func:`noninteractive_git_env`: the env layer disables
+    fsmonitor/hooks/pager/editor/credential sinks, this closes the one class
+    (attacker-named attribute drivers) env overrides cannot reach.
+    """
+    out = list(args)
+    # Options that consume the FOLLOWING token as their value, so that value is
+    # never mistaken for the subcommand (``-C diff`` is a path; ``-c diff=x`` is
+    # a config pair — neither is the diff subcommand).
+    _value_opts = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
+    i = 0
+    while i < len(out):
+        tok = out[i]
+        if tok in _value_opts:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        if tok in _DIFF_RENDERING_SUBCOMMANDS:
+            return out[: i + 1] + list(NO_DRIVER_DIFF_FLAGS) + out[i + 1 :]
+        # First non-option token is the subcommand; if it isn't a diff renderer
+        # there is nothing to harden.
+        return out
+    return out
 
 
 IS_WINDOWS = sys.platform == "win32"
@@ -342,6 +397,99 @@ def windows_detach_popen_kwargs() -> dict:
 # -----------------------------------------------------------------------------
 
 
+# GIT_CONFIG_KEY_n/VALUE_n overrides for internal git children: no credential/askpass
+# prompts, no repo-configured fsmonitor/hooks/pager/editor/external-diff programs
+# (GHSA-7x36-8jrh-v4pw). Follow-ups on upstream: 01a3206e90 / 02200f0b65 (safe.directory
+# carry), 9f0bf22ce2 (BatchMode ssh).
+_GIT_CONFIG_INJECT_PREFIXES = ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+_GIT_CONFIG_OVERRIDES = {
+    "credential.helper": "",
+    "core.askPass": "",
+    "core.fsmonitor": "false",
+    "core.untrackedCache": "false",
+    "core.hooksPath": os.devnull,
+    "core.pager": "cat",
+    "core.editor": "true",
+    "sequence.editor": "true",
+    "diff.external": "",
+    # ssh bypasses stdin=DEVNULL/GIT_TERMINAL_PROMPT and opens /dev/tty directly;
+    # BatchMode makes ssh fail instead of prompting (#104591 / 9f0bf22ce2).
+    "core.sshCommand": "ssh -o BatchMode=yes",
+}
+
+
+def _safe_directory_cache_key(env: "Mapping[str, str]") -> tuple:
+    """Inputs that decide which files ``git config --system/--global`` reads."""
+    home = env.get("HOME", "")
+    xdg = env.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
+    candidates = (
+        env.get("GIT_CONFIG_SYSTEM") or "/etc/gitconfig",
+        env.get("GIT_CONFIG_GLOBAL") or os.path.join(home, ".gitconfig"),
+        os.path.join(xdg, "git", "config"),
+    )
+    stamps = []
+    for path in candidates:
+        try:
+            stamps.append(os.stat(path).st_mtime_ns)
+        except OSError:
+            stamps.append(None)
+    return (
+        env.get("GIT_CONFIG_GLOBAL"),
+        env.get("GIT_CONFIG_SYSTEM"),
+        env.get("GIT_CONFIG_NOSYSTEM"),
+        home,
+        env.get("XDG_CONFIG_HOME"),
+        env.get("PATH"),
+        *stamps,
+    )
+
+
+_safe_directory_cache: dict[tuple, list[str]] = {}
+
+
+def _user_safe_directories(base_env: "Mapping[str, str]") -> list[str]:
+    """User ``safe.directory`` values in git's effective order (system then global).
+
+    Replayed into ``noninteractive_git_env`` after blanking global/system config so
+    NFS/shared checkouts keep working (01a3206e90 / 02200f0b65). Empty reset markers
+    are preserved; no de-duplication.
+    """
+    cache_key = _safe_directory_cache_key(base_env)
+    cached = _safe_directory_cache.get(cache_key)
+    if cached is not None:
+        return list(cached)
+    env = dict(base_env)
+    for key in list(env):
+        if key == "GIT_CONFIG_PARAMETERS" or key.startswith(_GIT_CONFIG_INJECT_PREFIXES):
+            env.pop(key, None)
+    env.pop("GIT_CONFIG_COUNT", None)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    values: list[str] = []
+    for scope in ("--system", "--global"):
+        try:
+            proc = subprocess.run(
+                ["git", "config", scope, "-z", "--get-all", "safe.directory"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5,
+                stdin=subprocess.DEVNULL,
+                env=env,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if proc.returncode != 0:
+            continue
+        records = proc.stdout.split("\0")
+        if records and records[-1] == "":
+            records.pop()
+        values.extend(records)
+    _safe_directory_cache[cache_key] = list(values)
+    return values
+
+
 def noninteractive_git_env(
     base: "Mapping[str, str] | None" = None,
 ) -> dict[str, str]:
@@ -363,11 +511,16 @@ def noninteractive_git_env(
       instead of prompting for credentials.
     * ``GCM_INTERACTIVE=Never`` — Git Credential Manager (the default
       credential helper on Windows installs) never pops its own dialog.
+    * Isolated git config via ``GIT_CONFIG_*`` (GHSA-7x36-8jrh-v4pw): blank
+      global/system config, pin ``core.fsmonitor``/``core.hooksPath``/pager/
+      editor/credential sinks to inert values, and replay the user's
+      ``safe.directory`` entries so NFS/shared checkouts keep working.
 
     ``GIT_ASKPASS`` / ``SSH_ASKPASS`` are deliberately left alone: when the
     user has a *working* askpass helper or ssh-agent configured, auth should
     still succeed non-interactively. The env only disables paths that block
-    on a human.
+    on a human. ``core.sshCommand`` is pinned to BatchMode so ssh fails
+    instead of prompting on ``/dev/tty``.
 
     Pair with ``stdin=subprocess.DEVNULL`` so git (and any credential helper
     it spawns) also can't read the parent's inherited stdin.
@@ -377,8 +530,26 @@ def noninteractive_git_env(
     legitimate.
     """
     env = dict(base if base is not None else os.environ)
+    # Captured before isolation rewrites GIT_CONFIG_GLOBAL/SYSTEM to /dev/null.
+    safe_directories = _user_safe_directories(base if base is not None else os.environ)
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "Never"
+    for key in list(env):
+        if key == "GIT_CONFIG_PARAMETERS" or key.startswith(_GIT_CONFIG_INJECT_PREFIXES):
+            env.pop(key, None)
+    env.pop("GIT_CONFIG_COUNT", None)
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_SYSTEM"] = os.devnull
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_PAGER"] = "cat"
+    env["PAGER"] = "cat"
+    env["GIT_EDITOR"] = "true"
+    overrides = list(_GIT_CONFIG_OVERRIDES.items())
+    overrides.extend(("safe.directory", value) for value in safe_directories)
+    env["GIT_CONFIG_COUNT"] = str(len(overrides))
+    for idx, (key, value) in enumerate(overrides):
+        env[f"GIT_CONFIG_KEY_{idx}"] = key
+        env[f"GIT_CONFIG_VALUE_{idx}"] = value
     return env
 
 
@@ -478,6 +649,7 @@ def bounded_probe_run(
     *,
     timeout: float,
     errors: str = "replace",
+    env: "Mapping[str, str] | None" = None,
 ) -> "subprocess.CompletedProcess[str] | None":
     """Deadlock-safe ``subprocess.run(argv, capture_output=True, timeout=...)``
     for fail-open probe call sites. Returns a ``CompletedProcess`` when the
@@ -515,6 +687,7 @@ def bounded_probe_run(
             text=True,
             encoding="utf-8",
             errors=errors,
+            env=dict(env) if env is not None else None,
             **_popen_kwargs,
         )
     except Exception:
@@ -542,6 +715,20 @@ def bounded_git_probe(argv: Sequence[str], *, timeout: float) -> str:
     ``subprocess.run(["git", ...], timeout=...)`` at fail-open probe call sites
     (``tui_gateway.git_probe.run_git``, ``agent.coding_context._git``).
 
+    **Security (GHSA-7x36-8jrh-v4pw):** these probes run automatically against
+    whatever directory the session sits in — the coding-workspace snapshot and
+    the gateway project-tree build fire ``git status`` / ``git branch`` before
+    any tool call, approval, or trust prompt. An index refresh executes the
+    repository-configured ``core.fsmonitor`` program, and other config keys
+    (hooks, pager, editor, credential helper) are execution sinks too. A repo
+    delivered as files with its ``.git`` directory intact (a shared zip, sync
+    folder, or USB stick — ``git clone`` never transfers ``.git/config``) would
+    otherwise get host code execution as the user. Every probe now runs under
+    :func:`noninteractive_git_env`, which pins those keys to inert values via
+    ``GIT_CONFIG_*`` and ignores global/system config. Diff-rendering callers
+    additionally pass :data:`NO_DRIVER_DIFF_FLAGS` (attribute-scoped drivers
+    can't be disabled through env overrides).
+
     Why not ``subprocess.run``: on Windows, ``run()``'s post-timeout cleanup
     calls an *unbounded* ``communicate()`` after killing git. Killing the
     PATH-resolved launcher can leave a suspended descendant ``git.exe`` holding
@@ -566,7 +753,7 @@ def bounded_git_probe(argv: Sequence[str], *, timeout: float) -> str:
     openai/codex#36793). ``process_group`` only changes which group the child
     belongs to; it does not detach the terminal or alter the fast path.
     """
-    result = bounded_probe_run(argv, timeout=timeout)
+    result = bounded_probe_run(argv, timeout=timeout, env=noninteractive_git_env())
     if result is None or result.returncode != 0:
         return ""
     return (result.stdout or "").strip()

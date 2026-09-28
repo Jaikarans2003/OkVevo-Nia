@@ -468,7 +468,11 @@ class WebhookAdapter(BasePlatformAdapter):
     def toolsets_for_source(self, source) -> Optional[List[str]]:
         """Per-route toolset override.
 
-        Webhook session chat_ids are ``webhook:{route}:{delivery_id}``.
+        Keyed on ``user_id`` (exactly ``webhook:{route}`` as authenticated),
+        not ``chat_id``. Session chat_ids are ``webhook:{route}:{delivery_id}``;
+        the delivery id is caller-supplied and route names may contain ``:``,
+        so any split of ``chat_id`` is ambiguous (GHSA-2fmg-cjqm-hhrj).
+
         When the matching route config carries a ``toolsets`` list, that list
         replaces the platform-level ``platform_toolsets.webhook`` resolution
         for this run only. Routes without the key keep the platform default
@@ -482,11 +486,10 @@ class WebhookAdapter(BasePlatformAdapter):
         exposed through `hermes webhook subscribe`, so an agent-created
         subscription cannot self-grant elevated tools).
         """
-        chat_id = str(getattr(source, "chat_id", "") or "")
-        parts = chat_id.split(":", 2)
-        if len(parts) < 2 or parts[0] != "webhook":
+        user_id = str(getattr(source, "user_id", "") or "")
+        if not user_id.startswith("webhook:"):
             return None
-        route_config = self._routes.get(parts[1])
+        route_config = self._routes.get(user_id[len("webhook:"):])
         if not isinstance(route_config, dict):
             return None
         toolsets = route_config.get("toolsets")
