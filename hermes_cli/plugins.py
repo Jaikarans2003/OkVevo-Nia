@@ -3755,6 +3755,7 @@ class PluginManager:
         self._plugin_commands: Dict[str, dict] = {}  # Slash commands registered by plugins
         self._system_prompt_sections: Dict[str, PluginSystemPromptSection] = {}
         self._discovered: bool = False
+        self._plugin_secret_sources_reconciled = False
         self._cli_ref = None  # Set by CLI after plugin discovery
         self._gateway_message_injector: tuple[object, Callable] | None = None
         # Plugin skill registry: qualified name → metadata dict.
@@ -4326,13 +4327,27 @@ class PluginManager:
                 # the orchestrator's defensive posture.
                 continue
         if not enabled_names:
-            return
+            # Last plugin source was removed. An earlier discovery re-applied
+            # its values into os.environ; reconcile once so the revoke path
+            # in env_loader can take them back. A home that never had one
+            # stays a no-op.
+            if not self._plugin_secret_sources_reconciled:
+                return
+        else:
+            self._plugin_secret_sources_reconciled = True
         try:
-            reset_secret_source_cache()
-            load_hermes_dotenv()
+            from hermes_constants import get_hermes_home
+
+            home = get_hermes_home()
+            # Per-home reset keeps the write record so the next apply can
+            # revoke a source that is no longer registered.
+            reset_secret_source_cache(home)
+            load_hermes_dotenv(hermes_home=home)
+            if not enabled_names:
+                self._plugin_secret_sources_reconciled = False
             logger.debug(
                 "Re-applied secret sources after plugin discovery for: %s",
-                ", ".join(sorted(enabled_names)),
+                ", ".join(sorted(enabled_names)) or "<none — reconciled removed plugin sources>",
             )
         except Exception as exc:
             logger.debug("secret source re-apply after discovery failed: %s", exc)
