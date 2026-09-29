@@ -33,7 +33,7 @@ function provider(id: string, loggedIn: boolean, patch: Partial<OAuthProvider> =
     docs_url: '',
     flow: 'device_code',
     id,
-    name: id === 'nous' ? 'Nous Portal' : 'MiniMax',
+    name: id === 'nous' ? 'OkVevo Portal' : 'MiniMax',
     status: {
       logged_in: loggedIn
     },
@@ -97,7 +97,7 @@ describe('ProvidersSettings', () => {
   it('disconnects a connected provider account and refreshes the accounts list', async () => {
     await renderProvidersSettings()
 
-    const remove = await screen.findByRole('button', { name: 'Remove Nous Portal' })
+    const remove = await screen.findByRole('button', { name: 'Remove OkVevo Portal' })
     await act(async () => {
       fireEvent.click(remove)
     })
@@ -118,7 +118,7 @@ describe('ProvidersSettings', () => {
     await renderProvidersSettings()
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Remove Nous Portal' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove OkVevo Portal' }))
     })
 
     await act(async () => {
@@ -132,7 +132,7 @@ describe('ProvidersSettings', () => {
     await renderProvidersSettings()
 
     await act(async () => {
-      fireEvent.click(await screen.findByText('Nous Portal'))
+      fireEvent.click(await screen.findByText('OkVevo Portal'))
     })
 
     expect(startManualProviderOAuth).toHaveBeenCalledWith('nous')

@@ -6,7 +6,8 @@ Append one row after each approved sync batch lands on `staging`.
 |------|-------------------------------|----------|-----|-------|
 | _(none yet)_ | — | — | — | Batch 0 created this file; no Hermes code synced. |
 | 2026-09-25 | (Batch 1 SECURITY in flight on `sync/batch1-security`) | **B** selective cherry-picks | _(PR pending)_ | Replay rejected (U3). See Backports + Batch 1 ratio. |
-| 2026-09-25 | n/a (Electron major, not Hermes sha) | **Phase 4** Electron 40→44 | [#18](https://github.com/Jaikarans2003/OkVevo-Nia/pull/18) open → staging | Target **44.4.5**. CI green. Artifacts-only preview: [run 36165202352](https://github.com/Jaikarans2003/OkVevo-Nia/actions/runs/36165202352) (`nia-mac` / `nia-win`). Not merged. |
+| 2026-09-25 | n/a (Electron major, not Hermes sha) | **Phase 4** Electron 40→44 | [#18](https://github.com/Jaikarans2003/OkVevo-Nia/pull/18) merged → staging | Target **44.4.5**. Merge `38be2aa0f3`. |
+| 2026-09-29 | n/a (branding scrub, not a Hermes sha) | **Phase 5** user-visible Hermes/Nous scrub | [#20](https://github.com/Jaikarans2003/OkVevo-Nia/pull/20) → staging (not merged) | `check_nia_branding.py` scans i18n, Electron/renderer strings, installer UI, EXE/plist metadata, CLI catalog, and help links. Internal ids and copyright kept, including `X-Hermes-Session-Token`. |
 
 ## Phase 4 — Electron major (2026-09-25)
 

@@ -35,8 +35,8 @@ export function GenerateUnavailable({ onSetup }: GenerateUnavailableProps) {
       {showByok ? (
       <p className="flex flex-wrap items-center justify-center gap-x-1.5 text-[0.6875rem] text-(--ui-text-tertiary)">
         <span>Grab a key from</span>
-        <ExternalLink href="https://portal.nousresearch.com" showExternalIcon={false}>
-          Nous Portal
+        <ExternalLink href="https://www.okvevo.com" showExternalIcon={false}>
+          OkVevo Portal
         </ExternalLink>
         <span>·</span>
         <ExternalLink

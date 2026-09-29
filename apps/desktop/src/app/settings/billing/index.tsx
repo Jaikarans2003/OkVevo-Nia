@@ -213,7 +213,7 @@ function OkvevoAccountChrome() {
   const accountDescription = (() => {
     if (!auth.signedIn) {
       return showNousBillingCopy
-        ? 'Sign in with your OkVevo account. Nous billing below is unchanged.'
+        ? 'Sign in with your OkVevo account. OkVevo billing below is unchanged.'
         : 'Sign in with your OkVevo account.'
     }
 
@@ -226,7 +226,7 @@ function OkvevoAccountChrome() {
     }
 
     if (showNousBillingCopy) {
-      return 'Nous credits below are unchanged.'
+      return 'OkVevo credits below are unchanged.'
     }
 
     return undefined

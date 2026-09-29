@@ -19,7 +19,7 @@ describe('GenerateUnavailable BYOK chrome', () => {
 
     expect(screen.getByRole('button', { name: 'Set up image generation' })).toBeTruthy()
     expect(screen.getByText('OpenRouter')).toBeTruthy()
-    expect(screen.getByText('Nous Portal')).toBeTruthy()
+    expect(screen.getByText('OkVevo Portal')).toBeTruthy()
   })
 
   it('hides setup and OpenRouter links on the public channel', () => {
@@ -29,7 +29,7 @@ describe('GenerateUnavailable BYOK chrome', () => {
 
     expect(screen.queryByRole('button', { name: 'Set up image generation' })).toBeNull()
     expect(screen.queryByText('OpenRouter')).toBeNull()
-    expect(screen.queryByText('Nous Portal')).toBeNull()
+    expect(screen.queryByText('OkVevo Portal')).toBeNull()
     expect(screen.getByText('Add an image backend to generate')).toBeTruthy()
   })
 })

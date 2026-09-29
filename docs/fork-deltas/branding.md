@@ -39,6 +39,18 @@ Keep root `LICENSE` (MIT, Copyright Nous Research). Never strip NOTICE/copyright
 | **Re-apply** | Prefer Nia side of `package.json` / assets when merging electron-builder blocks |
 | **Check** | `python3 scripts/check_nia_branding.py`; visual About/icon smoke |
 
+### Phase 5 — user-visible scrub (before paying customers)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[desktop]` + installer copy in `[agent]` scripts customers see |
+| **Files** | `apps/desktop/src/i18n/*`, Electron/renderer string literals (dialogs, menus, tray, notifications, errors, About), `apps/bootstrap-installer/` UI, `scripts/install.sh` / `install.ps1` banners and logs, `locales/*.yaml` CLI catalog, `set-exe-identity.mjs` CompanyName, `tauri.conf.json` publisher, bootstrap `Info.plist` permission strings |
+| **What** | Product words Hermes → Nia and Nous → OkVevo in those strings. Help links leave `hermes-agent.nousresearch.com`, `portal.nousresearch.com`, and `github.com/NousResearch/hermes-agent` for `www.okvevo.com` or `Jaikarans2003/OkVevo-Nia`. Windows CompanyName and Tauri publisher are OkVevo. |
+| **Why** | Paying customers must not see the upstream product name |
+| **Keep** | `LICENSE` / NOTICE / `LegalCopyright` and Tauri `copyright` still name Nous Research. Internal ids stay: `~/.hermes`, `hermes` CLI, `hermes://`, `HERMES_*`, `X-Hermes-Session-Token` (gateway session header; the Python server still requires this name), package name `hermes`, `Hermes.app` path tokens, `.agents.nousresearch.com` host checks. Installer grep still matches the old `# Hermes Agent browser tools` comment so upgrades strip it. Diagnostics copy does not claim the bundle is stored by OkVevo. |
+| **Re-apply** | Rebrand new user-visible strings before merge; do not rename internal ids to make the checker pass |
+| **Check** | `python3 scripts/check_nia_branding.py` (fails if a seeded product word lands in any Phase 5 path) |
+
 ### AGENTS / process
 
 | Field | Value |

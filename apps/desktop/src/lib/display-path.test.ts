@@ -54,7 +54,7 @@ describe('displayInstallPath', () => {
   })
 
   it('leaves non-path strings and real commands alone', () => {
-    expect(displayInstallPath('Hermes is ready')).toBe('Hermes is ready')
+    expect(displayInstallPath('Nia is ready')).toBe('Nia is ready')
     expect(displayInstallPath('hermes desktop --force-build')).toBe('hermes desktop --force-build')
   })
 })
