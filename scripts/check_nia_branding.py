@@ -139,6 +139,7 @@ _ALLOW_RES = (
     re.compile(r"agents\.nousresearch\.com", re.IGNORECASE),
     re.compile(r"hermes://", re.IGNORECASE),
     re.compile(r"HERMES_[A-Z0-9_]+"),
+    re.compile(r"X-Hermes-[A-Za-z0-9-]+"),
     re.compile(r"@hermes/"),
     re.compile(r"(?:~/)?\.hermes\b"),
     re.compile(r"\bhermes\b"),  # lowercase CLI / package token
