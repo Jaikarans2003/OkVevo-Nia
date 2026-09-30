@@ -92,10 +92,10 @@ dependencies = [
   # it out of the lazy-install path that exists only for the heavy matrix deps.
   "Markdown==3.10.2",
   # Skills Hub (GitHub App JWT auth — optional, only needed for bot identity)
-  "PyJWT[crypto]==2.14.0",  # CVE-2026-102274 (GHSA-w6j9-cwv2-h6wq); also PYSEC-2026-175/177/178/179
-  # urllib3 2.7.0 fixes GHSA-mf9v-mfxr-j63j (decompression-bomb bypass)
-  # and GHSA-qccp-gfcp-xxvc (header leak across origins).
-  "urllib3>=2.7.0,<3",
+  "PyJWT[crypto]==2.15.0",  # CVE-2026-101918 (GHSA-42vr-xj54-vc7v); also CVE-2026-102274
+  # urllib3 2.8.0 fixes HTTPS-proxy TLS mixup (CVE-2026-97687) plus the
+  # chunked-read and deflate advisories (CVE-2026-97688, CVE-2026-97689).
+  "urllib3>=2.8.0,<3",
   # PyJWT[crypto] pulls cryptography in transitively. Pin it here as well, so
   # that the WeCom and Weixin crypto paths cannot fall below the patched
   # version. 50.0.0 is the floor: it fixes CVE-2026-69247, a Bleichenbacher
@@ -448,7 +448,10 @@ exclude-newer = "14 days"
 # firecrawl-anydoc: same exact-pin shape (==0.2.4, hosted-OCR wiring PR).
 # The pin bump WAS the review; exclude-newer adds zero float protection to
 # an exact pin and would only delay the reviewed version 14 days.
-exclude-newer-package = { vercel = false, nemo-relay = false, huggingface_hub = false, h2 = false, aiohttp = false, cryptography = false, defusedxml = false, python-olm = false, unpaddedbase64 = false, setuptools = false, pillow = false, mcp = false, firecrawl-anydoc = false }
+#
+# pyjwt, urllib3: advisory fixes newer than the 14-day window
+# (PyJWT 2.15.0 / CVE-2026-101918, urllib3 2.8.0 / CVE-2026-97687).
+exclude-newer-package = { vercel = false, nemo-relay = false, huggingface_hub = false, h2 = false, aiohttp = false, cryptography = false, defusedxml = false, python-olm = false, unpaddedbase64 = false, setuptools = false, pillow = false, mcp = false, firecrawl-anydoc = false, pyjwt = false, urllib3 = false }
 
 [tool.setuptools]
 # Top-level single-file modules (not packages). Without this, uv2nix's
