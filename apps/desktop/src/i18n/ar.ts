@@ -111,9 +111,9 @@ export const ar = defineLocale({
       cloudDownTitle: 'عامل OkVevo Cloud معطّل',
       cloudDownDescription:
         'يعيد عامل السحابة المُدار من OkVevo الذي يتصل به هذا البوابة خطأً من الخادم. لا يمكن إعادة تشغيله من هنا — تحقق من حالته، أو بدّل إلى البوابة المحلية، أو احصل على الدعم.',
-      cloudDownHint: 'تفتح الأزرار أدناه بوابة OkVevo (حالة المثيل وعناصر التحكم) أو Discord للحصول على الدعم.',
+      cloudDownHint: 'يفتح الزر أدناه https://www.okvevo.com للحالة والدعم.',
       cloudDownCheckPortal: 'التحقق من حالة البوابة',
-      cloudDownDiscord: 'الحصول على مساعدة عبر Discord',
+      cloudDownDiscord: 'الحصول على مساعدة',
       openLogs: 'فتح السجلات',
       repairHint: 'يعيد الإصلاح تشغيل المثبت وقد يستغرق بضع دقائق على جهاز جديد.',
       remoteSignInHint: signInLabel =>

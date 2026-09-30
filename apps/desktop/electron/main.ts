@@ -1362,7 +1362,7 @@ if (IS_WINDOWS) {
 app.setAboutPanelOptions({
   applicationName: APP_NAME,
   applicationVersion: resolveHermesVersion(),
-  copyright: 'Copyright © 2026 OkVevo'
+  copyright: '© 2026 Azonova Technologies Pvt Ltd'
 })
 
 // Custom scheme for streaming audio/video into the renderer. Local paths read
@@ -17237,7 +17237,7 @@ function showAboutPanelFresh() {
         : IS_PACKAGED
           ? app.getVersion()
           : resolveHermesVersion(),
-      copyright: 'Copyright © 2026 OkVevo'
+      copyright: '© 2026 Azonova Technologies Pvt Ltd'
     })
     app.showAboutPanel()
   })

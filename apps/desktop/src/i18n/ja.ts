@@ -108,10 +108,9 @@ export const ja = defineLocale({
       cloudDownTitle: 'OkVevo Cloud エージェントが停止しています',
       cloudDownDescription:
         'このゲートウェイが接続している OkVevo 管理のクラウドエージェントがサーバーエラーを返しています。ここから再起動することはできません。ステータスを確認するか、ローカルゲートウェイに切り替えるか、サポートに連絡してください。',
-      cloudDownHint:
-        '下のボタンから OkVevo Portal（インスタンスの状態と操作）を開くか、Discord でサポートを受けられます。',
+      cloudDownHint: '下のボタンから https://www.okvevo.com を開き、状態とサポートを確認できます。',
       cloudDownCheckPortal: 'Portal のステータスを確認',
-      cloudDownDiscord: 'Discord でサポートを受ける',
+      cloudDownDiscord: 'サポートを受ける',
       hideRecentLogs: '最近のログを非表示',
       showRecentLogs: '最近のログを表示',
       signedInTitle: 'サインインしました',
