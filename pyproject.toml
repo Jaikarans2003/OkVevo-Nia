@@ -506,6 +506,7 @@ markers = [
     "linux_only: exercises Linux-specific behaviour; skipped on other hosts",
     "macos_only: exercises macOS-specific behaviour; skipped on other hosts",
     "windows_only: exercises native-Windows behaviour; skipped on other hosts",
+    "spawns_gateway_lookalike: starts a short-lived process that holds gateway.lock",
 ]
 # integration tests take way too long to run in the normal CI environments
 addopts = "-m 'not integration'"
