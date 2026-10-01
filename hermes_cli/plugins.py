@@ -4291,8 +4291,9 @@ class PluginManager:
         — so a source with custom activation logic is honored, not just
         ``secrets.<name>.enabled``.
 
-        No-op when only bundled sources exist or none are enabled.
-        Fail-open: never raise into discover_and_load.
+        When the last plugin source is removed, reconcile once so env_loader
+        can revoke the value it wrote into ``os.environ``. A home that never
+        had one stays a no-op. Fail-open: never raise into discover_and_load.
         """
         try:
             from agent.secret_sources.registry import list_plugin_sources
@@ -4303,17 +4304,15 @@ class PluginManager:
             plugin_sources = list_plugin_sources()
         except Exception:
             return
-        if not plugin_sources:
-            return
-        # Load the secrets config once; hand each source its own section and
-        # let its is_enabled() decide (honours custom activation extensions).
-        try:
-            from hermes_cli.config import load_config
+        secrets = {}
+        if plugin_sources:
+            try:
+                from hermes_cli.config import load_config
 
-            cfg = load_config() or {}
-            secrets = cfg.get("secrets") or {}
-        except Exception:
-            secrets = {}
+                cfg = load_config() or {}
+                secrets = cfg.get("secrets") or {}
+            except Exception:
+                secrets = {}
         enabled_names = []
         for source in plugin_sources:
             name = getattr(source, "name", "")
@@ -4327,10 +4326,6 @@ class PluginManager:
                 # the orchestrator's defensive posture.
                 continue
         if not enabled_names:
-            # Last plugin source was removed. An earlier discovery re-applied
-            # its values into os.environ; reconcile once so the revoke path
-            # in env_loader can take them back. A home that never had one
-            # stays a no-op.
             if not self._plugin_secret_sources_reconciled:
                 return
         else:
