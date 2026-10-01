@@ -31,7 +31,7 @@ Append one row after each approved sync batch lands on `staging`.
 |-------|-------------|-----------|------------------|----------------|-------|
 | Batch 1 SECURITY | 7 | 12 | 2 | **12/19 ≈ 63%** | Last synced upstream sha: `b534f4b8c8`. Revisit full-replay trigger if ratio stays high |
 | Batch 1b SECURITY | 0 | 4 | 3 | **4/4 = 100%** of shas that ship on Nia needed a backport | Last synced upstream sha: `6c3aae398ade`. The 3 skipped shas are N/A (not shipped), not counted in the ratio |
-| Batch 2a BUG FIX | 5 | 4 | 1 | **4/9 ≈ 44%** of landed shas needed a backport | Previous last synced sha: `6c3aae398ade`. This batch's newest taken sha: `0466a04bc874` (not a full `origin/main` sync). Skipped `87bb0d3827a0`. Inventory's 75% figure was the unstarted whole of Batch 2, not this slice. |
+| Batch 2a BUG FIX | 3 | 6 | 1 | **6/9 ≈ 67%** of landed shas needed a backport | Previous last synced sha: `6c3aae398ade`. This batch's newest taken sha: `0466a04bc874` (not a full `origin/main` sync). Skipped `87bb0d3827a0`. Inventory's 75% figure was the unstarted whole of Batch 2, not this slice. CI then showed `ffa40b07f020` and `0ca79e360233` were not clean. |
 
 ## Backports
 
@@ -102,9 +102,9 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-10-02 | `87bb0d3827a0` | **skipped — residual risk** | — | `hermes_state_lockguard.py` is not on Nia (no OFD WAL generation guard). The close-order race in that module cannot fire. Do not import the module just to take the fix. |
 | 2026-10-02 | `2e36513ef9b2` | **picked** | Windows GPU crash fallback | Clean |
 | 2026-10-02 | `b9cb268deffc` | **backported** | `windows-child-options.ts`, probes, `main.ts` | Nia uses `spawn` / `execProbeSync`, not `spawnOwnedBackend`. `backend-serve-support.ts` is inlined in `main.ts`; the `serve --help` probe quotes there. |
-| 2026-10-02 | `ffa40b07f020` | **picked** | per-session remote `state.db` | Clean |
+| 2026-10-02 | `ffa40b07f020` | **backported** | per-session remote `state.db` | main.ts imported `pathWithRemoteOwnerScope`, `remoteProfileQueryScope`, `tagRemoteSessionRows` and a 4th arg on `fetchRemoteProfileSessions`. Those were not on Nia's `profile-session-routing.ts`. Ported the four helpers. `main.ts:351`, `main.ts:16015` |
 | 2026-10-02 | `5d1ab29b0393` | **backported** | `gateway/status.py` plus the upstream test | The upstream commit is test-only. Nia still raised when `gateway.pid` was missing beside a held lock. Identity now comes from the lock record. |
-| 2026-10-02 | `0ca79e360233` | **picked** | bootstrap installer update marker | Clean |
+| 2026-10-02 | `0ca79e360233` | **backported** | bootstrap installer update marker | Picked test expected `live_marker_owner` to return none for our pid. `acquire` adopts that pid (`update.rs:282`). Assertion updated to match later upstream: own pid is reported and the marker is kept. `update.rs:1878` |
 | 2026-10-02 | `ca16be564d0a` | **picked** | preview print guard | Clean apply; user-visible `[Hermes]` warn rebranded to `[Nia]` |
 | 2026-10-02 | `0466a04bc874` | **picked** | Windows spawn lock stdin | Clean |
 | 2026-09-25 | S3 bumps | **done** | `uv.lock`, `package.json`, lock | anyio 4.14.2; electron-updater 6.8.9; builder-util-runtime 9.7.0; js-yaml 4.3.2; electron 40.10.6 patch |

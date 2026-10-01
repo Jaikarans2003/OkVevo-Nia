@@ -1865,8 +1865,9 @@ mod tests {
     #[test]
     fn live_marker_owner_keeps_own_live_marker() {
         // #74761: the desktop pre-writes the marker with OUR pid. That claim
-        // must be adoptable, never deleted as stale — deleting it would break
-        // the desktop handoff that pre-claims the lock for us.
+        // must be reported (so acquire can adopt it without refreshing its
+        // age), never deleted as stale — deleting it would break the desktop
+        // handoff that pre-claims the lock for us.
         let dir = unique_tmp_dir("marker-read-own-live");
         let marker = dir.join(".hermes-update-in-progress");
         let started_at = std::time::SystemTime::now()
@@ -1875,7 +1876,9 @@ mod tests {
             .unwrap_or(0);
         std::fs::write(&marker, format!("{}\n{started_at}", std::process::id())).unwrap();
 
-        assert!(live_marker_owner(&marker).is_none());
+        let owner = live_marker_owner(&marker)
+            .expect("our own live pid must be reported for acquire to adopt");
+        assert_eq!(owner.pid, std::process::id());
         assert!(
             marker.exists(),
             "our own live marker must be kept for adoption"
