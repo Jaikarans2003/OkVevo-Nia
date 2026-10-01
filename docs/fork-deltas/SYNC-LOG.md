@@ -9,6 +9,7 @@ Append one row after each approved sync batch lands on `staging`.
 | 2026-09-25 | n/a (Electron major, not Hermes sha) | **Phase 4** Electron 40→44 | [#18](https://github.com/Jaikarans2003/OkVevo-Nia/pull/18) merged → staging | Target **44.4.5**. Merge `38be2aa0f3`. |
 | 2026-09-29 | n/a (branding scrub, not a Hermes sha) | **Phase 5** user-visible Hermes/Nous scrub | [#20](https://github.com/Jaikarans2003/OkVevo-Nia/pull/20) → staging (not merged) | `check_nia_branding.py` scans i18n, Electron/renderer strings, installer UI, EXE/plist metadata, CLI catalog, and help links. Internal ids and copyright kept, including `X-Hermes-Session-Token`. |
 | 2026-09-30 | n/a (branding polish, not a Hermes sha) | Product copyright + OSS notice | PR pending on `sync/branding-polish` | Product line is `© 2026 Azonova Technologies Pvt Ltd`. Hermes MIT text stays in `LICENSE` / `NOTICE` and About → Open-source licenses. Nous Discord link removed from the cloud-down message. Cloud recovery screen stays behind `LOCAL_ONLY_V1`. |
+| 2026-10-01 | n/a (OSS UI removal, not a Hermes sha) | Notice file only | PR pending on `chore/remove-oss-ui` | About no longer shows Open-source licenses. `THIRD_PARTY_NOTICES.txt` stays in `extraResources` (Mac `Contents/Resources`, Windows `resources`). `/legal/open-source` on OkVevo-Web is later. |
 
 ## Phase 4 — Electron major (2026-09-25)
 

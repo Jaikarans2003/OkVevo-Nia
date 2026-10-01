@@ -189,13 +189,17 @@ PRODUCT_COPYRIGHT = "© 2026 Azonova Technologies Pvt Ltd"
 
 def visible_violation(inner: str, *, allow_oss_attribution: bool = False) -> str | None:
     """Return a short reason if this user-visible string leaks Hermes/Nous."""
+    # MIT attribution stays in LICENSE, NOTICE, and THIRD_PARTY_NOTICES.txt.
+    # Those files are not shown in the app UI.
+    if allow_oss_attribution:
+        return None
     if _NOUS_DISCORD_RE.search(inner):
         return "discord.gg/NousResearch"
     if _parser_noise(inner):
         return None
+    if re.search(r"open-source licenses", inner, re.IGNORECASE):
+        return "open-source licenses"
     if "Nous Research" in inner and _COPYRIGHT_ATTR_RE.search(inner):
-        if allow_oss_attribution:
-            return None
         return "Nous Research copyright"
     scrubbed = inner.replace(_LEGACY_INSTALLER_MARKER, "")
     for pat in _ALLOW_RES:

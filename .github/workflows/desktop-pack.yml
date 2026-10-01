@@ -192,6 +192,14 @@ jobs:
           npm run builder -- --mac dmg zip --publish never \
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
+      - name: List bundled OSS notice
+        run: |
+          set -euo pipefail
+          unpacked=$(find apps/desktop/release -path '*/Nia.app/Contents/Resources/THIRD_PARTY_NOTICES.txt' | head -1)
+          test -n "$unpacked"
+          echo "BUNDLED_OSS_NOTICE $unpacked"
+          zipfile=$(ls apps/desktop/release/Nia-*-mac-*.zip | head -1)
+          unzip -l "$zipfile" | grep -F 'Contents/Resources/THIRD_PARTY_NOTICES.txt'
       - name: Verify Developer ID signature
         if: ${{ needs.require-secrets.outputs.mac_signing == 'true' }}
         run: |
@@ -219,6 +227,7 @@ jobs:
             apps/desktop/release/Nia-*.dmg
             apps/desktop/release/Nia-*.zip
             apps/desktop/release/latest-mac.yml
+            apps/desktop/release/mac*/Nia.app/Contents/Resources/THIRD_PARTY_NOTICES.txt
 
   windows:
     name: Windows x64 NSIS
@@ -286,6 +295,15 @@ jobs:
           npm run builder -- --win nsis --publish never \
             -c.extraMetadata.version="$VERSION" \
             -c.publish.url="$NIA_UPDATE_FEED_URL"
+      - name: List bundled OSS notice
+        shell: bash
+        run: |
+          set -euo pipefail
+          notice=apps/desktop/release/win-unpacked/resources/THIRD_PARTY_NOTICES.txt
+          test -f "$notice"
+          echo "BUNDLED_OSS_NOTICE $notice"
+          ls -l "$notice"
+          ls -l apps/desktop/release/Nia-*-win-*.exe
       - name: Verify Authenticode
         if: ${{ needs.require-secrets.outputs.win_signing == 'true' }}
         shell: pwsh
@@ -315,6 +333,7 @@ jobs:
           path: |
             apps/desktop/release/Nia-*.exe
             apps/desktop/release/latest.yml
+            apps/desktop/release/win-unpacked/resources/THIRD_PARTY_NOTICES.txt
 
   publish-feed:
     name: Upload signed feed
