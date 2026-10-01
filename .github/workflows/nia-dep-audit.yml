@@ -1,0 +1,91 @@
+name: Nia dependency audit
+
+# Full production audit (pip-audit + npm audit). Not a pull-request gate —
+# PRs are blocked only for advisories the diff introduces
+# (dependency-review in ci.yaml, required through all-checks-pass).
+# Findings open or update one tracking issue.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nia-dep-audit
+  cancel-in-progress: false
+
+jobs:
+  nia-dep-audit:
+    name: Nia dep audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # 8.2.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Audit production dependencies
+        id: audit
+        env:
+          NIA_DEP_AUDIT_REPORT: issue
+        run: |
+          set -o pipefail
+          python3 scripts/nia_dep_audit.py | tee "$RUNNER_TEMP/nia-dep-audit.txt"
+          if grep -q '^NIA_DEP_AUDIT_FINDINGS=1$' "$RUNNER_TEMP/nia-dep-audit.txt"; then
+            echo "findings=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "findings=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update tracking issue
+        if: steps.audit.outputs.findings == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="nia-dep-audit: production dependency findings"
+          body="$RUNNER_TEMP/nia-dep-audit-issue.md"
+          {
+            echo "Production dependency audit found non-allowlisted findings."
+            echo
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- Ref: \`${{ github.ref }}\`"
+            echo "- SHA: \`${{ github.sha }}\`"
+            echo
+            echo '```'
+            tail -c 50000 "$RUNNER_TEMP/nia-dep-audit.txt"
+            echo '```'
+            echo
+            echo "Accept a finding only by adding its GHSA or CVE id to \`.github/nia-dep-audit-allowlist.txt\`."
+          } > "$body"
+          num=$(gh issue list --repo "${{ github.repository }}" --state open --limit 50 --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "${{ github.repository }}" --body-file "$body"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "$title" --body-file "$body"
+          fi
+
+      - name: Close tracking issue when clean
+        if: steps.audit.outputs.findings == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="nia-dep-audit: production dependency findings"
+          num=$(gh issue list --repo "${{ github.repository }}" --state open --limit 50 --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "${{ github.repository }}" --body "Audit is clean on \`${{ github.sha }}\` (${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+            gh issue close "$num" --repo "${{ github.repository }}" --reason completed
+          fi
