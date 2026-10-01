@@ -33,11 +33,11 @@ Keep root `LICENSE` (MIT, Copyright Nous Research). Never strip NOTICE/copyright
 | Field | Value |
 |-------|-------|
 | **Tags** | `[desktop]` |
-| **Files** | `apps/desktop/package.json` (`productName` Nia, `appId` `com.okvevo.nia`, internal `com.okvevo.nia.internal`), icons under `apps/desktop/assets/`, `apps/bootstrap-installer/`, i18n locales, About → okvevo.com |
-| **What** | OS name, bundle id, icons, publisher strings |
-| **Why** | Customer-facing installers and About |
-| **Re-apply** | Prefer Nia side of `package.json` / assets when merging electron-builder blocks |
-| **Check** | `python3 scripts/check_nia_branding.py`; visual About/icon smoke |
+| **Files** | `brand/nia.json`, `brand/assets/` (Nia icon bytes), `scripts/overlay-brand-assets.mjs`, `apps/desktop/package.json` (`productName` Nia, `appId` `com.okvevo.nia`), `apps/desktop/scripts/before-pack.mjs`. Git copies of `apps/desktop/assets/icon.*`, bootstrap `src-tauri/icons/`, and `apps/desktop/public/apple-touch-icon.png` stay on the upstream blobs. |
+| **What** | OS name, bundle id, publisher strings. Pack copies `brand/assets/` onto those icon paths and deletes `apple-touch-icon.png` (Nia does not ship it) before vite and in `beforePack`. |
+| **Why** | Customer-facing installers and About. Upstream icon paths stay untouched so sync does not conflict on blobs. |
+| **Re-apply** | New icon edits go in `brand/assets/`, not onto the upstream paths. Do not commit a dirty tree after a pack; reset the overlaid paths to upstream. |
+| **Check** | `node --test scripts/overlay-brand-assets.test.mjs`; `python3 scripts/check_nia_branding.py` |
 
 ### Phase 5 — user-visible scrub (before paying customers)
 
