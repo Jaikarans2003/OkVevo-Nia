@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
 import { INSTALLER_URL, RELEASE_NOTES_URL, resolveAboutStatusKind } from './about-settings'
