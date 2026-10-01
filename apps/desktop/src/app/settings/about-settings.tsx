@@ -18,8 +18,6 @@ import {
   startActiveUpdate
 } from '@/store/updates'
 
-import hermesLicenseNotice from '../../../THIRD_PARTY_NOTICES.txt?raw'
-
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
 
@@ -258,13 +256,6 @@ export function AboutSettings() {
         </div>
 
         <ListRow description={a.automaticUpdatesDesc} title={a.automaticUpdates} />
-
-        <details className="mt-4 rounded-xl border border-border/70 px-4 py-3 text-sm">
-          <summary className="cursor-pointer font-medium">Open-source licenses</summary>
-          <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
-            {hermesLicenseNotice}
-          </pre>
-        </details>
 
         <UninstallSection />
       </div>
