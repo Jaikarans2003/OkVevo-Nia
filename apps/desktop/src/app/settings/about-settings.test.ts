@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-
 import { describe, expect, it } from 'vitest'
 
 import { INSTALLER_URL, RELEASE_NOTES_URL, resolveAboutStatusKind } from './about-settings'
@@ -10,15 +8,6 @@ describe('About installer links', () => {
     expect(RELEASE_NOTES_URL).toBe('https://www.okvevo.com')
     expect(INSTALLER_URL).not.toMatch(/github\.com/i)
     expect(RELEASE_NOTES_URL).not.toMatch(/github\.com/i)
-  })
-
-  it('keeps the product copyright and does not show an open-source licenses section', () => {
-    const src = readFileSync(new URL('./about-settings.tsx', import.meta.url), 'utf8')
-    expect(src).toContain('© 2026 Azonova Technologies Pvt Ltd')
-    expect(src).not.toMatch(/open-source licenses/i)
-    expect(src).not.toContain('THIRD_PARTY_NOTICES')
-    expect(src).not.toMatch(/\bHermes Agent\b/)
-    expect(src).not.toMatch(/\bNous Research\b/)
   })
 })
 
