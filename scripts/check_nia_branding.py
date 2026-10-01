@@ -152,7 +152,18 @@ _SKIP_FILE_PARTS = (".test.ts", ".test.tsx", ".test.mjs", ".test.js")
 _SKIP_DIRS = {"node_modules", "dist", "release", "target", "out"}
 
 # Phase 5 surfaces. A seeded product word in any one of these must fail.
+# Git copies of these catalogs match upstream. The shipped strings live in
+# brand/locales (desktop modules + CLI overlay JSON).
+_SUPERSEDED_DESKTOP_CATALOGS = {
+    "apps/desktop/src/i18n/en.ts",
+    "apps/desktop/src/i18n/ar.ts",
+    "apps/desktop/src/i18n/ja.ts",
+    "apps/desktop/src/i18n/zh.ts",
+    "apps/desktop/src/i18n/zh-hant.ts",
+}
+
 VISIBLE_ROOTS = (
+    "brand/locales",
     "apps/desktop/src/i18n",
     "apps/desktop/src",
     "apps/desktop/electron",
@@ -240,6 +251,13 @@ def iter_visible_files() -> list[Path]:
                 continue
             if _skip_file(file):
                 continue
+            rel = file.relative_to(ROOT).as_posix()
+            if rel in _SUPERSEDED_DESKTOP_CATALOGS:
+                continue
+            if rel.startswith("locales/") and rel.endswith(".yaml"):
+                overlay = ROOT / "brand" / "locales" / f"{Path(rel).stem}.overlay.json"
+                if overlay.is_file():
+                    continue
             if file.suffix.lower() not in {
                 ".ts",
                 ".tsx",

@@ -22,6 +22,7 @@ export const SNAPSHOT_FILE = join(OUT_DIR, 'agent-snapshot.tar.gz')
 export const SNAPSHOT_DIRS = [
   'acp_adapter',
   'agent',
+  'brand',
   'cron',
   'gateway',
   'hermes',
