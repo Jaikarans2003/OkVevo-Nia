@@ -38,6 +38,10 @@ import { PageSearchShell } from '../page-search-shell'
 import { CREDENTIAL_CONTROL_CLASS } from '../settings/credential-key-ui'
 import { ListRow } from '../settings/primitives'
 import { SettingsProfileScope } from '../settings/profile-scope'
+
+// Product surface switch. Add an id to show that platform again.
+// Adapters, config, and the API catalog stay registered.
+const VISIBLE_MESSAGING_PLATFORM_IDS = new Set(['telegram'])
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import { PlatformAvatar } from './platform-icon'
@@ -264,34 +268,42 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     }
   }, [changeEventsAvailable, refreshAll])
 
-  const selected = useMemo(() => {
+  const shownPlatforms = useMemo(() => {
     if (!platforms) {
       return null
     }
 
-    return platforms.find(platform => platform.id === selectedId) || platforms[0] || null
-  }, [platforms, selectedId])
+    return platforms.filter(platform => VISIBLE_MESSAGING_PLATFORM_IDS.has(platform.id))
+  }, [platforms])
+
+  const selected = useMemo(() => {
+    if (!shownPlatforms) {
+      return null
+    }
+
+    return shownPlatforms.find(platform => platform.id === selectedId) || shownPlatforms[0] || null
+  }, [shownPlatforms, selectedId])
 
   const pendingByPlatform = useMemo(() => byPlatform(pairing.pending), [pairing.pending])
   const approvedByPlatform = useMemo(() => byPlatform(pairing.approved), [pairing.approved])
 
   const visiblePlatforms = useMemo(() => {
-    if (!platforms) {
+    if (!shownPlatforms) {
       return []
     }
 
     const q = normalize(query)
 
     if (!q) {
-      return platforms
+      return shownPlatforms
     }
 
-    return platforms.filter(platform =>
+    return shownPlatforms.filter(platform =>
       [platform.id, platform.name, platform.description, platform.state]
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(q))
     )
-  }, [platforms, query])
+  }, [shownPlatforms, query])
 
   async function handleToggle(platform: MessagingPlatformInfo, enabled: boolean) {
     setSaving(`enabled:${platform.id}`)
@@ -425,8 +437,8 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     <PageSearchShell
       {...props}
       onSearchChange={setQuery}
-      searchHidden={(platforms?.length ?? 0) === 0}
-      searchHints={platforms?.slice(0, 5).map(platform => t.common.tryHint(platform.name.toLowerCase()))}
+      searchHidden={(shownPlatforms?.length ?? 0) === 0}
+      searchHints={shownPlatforms?.slice(0, 5).map(platform => t.common.tryHint(platform.name.toLowerCase()))}
       searchPlaceholder={m.search}
       searchValue={query}
     >

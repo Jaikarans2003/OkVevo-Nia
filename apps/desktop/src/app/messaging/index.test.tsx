@@ -57,15 +57,15 @@ function platform(patch: Partial<MessagingPlatformInfo> = {}): MessagingPlatform
     enabled: false,
     env_vars: [],
     gateway_running: true,
-    id: 'teams',
-    name: 'Microsoft Teams',
+    id: 'telegram',
+    name: 'Telegram',
     state: 'disabled',
     ...patch
   }
 }
 
 beforeEach(() => {
-  updateMessagingPlatform.mockResolvedValue({ ok: true, platform: 'teams' })
+  updateMessagingPlatform.mockResolvedValue({ ok: true, platform: 'telegram' })
   getPairing.mockResolvedValue({ approved: [], pending: [] })
 })
 
@@ -100,6 +100,22 @@ describe('MessagingView profile scope', () => {
     await waitFor(() => expect(getMessagingPlatforms).toHaveBeenCalledWith(undefined))
     expect(getPairing).toHaveBeenCalledWith(undefined)
   })
+
+  it('shows Telegram and hides the other registered platforms', async () => {
+    getMessagingPlatforms.mockResolvedValue({
+      platforms: [
+        platform(),
+        platform({ id: 'discord', name: 'Discord' }),
+        platform({ id: 'slack', name: 'Slack' })
+      ]
+    })
+
+    await renderMessaging()
+
+    expect((await screen.findAllByText('Telegram')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Discord')).toBeNull()
+    expect(screen.queryByText('Slack')).toBeNull()
+  })
 })
 
 describe('MessagingView setup-guide link', () => {
@@ -112,7 +128,7 @@ describe('MessagingView setup-guide link', () => {
 
     await renderMessaging()
 
-    expect((await screen.findAllByText('Microsoft Teams')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Telegram')).length).toBeGreaterThan(0)
     expect(screen.queryByText('Open setup guide')).toBeNull()
   })
 
@@ -134,7 +150,7 @@ describe('MessagingView setup-guide link', () => {
 describe('MessagingView pairing', () => {
   const pendingUser = {
     age_minutes: 3,
-    platform: 'teams',
+    platform: 'telegram',
     request_id: 'a1b2c3d4e5f60718',
     user_id: '7712345',
     user_name: 'Bee'
@@ -155,7 +171,7 @@ describe('MessagingView pairing', () => {
       fireEvent.click(approve)
     })
 
-    await waitFor(() => expect(approvePairing).toHaveBeenCalledWith('teams', 'a1b2c3d4e5f60718', undefined))
+    await waitFor(() => expect(approvePairing).toHaveBeenCalledWith('telegram', 'a1b2c3d4e5f60718', undefined))
   })
 
   it('restores the pending row when approval fails', async () => {
@@ -183,7 +199,7 @@ describe('MessagingView pairing', () => {
 
     await renderMessaging()
 
-    expect((await screen.findAllByText('Microsoft Teams')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Telegram')).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
     expect(screen.queryByText(/Pending requests/)).toBeNull()
   })
@@ -195,7 +211,7 @@ describe('MessagingView pairing', () => {
 
     await renderMessaging()
 
-    expect((await screen.findAllByText('Microsoft Teams')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Telegram')).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
   })
 

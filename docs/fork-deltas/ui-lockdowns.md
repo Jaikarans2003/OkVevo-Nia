@@ -2,6 +2,17 @@
 
 ---
 
+### Messaging surface
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[desktop]` |
+| **Files** | `apps/desktop/src/app/messaging/index.tsx` (`VISIBLE_MESSAGING_PLATFORM_IDS`); Telegram description in `hermes_cli/web_server.py` |
+| **What** | Messaging shows Telegram only. Other platform adapters stay registered. |
+| **Why** | v1 surface is Telegram. Unhide by adding an id to the set. |
+| **Re-apply** | Keep the allowlist; do not delete Discord/Slack/etc. catalog entries |
+| **Check** | `apps/desktop/src/app/messaging/index.test.tsx` |
+
 ### Local-only v1
 
 | Field | Value |
