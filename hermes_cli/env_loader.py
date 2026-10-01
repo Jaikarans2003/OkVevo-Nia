@@ -40,6 +40,16 @@ _SECRET_SOURCES: dict[str, str] = {}
 # Applied values are immutable per-home snapshots.  ``os.environ`` is shared
 # across profiles and may be overwritten by a later home's source apply.
 _SECRET_SOURCE_VALUES_BY_HOME: dict[str, dict[str, str]] = {}
+# Per home: what the process-global path WROTE into ``os.environ`` for an external source — name →
+# (source name, value written, value the name held before the first write or None). The per-home
+# snapshot above is republished on every pass, but ``os.environ`` is not: without this record a value a
+# since-removed or disabled source injected stayed in the process env, and single-profile
+# ``get_secret()`` kept serving it through its ``os.environ`` fallback until restart. A per-home
+# ``reset_secret_source_cache`` does not clear this: it describes ``os.environ``, which that reset
+# does not touch, and the next pass needs it to revoke.
+_SECRET_SOURCE_WRITES_BY_HOME: dict[str, dict[str, tuple[str, str, str | None]]] = {}
+# Keys owned by the administrator-managed .env. Revoke must not delete them.
+_MANAGED_DOTENV_KEYS: set[str] = set()
 
 # HERMES_HOME paths we've already pulled external secrets for during this
 # process.  ``load_hermes_dotenv()`` is called at module-import time from
@@ -238,7 +248,7 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
     return dict(values)
 
 
-def reset_secret_source_cache() -> None:
+def reset_secret_source_cache(hermes_home: str | os.PathLike | None = None) -> None:
     """Forget which HERMES_HOME paths have already had external secrets applied.
 
     The first call to ``_apply_external_secret_sources(home_path)`` in a
@@ -247,10 +257,21 @@ def reset_secret_source_cache() -> None:
     subsequent calls in the same process are no-ops.  Call this to force the
     next call to re-pull — useful for tests, and for long-running processes
     that want to refresh after a config change.
+
+    ``hermes_home`` limits the reset to one home and leaves
+    ``_SECRET_SOURCE_WRITES_BY_HOME`` in place so the next pass can revoke
+    values that source wrote into ``os.environ``. A full reset (no home)
+    clears the write record too — tests use that for a clean slate.
     """
-    _APPLIED_HOMES.clear()
-    _SECRET_SOURCES.clear()
-    _SECRET_SOURCE_VALUES_BY_HOME.clear()
+    if hermes_home is None:
+        _APPLIED_HOMES.clear()
+        _SECRET_SOURCES.clear()
+        _SECRET_SOURCE_VALUES_BY_HOME.clear()
+        _SECRET_SOURCE_WRITES_BY_HOME.clear()
+        return
+    home_key = str(Path(hermes_home).resolve())
+    _APPLIED_HOMES.discard(home_key)
+    _SECRET_SOURCE_VALUES_BY_HOME.pop(home_key, None)
 
 
 def format_secret_source_suffix(env_var: str) -> str:
@@ -641,7 +662,53 @@ def _apply_managed_env() -> None:
     if not managed_env.exists():
         return
     _sanitize_env_file_if_needed(managed_env)
+    try:
+        from agent.secret_scope import load_env_file
+
+        _MANAGED_DOTENV_KEYS.clear()
+        _MANAGED_DOTENV_KEYS.update(load_env_file(managed_env))
+    except Exception:  # noqa: BLE001
+        _MANAGED_DOTENV_KEYS.clear()
     _load_dotenv_with_fallback(managed_env, override=True)
+
+
+def _revoke_secret_source_writes(home_path: Path, *, keep) -> None:
+    """Take back what a source wrote into ``os.environ`` for *home_path* once nothing backs it.
+
+    ``keep(name, source)`` says which recorded writes are still owned. Every other write is revoked,
+    but only while ``os.environ`` still holds exactly the value the source wrote: a value another owner
+    replaced since (the profile's ``.env``, the administrator-managed ``.env``, a shell export, a later
+    source) is theirs and stays. A revoked name gets back the value it held before the source's first
+    write, or is removed when it had none."""
+    home_key = str(Path(home_path).resolve())
+    writes = _SECRET_SOURCE_WRITES_BY_HOME.get(home_key)
+    if not writes:
+        return
+    try:
+        from agent.secret_scope import load_env_file
+
+        owned_by_dotenv = set(load_env_file(Path(home_path) / ".env")) | _MANAGED_DOTENV_KEYS
+    except Exception:  # noqa: BLE001 — unreadable .env: treat nothing as dotenv-owned
+        owned_by_dotenv = set(_MANAGED_DOTENV_KEYS)
+    kept: dict[str, tuple[str, str, str | None]] = {}
+    for name, (source, value, prior) in writes.items():
+        if keep(name, source):
+            kept[name] = (source, value, prior)
+            continue
+        if name not in owned_by_dotenv and os.environ.get(name) == value:
+            if prior is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = prior
+        still_attributed = any(
+            other.get(name, ("",))[0] == source
+            for key, other in _SECRET_SOURCE_WRITES_BY_HOME.items() if key != home_key)
+        if _SECRET_SOURCES.get(name) == source and not still_attributed:
+            _SECRET_SOURCES.pop(name, None)
+    if kept:
+        _SECRET_SOURCE_WRITES_BY_HOME[home_key] = kept
+    else:
+        _SECRET_SOURCE_WRITES_BY_HOME.pop(home_key, None)
 
 
 def _apply_external_secret_sources(home_path: Path) -> None:
@@ -678,11 +745,15 @@ def _apply_external_secret_sources(home_path: Path) -> None:
         # otherwise permanently disable secret loading for this process
         # even after the user fixes the file (#40597).
         return
+    # No source configured / enabled any more: whatever one wrote earlier is no longer backed (#126982
+    # review). A config READ failure above keeps them — fail-open, same as the fetch-failure path below.
     if not cfg:
         # No secrets section (or everything disabled at parse level).  Not
         # marked applied either — the re-parse is a cheap fast_safe_load and
         # leaving the home unmarked lets a process pick up a config change
         # on its next load_hermes_dotenv() call instead of never.
+        # A config READ failure above keeps prior writes — fail-open.
+        _revoke_secret_source_writes(home_path, keep=lambda _name, _source: False)
         return
 
     # Defer the registry import until we know a secrets source is enabled —
@@ -700,12 +771,23 @@ def _apply_external_secret_sources(home_path: Path) -> None:
         for v in cfg.values()
     )
     if not any_enabled:
+        _revoke_secret_source_writes(home_path, keep=lambda _name, _source: False)
         return
 
     try:
-        from agent.secret_sources.registry import apply_all
+        from agent.secret_sources.registry import apply_all, enabled_source_names
     except ImportError:
         return
+
+    # Revoke a removed/disabled source's writes BEFORE the pass: left in place, its stale value would make
+    # a still-enabled source that supplies the same name skip it as pre-existing (``skipped_existing``).
+    try:
+        active = enabled_source_names(cfg, home_path)
+    except Exception:  # noqa: BLE001 — cannot tell which sources remain: keep everything (fail-open)
+        active = None
+    if active is not None:
+        _revoke_secret_source_writes(home_path, keep=lambda _name, source: source in active)
+    environ_before = dict(os.environ)
 
     try:
         report = apply_all(cfg, home_path)
@@ -739,7 +821,11 @@ def _apply_external_secret_sources(home_path: Path) -> None:
             _SECRET_SOURCES[name] = applied.source
             if name in os.environ:
                 values[name] = os.environ[name]
-        _SECRET_SOURCE_VALUES_BY_HOME[home_key] = values
+        if values:
+            _SECRET_SOURCE_VALUES_BY_HOME[home_key] = values
+    _record_secret_source_writes(
+        home_key, report, set(report.provenance), environ_before
+    )
 
     for src in report.sources:
         if src.applied:
@@ -759,6 +845,31 @@ def _apply_external_secret_sources(home_path: Path) -> None:
             print(f"  {src.label}: {warn}", file=sys.stderr)
     for conflict in report.conflicts:
         print(f"  Secret sources: {conflict}", file=sys.stderr)
+
+
+def _record_secret_source_writes(home_key: str, report, supplied: set[str], environ_before: dict) -> None:
+    """Refresh ``_SECRET_SOURCE_WRITES_BY_HOME`` after one process-global pass, revoking a write its
+    still-enabled source has stopped supplying (rotated out, mapping removed). A source whose fetch
+    FAILED this pass keeps its earlier writes: a transient vault outage is not a revocation."""
+    failed = {src.name for src in report.sources if not src.result.ok}
+    previous = _SECRET_SOURCE_WRITES_BY_HOME.get(home_key, {})
+    _revoke_secret_source_writes(
+        Path(home_key),
+        keep=lambda name, source: name in report.provenance or name in supplied or source in failed)
+    writes = {name: rec for name, rec in _SECRET_SOURCE_WRITES_BY_HOME.get(home_key, {}).items()
+              if name not in report.provenance and os.environ.get(name) == rec[1]}
+    for name, applied in report.provenance.items():
+        if name not in os.environ:
+            continue
+        before = environ_before.get(name)
+        earlier = previous.get(name)
+        # Re-applied over our own earlier write: the pre-source value is the one recorded then.
+        prior = earlier[2] if earlier is not None and earlier[1] == before else before
+        writes[name] = (applied.source, os.environ[name], prior)
+    if writes:
+        _SECRET_SOURCE_WRITES_BY_HOME[home_key] = writes
+    else:
+        _SECRET_SOURCE_WRITES_BY_HOME.pop(home_key, None)
 
 
 def _remediation_hint(

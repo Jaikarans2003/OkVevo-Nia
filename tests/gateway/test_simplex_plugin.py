@@ -388,3 +388,17 @@ def _make_file_chat_item(file_path: str, file_name: str) -> dict:
     }
 
 
+def test_setup_prompts_no_longer_offer_display_names():
+    """The setup wizard must not suggest display names as SIMPLEX_ALLOWED_USERS
+    values: authorization only matches the stable numeric contactId, and a
+    display-name entry would silently fail closed (#44729).
+
+    Nia has no ``_SETUP_PROMPTS`` tuple; the prompt is the string passed to
+    ``_prompt`` inside ``interactive_setup``.
+    """
+    import inspect
+
+    src = inspect.getsource(_simplex.interactive_setup)
+    assert "display name" not in src.lower()
+
+
