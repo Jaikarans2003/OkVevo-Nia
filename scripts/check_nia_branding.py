@@ -162,6 +162,7 @@ VISIBLE_ROOTS = (
     "scripts/install.sh",
     "scripts/install.ps1",
     "locales",
+    "apps/desktop/THIRD_PARTY_NOTICES.txt",
 )
 
 
@@ -181,12 +182,21 @@ def _parser_noise(inner: str) -> bool:
     return any(marker in inner for marker in markers)
 
 
-def visible_violation(inner: str) -> str | None:
+_NOUS_DISCORD_RE = re.compile(r"discord\.gg/nousresearch", re.IGNORECASE)
+_OSS_NOTICE_NAMES = {"THIRD_PARTY_NOTICES.txt", "LICENSE", "NOTICE"}
+PRODUCT_COPYRIGHT = "© 2026 Azonova Technologies Pvt Ltd"
+
+
+def visible_violation(inner: str, *, allow_oss_attribution: bool = False) -> str | None:
     """Return a short reason if this user-visible string leaks Hermes/Nous."""
+    if _NOUS_DISCORD_RE.search(inner):
+        return "discord.gg/NousResearch"
     if _parser_noise(inner):
         return None
-    if _COPYRIGHT_ATTR_RE.search(inner) and "Nous Research" in inner:
-        return None
+    if "Nous Research" in inner and _COPYRIGHT_ATTR_RE.search(inner):
+        if allow_oss_attribution:
+            return None
+        return "Nous Research copyright"
     scrubbed = inner.replace(_LEGACY_INSTALLER_MARKER, "")
     for pat in _ALLOW_RES:
         scrubbed = pat.sub("", scrubbed)
@@ -241,7 +251,7 @@ def iter_visible_files() -> list[Path]:
                 ".ps1",
                 ".rs",
                 ".xml",
-            }:
+            } and file.name not in _OSS_NOTICE_NAMES:
                 continue
             resolved = file.resolve()
             if resolved in seen:
@@ -327,6 +337,9 @@ def iter_string_spans(text: str, suffix: str):
 
 def iter_visible_strings(text: str, suffix: str):
     """Yield (line, inner) for user-visible literals and plist/JSX text."""
+    if suffix == ".txt":
+        yield 1, text
+        return
     if suffix == ".plist" or (suffix == ".xml" and "<plist" in text[:200]):
         for match in _PLIST_STRING_RE.finditer(text):
             yield _line_of(text, match.start()), match.group(1)
@@ -345,8 +358,9 @@ def check_visible_strings(errors: list[str]) -> None:
         except (OSError, UnicodeError):
             continue
         rel = file.relative_to(ROOT)
+        allow_oss = file.name in _OSS_NOTICE_NAMES
         for line, inner in iter_visible_strings(text, file.suffix.lower()):
-            reason = visible_violation(inner)
+            reason = visible_violation(inner, allow_oss_attribution=allow_oss)
             if reason:
                 snippet = " ".join(inner.split())[:140]
                 _fail(f"{rel}:{line}: user-visible {reason}: {snippet}", errors)
@@ -384,8 +398,10 @@ def check_pack_metadata(errors: list[str]) -> None:
         _fail("set-exe-identity.mjs: ProductName must be Nia", errors)
     if "FileDescription: 'Nia'" not in exe and 'FileDescription: "Nia"' not in exe:
         _fail("set-exe-identity.mjs: FileDescription must be Nia", errors)
-    if "Nous Research" not in exe or "LegalCopyright" not in exe:
-        _fail("set-exe-identity.mjs: keep LegalCopyright Nous Research attribution", errors)
+    if f"LegalCopyright: '{PRODUCT_COPYRIGHT}'" not in exe and f'LegalCopyright: "{PRODUCT_COPYRIGHT}"' not in exe:
+        _fail("set-exe-identity.mjs: LegalCopyright must be the Azonova product line", errors)
+    if "Nous Research" in exe:
+        _fail("set-exe-identity.mjs: LegalCopyright must not name Nous Research", errors)
 
     tauri = json.loads(_read("apps/bootstrap-installer/src-tauri/tauri.conf.json"))
     bundle = tauri.get("bundle") or {}
@@ -394,8 +410,16 @@ def check_pack_metadata(errors: list[str]) -> None:
     if bundle.get("publisher") != "OkVevo":
         _fail("tauri.conf.json: publisher must be OkVevo", errors)
     copyright_line = str(bundle.get("copyright", ""))
-    if "Nous Research" not in copyright_line or "Copyright" not in copyright_line:
-        _fail("tauri.conf.json: keep copyright Nous Research attribution", errors)
+    if copyright_line != PRODUCT_COPYRIGHT:
+        _fail("tauri.conf.json: copyright must be the Azonova product line", errors)
+    if build.get("copyright") != PRODUCT_COPYRIGHT:
+        _fail("apps/desktop/package.json: build.copyright must be the Azonova product line", errors)
+    if mac.get("NSHumanReadableCopyright") != PRODUCT_COPYRIGHT:
+        _fail("apps/desktop/package.json: NSHumanReadableCopyright must be the Azonova product line", errors)
+    notice = _read("apps/desktop/THIRD_PARTY_NOTICES.txt")
+    license_body = _read("LICENSE").split("MIT License", 1)[-1].strip()
+    if "Copyright (c) 2025 Nous Research" not in notice or license_body not in notice:
+        _fail("THIRD_PARTY_NOTICES.txt: must include the Hermes Agent MIT license verbatim", errors)
     window_title = (((tauri.get("app") or {}).get("windows") or [{}])[0]).get("title")
     if window_title != "Nia":
         _fail("tauri.conf.json: window title must be Nia", errors)

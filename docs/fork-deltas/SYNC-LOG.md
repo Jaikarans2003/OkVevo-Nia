@@ -8,6 +8,7 @@ Append one row after each approved sync batch lands on `staging`.
 | 2026-09-25 | (Batch 1 SECURITY in flight on `sync/batch1-security`) | **B** selective cherry-picks | _(PR pending)_ | Replay rejected (U3). See Backports + Batch 1 ratio. |
 | 2026-09-25 | n/a (Electron major, not Hermes sha) | **Phase 4** Electron 40→44 | [#18](https://github.com/Jaikarans2003/OkVevo-Nia/pull/18) merged → staging | Target **44.4.5**. Merge `38be2aa0f3`. |
 | 2026-09-29 | n/a (branding scrub, not a Hermes sha) | **Phase 5** user-visible Hermes/Nous scrub | [#20](https://github.com/Jaikarans2003/OkVevo-Nia/pull/20) → staging (not merged) | `check_nia_branding.py` scans i18n, Electron/renderer strings, installer UI, EXE/plist metadata, CLI catalog, and help links. Internal ids and copyright kept, including `X-Hermes-Session-Token`. |
+| 2026-09-30 | n/a (branding polish, not a Hermes sha) | Product copyright + OSS notice | PR pending on `sync/branding-polish` | Product line is `© 2026 Azonova Technologies Pvt Ltd`. Hermes MIT text stays in `LICENSE` / `NOTICE` and About → Open-source licenses. Nous Discord link removed from the cloud-down message. Cloud recovery screen stays behind `LOCAL_ONLY_V1`. |
 
 ## Phase 4 — Electron major (2026-09-25)
 

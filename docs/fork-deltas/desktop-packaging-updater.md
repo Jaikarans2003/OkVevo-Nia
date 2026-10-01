@@ -56,3 +56,13 @@
 | **Why** | Non-technical founder + agent ops |
 | **Re-apply** | Keep; do not replace with Hermes Cloud docs |
 | **Check** | Doc links match live feeds |
+
+### Later — remote install hint (no change in this pass)
+
+The desktop remote-host hint still tells the user to run the public GitHub install script:
+
+`curl -fsSL https://raw.githubusercontent.com/Jaikarans2003/OkVevo-Nia/staging/scripts/install.sh | sh`
+
+(`apps/desktop/src/i18n/en.ts`, and the same URL in the other locale files.)
+
+That fetch is unauthenticated. It stops working when `OkVevo-Nia` goes private. Do not change the hint until the private-repo bootstrap gate is implemented (deploy token, or `install.sh` bundled in the installer) and a fresh install is tested. See `PRE-LIVE-BACKLOG.md`.

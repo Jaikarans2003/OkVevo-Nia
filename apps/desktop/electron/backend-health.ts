@@ -129,10 +129,8 @@ export function makeNousCloudBackendDownError(baseUrl: string, error: unknown): 
   const err = new Error(
     `OkVevo Cloud agent ${hostname} is down ` +
       `(HTTP ${serverError.statusCode}: server-side fault). ` +
-      'Check https://www.okvevo.com for backend status, ' +
+      'Check https://www.okvevo.com for backend status and support, ' +
       'or switch to Local mode in Settings → Gateway. ' +
-      'You can also reach out on Discord at discord.gg/NousResearch ' +
-      'for immediate assistance. ' +
       `Original detail: ${detail}`
   ) as any
 

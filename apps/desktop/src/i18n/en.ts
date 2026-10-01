@@ -107,10 +107,9 @@ export const en: Translations = {
       cloudDownTitle: 'OkVevo Cloud agent is down',
       cloudDownDescription:
         'The OkVevo-managed cloud agent this gateway connects to is returning a server error. It cannot be restarted from here — check its status, switch to the local gateway, or get support.',
-      cloudDownHint:
-        'The buttons below open the OkVevo Portal (instance status and controls) and our Discord for support.',
+      cloudDownHint: 'The button below opens https://www.okvevo.com for status and support.',
       cloudDownCheckPortal: 'Check Portal status',
-      cloudDownDiscord: 'Get help on Discord',
+      cloudDownDiscord: 'Get help',
       hideRecentLogs: 'Hide recent logs',
       showRecentLogs: 'Show recent logs',
       signedInTitle: 'Signed in',
