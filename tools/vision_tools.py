@@ -64,6 +64,45 @@ def _load_auxiliary_client() -> None:
 
 
 from hermes_constants import get_hermes_dir
+
+
+def _managed_install() -> bool:
+    try:
+        from hermes_cli.config import is_managed
+
+        return bool(is_managed())
+    except Exception:
+        return False
+
+
+def _secure_cache_dir(new_subpath: str, old_name: str) -> Path:
+    """Create a media-cache dir owner-only (0700), except on managed installs."""
+    cache_dir = get_hermes_dir(new_subpath, old_name)
+    if _managed_install():
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
+    cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        from hermes_cli.config import _secure_dir
+
+        _secure_dir(cache_dir)
+    except Exception as exc:
+        logger.debug("vision: cache dir chmod skipped: %s", exc)
+    return cache_dir
+
+
+def _write_private_bytes(path: Path, data: bytes) -> None:
+    """Write ``data`` to ``path`` as owner-only (0600)."""
+    try:
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    except OSError:
+        path.write_bytes(data)
+        return
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data)
+
+
+
 from tools.debug_helpers import DebugSession
 from tools.website_policy import check_website_access
 import sys
@@ -356,8 +395,7 @@ def _normalize_to_supported_image(
     if detected_mime in _ANTHROPIC_SUPPORTED_MEDIA_TYPES:
         return image_path, detected_mime, None
 
-    out_dir = get_hermes_dir("cache/vision", "temp_vision_images")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = _secure_cache_dir("cache/vision", "temp_vision_images")
     out_path = out_dir / f"converted_{uuid.uuid4()}.png"
 
     # SVG: needs a rasterizer (Pillow cannot render SVG).
@@ -1273,10 +1311,9 @@ async def _vision_analyze_native(
 
         detected_mime_type = resolved.mime
         image_size_bytes = len(resolved.data)
-        temp_dir = get_hermes_dir("cache/vision", "temp_vision_images")
-        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_dir = _secure_cache_dir("cache/vision", "temp_vision_images")
         temp_image_path = temp_dir / f"temp_image_{uuid.uuid4()}.img"
-        await asyncio.to_thread(temp_image_path.write_bytes, resolved.data)
+        await asyncio.to_thread(_write_private_bytes, temp_image_path, resolved.data)
         should_cleanup = True
 
         # Normalize unsupported formats (SVG, BMP, ...) to PNG BEFORE embedding.
@@ -1475,10 +1512,9 @@ async def vision_analyze_tool(
             raise ValueError(str(exc))
 
         detected_mime_type = resolved.mime
-        temp_dir = get_hermes_dir("cache/vision", "temp_vision_images")
-        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_dir = _secure_cache_dir("cache/vision", "temp_vision_images")
         temp_image_path = temp_dir / f"temp_image_{uuid.uuid4()}.img"
-        await asyncio.to_thread(temp_image_path.write_bytes, resolved.data)
+        await asyncio.to_thread(_write_private_bytes, temp_image_path, resolved.data)
         should_cleanup = True
 
         # Get image file size for logging
@@ -1975,10 +2011,9 @@ async def _materialize_video_from_terminal_backend(video_source: str, task_id: O
     except ImageResolutionError as exc:
         raise ValueError(f"Could not read video from terminal backend: {exc}") from exc
 
-    temp_dir = get_hermes_dir("cache/video", "temp_video_files")
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_dir = _secure_cache_dir("cache/video", "temp_video_files")
     temp_path = temp_dir / f"terminal_video_{uuid.uuid4()}{suffix}"
-    temp_path.write_bytes(resolved.data)
+    _write_private_bytes(temp_path, resolved.data)
     return temp_path
 
 
