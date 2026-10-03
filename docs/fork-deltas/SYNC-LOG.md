@@ -11,6 +11,7 @@ Append one row after each approved sync batch lands on `staging`.
 | 2026-09-29 | n/a (branding scrub, not a Hermes sha) | **Phase 5** user-visible Hermes/Nous scrub | [#20](https://github.com/Jaikarans2003/OkVevo-Nia/pull/20) → staging (not merged) | `check_nia_branding.py` scans i18n, Electron/renderer strings, installer UI, EXE/plist metadata, CLI catalog, and help links. Internal ids and copyright kept, including `X-Hermes-Session-Token`. |
 | 2026-09-30 | n/a (branding polish, not a Hermes sha) | Product copyright + OSS notice | PR pending on `sync/branding-polish` | Product line is `© 2026 Azonova Technologies Pvt Ltd`. Hermes MIT text stays in `LICENSE` / `NOTICE` and About → Open-source licenses. Nous Discord link removed from the cloud-down message. Cloud recovery screen stays behind `LOCAL_ONLY_V1`. |
 | 2026-10-01 | n/a (OSS UI removal, not a Hermes sha) | Notice file only | [#27](https://github.com/Jaikarans2003/OkVevo-Nia/pull/27) → staging (not merged) | About no longer shows Open-source licenses. `THIRD_PARTY_NOTICES.txt` stays in `extraResources` (Mac `Contents/Resources`, Windows `resources`). `/legal/open-source` on OkVevo-Web is later. |
+| 2026-10-02 | `0466a04bc874` (newest sha in this batch only; not a full `origin/main` sync) | **B** selective cherry-picks | Batch 2a PR pending on `sync/batch2a-bugfix` | Merge after v0.18.3 is published. See Batch 2a table. |
 
 ## Phase 4 — Electron major (2026-09-25)
 
@@ -30,7 +31,7 @@ Append one row after each approved sync batch lands on `staging`.
 |-------|-------------|-----------|------------------|----------------|-------|
 | Batch 1 SECURITY | 7 | 12 | 2 | **12/19 ≈ 63%** | Last synced upstream sha: `b534f4b8c8`. Revisit full-replay trigger if ratio stays high |
 | Batch 1b SECURITY | 0 | 4 | 3 | **4/4 = 100%** of shas that ship on Nia needed a backport | Last synced upstream sha: `6c3aae398ade`. The 3 skipped shas are N/A (not shipped), not counted in the ratio |
-| Batch 2 BUG FIX | — | — | — | **75%** (reconciled) | Inventory writeup said **18 of 24**. The classified table has **28 rows**. 75% of 28 is **21 of 28** that need a backport or resolve. Last synced upstream sha: **none** — batch not started. 2a (10 shas) waits for approval after 1b merges; the rest is 2b |
+| Batch 2a BUG FIX | 3 | 6 | 1 | **6/9 ≈ 67%** of landed shas needed a backport | Previous last synced sha: `6c3aae398ade`. This batch's newest taken sha: `0466a04bc874` (not a full `origin/main` sync). Skipped `87bb0d3827a0`. Inventory's 75% figure was the unstarted whole of Batch 2, not this slice. CI then showed `ffa40b07f020` and `0ca79e360233` were not clean. |
 
 ## Backports
 
@@ -96,6 +97,16 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-10-01 | `bd392ba92242` | **N/A** | — | `pm/` package manager is not in the tree (0 files). Commit is entirely `pm/` + `tests/pm` |
 | 2026-09-25 | `d966b34cc3` | **backported** | `cron/lifecycle_guard.py` | Windows `hermes.exe` / `taskkill` regex; keep Nia comments |
 | 2026-09-25 | `940c610994` | **skipped** | — | N/A: blocklist already defined in `tools/environments/local.py` |
+| 2026-10-02 | `43d09822ae12` | **backported** | `tui_gateway/methods_session.py`, `tests/tui_gateway/test_session_hidden_rpc.py` | Nia keeps two-tier live/stored lookup. Missing `hidden` returns 4026 (`4021` is already "title required"). Upstream test kept. |
+| 2026-10-02 | `a609bad294c7` | **backported** | `hermes_cli/backup.py`, `tests/hermes_cli/test_restore_source_integrity.py` | `backup_restore.py` is not on Nia. Integrity gate is at the start of `_safe_restore_db`; snapshot restore and existing-db import honor a False return. |
+| 2026-10-02 | `87bb0d3827a0` | **skipped — residual risk** | — | `hermes_state_lockguard.py` is not on Nia (no OFD WAL generation guard). The close-order race in that module cannot fire. Do not import the module just to take the fix. |
+| 2026-10-02 | `2e36513ef9b2` | **picked** | Windows GPU crash fallback | Clean |
+| 2026-10-02 | `b9cb268deffc` | **backported** | `windows-child-options.ts`, probes, `main.ts` | Nia uses `spawn` / `execProbeSync`, not `spawnOwnedBackend`. `backend-serve-support.ts` is inlined in `main.ts`; the `serve --help` probe quotes there. |
+| 2026-10-02 | `ffa40b07f020` | **backported** | per-session remote `state.db` | main.ts imported `pathWithRemoteOwnerScope`, `remoteProfileQueryScope`, `tagRemoteSessionRows` and a 4th arg on `fetchRemoteProfileSessions`. Those were not on Nia's `profile-session-routing.ts`. Ported the four helpers. `main.ts:351`, `main.ts:16015` |
+| 2026-10-02 | `5d1ab29b0393` | **backported** | `gateway/status.py` plus the upstream test | The upstream commit is test-only. Nia still raised when `gateway.pid` was missing beside a held lock. Identity now comes from the lock record. |
+| 2026-10-02 | `0ca79e360233` | **backported** | bootstrap installer update marker | Picked test expected `live_marker_owner` to return none for our pid. `acquire` adopts that pid (`update.rs:282`). Assertion updated to match later upstream: own pid is reported and the marker is kept. `update.rs:1878` |
+| 2026-10-02 | `ca16be564d0a` | **picked** | preview print guard | Clean apply; user-visible `[Hermes]` warn rebranded to `[Nia]` |
+| 2026-10-02 | `0466a04bc874` | **picked** | Windows spawn lock stdin | Clean |
 | 2026-09-25 | S3 bumps | **done** | `uv.lock`, `package.json`, lock | anyio 4.14.2; electron-updater 6.8.9; builder-util-runtime 9.7.0; js-yaml 4.3.2; electron 40.10.6 patch |
 | 2026-09-25 | CI gate | **done** | `nia-dep-audit` | pip-audit + `npm audit --omit=dev --audit-level=critical`; no Dependabot auto-PR yaml |
 | 2026-10-01 | n/a (CI gate, not a Hermes sha) | diff-aware dependency review | branch `ci/dependency-review` | PRs fail only on high/critical advisories introduced by the diff (`dependency-review-action`, required via `all-checks-pass`). Full pip-audit + npm audit is daily and on push to `staging`/`main`, and files a tracking issue. |

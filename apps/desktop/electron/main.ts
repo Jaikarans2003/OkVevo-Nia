@@ -348,9 +348,12 @@ import {
   fetchRemoteProfileSessions,
   findRemoteOwnerProfileForSession,
   mergeProfileSessionWindow,
+  pathWithRemoteOwnerScope,
   type RegistrySessionSource,
+  remoteProfileQueryScope,
   spliceRegistrySessionRows,
-  tagRegistrySessionResponse
+  tagRegistrySessionResponse,
+  tagRemoteSessionRows
 } from './profile-session-routing'
 import { createQuickEntryShortcut, quickEntryWindowBounds, sanitizeQuickEntrySettings } from './quick-entry'
 import { type ActiveWork, mergeActiveWork, normalizeActiveWork, quitPromptFor } from './quit-guard'
@@ -450,7 +453,7 @@ import {
   MIN_HEIGHT as WINDOW_MIN_HEIGHT,
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
-import { hiddenWindowsChildOptions } from './windows-child-options'
+import { hiddenWindowsChildOptions, windowsShellCommand } from './windows-child-options'
 import {
   buildPathExtCandidates,
   chooseUpdaterArgs,
@@ -478,6 +481,16 @@ import {
   shouldRelaunchForRendererSandboxCrashLoop,
   writeSandboxMarker
 } from './windows-sandbox-fallback'
+import {
+  decideWindowsGpuStackCookieLaunch,
+  gpuStackCookieFallbackMarker,
+  isHermesDesktopGpuOverrideOff,
+  markerAfterSuccessfulGpuStackCookieBoot,
+  readGpuStackCookieMarker,
+  shouldRelaunchForRendererStackCookieCrashLoop,
+  shouldSurfaceErrorForRendererStackCookieCrashLoop,
+  writeGpuStackCookieMarker
+} from './windows-stack-cookie-fallback'
 import { installWindowsSystemCaTrust } from './windows-system-ca'
 import { readWindowsUserEnvVar } from './windows-user-env'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
@@ -537,6 +550,39 @@ if (REMOTE_DISPLAY_REASON) {
   console.log(
     `[hermes] remote display detected (${REMOTE_DISPLAY_REASON}); disabling GPU hardware acceleration to prevent flicker`
   )
+}
+
+// #108047: a local Windows renderer crash loop with STATUS_STACK_BUFFER_OVERRUN
+// (0xC0000409) is recovered by disabling GPU — NOT by dropping the sandbox
+// (that path stays owned by STATUS_BREAKPOINT / #38216). Must run before app
+// `ready`. Skip applying switches when the remote-display block above already
+// did; still honor a sticky per-version marker so Start Menu launches recover.
+let windowsGpuStackCookieFallbackActive = false
+let windowsGpuStackCookieRelaunchAttempted = false
+
+if (IS_WINDOWS) {
+  const windowsGpuUserData = app.getPath('userData')
+  const gpuStackCookieDecision = decideWindowsGpuStackCookieLaunch({
+    marker: readGpuStackCookieMarker(windowsGpuUserData),
+    env: process.env,
+    appVersion: app.getVersion()
+  })
+
+  windowsGpuStackCookieFallbackActive = gpuStackCookieDecision.enable
+
+  try {
+    writeGpuStackCookieMarker(windowsGpuUserData, gpuStackCookieDecision.nextMarker)
+  } catch {
+    void 0
+  }
+
+  if (gpuStackCookieDecision.enable && !REMOTE_DISPLAY_REASON) {
+    app.disableHardwareAcceleration()
+    app.commandLine.appendSwitch('disable-gpu-compositing')
+    console.log(
+      `[hermes] Windows GPU stack-cookie fallback enabled (${gpuStackCookieDecision.reason}); disabling GPU hardware acceleration (0xC0000409 / #108047)`
+    )
+  }
 }
 
 // Renderer debugging port. On for dev-server runs (`hgui` / `npm run dev`) so
@@ -2383,7 +2429,7 @@ function backendSupportsServe(backend) {
       // is cached for the process lifetime, silently routing a modern
       // runtime through the legacy `dashboard` form. Share the probe budget
       // and its timeout-only retry instead of a thinner local bound.
-      execProbeSync(backend.command, [...prefix, 'serve', '--help'], {
+      execProbeSync(windowsShellCommand(backend.command, Boolean(backend.shell)), [...prefix, 'serve', '--help'], {
         cwd: backend.root || undefined,
         env: { ...process.env, HERMES_HOME, ...(backend.env || {}) },
         timeout: PROBE_TIMEOUT_MS,
@@ -12214,7 +12260,7 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
   const parentIdentityEnv = parentWatchdogEnv(process.pid, parentStartMarker, backendNonce)
 
   const child = spawn(
-    backend.command,
+    windowsShellCommand(backend.command, Boolean(backend.shell)),
     backend.args,
     hiddenWindowsChildOptions({
       cwd: hermesCwd,
@@ -12598,7 +12644,7 @@ async function startHermes() {
     const parentIdentityEnv = parentWatchdogEnv(process.pid, parentStartMarker, backendNonce)
 
     const hermesProcess = spawn(
-      backend.command,
+      windowsShellCommand(backend.command, Boolean(backend.shell)),
       backend.args,
       hiddenWindowsChildOptions({
         cwd: hermesCwd,
@@ -14223,6 +14269,18 @@ function createWindow() {
         } catch (error) {
           rememberLog(`[sandbox] marker update after main-window reveal failed: ${error?.message || error}`)
         }
+
+        try {
+          writeGpuStackCookieMarker(
+            app.getPath('userData'),
+            markerAfterSuccessfulGpuStackCookieBoot({
+              fallbackActive: windowsGpuStackCookieFallbackActive,
+              appVersion: app.getVersion()
+            })
+          )
+        } catch (error) {
+          rememberLog(`[gpu] stack-cookie marker update after main-window reveal failed: ${error?.message || error}`)
+        }
       }
     }
   })
@@ -14278,6 +14336,60 @@ function createWindow() {
         mainWindow.webContents.reload()
       },
       onCrashLoopSuppressed: details => {
+        // #108047: STATUS_STACK_BUFFER_OVERRUN crash loops get a one-shot GPU
+        // disable relaunch. Checked BEFORE the sandbox path so 0xC0000409 never
+        // piggybacks --no-sandbox. If GPU fallback cannot run, surface the
+        // visible error page instead of leaving a blank window.
+        const stackCookieCrashLoop = {
+          reason: details?.reason,
+          exitCode: details?.exitCode,
+          alreadyGpuDisabled: Boolean(REMOTE_DISPLAY_REASON) || windowsGpuStackCookieFallbackActive,
+          relaunchAttempted: windowsGpuStackCookieRelaunchAttempted,
+          gpuOverrideOff: isHermesDesktopGpuOverrideOff(process.env)
+        }
+
+        if (shouldRelaunchForRendererStackCookieCrashLoop(stackCookieCrashLoop)) {
+          windowsGpuStackCookieRelaunchAttempted = true
+          windowsGpuStackCookieFallbackActive = true
+
+          try {
+            writeGpuStackCookieMarker(
+              app.getPath('userData'),
+              gpuStackCookieFallbackMarker('renderer-crash-loop', app.getVersion())
+            )
+          } catch {
+            void 0
+          }
+
+          rememberLog(
+            '[renderer] Windows stack-cookie crash loop (0xC0000409); relaunching once with GPU disabled (#108047)'
+          )
+
+          try {
+            app.relaunch({ args: process.argv.slice(1) })
+            void exitAfterBackendShutdown(0)
+          } catch (err) {
+            rememberLog(`[renderer] GPU-disable relaunch failed: ${err?.message || err}`)
+          }
+
+          return
+        }
+
+        if (shouldSurfaceErrorForRendererStackCookieCrashLoop(stackCookieCrashLoop)) {
+          rememberLog(
+            '[renderer] Windows stack-cookie crash loop (0xC0000409) with GPU fallback unavailable; surfacing error page (#108047)'
+          )
+          void loadRendererLoadErrorPage(mainWindow, {
+            errorCode: details?.exitCode,
+            errorDescription:
+              'The desktop renderer crashed repeatedly (Windows STATUS_STACK_BUFFER_OVERRUN / 0xC0000409). GPU fallback could not recover the window.',
+            repairHint: 'hermes desktop --force-build',
+            reloadUrl: DEV_SERVER || pathToFileURL(resolveRendererIndex()).toString()
+          })
+
+          return
+        }
+
         // #38216 renderer flavor (same recovery as #56726, credit @Sahil-SS9):
         // a deterministic Windows renderer crash loop with the sandbox
         // breakpoint signature gets one --no-sandbox relaunch instead of a
@@ -15848,14 +15960,26 @@ async function interceptSessionRequestForRemote(request) {
     const passthroughQuery = passthroughParams.toString()
 
     if (profileHasRemoteOverride(profile)) {
+      // #64999: the override's remote can be a multi-profile backend — an
+      // unscoped read opens its launch-profile state.db, so a resume 4007s
+      // even though the row exists under its real owner. Scope the read the
+      // same way the list fetch does; a legacy single-profile scope ('')
+      // keeps the path bare.
+      const ownerScope =
+        remoteProfileQueryScope(profile, profileSshOverride(readDesktopConnectionConfig(), profile)?.remoteProfile) ||
+        profile
+
       if (method === 'GET') {
-        return fetchJsonForProfile(profile, passthroughQuery ? `${pathname}?${passthroughQuery}` : pathname)
+        return fetchJsonForProfile(
+          profile,
+          pathWithRemoteOwnerScope(passthroughQuery ? `${pathname}?${passthroughQuery}` : pathname, ownerScope)
+        )
       }
 
       const body = request.body && typeof request.body === 'object' ? { ...request.body } : request.body
 
-      if (body) {
-        delete body.profile
+      if (body && ownerScope) {
+        ;(body as Record<string, unknown>).profile = ownerScope
       }
 
       return requestJsonForProfile(profile, pathname, method, body)
@@ -15883,17 +16007,17 @@ async function interceptSessionRequestForRemote(request) {
 
 const rowsOf = data => (Array.isArray(data?.sessions) ? data.sessions : [])
 
-// A remote profile's session list, read from its remote host and tagged with the
-// desktop-facing profile name (the remote's /api/sessions doesn't know it).
+// A remote profile's session list. The fetch itself is profile-scoped
+// (fetchRemoteProfileSessions, #64999); the remote's own stamps carry the
+// authoritative identity — never relabel rows with the Desktop scope name.
 async function remoteSessionList(profile, searchParams) {
-  const data = await fetchRemoteProfileSessions(profile, searchParams, fetchJsonForProfile)
+  const sshOverride = profileSshOverride(readDesktopConnectionConfig(), profile)
+  const data = await fetchRemoteProfileSessions(profile, searchParams, fetchJsonForProfile, {
+    remoteProfileAlias: sshOverride?.remoteProfile
+  })
+  const rows = tagRemoteSessionRows(rowsOf(data), remoteProfileQueryScope(profile, sshOverride?.remoteProfile) || profile)
 
-  for (const s of rowsOf(data)) {
-    s.profile = profile
-    s.is_default_profile = false
-  }
-
-  return { ...(data as any), sessions: rowsOf(data) }
+  return { ...(data as any), sessions: rows }
 }
 
 // #85834: find which remote profile owns a session id when the caller gave no
