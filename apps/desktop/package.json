@@ -28,7 +28,7 @@
     "profile:main:cpu": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 NODE_OPTIONS=--cpu-prof HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron .",
     "start": "npm run build && electron .",
     "prebuild": "npm run clean",
-    "build": "node scripts/assert-root-install.mjs && node scripts/write-build-stamp.mjs && node scripts/write-okvevo-pack-env.mjs && node scripts/pack-agent-snapshot.mjs && vite build && node scripts/bundle-electron-main.mjs && node scripts/stage-native-deps.mjs",
+    "build": "node ../../scripts/overlay-brand-assets.mjs && node scripts/assert-root-install.mjs && node scripts/write-build-stamp.mjs && node scripts/write-okvevo-pack-env.mjs && node scripts/pack-agent-snapshot.mjs && vite build && node scripts/bundle-electron-main.mjs && node scripts/stage-native-deps.mjs",
     "postbuild": "node scripts/assert-dist-built.mjs",
     "prebuilder": "node scripts/patch-electron-builder-mac-binary.mjs",
     "builder": "cross-env NODE_OPTIONS=--max-old-space-size=16384 node scripts/run-electron-builder.mjs",
@@ -221,6 +221,7 @@
     "beforePack": "scripts/before-pack.mjs",
     "afterPack": "scripts/after-pack.mjs",
     "afterAllArtifactBuild": "scripts/after-all-artifact-build.mjs",
+    "copyright": "© 2026 Azonova Technologies Pvt Ltd",
     "extraResources": [
       {
         "from": "build/install-stamp.json",
@@ -233,6 +234,10 @@
       {
         "from": "build/agent-snapshot.tar.gz",
         "to": "agent-snapshot.tar.gz"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.txt",
+        "to": "THIRD_PARTY_NOTICES.txt"
       },
       {
         "from": "build/install.sh",
@@ -278,7 +283,8 @@
         "NSRemindersFullAccessUsageDescription": "Nia needs full access to Reminders to read and manage reminders when explicitly requested.",
         "NSScreenCaptureUsageDescription": "Nia captures the screen when you ask the agent to screenshot or record it.",
         "NSLocalNetworkUsageDescription": "Nia connects to devices on your local network when a plugin or feature you enable requests it.",
-        "NSAppleMusicUsageDescription": "Nia accesses your music library when a plugin or feature you enable requests it."
+        "NSAppleMusicUsageDescription": "Nia accesses your music library when a plugin or feature you enable requests it.",
+        "NSHumanReadableCopyright": "© 2026 Azonova Technologies Pvt Ltd"
       },
       "gatekeeperAssess": false,
       "hardenedRuntime": true,

@@ -19,12 +19,28 @@
  *   - packager.appInfo.productFilename: the exe basename (e.g. 'Hermes')
  */
 
+import fs from 'node:fs'
 import path from 'node:path'
 
 import { stampExeIdentity } from './set-exe-identity.mjs'
 import { signWindowsFile } from './sign-windows.mjs'
 
+function bundledNoticePath(context) {
+  const name = 'THIRD_PARTY_NOTICES.txt'
+  const product = context.packager?.appInfo?.productFilename || 'Nia'
+  if (context.electronPlatformName === 'darwin') {
+    return path.join(context.appOutDir, `${product}.app`, 'Contents', 'Resources', name)
+  }
+  return path.join(context.appOutDir, 'resources', name)
+}
+
 export default async function afterPack(context) {
+  const notice = bundledNoticePath(context)
+  if (!fs.existsSync(notice)) {
+    throw new Error(`[after-pack] MIT notice missing from the packed app: ${notice}`)
+  }
+  console.log(`[after-pack] bundled OSS notice: ${notice}`)
+
   if (context.electronPlatformName !== 'win32') {
     return
   }

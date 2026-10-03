@@ -347,3 +347,39 @@ class TestRelayRoutingStampGlobals:
             ss.set_multiplex_active(False)
         for name in self.AUTH_VARS:
             assert not ss._is_global_env(name), name
+
+
+@pytest.mark.parametrize(
+    ("profile_env", "expected"),
+    [
+        ("", "managed-key"),
+        ("ORG_API_KEY=user-key\n", "managed-key"),
+    ],
+    ids=["managed-only", "managed-beats-user"],
+)
+def test_profile_scope_carries_managed_env_authority(tmp_path, monkeypatch, profile_env, expected):
+    """Multiplex get_secret does not fall back to os.environ, so the profile
+    scope must include the administrator-managed .env with launch precedence:
+    a managed-only key is present and a managed value beats the profile's own.
+    Adapted from upstream's routed-cron fire test; Nia has no
+    ``_profile_cron_scope`` / ``_install_fire_secret_scope``.
+    """
+    from hermes_cli import managed_scope
+
+    profile = tmp_path / "profile"
+    managed = tmp_path / "managed"
+    profile.mkdir()
+    managed.mkdir()
+    (profile / ".env").write_text(profile_env, encoding="utf-8")
+    (managed / ".env").write_text("ORG_API_KEY=managed-key\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_MANAGED_DIR", str(managed))
+    managed_scope.invalidate_managed_cache()
+    ss.set_multiplex_active(True)
+    scope = ss.build_profile_secret_scope(profile)
+    token = ss.set_secret_scope(scope)
+    try:
+        assert ss.get_secret("ORG_API_KEY") == expected
+    finally:
+        ss.reset_secret_scope(token)
+        ss.set_multiplex_active(False)
+        managed_scope.invalidate_managed_cache()

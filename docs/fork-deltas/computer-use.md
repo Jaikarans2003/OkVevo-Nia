@@ -31,5 +31,6 @@
 - `PINNED_CUA_DRIVER_VERSION = "0.28.2"`
 - Upstream computer_use / tools_config split snapshot
 - Schema description byte-freeze / S3 routing scanner from parked branch
+- At-rest cache modes from upstream `6c3aae398ade` (`tools/computer_use/` mkdir 0700 / capture files 0600). Batch 1b took the rest of that commit and left computer_use untouched
 
 When those land in a future plan, extend this file in the same commit.

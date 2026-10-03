@@ -21,6 +21,8 @@ import {
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
 
+const PRODUCT_COPYRIGHT = '© 2026 Azonova Technologies Pvt Ltd'
+
 export const INSTALLER_URL = 'https://www.okvevo.com'
 export const RELEASE_NOTES_URL = 'https://www.okvevo.com'
 
@@ -156,6 +158,7 @@ export function AboutSettings() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{a.heading}</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">{a.madeBy}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{PRODUCT_COPYRIGHT}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {version?.appVersion ? a.version(version.appVersion) : a.versionUnavailable}
           </p>

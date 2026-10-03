@@ -190,6 +190,11 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       '@/debug/dev-only': debugEntry(command, process.env as Record<string, string>),
+      '@/i18n/en': path.resolve(__dirname, '../../brand/locales/desktop/en.ts'),
+      '@/i18n/ar': path.resolve(__dirname, '../../brand/locales/desktop/ar.ts'),
+      '@/i18n/ja': path.resolve(__dirname, '../../brand/locales/desktop/ja.ts'),
+      '@/i18n/zh': path.resolve(__dirname, '../../brand/locales/desktop/zh.ts'),
+      '@/i18n/zh-hant': path.resolve(__dirname, '../../brand/locales/desktop/zh-hant.ts'),
       '@': path.resolve(__dirname, './src'),
       '@hermes/plugin-sdk': path.resolve(__dirname, './src/sdk/index.ts'),
       '@hermes/shared/billing': path.resolve(__dirname, '../shared/src/billing-types.ts'),

@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
-"""Fail CI on CRITICAL production dependency findings.
+"""Report CRITICAL production dependency findings.
 
 Runs:
   - ``uv export --frozen --no-dev --no-emit-project`` + ``uvx pip-audit``
   - ``npm audit --omit=dev --audit-level=critical``
 
 pip-audit has no severity cutoff in current uvx builds, so any non-allowlisted
-Python finding fails the gate (Batch 1 baseline is clean after the anyio bump).
-npm only fails on CRITICAL (``--audit-level=critical``).
+Python finding is reported (Batch 1 baseline is clean after the anyio bump).
+npm only reports CRITICAL (``--audit-level=critical``).
 
 Allowlist: ``.github/nia-dep-audit-allowlist.txt`` (one GHSA-/CVE- id per line).
+
+PR merges are gated by ``actions/dependency-review-action`` (new high/critical
+only). This script runs on a schedule and on push to staging/main. Set
+``NIA_DEP_AUDIT_REPORT=issue`` so findings print ``NIA_DEP_AUDIT_FINDINGS=1``
+and exit 0; the workflow files a tracking issue. Tool failures still exit 1.
 """
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -131,6 +137,13 @@ def main() -> int:
             print("npm audit: CRITICAL production findings")
 
     if failed:
+        if os.environ.get("NIA_DEP_AUDIT_REPORT") == "issue":
+            print("NIA_DEP_AUDIT_FINDINGS=1")
+            print(
+                "nia-dep-audit: findings recorded for the tracking issue. "
+                "Accept only via .github/nia-dep-audit-allowlist.txt."
+            )
+            return 0
         print(
             "nia-dep-audit FAILED. Accept only via .github/nia-dep-audit-allowlist.txt.",
             file=sys.stderr,

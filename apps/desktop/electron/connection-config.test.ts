@@ -1318,7 +1318,7 @@ test('OAuth ticket-mint 503 surfaces the Cloud-down error (startup boundary)', (
   if (cloudError !== null) {
     assert.equal((cloudError as any).isCloudBackendDown, true)
     assert.equal((cloudError as any).statusCode, 503)
-    assert.ok(cloudError.message.includes('Nous Cloud agent ares-3009.agents.nousresearch.com is down'))
+    assert.ok(cloudError.message.includes('OkVevo Cloud agent ares-3009.agents.nousresearch.com is down'))
 
     return
   }

@@ -124,7 +124,7 @@ describe('BillingSettings', () => {
     expect(screen.getByText('Visa •••• 3206')).toBeTruthy()
     expect(
       screen.getByText(
-        "Remote spending is off for this account — a billing admin can turn it on from the portal's Hermes Agent page."
+        "Remote spending is off for this account — a billing admin can turn it on from the portal's Nia page."
       )
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: '$100' })).toBeNull()
@@ -639,9 +639,9 @@ describe('BillingSettings', () => {
 
     renderBilling()
 
-    expect(await screen.findByText('Connect your Nous account')).toBeTruthy()
-    expect(screen.getByText('Run /portal in the TUI or open the Nous portal to connect your account.')).toBeTruthy()
-    expect(screen.getByText('Sign in with your OkVevo account. Nous billing below is unchanged.')).toBeTruthy()
+    expect(await screen.findByText('Connect your OkVevo account')).toBeTruthy()
+    expect(screen.getByText('Run /portal in the TUI or open the OkVevo portal to connect your account.')).toBeTruthy()
+    expect(screen.getByText('Sign in with your OkVevo account. OkVevo billing below is unchanged.')).toBeTruthy()
     expect(screen.queryByText('Payment method')).toBeNull()
     expect(screen.queryByText('Usage')).toBeNull()
   })
@@ -654,7 +654,7 @@ describe('BillingSettings', () => {
     renderBilling()
 
     expect(await screen.findByText('Sign in with your OkVevo account.')).toBeTruthy()
-    expect(screen.queryByText('Connect your Nous account')).toBeNull()
+    expect(screen.queryByText('Connect your OkVevo account')).toBeNull()
     expect(screen.queryByText(/Nous billing below is unchanged/)).toBeNull()
     expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
     expect(screen.queryByText('Payment & credits')).toBeNull()

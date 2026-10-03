@@ -59,14 +59,14 @@ afterEach(() => {
 })
 
 describe('onboarding Picker', () => {
-  it('features Nous Portal and hides other providers behind a disclosure', () => {
-    setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'Nous Portal')])
+  it('features OkVevo Portal and hides other providers behind a disclosure', () => {
+    setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'OkVevo Portal')])
     render(<Picker ctx={ctx} />)
 
-    expect(screen.getByText('Nous Portal')).toBeTruthy()
+    expect(screen.getByText('OkVevo Portal')).toBeTruthy()
     expect(screen.getByText('Recommended')).toBeTruthy()
     // Fireworks stays behind the disclosure with the other alternatives; only
-    // Nous Portal is visible before the user expands the list.
+    // OkVevo Portal is visible before the user expands the list.
     expect(screen.queryByText('Fireworks AI')).toBeNull()
     expect(screen.queryByText('Anthropic API Key')).toBeNull()
 
@@ -81,7 +81,7 @@ describe('onboarding Picker', () => {
     setProviders([
       makeOAuthProvider('openai-codex', 'OpenAI Codex / ChatGPT'),
       makeOAuthProvider('minimax-oauth', 'MiniMax'),
-      makeOAuthProvider('nous', 'Nous Portal')
+      makeOAuthProvider('nous', 'OkVevo Portal')
     ])
     render(<Picker ctx={ctx} />)
     fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
@@ -89,16 +89,16 @@ describe('onboarding Picker', () => {
     const labels = screen
       .getAllByRole('button')
       .map(el => el.textContent ?? '')
-      .filter(text => /Nous Portal|Fireworks AI|ChatGPT or Codex|MiniMax|OpenRouter/.test(text))
+      .filter(text => /OkVevo Portal|Fireworks AI|ChatGPT or Codex|MiniMax|OpenRouter/.test(text))
 
     const indexOf = (needle: string) => labels.findIndex(text => text.includes(needle))
-    expect(indexOf('Nous Portal')).toBeGreaterThanOrEqual(0)
-    expect(indexOf('Fireworks AI')).toBeGreaterThan(indexOf('Nous Portal'))
+    expect(indexOf('OkVevo Portal')).toBeGreaterThanOrEqual(0)
+    expect(indexOf('Fireworks AI')).toBeGreaterThan(indexOf('OkVevo Portal'))
     expect(indexOf('ChatGPT or Codex')).toBeGreaterThan(indexOf('Fireworks AI'))
     expect(indexOf('MiniMax')).toBeGreaterThan(indexOf('ChatGPT or Codex'))
   })
 
-  it('shows every provider directly when Nous Portal is absent', () => {
+  it('shows every provider directly when OkVevo Portal is absent', () => {
     setProviders([
       makeOAuthProvider('anthropic', 'Anthropic Claude'),
       makeOAuthProvider('openai-codex', 'OpenAI Codex / ChatGPT')
@@ -113,7 +113,7 @@ describe('onboarding Picker', () => {
   })
 
   it('offers "choose later" on first run and persists the skip', () => {
-    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
     render(<Picker ctx={ctx} />)
 
     const skip = screen.getByRole('button', { name: "I'll choose a provider later" })
@@ -125,7 +125,7 @@ describe('onboarding Picker', () => {
   })
 
   it('hides "choose later" in manual (add-provider) mode', () => {
-    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
     $desktopOnboarding.set({ ...$desktopOnboarding.get(), manual: true })
     render(<Picker ctx={ctx} />)
 
@@ -134,7 +134,7 @@ describe('onboarding Picker', () => {
 
   it('shows OpenRouter key paste when signed in on the internal channel', () => {
     $okvevoAuth.set({ signedIn: true, uid: 'u1', email: 'a@b.c', displayName: null })
-    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
     render(<Picker ctx={ctx} />)
     fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
 
@@ -144,10 +144,10 @@ describe('onboarding Picker', () => {
 
   it('hides OAuth, keys, local form, and Fireworks on the public channel', () => {
     byokChromeVisible = false
-    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
     render(<Picker ctx={ctx} />)
 
-    expect(screen.queryByText('Nous Portal')).toBeNull()
+    expect(screen.queryByText('OkVevo Portal')).toBeNull()
     expect(screen.queryByText('Fireworks AI')).toBeNull()
     expect(screen.queryByText('OpenRouter')).toBeNull()
     expect(screen.queryByRole('button', { name: /API key/i })).toBeNull()

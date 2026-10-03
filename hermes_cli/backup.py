@@ -724,7 +724,15 @@ def _safe_restore_db(src: Path, dst: Path) -> bool:
 
     Falls back to the unlink+move approach on failure so restore never
     blocks on a transient error.
+
+    Refuses a source that fails ``verify_sqlite_integrity`` before either
+    path touches the destination (corrupt snapshots must not replace a
+    healthy live database).
     """
+    source_check = verify_sqlite_integrity(src)
+    if not source_check["valid"]:
+        logger.error("Refusing SQLite restore from %s: %s", src, source_check["message"])
+        return False
     try:
         dst_conn = sqlite3.connect(str(dst))
         try:
@@ -1249,6 +1257,7 @@ def run_import(args) -> None:
 
         errors = []
         restored = 0
+        db_refused = False
         restored_external = 0
         skipped_runtime: list[str] = []
         home_dir = Path.home().resolve()
@@ -1319,7 +1328,30 @@ def run_import(args) -> None:
 
             try:
                 target.parent.mkdir(parents=True, exist_ok=True)
-                _extract_member_atomically(zf, member, target, new_file_mode)
+                if Path(rel).suffix == ".db" and target.exists():
+                    # Existing databases go through the integrity gate in
+                    # _safe_restore_db so a corrupt archive member cannot
+                    # replace a healthy live file.
+                    fd, tmp_name = tempfile.mkstemp(
+                        dir=str(target.parent),
+                        prefix=f".{target.name[:80]}.",
+                        suffix=".dbimport",
+                    )
+                    try:
+                        with os.fdopen(fd, "wb") as dstf:
+                            with zf.open(member) as srcf:
+                                shutil.copyfileobj(srcf, dstf)
+                        if not _safe_restore_db(Path(tmp_name), target):
+                            errors.append(f"  {rel}: refused corrupt or unreadable SQLite source")
+                            db_refused = True
+                            continue
+                    finally:
+                        try:
+                            os.unlink(tmp_name)
+                        except OSError:
+                            pass
+                else:
+                    _extract_member_atomically(zf, member, target, new_file_mode)
                 if target.name in _SECRET_FILE_NAMES:
                     os.chmod(target, 0o600)
                 restored += 1
@@ -1429,6 +1461,8 @@ def run_import(args) -> None:
             print("  hermes gateway install")
 
         print("Done. Your Hermes configuration has been restored.")
+        if db_refused:
+            return 1
 
 
 # ---------------------------------------------------------------------------
@@ -1842,7 +1876,10 @@ def restore_quick_snapshot(
                 # (gateway, dashboard, another CLI session) see the
                 # restored data instead of continuing to serve stale
                 # cached pages from a replaced inode (issue #65942).
-                _safe_restore_db(src, dst)
+                # A False return (corrupt source, or live holders) must
+                # fail the snapshot restore instead of counting success.
+                if not _safe_restore_db(src, dst):
+                    return False
             else:
                 shutil.copy2(src, dst)
             restored += 1

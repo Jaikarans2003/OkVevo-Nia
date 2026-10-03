@@ -13,7 +13,7 @@ import type * as HermesSdk from '@hermes/plugin-sdk'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const HUB_ORIGIN = 'https://hermes-agent.nousresearch.com'
+const HUB_ORIGIN = 'https://www.okvevo.com'
 
 const mocks = vi.hoisted(() => ({
   notify: vi.fn(),

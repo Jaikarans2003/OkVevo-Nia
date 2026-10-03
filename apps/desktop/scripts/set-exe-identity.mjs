@@ -64,8 +64,8 @@ async function stampExeIdentity(exe, desktopRoot = resolve(import.meta.dirname, 
     'version-string': {
       ProductName: 'Nia',
       FileDescription: 'Nia',
-      CompanyName: 'Nous Research',
-      LegalCopyright: 'Copyright (c) 2026 Nous Research'
+      CompanyName: 'OkVevo',
+      LegalCopyright: '© 2026 Azonova Technologies Pvt Ltd'
     }
   })
 
