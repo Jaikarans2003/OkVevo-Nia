@@ -1,0 +1,19 @@
+{
+  "productName": "Nia",
+  "company": "OkVevo",
+  "copyright": "© 2026 Azonova Technologies Pvt Ltd",
+  "bundleId": "com.okvevo.nia",
+  "updateHost": "https://releases.okvevo.com",
+  "portalOrigin": "https://www.okvevo.com",
+  "palette": {
+    "charcoal": "#2b2b2b",
+    "orange": "#ff6d1f",
+    "sand": "#e3dcd6"
+  },
+  "assetOverlay": {
+    "root": "brand/assets",
+    "remove": [
+      "apps/desktop/public/apple-touch-icon.png"
+    ]
+  }
+}

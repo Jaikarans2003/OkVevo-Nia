@@ -108,9 +108,9 @@ test('remote session reads split oversized sidebar windows into API-safe pages',
   )
 
   assert.deepEqual(calls, [
-    { profile: 'remote-work', path: '/api/sessions?limit=100&offset=0&order=updated' },
-    { profile: 'remote-work', path: '/api/sessions?limit=100&offset=100&order=updated' },
-    { profile: 'remote-work', path: '/api/sessions?limit=50&offset=200&order=updated' }
+    { profile: 'remote-work', path: '/api/sessions?limit=100&offset=0&order=updated&profile=remote-work' },
+    { profile: 'remote-work', path: '/api/sessions?limit=100&offset=100&order=updated&profile=remote-work' },
+    { profile: 'remote-work', path: '/api/sessions?limit=50&offset=200&order=updated&profile=remote-work' }
   ])
   assert.equal(result.sessions.length, 250)
   assert.equal(result.total, 250)
@@ -152,7 +152,10 @@ test('remote paging preserves offsets and deduplicates pinned backfill rows', as
     }
   )
 
-  assert.deepEqual(calls, ['/api/sessions?limit=100&offset=80', '/api/sessions?limit=50&offset=180'])
+  assert.deepEqual(calls, [
+    '/api/sessions?limit=100&offset=80&profile=remote-work',
+    '/api/sessions?limit=50&offset=180&profile=remote-work'
+  ])
   assert.deepEqual(
     result.sessions.map(row => (row as { id: string }).id),
     [...rows.slice(80, 230).map(row => row.id), 'session-20']
@@ -184,9 +187,9 @@ test('remote paging treats malformed totals as unknown instead of truncating the
     )
 
     assert.deepEqual(calls, [
-      '/api/sessions?limit=100&offset=0',
-      '/api/sessions?limit=100&offset=100',
-      '/api/sessions?limit=100&offset=200'
+      '/api/sessions?limit=100&offset=0&profile=remote-work',
+      '/api/sessions?limit=100&offset=100&profile=remote-work',
+      '/api/sessions?limit=100&offset=200&profile=remote-work'
     ])
     assert.equal(result.sessions.length, 250)
     assert.equal(result.total, 250)
@@ -220,7 +223,7 @@ test('remote session reads keep small requests on one call', async () => {
     }
   )
 
-  assert.deepEqual(calls, [{ profile: 'remote-work', path: '/api/sessions?limit=20&offset=0' }])
+  assert.deepEqual(calls, [{ profile: 'remote-work', path: '/api/sessions?limit=20&offset=0&profile=remote-work' }])
   assert.equal(result, expected)
 })
 

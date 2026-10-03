@@ -59,7 +59,9 @@
  */
 import { existsSync, rmSync, renameSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Arch } from 'electron-builder'
+import { overlayBrandAssets } from '../../../scripts/overlay-brand-assets.mjs'
 import { stageNodePty, stageGetWindows } from './stage-native-deps.mjs'
 
 export function cleanStaleAppOutDir(appOutDir) {
@@ -111,6 +113,9 @@ export function preserveRollbackBackup(appOutDir, productExeName = 'Nia.exe') {
 }
 
 export default async function beforePack(context) {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+  const overlaid = overlayBrandAssets(repoRoot)
+  console.log(`[before-pack] brand overlay: ${overlaid.copied.length} copied, ${overlaid.removed.length} removed`)
   const appOutDir = context && context.appOutDir
   const platformName = context && context.electronPlatformName
   try {
