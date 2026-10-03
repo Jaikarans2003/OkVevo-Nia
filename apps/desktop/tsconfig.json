@@ -16,6 +16,11 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "paths": {
+      "@/i18n/en": ["../../brand/locales/desktop/en.ts"],
+      "@/i18n/ar": ["../../brand/locales/desktop/ar.ts"],
+      "@/i18n/ja": ["../../brand/locales/desktop/ja.ts"],
+      "@/i18n/zh": ["../../brand/locales/desktop/zh.ts"],
+      "@/i18n/zh-hant": ["../../brand/locales/desktop/zh-hant.ts"],
       "@/*": ["./src/*"],
       "@hermes/plugin-sdk": ["./src/sdk/index.ts"],
       "@hermes/shared/billing": ["../shared/src/billing-types.ts"],
@@ -23,6 +28,15 @@
       "@hermes/shared": ["../shared/src/index.ts"]
     }
   },
-  "include": ["src", "../shared/src"],
-  "exclude": ["e2e", "electron", "playwright.config.ts"]
+  "include": ["src", "../shared/src", "../../brand/locales/desktop"],
+  "exclude": [
+    "e2e",
+    "electron",
+    "playwright.config.ts",
+    "src/i18n/en.ts",
+    "src/i18n/ar.ts",
+    "src/i18n/ja.ts",
+    "src/i18n/zh.ts",
+    "src/i18n/zh-hant.ts"
+  ]
 }

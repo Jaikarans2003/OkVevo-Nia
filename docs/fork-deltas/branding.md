@@ -39,12 +39,23 @@ Keep root `LICENSE` (MIT, Copyright Nous Research). Never strip NOTICE/copyright
 | **Re-apply** | New icon edits go in `brand/assets/`, not onto the upstream paths. Do not commit a dirty tree after a pack; reset the overlaid paths to upstream. |
 | **Check** | `node --test scripts/overlay-brand-assets.test.mjs`; `python3 scripts/check_nia_branding.py` |
 
+### Locale overlay
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[desktop]` |
+| **Files** | `brand/locales/*.overlay.json` (shipped CLI strings), `brand/locales/desktop/{en,ar,ja,zh,zh-hant}.ts` (shipped desktop catalogs), `agent/i18n.py` (`apply_locale_overlay`). Git copies of `locales/*.yaml` and those five `apps/desktop/src/i18n/*.ts` files stay on upstream. |
+| **What** | CLI load replaces the upstream YAML with the overlay catalog (`mode: replace`). Desktop imports the brand modules; the upstream files are not typechecked or bundled. `context.tsx`, `types.ts`, and the i18n tests stay Nia edits: they are the English-only public lockdown and the catalog schema the rest of the app compiles against. Taking today's `origin/main` schema into those files does not typecheck (about 4,000 errors). |
+| **Why** | Stop committing Nia wording on top of upstream catalog files. A leaf merge onto today's upstream YAML would ship about 3,000 extra keys, including Hermes/Nous product strings this app does not render. |
+| **Re-apply** | New user-visible catalog edits go in `brand/locales/`. Do not edit the upstream paths. |
+| **Check** | `uv run --frozen pytest tests/agent/test_locale_overlay.py`; `python3 scripts/check_nia_branding.py` |
+
 ### Phase 5 — user-visible scrub (before paying customers)
 
 | Field | Value |
 |-------|-------|
 | **Tags** | `[desktop]` + installer copy in `[agent]` scripts customers see |
-| **Files** | `apps/desktop/src/i18n/*`, Electron/renderer string literals (dialogs, menus, tray, notifications, errors, About), `apps/bootstrap-installer/` UI, `scripts/install.sh` / `install.ps1` banners and logs, `locales/*.yaml` CLI catalog, `set-exe-identity.mjs` CompanyName, `tauri.conf.json` publisher, bootstrap `Info.plist` permission strings |
+| **Files** | `brand/locales/` (shipped catalogs), Electron/renderer string literals (dialogs, menus, tray, notifications, errors, About), `apps/bootstrap-installer/` UI, `scripts/install.sh` / `install.ps1` banners and logs, `set-exe-identity.mjs` CompanyName, `tauri.conf.json` publisher, bootstrap `Info.plist` permission strings. Upstream `locales/*.yaml` and the five superseded desktop catalog files are not the shipped strings. |
 | **What** | Product words Hermes → Nia and Nous → OkVevo in those strings. Help links leave `hermes-agent.nousresearch.com`, `portal.nousresearch.com`, and `github.com/NousResearch/hermes-agent` for `www.okvevo.com` or `Jaikarans2003/OkVevo-Nia`. Windows CompanyName and Tauri publisher are OkVevo. |
 | **Why** | Paying customers must not see the upstream product name |
 | **Keep** | Root `LICENSE` / `NOTICE` stay the Hermes MIT text (`Copyright (c) 2025 Nous Research`). `apps/desktop/THIRD_PARTY_NOTICES.txt` is the same notice, bundled in the packaged app via electron-builder `extraResources` (`package.json` → `Contents/Resources/` on Mac, `resources/` on Windows). It is not linked from any UI. OSS notice bundled as a file, not shown in UI; website `/legal/open-source` page planned (OkVevo-Web, later). Product copyright on About, the installer, Windows `LegalCopyright`, and Mac `NSHumanReadableCopyright` is `© 2026 Azonova Technologies Pvt Ltd`. There is no About “Open-source licenses” section and no i18n string for it (the heading was hardcoded English; locale catalogs never had a key). Internal ids stay: `~/.hermes`, `hermes` CLI, `hermes://`, `HERMES_*`, `X-Hermes-Session-Token` (gateway session header; the Python server still requires this name), package name `hermes`, `Hermes.app` path tokens, `.agents.nousresearch.com` host checks. Installer grep still matches the old `# Hermes Agent browser tools` comment so upgrades strip it. Diagnostics copy does not claim the bundle is stored by OkVevo. |

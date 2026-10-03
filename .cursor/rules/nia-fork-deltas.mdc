@@ -14,7 +14,7 @@ computer-use, SYNC-LOG). Entries are tagged `[agent]` / `[desktop]` /
 ## Must
 
 - If a Nia delta changes, update that ledger file in the **same commit**.
-- New brand edits go in `brand/` (`brand/nia.json`, `brand/assets/`, later `brand/locales/`). Do not commit replacement icon blobs onto upstream paths. Pack copies them.
+- New brand edits go in `brand/` (`brand/nia.json`, `brand/assets/`, `brand/locales/`). Do not commit replacement icon blobs or catalog wording onto upstream paths. Pack and locale load apply them.
 - Before merging any upstream Hermes/Nous change: rebrand user-facing
   strings, window names, icons, bundle IDs, URLs, CLI help, telemetry
   endpoints, default provider (OkVevo portal), and update/channel URLs.

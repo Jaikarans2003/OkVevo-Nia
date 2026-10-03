@@ -19,6 +19,7 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../..')
 test('allowlist includes hermes_cli and pyproject, not apps/desktop', () => {
   assert.ok(SNAPSHOT_DIRS.includes('hermes_cli'))
   assert.ok(SNAPSHOT_DIRS.includes('agent'))
+  assert.ok(SNAPSHOT_DIRS.includes('brand'))
   assert.ok(SNAPSHOT_FILES.includes('pyproject.toml'))
   assert.ok(SNAPSHOT_FILES.includes('scripts/install.sh'))
   assert.ok(!SNAPSHOT_DIRS.includes('apps'))

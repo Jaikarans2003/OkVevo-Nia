@@ -31,6 +31,7 @@ pt, ru, hu, ar.  Unknown values fall back to en.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -172,9 +173,39 @@ def _load_catalog(lang: str) -> dict[str, str]:
 
     flat: dict[str, str] = {}
     _flatten_into(raw, "", flat)
+    flat = apply_locale_overlay(flat, lang)
     with _catalog_lock:
         _catalog_cache[lang] = flat
     return flat
+
+
+def _overlay_path(lang: str) -> Path:
+    # Sibling of the catalog dir, so a test that points _locales_dir at a
+    # temp folder does not pick up the repo overlay. Packaged snapshots
+    # extract locales/ and brand/ next to each other.
+    return _locales_dir().resolve().parent / "brand" / "locales" / f"{lang}.overlay.json"
+
+
+def apply_locale_overlay(flat: dict[str, str], lang: str) -> dict[str, str]:
+    """Deep-merge ``brand/locales/<lang>.overlay.json`` onto an upstream catalog.
+
+    ``mode: replace`` ships the overlay catalog alone. Upstream grew thousands
+    of keys this fork does not render; keeping them would change the UI and
+    reintroduce Hermes/Nous product strings. A partial ``set`` map is the
+    leaf-merge path for a future overlay that only replaces a few keys.
+    """
+    path = _overlay_path(lang)
+    if not path.is_file():
+        return flat
+    spec = json.loads(path.read_text(encoding="utf-8"))
+    if spec.get("mode") == "replace":
+        catalog = spec.get("catalog") or {}
+        return {str(key): value for key, value in catalog.items() if isinstance(value, str)}
+    merged = dict(flat)
+    for key, value in (spec.get("set") or {}).items():
+        if isinstance(value, str):
+            merged[str(key)] = value
+    return merged
 
 
 def _flatten_into(node: Any, prefix: str, out: dict[str, str]) -> None:

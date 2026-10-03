@@ -1,4 +1,5 @@
-import { en } from './en'
+import { en } from '../../../../brand/locales/desktop/en'
+
 import type { Translations } from './types'
 
 type TranslationOverride<T> = T extends (...args: never[]) => string
