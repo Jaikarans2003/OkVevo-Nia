@@ -2,16 +2,32 @@
 
 Append one row after each approved sync batch lands on `staging`.
 
+## Shipped releases
+
+Customer tags. Last synced sha is the newest Hermes commit taken in that tag, not a full `origin/main` sync.
+
+| Version | What shipped | Last synced `origin/main` sha | Backport ratio |
+|---------|--------------|-------------------------------|----------------|
+| **v0.18.2** (tag 2026-09-28, commit `5512f3a9d7`) | Batch 0 [#15](https://github.com/Jaikarans2003/OkVevo-Nia/pull/15) and Batch 1 SECURITY [#16](https://github.com/Jaikarans2003/OkVevo-Nia/pull/16). Tag sits on the #16 merge. | `b534f4b8c8` | **63%** (12/19) |
+| **v0.18.3** (tag 2026-09-28, commit `40c9a4e37b`) | Electron 40.10.6 → 44.4.5 [#18](https://github.com/Jaikarans2003/OkVevo-Nia/pull/18), then staging → main [#19](https://github.com/Jaikarans2003/OkVevo-Nia/pull/19). | `b534f4b8c8` (unchanged; Electron is not a Hermes sha) | — |
+| **v0.18.4** (tag 2026-10-04, commit `6d906ef1b9`) | Staging → main [#32](https://github.com/Jaikarans2003/OkVevo-Nia/pull/32). In the tree: branding scrub [#20](https://github.com/Jaikarans2003/OkVevo-Nia/pull/20), PyJWT bump [#21](https://github.com/Jaikarans2003/OkVevo-Nia/pull/21), branding polish [#22](https://github.com/Jaikarans2003/OkVevo-Nia/pull/22), CI dependency-review [#24](https://github.com/Jaikarans2003/OkVevo-Nia/pull/24), Dependabot → staging [#25](https://github.com/Jaikarans2003/OkVevo-Nia/pull/25), Batch 1b [#26](https://github.com/Jaikarans2003/OkVevo-Nia/pull/26), About OSS removal [#27](https://github.com/Jaikarans2003/OkVevo-Nia/pull/27), Batch 2a [#28](https://github.com/Jaikarans2003/OkVevo-Nia/pull/28), delta step 1 assets [#29](https://github.com/Jaikarans2003/OkVevo-Nia/pull/29), delta step 2 locales [#30](https://github.com/Jaikarans2003/OkVevo-Nia/pull/30), test fixes [#33](https://github.com/Jaikarans2003/OkVevo-Nia/pull/33) and [#34](https://github.com/Jaikarans2003/OkVevo-Nia/pull/34). | `0466a04bc874` (Batch 2a newest taken sha). Batch 1b watermark `6c3aae398ade` is older and still the 1b line. | Batch 2 inventory table **75%** (21/28). Batch 2a landed slice **67%** (6/9). |
+
+Merge commits for #20–#26 are not ancestors of the v0.18.4 tag. Their file changes are in the tree #32 merged.
+
 | Date | Last synced `origin/main` sha | Strategy | PR | Notes |
 |------|-------------------------------|----------|-----|-------|
 | _(none yet)_ | — | — | — | Batch 0 created this file; no Hermes code synced. |
-| 2026-09-25 | `b534f4b8c8` (Batch 1 SECURITY last taken sha) | **B** selective cherry-picks | _(landed on staging)_ | Replay rejected (U3). Ratio **63%**. See Backports. |
-| 2026-10-01 | `6c3aae398ade` (Batch 1b SECURITY last taken sha) | **B** selective cherry-picks | [#26](https://github.com/Jaikarans2003/OkVevo-Nia/pull/26) → staging (not merged) | SimpleX + secret revoke + managed scope + at-rest caches. computer_use parts of `6c3aae398ade` excluded. |
-| 2026-09-25 | n/a (Electron major, not Hermes sha) | **Phase 4** Electron 40→44 | [#18](https://github.com/Jaikarans2003/OkVevo-Nia/pull/18) merged → staging | Target **44.4.5**. Merge `38be2aa0f3`. |
-| 2026-09-29 | n/a (branding scrub, not a Hermes sha) | **Phase 5** user-visible Hermes/Nous scrub | [#20](https://github.com/Jaikarans2003/OkVevo-Nia/pull/20) → staging (not merged) | `check_nia_branding.py` scans i18n, Electron/renderer strings, installer UI, EXE/plist metadata, CLI catalog, and help links. Internal ids and copyright kept, including `X-Hermes-Session-Token`. |
-| 2026-09-30 | n/a (branding polish, not a Hermes sha) | Product copyright + OSS notice | PR pending on `sync/branding-polish` | Product line is `© 2026 Azonova Technologies Pvt Ltd`. Hermes MIT text stays in `LICENSE` / `NOTICE` and About → Open-source licenses. Nous Discord link removed from the cloud-down message. Cloud recovery screen stays behind `LOCAL_ONLY_V1`. |
-| 2026-10-01 | n/a (OSS UI removal, not a Hermes sha) | Notice file only | [#27](https://github.com/Jaikarans2003/OkVevo-Nia/pull/27) → staging (not merged) | About no longer shows Open-source licenses. `THIRD_PARTY_NOTICES.txt` stays in `extraResources` (Mac `Contents/Resources`, Windows `resources`). `/legal/open-source` on OkVevo-Web is later. |
-| 2026-10-02 | `0466a04bc874` (newest sha in this batch only; not a full `origin/main` sync) | **B** selective cherry-picks | Batch 2a PR pending on `sync/batch2a-bugfix` | Merge after v0.18.3 is published. See Batch 2a table. |
+| 2026-09-25 | `b534f4b8c8` (Batch 1 SECURITY last taken sha) | **B** selective cherry-picks | [#16](https://github.com/Jaikarans2003/OkVevo-Nia/pull/16) shipped in **v0.18.2** | Replay rejected (U3). Ratio **63%**. See Backports. |
+| 2026-10-01 | `6c3aae398ade` (Batch 1b SECURITY last taken sha) | **B** selective cherry-picks | [#26](https://github.com/Jaikarans2003/OkVevo-Nia/pull/26) shipped in **v0.18.4** | SimpleX + secret revoke + managed scope + at-rest caches. computer_use parts of `6c3aae398ade` excluded. |
+| 2026-09-25 | n/a (Electron major, not Hermes sha) | **Phase 4** Electron 40→44 | [#18](https://github.com/Jaikarans2003/OkVevo-Nia/pull/18) shipped in **v0.18.3** (release [#19](https://github.com/Jaikarans2003/OkVevo-Nia/pull/19)) | Target **44.4.5**. Merge `38be2aa0f3`. |
+| 2026-09-29 | n/a (branding scrub, not a Hermes sha) | **Phase 5** user-visible Hermes/Nous scrub | [#20](https://github.com/Jaikarans2003/OkVevo-Nia/pull/20) shipped in **v0.18.4** | `check_nia_branding.py` scans i18n, Electron/renderer strings, installer UI, EXE/plist metadata, CLI catalog, and help links. Internal ids and copyright kept, including `X-Hermes-Session-Token`. |
+| 2026-09-30 | n/a (branding polish, not a Hermes sha) | Product copyright + OSS notice | [#22](https://github.com/Jaikarans2003/OkVevo-Nia/pull/22) shipped in **v0.18.4** | Product line is `© 2026 Azonova Technologies Pvt Ltd`. Hermes MIT text stays in `LICENSE` / `NOTICE`. Nous Discord link removed from the cloud-down message. Cloud recovery screen stays behind `LOCAL_ONLY_V1`. About OSS section removed later in #27. |
+| 2026-10-01 | n/a (CI, not a Hermes sha) | dependency-review on the PR diff | [#24](https://github.com/Jaikarans2003/OkVevo-Nia/pull/24) shipped in **v0.18.4** | PRs fail only on high/critical advisories the diff introduces. |
+| 2026-10-01 | n/a (CI, not a Hermes sha) | Dependabot → staging | [#25](https://github.com/Jaikarans2003/OkVevo-Nia/pull/25) shipped in **v0.18.4** | github-actions bumps target `staging`. |
+| 2026-10-01 | n/a (OSS UI removal, not a Hermes sha) | Notice file only | [#27](https://github.com/Jaikarans2003/OkVevo-Nia/pull/27) shipped in **v0.18.4** | About no longer shows Open-source licenses. `THIRD_PARTY_NOTICES.txt` stays in `extraResources` (Mac `Contents/Resources`, Windows `resources`). `/legal/open-source` on OkVevo-Web is later. |
+| 2026-10-02 | `0466a04bc874` (newest sha in this batch only; not a full `origin/main` sync) | **B** selective cherry-picks | [#28](https://github.com/Jaikarans2003/OkVevo-Nia/pull/28) shipped in **v0.18.4** | Batch 2a. Ratio **67%** (6/9). Skipped `87bb0d3827a0`. |
+| 2026-10-03 | n/a (delta layer, not a Hermes sha) | Brand assets overlay | [#29](https://github.com/Jaikarans2003/OkVevo-Nia/pull/29) shipped in **v0.18.4** | Delta step 1. Icons live in `brand/assets/` and copy at pack time. |
+| 2026-10-03 | n/a (delta layer, not a Hermes sha) | Locale overlay | [#30](https://github.com/Jaikarans2003/OkVevo-Nia/pull/30) shipped in **v0.18.4** | Delta step 2. Nia catalogs ship from `brand/locales/`. |
 
 ## Phase 4 — Electron major (2026-09-25)
 
@@ -30,8 +46,9 @@ Append one row after each approved sync batch lands on `staging`.
 | Batch | Clean picks | Backports | Skipped / listed | Backport ratio | Notes |
 |-------|-------------|-----------|------------------|----------------|-------|
 | Batch 1 SECURITY | 7 | 12 | 2 | **12/19 ≈ 63%** | Last synced upstream sha: `b534f4b8c8`. Revisit full-replay trigger if ratio stays high |
-| Batch 1b SECURITY | 0 | 4 | 3 | **4/4 = 100%** of shas that ship on Nia needed a backport | Last synced upstream sha: `6c3aae398ade`. The 3 skipped shas are N/A (not shipped), not counted in the ratio |
-| Batch 2a BUG FIX | 3 | 6 | 1 | **6/9 ≈ 67%** of landed shas needed a backport | Previous last synced sha: `6c3aae398ade`. This batch's newest taken sha: `0466a04bc874` (not a full `origin/main` sync). Skipped `87bb0d3827a0`. Inventory's 75% figure was the unstarted whole of Batch 2, not this slice. CI then showed `ffa40b07f020` and `0ca79e360233` were not clean. |
+| Batch 1b SECURITY | 0 | 4 | 3 | **4/4 = 100%** of shas that ship on Nia needed a backport | Last synced upstream sha: `6c3aae398ade`. The 3 skipped shas are N/A (not shipped), not counted in the ratio. Shipped in v0.18.4. |
+| Batch 2 inventory (table, not a landed slice) | — | 21 | — | **21/28 = 75%** | Classified table before 2a/2b. The earlier writeup said 18 of 24; the table has 28 rows, so 21 of 28 need a backport or resolve. No synced sha of its own. |
+| Batch 2a BUG FIX | 3 | 6 | 1 | **6/9 ≈ 67%** of landed shas needed a backport | Previous last synced sha: `6c3aae398ade`. This batch's newest taken sha: `0466a04bc874` (not a full `origin/main` sync). Skipped `87bb0d3827a0`. CI showed `ffa40b07f020` and `0ca79e360233` were not clean. Shipped in v0.18.4 ([#28](https://github.com/Jaikarans2003/OkVevo-Nia/pull/28)). |
 
 ## Backports
 
@@ -109,4 +126,4 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-10-02 | `0466a04bc874` | **picked** | Windows spawn lock stdin | Clean |
 | 2026-09-25 | S3 bumps | **done** | `uv.lock`, `package.json`, lock | anyio 4.14.2; electron-updater 6.8.9; builder-util-runtime 9.7.0; js-yaml 4.3.2; electron 40.10.6 patch |
 | 2026-09-25 | CI gate | **done** | `nia-dep-audit` | pip-audit + `npm audit --omit=dev --audit-level=critical`; no Dependabot auto-PR yaml |
-| 2026-10-01 | n/a (CI gate, not a Hermes sha) | diff-aware dependency review | branch `ci/dependency-review` | PRs fail only on high/critical advisories introduced by the diff (`dependency-review-action`, required via `all-checks-pass`). Full pip-audit + npm audit is daily and on push to `staging`/`main`, and files a tracking issue. |
+| 2026-10-01 | n/a (CI gate, not a Hermes sha) | diff-aware dependency review | [#24](https://github.com/Jaikarans2003/OkVevo-Nia/pull/24), shipped in v0.18.4 | PRs fail only on high/critical advisories introduced by the diff (`dependency-review-action`, required via `all-checks-pass`). Full pip-audit + npm audit is daily and on push to `staging`/`main`, and files a tracking issue. |
