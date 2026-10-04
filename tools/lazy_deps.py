@@ -209,7 +209,7 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     "memory.mem0": ("mem0ai==2.0.10",),
 
     # ─── Messaging platforms (lazy-installable on demand) ──────────────────
-    "platform.telegram": ("python-telegram-bot[webhooks]==22.8",),
+    "platform.telegram": ("python-telegram-bot[webhooks]==22.8", "tornado==6.5.9"),
     # brotlicffi gives aiohttp a working 2-arg Decompressor.process() for
     # Discord CDN's Brotli-encoded attachments. Without it, aiohttp falls
     # back to google's `Brotli` package (1-arg API), and any .txt/.md/.doc
@@ -309,7 +309,7 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     # installs so computer_use never dead-ends on `No module named 'mcp'`.
     "tool.computer_use": (
         "mcp==2.0.0",
-        "httpx2==2.7.0",  # mcp 2.x HTTP stack — keep in sync with pyproject [computer-use]
+        "httpx2==2.12.0",  # mcp 2.x HTTP stack — keep in sync with pyproject [mcp]
         "starlette==1.3.1",  # CVE-2026-48710 — keep in sync with pyproject [computer-use]
     ),
     # HF Agent Trace Viewer upload (hermes trace upload / /upload-trace).
