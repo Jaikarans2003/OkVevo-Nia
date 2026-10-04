@@ -1408,8 +1408,14 @@ def _(rid, params: dict) -> dict:
     plugins reconciling sessions they own (e.g. Bot Mode's hide sweep) hold
     stored ids for chats that aren't live right now, and the live-only
     lookup silently failed those with 4001.
+
+    ``hidden`` is required. Defaulting a missing flag to True hid the session
+    and its compression lineage when a caller dropped the param (#122190).
     """
-    hidden = is_truthy_value(params.get("hidden", True))
+    if "hidden" not in params:
+        # 4026: 4021 is already "title required" on this fork.
+        return _err(rid, 4026, "hidden required")
+    hidden = is_truthy_value(params.get("hidden"))
     session, err = _sess_nowait(params, rid)
     if session is not None:
         with _session_db(session) as db:

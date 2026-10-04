@@ -36,8 +36,8 @@
     "category": "DeveloperTool",
     "shortDescription": "Nia",
     "longDescription": "Installs Nia Agent on your machine. Drives scripts/install.ps1 (Windows) and scripts/install.sh (macOS/Linux).",
-    "publisher": "Nous Research",
-    "copyright": "Copyright © 2026 Nous Research",
+    "publisher": "OkVevo",
+    "copyright": "© 2026 Azonova Technologies Pvt Ltd",
     "targets": [
       "app",
       "dmg",

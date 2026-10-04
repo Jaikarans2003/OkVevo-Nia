@@ -25,6 +25,9 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    # Feature work lands on staging, then promotes to main. Dependabot
+    # follows the same path so action bumps are not opened against main.
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -36,6 +39,14 @@ updates:
       prefix: "chore(actions)"
       include: "scope"
     groups:
+      # actions/cache, cache/save, and cache/restore publish one version
+      # line. First matching group wins, so this sits above the minor/patch
+      # bucket and a major cannot land on only one of the three.
+      actions-cache:
+        patterns:
+          - "actions/cache"
+          - "actions/cache/save"
+          - "actions/cache/restore"
       # Batch routine action bumps into one PR per week to reduce noise.
       # Security updates still open individually and bypass grouping.
       actions-minor-patch:

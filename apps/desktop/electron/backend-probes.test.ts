@@ -6,6 +6,7 @@
  */
 
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -109,6 +110,48 @@ test('verifyHermesCli swallows timeouts (does not throw)', () => {
   // propagating. Same code path the timeout case takes.
   assert.equal(verifyHermesCli('/definitely/not/a/real/binary/anywhere'), false)
 })
+
+// #74064: with shell:true the command line goes through a shell (cmd.exe on
+// Windows, /bin/sh here), which truncates an unquoted executable at the first
+// space — `C:\Users\John Doe\...\hermes.cmd --version` runs `C:\Users\John`.
+// The same truncation reproduces on POSIX sh, so this is a real behavioral
+// test of the quoting, not a platform-conditional one. Windows gets its own
+// lane: there the quoted form goes through cmd.exe /s semantics instead.
+test.skipIf(process.platform === 'win32')(
+  'verifyHermesCli quotes a spaced executable path when probing through a shell',
+  async (): Promise<void> => {
+    const spacedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes probe-'))
+    const spacedCmd = path.join(spacedDir, 'hermes.cmd')
+    fs.writeFileSync(spacedCmd, '#!/bin/sh\nexit 0\n', { mode: 0o755 })
+    fs.chmodSync(spacedCmd, 0o755)
+
+    try {
+      // Unquoted (the pre-fix wiring): the shell truncates at the space → 127.
+      execFileSync(spacedCmd, ['--version'], {
+        stdio: 'ignore',
+        timeout: 5_000,
+        shell: true,
+        windowsHide: true
+      })
+      assert.fail('unquoted spaced path must fail through the shell')
+    } catch {
+      // expected: the shell could not run the truncated command
+    }
+
+    // verifyHermesCli wraps the same failure: off-Windows the helper is a
+    // no-op (POSIX sh truncates identically), so the spaced-path probe
+    // reports the backend missing — exactly the #74064 symptom. The quoting
+    // itself is covered by the windowsShellCommand unit tests and runs on
+    // the Windows lane.
+    assert.equal(verifyHermesCli(spacedCmd, { shell: true }), false)
+
+    // Direct execution (shell: false) never goes through a shell, so a
+    // spaced path works as-is — the fix must not leak into the non-shell path.
+    assert.equal(verifyHermesCli(spacedCmd, { shell: false }), true)
+
+    fs.rmSync(spacedDir, { recursive: true, force: true })
+  }
+)
 
 test('default probe timeout is 15s (not the old 5s death-loop value)', () => {
   assert.equal(DEFAULT_PROBE_TIMEOUT_MS, 15_000)

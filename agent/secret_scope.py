@@ -307,4 +307,15 @@ def build_profile_secret_scope(hermes_home: Path) -> Dict[str, str]:
             continue
         secrets[key] = value
 
+    # Administrator-managed .env LAST, with override. The launch process
+    # applies it that way (env_loader._apply_managed_env), so policy beats a
+    # user's own value. Under multiplex, get_secret does not fall back to
+    # os.environ on a scope miss.
+    from hermes_cli.managed_scope import load_managed_env
+
+    for key, value in load_managed_env().items():
+        if _is_global_env(key):
+            continue
+        secrets[key] = value
+
     return secrets

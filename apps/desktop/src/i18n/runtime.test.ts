@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { fieldCopyForSchemaKey } from '@/app/settings/field-copy'
 
+import { zh } from '../../../../brand/locales/desktop/zh'
+
 import { TRANSLATIONS } from './catalog'
 import { setRuntimeI18nLocale, translateNow } from './runtime'
-import { zh } from './zh'
 
 describe('desktop i18n runtime translator', () => {
   beforeEach(() => {

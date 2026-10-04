@@ -94,7 +94,7 @@ describe('BlockerView', () => {
     $updateApply.set({
       applying: false,
       stage: 'error',
-      message: 'Update aborted: another Hermes process is using this installation.',
+      message: 'Update aborted: another Nia process is using this installation.',
       percent: null,
       error: 'venv-blocked',
       command: null,

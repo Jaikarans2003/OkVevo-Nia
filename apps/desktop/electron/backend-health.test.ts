@@ -431,10 +431,10 @@ test('waitForHermesReady surfaces actionable error for cloud agent 503', async (
     })
     assert.fail('should have thrown')
   } catch (error: any) {
-    assert.ok(error.message.includes('Nous Cloud agent'), `unexpected message: ${error.message}`)
+    assert.ok(error.message.includes('OkVevo Cloud agent'), `unexpected message: ${error.message}`)
     assert.ok(error.message.includes('503'), `should mention status code: ${error.message}`)
-    assert.ok(error.message.includes('portal.nousresearch.com'), `should mention portal: ${error.message}`)
-    assert.ok(error.message.includes('discord.gg/NousResearch'), `should mention Discord: ${error.message}`)
+    assert.ok(error.message.includes('https://www.okvevo.com'), `should mention portal: ${error.message}`)
+    assert.equal(error.message.includes('discord.gg'), false)
     assert.equal(error.isCloudBackendDown, true)
     assert.equal(error.statusCode, 503)
     assert.ok(attempts > 1, 'should have retried before failing')
@@ -513,7 +513,7 @@ test('makeNousCloudBackendDownError produces the Cloud shape and preserves cause
   assert.equal((result as any).isCloudBackendDown, true)
   assert.equal((result as any).statusCode, 503)
   assert.equal((result as any).cause, err)
-  assert.ok(result?.message.includes('Nous Cloud agent ares-3009.agents.nousresearch.com is down'))
+  assert.ok(result?.message.includes('OkVevo Cloud agent ares-3009.agents.nousresearch.com is down'))
 })
 
 test('makeNousCloudBackendDownError returns null for a Cloud 401 (routes to reauth)', () => {

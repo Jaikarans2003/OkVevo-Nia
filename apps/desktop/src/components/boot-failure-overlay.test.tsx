@@ -150,11 +150,11 @@ describe('BootFailureOverlay', () => {
     const gatewayUrl = 'https://agent-1.agents.nousresearch.com'
     const logout = vi.fn().mockResolvedValue({ ok: true, connected: false })
     const nativeLogin = vi.fn().mockResolvedValue({ ok: true, connected: false })
-    const cloudStatus = vi.fn().mockResolvedValue({ portalBaseUrl: 'https://portal.nousresearch.com', signedIn: false })
+    const cloudStatus = vi.fn().mockResolvedValue({ portalBaseUrl: 'https://www.okvevo.com', signedIn: false })
 
     const cloudLogin = vi.fn().mockResolvedValue({
       ok: true,
-      portalBaseUrl: 'https://portal.nousresearch.com',
+      portalBaseUrl: 'https://www.okvevo.com',
       signedIn: true
     })
 
@@ -191,7 +191,7 @@ describe('BootFailureOverlay', () => {
     }
   })
 
-  it('shows the Nous Cloud down recovery when the backend flags isCloudBackendDown', async () => {
+  it('hides the Nous Cloud recovery screen while Nia is local-only', async () => {
     const restore = stubDesktop(remoteToken)
     $desktopBoot.set({
       error: 'Nous Cloud agent ares-3009.agents.nousresearch.com is down (HTTP 503: server-side fault).',
@@ -208,20 +208,9 @@ describe('BootFailureOverlay', () => {
 
     try {
       render(<BootFailureOverlay />)
-      // Cloud-specific title + actionable recovery instead of the generic
-      // remote-failure copy.
-      expect(await screen.findByText(/Nous Cloud agent is down/i)).toBeTruthy()
-      // Portal and Discord are dedicated action buttons (localized labels
-      // can't drift the URLs, which live in code).
-      expect(screen.getByRole('button', { name: /check portal status/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /get help on discord/i })).toBeTruthy()
-      // Cloud-down is a remote failure: local-only Repair is dropped; the
-      // actionable paths are Gateway settings + Use local gateway.
-      expect(screen.queryByRole('button', { name: /repair/i })).toBeNull()
-      expect(screen.getByRole('button', { name: /gateway settings/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /use local gateway/i })).toBeTruthy()
-      // The electron-built error message (portal / local mode / Discord) is
-      // still surfaced in the error box.
+      expect(await screen.findByText(/Nia couldn't start/i)).toBeTruthy()
+      expect(screen.queryByText(/OkVevo Cloud agent is down/i)).toBeNull()
+      expect(screen.queryByRole('button', { name: /discord/i })).toBeNull()
       expect(screen.getByText(/ares-3009\.agents\.nousresearch\.com/i)).toBeTruthy()
     } finally {
       restore()

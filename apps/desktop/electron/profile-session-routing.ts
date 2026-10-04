@@ -12,6 +12,68 @@ type FetchJsonForProfile = (profile: string | null, path: string) => Promise<unk
 
 const REMOTE_SESSION_PAGE_LIMIT = 100
 
+function httpStatusOf(error: unknown): number {
+  return Number(error && typeof error === 'object' ? (error as { statusCode?: unknown }).statusCode : NaN)
+}
+
+/** 400/404 means this remote cannot serve a profile scope. Auth and 5xx stay errors. */
+export function isRemoteProfileScopeError(error: unknown): boolean {
+  const status = httpStatusOf(error)
+
+  return status === 400 || status === 404
+}
+
+/** Remote alias when set, otherwise the Desktop profile name. Empty only for an empty profile. */
+export function remoteProfileQueryScope(profile: string, remoteProfileAlias?: null | string): string {
+  const configured = String(remoteProfileAlias || '').trim()
+
+  if (configured && configured !== 'default') {
+    return configured
+  }
+
+  return String(profile || '').trim()
+}
+
+/** Stamp unowned remote rows with the scope. Leave a row's own profile stamp alone. */
+export function tagRemoteSessionRows(rows: unknown[], scope: string): unknown[] {
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') {
+      continue
+    }
+
+    const session = row as Record<string, unknown>
+    const owned = typeof session.profile === 'string' && session.profile.trim() !== ''
+
+    if (!owned) {
+      session.profile = scope
+    }
+
+    if (session.profile === scope) {
+      session.is_default_profile = false
+    }
+  }
+
+  return rows
+}
+
+/** Add the owner scope to a per-session path. An empty scope stays bare. */
+export function pathWithRemoteOwnerScope(path: string, scope: string): string {
+  const scoped = String(scope || '').trim()
+
+  if (!scoped) {
+    return path
+  }
+
+  const url = new URL(path, 'http://hermes.local')
+  url.searchParams.set('profile', scoped)
+
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+export interface RemoteProfileSessionsOptions {
+  remoteProfileAlias?: null | string
+}
+
 function rowsOf(data: unknown): unknown[] {
   if (!data || typeof data !== 'object' || !('sessions' in data)) {
     return []
@@ -322,10 +384,32 @@ export function spliceRegistrySessionRows(
 export async function fetchRemoteProfileSessions(
   profile: string,
   searchParams: URLSearchParams,
-  fetchJsonForProfile: FetchJsonForProfile
+  fetchJsonForProfile: FetchJsonForProfile,
+  options: RemoteProfileSessionsOptions = {}
 ): Promise<SessionListResponse> {
   const params = new URLSearchParams(searchParams)
-  params.delete('profile') // the remote serves its own database
+  params.delete('profile')
+  const scope = remoteProfileQueryScope(profile, options.remoteProfileAlias)
+
+  const fetchPage = async (pageParams: URLSearchParams): Promise<SessionListResponse> => {
+    pageParams.delete('profile')
+
+    if (scope) {
+      pageParams.set('profile', scope)
+
+      try {
+        return (await fetchJsonForProfile(profile, `/api/sessions?${pageParams}`)) as SessionListResponse
+      } catch (error) {
+        if (!isRemoteProfileScopeError(error)) {
+          throw error
+        }
+
+        pageParams.delete('profile')
+      }
+    }
+
+    return (await fetchJsonForProfile(profile, `/api/sessions?${pageParams}`)) as SessionListResponse
+  }
 
   const requestedLimit = Number(params.get('limit'))
   const requestedOffset = Number(params.get('offset') || '0')
@@ -337,7 +421,7 @@ export async function fetchRemoteProfileSessions(
     requestedOffset >= 0
 
   if (!needsPaging) {
-    return (await fetchJsonForProfile(profile, `/api/sessions?${params}`)) as SessionListResponse
+    return fetchPage(params)
   }
 
   const sessions: unknown[] = []
@@ -354,7 +438,7 @@ export async function fetchRemoteProfileSessions(
     pageParams.set('limit', String(pageLimit))
     pageParams.set('offset', String(pageOffset))
 
-    const page = (await fetchJsonForProfile(profile, `/api/sessions?${pageParams}`)) as SessionListResponse
+    const page = await fetchPage(pageParams)
     firstPage ??= page
 
     const total = nonNegativeNumber(page.total)

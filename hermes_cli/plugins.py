@@ -3755,6 +3755,7 @@ class PluginManager:
         self._plugin_commands: Dict[str, dict] = {}  # Slash commands registered by plugins
         self._system_prompt_sections: Dict[str, PluginSystemPromptSection] = {}
         self._discovered: bool = False
+        self._plugin_secret_sources_reconciled = False
         self._cli_ref = None  # Set by CLI after plugin discovery
         self._gateway_message_injector: tuple[object, Callable] | None = None
         # Plugin skill registry: qualified name → metadata dict.
@@ -4290,8 +4291,9 @@ class PluginManager:
         — so a source with custom activation logic is honored, not just
         ``secrets.<name>.enabled``.
 
-        No-op when only bundled sources exist or none are enabled.
-        Fail-open: never raise into discover_and_load.
+        When the last plugin source is removed, reconcile once so env_loader
+        can revoke the value it wrote into ``os.environ``. A home that never
+        had one stays a no-op. Fail-open: never raise into discover_and_load.
         """
         try:
             from agent.secret_sources.registry import list_plugin_sources
@@ -4302,17 +4304,15 @@ class PluginManager:
             plugin_sources = list_plugin_sources()
         except Exception:
             return
-        if not plugin_sources:
-            return
-        # Load the secrets config once; hand each source its own section and
-        # let its is_enabled() decide (honours custom activation extensions).
-        try:
-            from hermes_cli.config import load_config
+        secrets = {}
+        if plugin_sources:
+            try:
+                from hermes_cli.config import load_config
 
-            cfg = load_config() or {}
-            secrets = cfg.get("secrets") or {}
-        except Exception:
-            secrets = {}
+                cfg = load_config() or {}
+                secrets = cfg.get("secrets") or {}
+            except Exception:
+                secrets = {}
         enabled_names = []
         for source in plugin_sources:
             name = getattr(source, "name", "")
@@ -4326,13 +4326,23 @@ class PluginManager:
                 # the orchestrator's defensive posture.
                 continue
         if not enabled_names:
-            return
+            if not self._plugin_secret_sources_reconciled:
+                return
+        else:
+            self._plugin_secret_sources_reconciled = True
         try:
-            reset_secret_source_cache()
-            load_hermes_dotenv()
+            from hermes_constants import get_hermes_home
+
+            home = get_hermes_home()
+            # Per-home reset keeps the write record so the next apply can
+            # revoke a source that is no longer registered.
+            reset_secret_source_cache(home)
+            load_hermes_dotenv(hermes_home=home)
+            if not enabled_names:
+                self._plugin_secret_sources_reconciled = False
             logger.debug(
                 "Re-applied secret sources after plugin discovery for: %s",
-                ", ".join(sorted(enabled_names)),
+                ", ".join(sorted(enabled_names)) or "<none — reconciled removed plugin sources>",
             )
         except Exception as exc:
             logger.debug("secret source re-apply after discovery failed: %s", exc)
