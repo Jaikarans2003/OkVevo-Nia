@@ -162,6 +162,13 @@ type BotsMessages = {
     memberCount: (count: number) => string
     settingsHint: (group: string) => string
     settingsLabel: (group: string) => string
+    manageMembers: string
+    manageMembersAria: string
+    manageMembersTitle: string
+    manageMembersCount: (count: number) => string
+    manageMembersDesc: (group: string, max: number) => string
+    saveMembers: string
+    membersNeeded: (min: number, max: number) => string
     disbandHint: (group: string) => string
     disbandLabel: (group: string) => string
     disbandAction: string
@@ -360,6 +367,14 @@ const en: BotsMessages = {
     memberCount: count => `${count} bots`,
     settingsHint: group => `Group settings — rename ${group} or set a room picture`,
     settingsLabel: group => `Group settings for ${group}`,
+    manageMembers: 'Manage members',
+    manageMembersAria: 'Manage group members',
+    manageMembersTitle: 'Manage members',
+    manageMembersCount: count => `Manage members (${count})…`,
+    manageMembersDesc: (group, max) =>
+      `Pick 2–${max} bots for “${group}”. The room, its history and its member sessions stay as they are.`,
+    saveMembers: 'Save members',
+    membersNeeded: (min, max) => `A group chat needs between ${min} and ${max} bots`,
     disbandHint: group => `Disband the ${group} group chat`,
     disbandLabel: group => `Disband ${group}`,
     disbandAction: 'Disband',
@@ -551,6 +566,14 @@ const ja: BotsMessages = {
     memberCount: count => `ボット${count}体`,
     settingsHint: group => `グループ設定 — ${group}の名前変更やルーム画像の設定`,
     settingsLabel: group => `${group}のグループ設定`,
+    manageMembers: 'メンバーを管理',
+    manageMembersAria: 'グループのメンバーを管理',
+    manageMembersTitle: 'メンバーを管理',
+    manageMembersCount: count => `メンバーを管理（${count}）…`,
+    manageMembersDesc: (group, max) =>
+      `「${group}」のボットを2〜${max}体選びます。部屋、履歴、メンバーのセッションはそのままです。`,
+    saveMembers: 'メンバーを保存',
+    membersNeeded: (min, max) => `グループチャットには${min}〜${max}体のボットが必要です`,
     disbandHint: group => `${group}グループチャットを解散`,
     disbandLabel: group => `${group}を解散`,
     disbandAction: '解散',
@@ -741,6 +764,14 @@ const zh: BotsMessages = {
     memberCount: count => `${count} 个机器人`,
     settingsHint: group => `群聊设置 — 重命名 ${group} 或设置房间图片`,
     settingsLabel: group => `${group} 的群聊设置`,
+    manageMembers: '管理成员',
+    manageMembersAria: '管理群组成员',
+    manageMembersTitle: '管理成员',
+    manageMembersCount: count => `管理成员（${count}）…`,
+    manageMembersDesc: (group, max) =>
+      `为“${group}”选择 2–${max} 个机器人。房间、历史和成员会话保持不变。`,
+    saveMembers: '保存成员',
+    membersNeeded: (min, max) => `群聊需要 ${min} 到 ${max} 个机器人`,
     disbandHint: group => `解散 ${group} 群聊`,
     disbandLabel: group => `解散 ${group}`,
     disbandAction: '解散',
@@ -931,6 +962,14 @@ const zhHant: BotsMessages = {
     memberCount: count => `${count} 個機器人`,
     settingsHint: group => `群組設定 — 重新命名 ${group} 或設定房間圖片`,
     settingsLabel: group => `${group} 的群組設定`,
+    manageMembers: '管理成員',
+    manageMembersAria: '管理群組成員',
+    manageMembersTitle: '管理成員',
+    manageMembersCount: count => `管理成員（${count}）…`,
+    manageMembersDesc: (group, max) =>
+      `為「${group}」選擇 2–${max} 個機器人。房間、歷史和成員工作階段保持不變。`,
+    saveMembers: '儲存成員',
+    membersNeeded: (min, max) => `群組聊天需要 ${min} 到 ${max} 個機器人`,
     disbandHint: group => `解散 ${group} 群組聊天`,
     disbandLabel: group => `解散 ${group}`,
     disbandAction: '解散',
