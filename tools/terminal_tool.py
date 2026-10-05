@@ -3518,7 +3518,22 @@ def terminal_tool(
                     logger.warning("background proc %s: %s", proc_session.id, conflict_note)
                     result_data["watch_patterns_ignored"] = conflict_note
 
-                # Mark for agent notification on completion
+                # Mark for agent notification on completion. A subagent task id
+                # starts with sa-; those notices are dropped before the parent
+                # sees them, so do not promise delivery.
+                if (
+                    notify_on_complete
+                    and background
+                    and str(effective_task_id or "").startswith("sa-")
+                ):
+                    notify_on_complete = False
+                    result_data["notify_on_complete"] = False
+                    result_data["notify_note"] = (
+                        "This process belongs to a subagent. Its completion will not "
+                        "reach the parent. Wait, kill, or hand it off with "
+                        "process(action='handoff', data='what it is for')."
+                    )
+
                 if notify_on_complete and background:
                     proc_session.notify_on_complete = True
                     result_data["notify_on_complete"] = True

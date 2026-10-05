@@ -395,6 +395,7 @@ class ProcessSession:
     detached: bool = False                      # True if recovered from crash (no pipe)
     pid_scope: str = "host"                     # "host" for local/PTY PIDs, "sandbox" for env-local PIDs
     systemd_unit: str = ""                      # transient scope unit name when spawned under systemd-run (#70716)
+    handoff_note: str = ""                      # why a subagent gave this process to its parent
     # Watcher/notification metadata (persisted for crash recovery)
     watcher_platform: str = ""
     watcher_chat_id: str = ""
@@ -1649,6 +1650,7 @@ class ProcessRegistry:
                 # a consumer-observed completion timestamp, this does not vary
                 # based on which watcher notices exit first.
                 "started_at": session.started_at,
+                **({"handoff_note": session.handoff_note} if session.handoff_note else {}),
             }
             _redact_process_result(notification)
             self.completion_queue.put(notification)
@@ -2689,6 +2691,46 @@ class ProcessRegistry:
                 if s.task_id == task_id and not s.exited
             )
 
+    def running_owned_by(self, task_id: str) -> list:
+        """Running processes whose spawning task id is ``task_id``.
+
+        On Nia that id is ``ProcessSession.task_id``. A subagent's processes
+        use an ``sa-`` id, which is also what teardown and notice suppression
+        key on.
+        """
+        with self._lock:
+            return [
+                s for s in self._running.values()
+                if s.task_id == task_id and not s.exited
+            ]
+
+    def transfer_ownership(
+        self,
+        session_id: str,
+        *,
+        from_owner: str,
+        to_task_id: str,
+        to_session_key: str,
+        note: str = "",
+    ) -> Optional[ProcessSession]:
+        """Move a running process from a subagent task id to its parent.
+
+        Completion notices are stamped from ``task_id``. An ``sa-`` id is
+        dropped before it reaches the parent, so flipping the id is the
+        transfer. Returns None when the process is missing, already exited,
+        or not owned by ``from_owner``.
+        """
+        session = self.get(session_id)
+        with self._lock:
+            if session is None or session.exited or session.task_id != from_owner:
+                return None
+            session.task_id = to_task_id
+            if to_session_key:
+                session.session_key = to_session_key
+            session.handoff_note = note
+            session.notify_on_complete = True
+            return session
+
     def kill_started_since(
         self,
         task_id: str,
@@ -2806,6 +2848,7 @@ class ProcessRegistry:
                             "cwd": s.cwd,
                             "started_at": s.started_at,
                             "task_id": s.task_id,
+                            "handoff_note": s.handoff_note,
                             "session_key": s.session_key,
                             "watcher_platform": s.watcher_platform,
                             "watcher_chat_id": s.watcher_chat_id,
@@ -2913,6 +2956,7 @@ class ProcessRegistry:
                 watcher_interval=entry.get("watcher_interval", 0),
                 parent_session_id=entry.get("parent_session_id", ""),
                 notify_on_complete=entry.get("notify_on_complete", False),
+                handoff_note=entry.get("handoff_note", ""),
                 watch_patterns=entry.get("watch_patterns", []),
             )
             with self._lock:
@@ -3231,8 +3275,12 @@ def format_process_notification(evt: dict) -> "str | None":
             )
     text += (
         f"Command: {_cmd}\n"
-        f"Output:\n{_out}]"
+        f"Output:\n{_out}"
     )
+    note = str(evt.get("handoff_note") or "").strip()
+    if note:
+        text += f"\nHandoff: {note}"
+    text += "]"
     return text
 
 
@@ -3252,14 +3300,18 @@ PROCESS_SCHEMA = {
         "poll: status + new output. log: full output, paged. wait: block "
         "until exit or timeout (partial output on timeout). write vs "
         "submit: submit appends Enter — use it to answer prompts; write "
-        "sends raw bytes, no newline. close: EOF stdin. kill: terminate."
+        "sends raw bytes, no newline. close: EOF stdin. kill: terminate. "
+        "handoff (subagents only): give a running process you started to your "
+        "parent, which then receives its completion. data is one sentence on "
+        "its purpose. A subagent process otherwise finishes without a notice "
+        "the parent can see."
     ),
     "parameters": {
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["list", "poll", "log", "wait", "kill", "write", "submit", "close"]
+                "enum": ["list", "poll", "log", "wait", "kill", "write", "submit", "close", "handoff"]
             },
             "session_id": {
                 "type": "string",
@@ -3267,7 +3319,7 @@ PROCESS_SCHEMA = {
             },
             "data": {
                 "type": "string",
-                "description": "Stdin text for write/submit."
+                "description": "Stdin text for write/submit. Purpose sentence for handoff."
             },
             "timeout": {
                 "type": "integer",
@@ -3314,6 +3366,70 @@ def _redact_process_result(result: dict) -> dict:
     return result
 
 
+_MAX_HANDOFFS_PER_CHILD = 3
+
+
+def _handoff_process(session_id: str, args: dict, task_id) -> dict:
+    """Subagent-only: give a running background process to the parent.
+
+    Child task ids start with ``sa-``. Those completion notices are dropped,
+    so the parent never hears a process the child said it would watch.
+    Flipping ``task_id`` off that prefix is the whole transfer. A caller that
+    is not a live child, or that does not own the process, gets an error.
+    """
+    from tools.delegate_tool import _active_subagents, _active_subagents_lock
+
+    with _active_subagents_lock:
+        record = _active_subagents.get(str(task_id or ""))
+    child = record.get("agent") if record else None
+    parent_ref = getattr(child, "_delegate_parent_ref", None)
+    parent = parent_ref() if callable(parent_ref) else None
+    if parent is None:
+        return {"error": "handoff is only available to a running subagent with a live parent."}
+    parent_task = str(
+        getattr(parent, "_current_task_id", "") or getattr(parent, "session_id", "") or ""
+    )
+    if not parent_task:
+        return {"error": "parent has no process owner id yet; retry after the parent's turn has started."}
+    handed = getattr(child, "_handed_off_processes", None)
+    if handed is None:
+        handed = child._handed_off_processes = []
+    if len(handed) >= _MAX_HANDOFFS_PER_CHILD:
+        return {
+            "error": (
+                f"handoff cap reached ({_MAX_HANDOFFS_PER_CHILD} per subagent); "
+                "wait on or kill the rest yourself."
+            )
+        }
+    note = str(args.get("data") or "").strip()
+    if not note:
+        return {"error": "handoff requires data: one sentence saying what the process is for."}
+    session = process_registry.transfer_ownership(
+        session_id,
+        from_owner=str(task_id or ""),
+        to_task_id=parent_task,
+        to_session_key=str(getattr(parent, "session_id", "") or ""),
+        note=note,
+    )
+    if session is None:
+        return {
+            "error": (
+                f"cannot hand off {session_id}: not a running process you own "
+                "(already exited? read its result with poll or log)."
+            )
+        }
+    handed.append({"session_id": session.id, "command": session.command, "note": note})
+    return {
+        "status": "handed_off",
+        "session_id": session.id,
+        "command": session.command,
+        "note": (
+            "Your parent now owns this process and will receive its completion. "
+            "Mention the handoff in your final answer."
+        ),
+    }
+
+
 def _handle_process(args, **kw):
     task_id = kw.get("task_id")
     action = args.get("action", "")
@@ -3338,6 +3454,10 @@ def _handle_process(args, **kw):
             },
             ensure_ascii=False,
         )
+    if action == "handoff":
+        if not session_id:
+            return tool_error("session_id is required for handoff")
+        return json.dumps(_handoff_process(session_id, args, task_id), ensure_ascii=False)
     elif action in {"poll", "log", "wait", "kill", "write", "submit", "close"}:
         if not session_id:
             return tool_error(f"session_id is required for {action}")
@@ -3359,7 +3479,7 @@ def _handle_process(args, **kw):
             return json.dumps(process_registry.submit_stdin(session_id, str(args.get("data", ""))), ensure_ascii=False)
         elif action == "close":
             return json.dumps(process_registry.close_stdin(session_id), ensure_ascii=False)
-    return tool_error(f"Unknown process action: {action}. Use: list, poll, log, wait, kill, write, submit, close")
+    return tool_error(f"Unknown process action: {action}. Use: list, poll, log, wait, kill, write, submit, close, handoff")
 
 
 registry.register(

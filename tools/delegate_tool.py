@@ -2494,6 +2494,29 @@ def _apply_summary_budget(results: List[Dict[str, Any]], parent_agent) -> None:
         )
 
 
+def _note_child_processes(entry: Dict[str, Any], child, child_task_id: str) -> None:
+    """Name background processes on the child result before close.
+
+    Handed-off ones now belong to the parent. Anything still on the child's
+    ``sa-`` task id keeps running, but its completion notice is dropped, so
+    the parent must not trust a "watcher running" line in the summary.
+    """
+    handed = list(getattr(child, "_handed_off_processes", None) or [])
+    if handed:
+        entry["handed_off_processes"] = handed
+    try:
+        from tools.process_registry import process_registry
+
+        leftover = process_registry.running_owned_by(child_task_id)
+    except Exception:
+        return
+    if leftover:
+        entry["orphaned_processes"] = [
+            {"session_id": s.id, "command": (s.command or "")[:200]}
+            for s in leftover
+        ]
+
+
 def _run_single_child(
     task_index: int,
     goal: str,
@@ -3409,7 +3432,18 @@ def _run_single_child(
 
         # Close tool resources (terminal sandboxes, browser daemons,
         # background processes, httpx clients) so subagent subprocesses
-        # don't outlive the delegation.
+        # don't outlive the delegation. Name sa- processes first: close()
+        # kills by session id, not by the sa- task id, so they survive, and
+        # the parent still will not see their notices.
+        _noted = locals().get("entry")
+        if not isinstance(_noted, dict):
+            _noted = locals().get("_error_entry")
+        _owner = locals().get("child_task_id")
+        if isinstance(_noted, dict) and isinstance(_owner, str) and _owner:
+            try:
+                _note_child_processes(_noted, child, _owner)
+            except Exception:
+                logger.debug("Failed to name child background processes")
         try:
             if hasattr(child, "close"):
                 child.close()
