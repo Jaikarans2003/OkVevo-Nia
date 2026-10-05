@@ -754,6 +754,10 @@ DEFAULT_CONFIG = {
         # When disabled, the watcher still detects the change and prints
         # guidance to apply it deliberately via /reload-mcp.
         "auto_reload_on_config_change": True,
+        # Max MCP servers connected at once during one discovery pass (boot,
+        # /reload-mcp, config watcher). Unbounded, N servers spawn N process
+        # trees in the same instant. 0 = unlimited.
+        "discovery_concurrency": 4,
     },
 
     # Tool-output truncation thresholds. When terminal output or a

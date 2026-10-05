@@ -5262,9 +5262,43 @@ _lock = threading.Lock()
 _LOCK_UNAVAILABLE: Any = object()  # sentinel: locking broken/unavailable
 _MCP_DISCOVERY_LOCK_PATH: Optional[str] = None  # resolved lazily
 
-# Retry constants for the bounded wait when another process holds the lock.
-_MCP_DISCOVERY_LOCK_MAX_RETRIES: int = 240
+# Overall discovery-pass ceiling. The lock waiter must outlast it, or a lock
+# loser starts a second unguarded discovery while the holder is still connecting.
+_MCP_DISCOVERY_PASS_MAX_SEC: int = 300
 _MCP_DISCOVERY_LOCK_RETRY_DELAY_S: float = 0.5
+_MCP_DISCOVERY_LOCK_MAX_RETRIES: int = int(
+    _MCP_DISCOVERY_PASS_MAX_SEC / _MCP_DISCOVERY_LOCK_RETRY_DELAY_S
+) + 20
+
+# Default max concurrent MCP server connections per discovery pass.
+# ``mcp.discovery_concurrency`` overrides it. 0 = unlimited.
+_DISCOVERY_CONNECT_CONCURRENCY = 4
+
+
+def _discovery_connect_concurrency() -> int:
+    """``mcp.discovery_concurrency`` (0 = unlimited). A bad value uses the default."""
+    try:
+        from hermes_cli.config import load_config
+        raw = (load_config().get("mcp") or {}).get(
+            "discovery_concurrency", _DISCOVERY_CONNECT_CONCURRENCY
+        )
+    except Exception:
+        return _DISCOVERY_CONNECT_CONCURRENCY
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 0:
+        logger.warning(
+            "mcp.discovery_concurrency=%r is not a non-negative integer; using %d",
+            raw, _DISCOVERY_CONNECT_CONCURRENCY,
+        )
+        return _DISCOVERY_CONNECT_CONCURRENCY
+    return raw
+
+
+def _discovery_pass_timeout(server_count: int) -> float:
+    """Outer timeout for one discovery pass: 120s per wave, capped by the pass ceiling."""
+    count = max(int(server_count), 1)
+    cap = _discovery_connect_concurrency() or count
+    waves = max(1, -(-count // cap))
+    return float(min(120 * waves, _MCP_DISCOVERY_PASS_MAX_SEC))
 
 
 class _LockCookie:
@@ -7754,15 +7788,20 @@ def register_mcp_servers(servers: Dict[str, dict]) -> List[str]:
     # Start the background event loop for MCP connections
     _ensure_mcp_loop()
 
-    async def _discover_one(name: str, cfg: dict) -> List[str]:
-        """Connect to a single server and return its registered tool names."""
-        return await _discover_and_register_server(name, cfg)
-
     async def _discover_all():
+        # Flat cap for every transport. 0 keeps the old unbounded gather.
+        cap = _discovery_connect_concurrency()
+        semaphore = asyncio.Semaphore(cap) if cap > 0 else None
+
+        async def _connect_bounded(name: str, cfg: dict) -> List[str]:
+            if semaphore is None:
+                return await _discover_and_register_server(name, cfg)
+            async with semaphore:
+                return await _discover_and_register_server(name, cfg)
+
         server_names = list(new_servers.keys())
-        # Connect to all servers in PARALLEL
         results = await asyncio.gather(
-            *(_discover_one(name, cfg) for name, cfg in new_servers.items()),
+            *(_connect_bounded(name, cfg) for name, cfg in new_servers.items()),
             return_exceptions=True,
         )
         for name, result in zip(server_names, results):
@@ -7789,8 +7828,9 @@ def register_mcp_servers(servers: Dict[str, dict]) -> List[str]:
                     _server_connect_errors.pop(name, None)
                     _clear_connect_failure(name)
 
-    # Per-server timeouts are handled inside _discover_and_register_server.
-    # The outer timeout is generous: 120s total for parallel discovery.
+    # Per-server timeouts live inside _discover_and_register_server.
+    # The outer timeout grows with the number of waves, and stops at the
+    # pass ceiling so it cannot outlive the cross-process lock waiter.
     #
     # Temporarily clear the interrupt flag on the current thread so that MCP
     # discovery is never cancelled by a stale interrupt from a prior agent
@@ -7800,7 +7840,9 @@ def register_mcp_servers(servers: Dict[str, dict]) -> List[str]:
     if _was_interrupted:
         _set_interrupt(False)
     try:
-        _run_on_mcp_loop(_discover_all, timeout=120)
+        _run_on_mcp_loop(
+            _discover_all, timeout=_discovery_pass_timeout(len(new_servers))
+        )
     except (TimeoutError, InterruptedError) as _e:
         # When the outer timeout fires or the user interrupts,
         # _discover_all's gather may not have finished, leaving
@@ -7954,25 +7996,44 @@ def is_mcp_tool_parallel_safe(tool_name: str) -> bool:
         return bool(server_name and server_name in _parallel_safe_servers)
 
 
-def get_mcp_status() -> List[dict]:
-    """Return status of all configured MCP servers for banner display.
+def get_mcp_status(
+    configured: Optional[Dict[str, dict]] = None,
+    *,
+    include_runtime: bool = True,
+) -> List[dict]:
+    """Return cached status for configured MCP servers. Never connects.
 
-    Returns a list of dicts with keys: name, transport, tools, connected,
-    disabled, and status. Includes connected servers, disabled servers,
-    in-flight connection attempts, recorded failures, and servers that are
-    configured but have not been started in this process yet.
+    Keys: name, transport, tools, connected, disabled, status. Failed rows
+    also include ``error`` for in-process callers (banner). The gateway
+    status RPC strips that field before it leaves the process.
+
+    ``include_runtime=False`` reports config only (configured or disabled).
+    A status read for a profile this process did not launch uses that, so
+    this process's live connections are not shown as that profile's.
+
+    ponytail: one MCP registry per process, no per-server profile tag.
+    Ceiling: under a multiplexer, the launch profile still sees every live
+    server in this process. Upgrade: store the connecting profile on each
+    server and filter by it.
     """
     result: List[dict] = []
 
-    # Get configured servers from config
-    configured = _load_mcp_config()
+    if configured is None:
+        configured = _load_mcp_config()
+    else:
+        configured = dict(configured)
     if not configured:
         return result
 
-    with _lock:
-        active_servers = dict(_servers)
-        connecting = set(_server_connecting)
-        connect_errors = dict(_server_connect_errors)
+    if include_runtime:
+        with _lock:
+            active_servers = dict(_servers)
+            connecting = set(_server_connecting)
+            connect_errors = dict(_server_connect_errors)
+    else:
+        active_servers = {}
+        connecting = set()
+        connect_errors = {}
 
     for name, cfg in configured.items():
         transport = cfg.get("transport", "http") if "url" in cfg else "stdio"

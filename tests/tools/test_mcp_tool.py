@@ -2418,6 +2418,96 @@ class TestDiscoveryFailedCount:
         _servers.pop("fail1", None)
 
 
+class TestDiscoveryConnectConcurrency:
+    """Discovery connects a few MCP servers at a time, not all at once."""
+
+    def _run(self, server_names, cap):
+        import asyncio as _asyncio
+
+        from tools.mcp_tool import _ensure_mcp_loop, _servers, discover_mcp_tools
+
+        in_flight = 0
+        max_in_flight = 0
+        connected = []
+
+        async def tracked_register(name, cfg):
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await _asyncio.sleep(0.05)
+            in_flight -= 1
+            connected.append(name)
+            return []
+
+        with patch("tools.mcp_tool._load_mcp_config", return_value=server_names), \
+             patch("hermes_cli.config.load_config", return_value={"mcp": {"discovery_concurrency": cap}}), \
+             patch("tools.mcp_tool._discover_and_register_server", side_effect=tracked_register), \
+             patch("tools.mcp_tool._MCP_AVAILABLE", True), \
+             patch("tools.mcp_tool._existing_tool_names", return_value=[]):
+            _ensure_mcp_loop()
+            try:
+                discover_mcp_tools()
+            finally:
+                for name in server_names:
+                    _servers.pop(name, None)
+        return max_in_flight, connected
+
+    def test_configured_cap_bounds_in_flight_connects_and_zero_means_unlimited(self):
+        server_names = {f"srv{i}": {"command": "npx", "args": [f"s{i}"]} for i in range(8)}
+
+        peak, connected = self._run(server_names, cap=3)
+        assert 1 < peak <= 3, f"in-flight connects peaked at {peak}, cap is 3"
+        assert sorted(connected) == sorted(server_names)
+
+        peak_unlimited, connected = self._run(server_names, cap=0)
+        assert peak_unlimited == len(server_names), f"0 must mean unlimited, peaked at {peak_unlimited}"
+        assert sorted(connected) == sorted(server_names)
+
+    def test_pass_timeout_stays_under_the_lock_waiter(self):
+        from tools.mcp_tool import (
+            _MCP_DISCOVERY_LOCK_MAX_RETRIES,
+            _MCP_DISCOVERY_LOCK_RETRY_DELAY_S,
+            _MCP_DISCOVERY_PASS_MAX_SEC,
+            _discovery_pass_timeout,
+        )
+
+        waiter = _MCP_DISCOVERY_LOCK_MAX_RETRIES * _MCP_DISCOVERY_LOCK_RETRY_DELAY_S
+        assert waiter > _MCP_DISCOVERY_PASS_MAX_SEC
+        with patch("hermes_cli.config.load_config", return_value={"mcp": {"discovery_concurrency": 4}}):
+            timeout = _discovery_pass_timeout(40)
+        assert timeout == min(120 * 10, _MCP_DISCOVERY_PASS_MAX_SEC)
+        assert timeout < waiter
+
+    def test_status_for_another_profile_hides_this_process_runtime(self):
+        from tools.mcp_tool import _lock, _server_connect_errors, _servers, get_mcp_status
+
+        server = MagicMock()
+        server.session = object()
+        server._registered_tool_names = ["t"]
+        server._tools = []
+        server._sampling = None
+        with _lock:
+            _servers["secret-srv"] = server
+            _server_connect_errors["secret-srv"] = "token sk-live"
+        try:
+            hidden = get_mcp_status(
+                {"secret-srv": {"command": "npx", "enabled": True}},
+                include_runtime=False,
+            )
+            assert hidden[0]["status"] == "configured"
+            assert "error" not in hidden[0]
+            assert "sk-live" not in str(hidden)
+            live = get_mcp_status(
+                {"secret-srv": {"command": "npx", "enabled": True}},
+                include_runtime=True,
+            )
+            assert live[0]["status"] == "connected"
+        finally:
+            with _lock:
+                _servers.pop("secret-srv", None)
+                _server_connect_errors.pop("secret-srv", None)
+
+
 class TestMCPSelectiveToolLoading:
     """Tests for per-server MCP filtering and utility tool policies."""
 

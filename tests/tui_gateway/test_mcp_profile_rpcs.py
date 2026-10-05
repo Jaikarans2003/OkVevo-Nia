@@ -110,6 +110,44 @@ def test_list_reflects_the_scoped_profile(hermes_root):
     assert work_server["command"] == "svc-a-bin"
 
 
+def test_status_is_cached_and_hides_other_profiles_runtime(hermes_root, monkeypatch):
+    """A named profile sees its config, not this process's live connections,
+    and the wire payload never includes the raw error string."""
+    import tools.mcp_tool as mcp_tool
+
+    def _refuse_discover(*_args, **_kwargs):
+        raise AssertionError("status must not connect")
+
+    monkeypatch.setattr(mcp_tool, "discover_mcp_tools", _refuse_discover)
+    _result(
+        _call(
+            "mcp.servers.add",
+            {"profile": "work", "name": "secret-srv", "config": {"command": "npx"}},
+        )
+    )
+    server = type("S", (), {})()
+    server.session = None
+    server._registered_tool_names = []
+    server._tools = []
+    server._sampling = None
+    with mcp_tool._lock:
+        mcp_tool._servers["secret-srv"] = server
+        mcp_tool._server_connect_errors["secret-srv"] = "token sk-live"
+    try:
+        payload = _result(_call("mcp.servers.status", {"profile": "work"}))
+    finally:
+        with mcp_tool._lock:
+            mcp_tool._servers.pop("secret-srv", None)
+            mcp_tool._server_connect_errors.pop("secret-srv", None)
+
+    assert payload["checked_at"] > 0
+    row = next(item for item in payload["servers"] if item["name"] == "secret-srv")
+    assert row["status"] == "configured"
+    assert row["connected"] is False
+    assert "error" not in row
+    assert "sk-live" not in str(payload)
+
+
 def test_set_api_key_writes_env_and_header_to_right_profile(hermes_root):
     root = hermes_root
     _result(
