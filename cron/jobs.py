@@ -39,7 +39,7 @@ from typing import Optional, Dict, List, Any, Set, Tuple, Union, Collection
 logger = logging.getLogger(__name__)
 
 from hermes_time import now as _hermes_now
-from utils import atomic_replace, atomic_write_text
+from utils import atomic_replace, atomic_write_text, fsync_directory
 
 # ``croniter`` compiles ~15 ms of regexes at import and only matters for
 # 5-field cron expressions. Resolve lazily; ``HAS_CRONITER`` stays a module
@@ -1685,8 +1685,10 @@ def load_jobs() -> List[Dict[str, Any]]:
             # Rewrite into the canonical {"jobs": [...]} form: either the parse
             # hit control-character corruption (_strict_retry) or the store was
             # an id-keyed map. save_jobs() re-emits the list shape every reader
-            # expects.
-            save_jobs(jobs)
+            # expects. replace=True: this is a locked full-store read, so the
+            # repaired list is authoritative (including id-keyed maps the
+            # non-repairing peek refuses to flatten).
+            save_jobs(jobs, replace=True)
             if needs_shape_repair:
                 logger.warning("Auto-repaired jobs.json (id-keyed jobs map flattened to list)")
             else:
@@ -1697,7 +1699,7 @@ def load_jobs() -> List[Dict[str, Any]]:
         # Bare array — likely saved/edited outside save_jobs(). Wrap it back
         # into the expected {"jobs": [...]} structure.
         if data:
-            save_jobs(data)
+            save_jobs(data, replace=True)  # locked full-store read: the repaired list is authoritative
             logger.warning("Auto-repaired jobs.json (bare list wrapped as dict)")
         _record_load_stamp(pre_read_stamp)
         return data
@@ -1845,6 +1847,14 @@ def _save_jobs_unlocked(
     """
     jobs_file = _current_cron_store().jobs_file
     ensure_dirs()
+    # Fail closed: merging against an unreadable store would silently overwrite every job in it.
+    # A matching load stamp means this section already parsed the same bytes, so the
+    # healthy fast path stays a single stat (#80703) and still cannot publish over corruption.
+    if not replace and jobs_file.exists():
+        _stamp = getattr(_jobs_lock_state, "load_stamp", None)
+        _unchanged = _stamp is not None and _jobs_file_stamp(jobs_file) == _stamp
+        if not _unchanged and _peek_jobs_unlocked() is None:
+            raise RuntimeError(f"Cron database corrupted; refusing to overwrite {jobs_file}")
     # Snapshot the current owner BEFORE the atomic replace so a privileged
     # writer (root CLI in Docker) can hand ownership back to the gateway user
     # afterwards instead of locking its ticker out (#68483). When the file is
@@ -1924,6 +1934,7 @@ def _save_jobs_unlocked(
 
             atomic_replace(tmp_path, jobs_file)
             tmp_path = None
+            fsync_directory(jobs_file.parent)
             _secure_file(jobs_file)
             _preserve_file_ownership(jobs_file, _stat_before)
             # Invalidate (never refresh) the stamp after writing: the stamp

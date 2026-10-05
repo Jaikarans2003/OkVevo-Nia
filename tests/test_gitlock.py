@@ -137,3 +137,70 @@ def test_is_ancestor_false_for_unknown_rev(repo: Path) -> None:
 
 def test_is_ancestor_false_for_nonexistent_repo(tmp_path: Path) -> None:
     assert is_ancestor_of_head(tmp_path / "missing", "HEAD") is False
+
+
+from subprocess import CompletedProcess  # noqa: E402
+
+from hermes_cli.gitlock import (  # noqa: E402
+    fetch_with_partial_clone_recovery,
+    is_partial_clone_pack_objects_crash,
+)
+
+_CRASH_STDERR = (
+    "remote: Enumerating objects: 12, done.\n"
+    "BUG: builtin/pack-objects.c:4842: should_include_obj should only be called on existing objects\n"
+    "error: pack-objects died of signal 6\n"
+    "fatal: could not finish pack-objects to repack local links\n"
+    "fatal: index-pack failed\n"
+)
+
+
+def test_crash_recognizer_matches_reported_stderr():
+    assert is_partial_clone_pack_objects_crash(_CRASH_STDERR)
+
+
+def test_crash_recognizer_rejects_unrelated_failures():
+    assert not is_partial_clone_pack_objects_crash(
+        "fatal: Authentication failed for 'https://github.com/example.git'"
+    )
+    assert not is_partial_clone_pack_objects_crash("error: pack-objects died of signal 6")
+    assert not is_partial_clone_pack_objects_crash("")
+    assert not is_partial_clone_pack_objects_crash(None)
+
+
+def test_recovery_retries_once_with_promisor_disabled():
+    calls = []
+
+    def runner(git_cmd, args):
+        calls.append((list(git_cmd), list(args)))
+        if len(calls) == 1:
+            return CompletedProcess(git_cmd + args, 1, stdout="", stderr=_CRASH_STDERR)
+        return CompletedProcess(git_cmd + args, 0, stdout="", stderr="")
+
+    result = fetch_with_partial_clone_recovery(runner, ["git"], ["fetch", "origin", "main"])
+
+    assert [args for _, args in calls] == [["fetch", "origin", "main"]] * 2
+    assert calls[1][0] == ["git", "-c", "remote.origin.promisor="]
+    assert result.returncode == 0
+
+
+def test_recovery_passes_through_success_and_unrelated_failure():
+    calls = []
+
+    def failing_runner(git_cmd, args):
+        calls.append((list(git_cmd), list(args)))
+        return CompletedProcess(git_cmd + args, 1, stdout="", stderr="fatal: Permission denied (publickey)")
+
+    result = fetch_with_partial_clone_recovery(failing_runner, ["git"], ["fetch", "origin", "main"])
+    assert result.returncode == 1
+    assert calls == [(["git"], ["fetch", "origin", "main"])]
+
+    calls.clear()
+
+    def ok_runner(gc, a):
+        calls.append((list(gc), list(a)))
+        return CompletedProcess(gc + a, 0, stdout="", stderr="")
+
+    result = fetch_with_partial_clone_recovery(ok_runner, ["git"], ["fetch", "--no-tags", "origin", "abc123"])
+    assert result.returncode == 0
+    assert calls == [(["git"], ["fetch", "--no-tags", "origin", "abc123"])]

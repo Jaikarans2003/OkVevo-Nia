@@ -22,6 +22,20 @@ from hermes_state_common import (
     _sql_session_last_active,
 )
 
+
+def _imported_tool_call_count(msg: Dict[str, Any]) -> int:
+    """Match ``_insert_message_rows`` so archived imports don't inflate the live counter."""
+    tool_calls = msg.get("tool_calls")
+    if isinstance(tool_calls, str):
+        try:
+            tool_calls = json.loads(tool_calls)
+        except (json.JSONDecodeError, TypeError):
+            tool_calls = []
+    if not tool_calls:
+        return 0
+    return len(tool_calls) if isinstance(tool_calls, list) else 1
+
+
 # Moved methods logged under the "hermes_state" logger before the split;
 # keep that logger identity so log filtering/capture behavior is unchanged.
 logger = logging.getLogger("hermes_state")
@@ -266,22 +280,46 @@ class SessionPortabilityMixin:
         decoded = self._decode_content(row["content"])
         return decoded if isinstance(decoded, str) else ""
 
-    def export_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Export a single session with all its messages as a dict."""
+    def export_session(
+        self,
+        session_id: str,
+        include_compacted: bool = False,
+        include_inactive: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """Export a single session with all its messages as a dict.
+
+        ``include_inactive`` exports every row in storage order with its
+        ``active``/``compacted`` flags, which :meth:`import_sessions` restores
+        as archived. ``include_compacted`` is the display projection and stays
+        off for payloads that go back through import.
+        """
         session = self.get_session(session_id)
         if not session:
             return None
-        messages = self.get_messages(session_id)
+        messages = self.get_messages(
+            session_id,
+            include_inactive=include_inactive,
+            include_compacted=include_compacted,
+        )
         return {**session, "messages": messages}
 
-    def export_session_lineage(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def export_session_lineage(
+        self,
+        session_id: str,
+        include_compacted: bool = False,
+        include_inactive: bool = False,
+    ) -> Optional[Dict[str, Any]]:
         """Export a compression lineage as one logical session dict."""
         lineage_ids = self.get_compression_lineage(session_id)
         if not lineage_ids:
             return None
         segments = []
         for sid in lineage_ids:
-            segment = self.export_session(sid)
+            segment = self.export_session(
+                sid,
+                include_compacted=include_compacted,
+                include_inactive=include_inactive,
+            )
             if segment:
                 segments.append(segment)
         if not segments:
@@ -343,7 +381,9 @@ class SessionPortabilityMixin:
         and ``donor_retired`` (bool — True only when EVERY segment's
         retirement actually applied).
         """
-        payload = donor_db.export_session_lineage(session_id)
+        # Every row, not just live ones: the retired donor is unrecoverable, so any
+        # turn left behind (compaction-archived history included) would be visible nowhere.
+        payload = donor_db.export_session_lineage(session_id, include_inactive=True)
         if not payload:
             return {
                 "ok": False,
@@ -365,7 +405,7 @@ class SessionPortabilityMixin:
             if not seg_id or self.get_session(seg_id) is None:
                 continue
             donor_count = len(seg.get("messages") or [])
-            local_count = len(self.get_messages(seg_id))
+            local_count = len(self.get_messages(seg_id, include_inactive=True))
             if donor_count > local_count:
                 donor_ahead = True
                 logger.warning(
@@ -403,8 +443,8 @@ class SessionPortabilityMixin:
                     # CONTENT divergence — e.g. a donor rewind+rewrite; that
                     # residual case is accepted: bytes stay in the donor
                     # store either way, only reachability differs.)
-                    donor_now = len(donor_db.get_messages(seg_id))
-                    local_now = len(self.get_messages(seg_id))
+                    donor_now = len(donor_db.get_messages(seg_id, include_inactive=True))
+                    local_now = len(self.get_messages(seg_id, include_inactive=True))
                     if donor_now > local_now:
                         retire_ok = False
                         logger.warning(
@@ -784,6 +824,26 @@ class SessionPortabilityMixin:
                     session_id,
                     sanitized_messages,
                 )
+                # A row exported archived (include_inactive) must stay archived:
+                # inserted live, compacted turns would re-enter model context.
+                # Session counters count live rows only.
+                archived = [
+                    msg
+                    for msg in sanitized_messages
+                    if "active" in msg and not msg["active"] and "_row_id" in msg
+                ]
+                if archived:
+                    conn.executemany(
+                        "UPDATE messages SET active = 0, compacted = ? WHERE id = ?",
+                        [
+                            (1 if msg.get("compacted") else 0, msg["_row_id"])
+                            for msg in archived
+                        ],
+                    )
+                    total_messages -= len(archived)
+                    total_tool_calls -= sum(
+                        _imported_tool_call_count(msg) for msg in archived
+                    )
                 conn.execute(
                     "UPDATE sessions SET message_count = ?, tool_call_count = ? WHERE id = ?",
                     (total_messages, total_tool_calls, session_id),
