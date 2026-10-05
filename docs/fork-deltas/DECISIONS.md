@@ -30,6 +30,27 @@ Short records of fork choices. One entry each: date, decision, reason, revisit t
 - **Reason:** Customers should not see a Hermes/Nous license screen. The MIT notice still has to ship with every copy.
 - **Revisit trigger:** OkVevo-Web adds `/legal/open-source`. The packaged file stays even after that page exists.
 
+## Batch 2b scope
+
+- **Date:** 2026-10-05
+- **Decision:** Batch 2b is the crash and data-loss set that merged as PR #38. Taken: `553388b320cf`, `c48e05a9d012`, `0af6b2121e22`, `46d080127978`, `9e62232b0762`, `7350426b1793`, `54684326e7e1`, `fc6144e3c175`. Skipped: `d46ea7bf2081`, `e81be5b66a43`, and the seven rows whose files are not on Nia (`73f7fc2ca54c`, `f389bddd118d`, `59ddb98c03cc`, `9567dd9c54a7`, `7823f8771d1a`, `98a9a7956160`, `e33fd7e09b42`), plus `7154128fe19f` (left out on purpose). Newest taken sha `c48e05a9d012`. Backport ratio 7/8.
+- **Reason:** Those skips have no matching mechanism on Nia. Importing the missing module just to take the patch would widen the fork.
+- **Revisit trigger:** A later sync that adds the missing module for another reason. Re-check the skipped sha then.
+
+## Features taken (F1–F7)
+
+- **Date:** 2026-10-05
+- **Decision:** Take these Hermes features, one pull request each, in order: F1 cron re-run when a job never reached the model; F2 MCP connection health and a concurrency cap; F3 group member picker; F4 steer or stop a running sub-task, plus handoff of unfinished work; F5 sibling chats (`/branch`); F6 cron uses the current model unless pinned; F7 Bot Screen and cross-gateway group chat as groundwork only, one feature flag, default off, no visible entry. Deferred: in-app browser comments, Kanban. Skipped as Nous-only: plugin catalog, telemetry, subscription tiers, Honcho, Nous login.
+- **Reason:** F1–F6 run on the Mac and Windows app. F7 is the cloud piece and stays off until an OkVevo Cloud plan turns it on. The deferred and skipped items are either low value now or need a Hermes cloud account.
+- **Revisit trigger:** F5 and F6 report their translation-conflict counts before code. F7 stops if it cannot be gated. Browser comments and Kanban wait until Karan asks.
+
+## Rebuild re-measure
+
+- **Date:** 2026-10-05
+- **Decision:** Stay on Strategy B. Re-measure the backport ratio on 2026-11-01. Schedule the full replay only if that measurement is still above 70% and Karan wants a multi-week project.
+- **Reason:** Batch 1 was 63%, the Batch 2 table 75%, Batch 2a 67%, Batch 2b 88%. Hermes is still adding thousands of commits a week. A rebuild now pauses security and bugfix shipping.
+- **Revisit trigger:** 2026-11-01, threshold 70%.
+
 ## How pulls land
 
 - **Date:** 2026-10-04
