@@ -2885,7 +2885,14 @@ def mark_job_run(
     status: Optional[str] = None,
     *,
     expected_fire_owner: Optional[str] = None,
+    model_unreachable: bool = False,
 ) -> bool:
+    """Record a finished run.
+
+    ``model_unreachable``: the run failed before any model call (transient
+    network/DNS, zero API calls). Recurring jobs then get a bounded re-run
+    instead of waiting a full period. See ``cron/unreachable_retry.py``.
+    """
     with _fire_job_lock(job_id) as acquired:
         if not acquired:
             return False
@@ -2896,6 +2903,7 @@ def mark_job_run(
             delivery_error,
             status=status,
             expected_fire_owner=expected_fire_owner,
+            model_unreachable=model_unreachable,
         )
 
 
@@ -2990,6 +2998,7 @@ def _mark_job_run_locked(
     *,
     status: Optional[str] = None,
     expected_fire_owner: Optional[str] = None,
+    model_unreachable: bool = False,
 ) -> bool:
     """
     Mark a job as having been run.
@@ -3019,6 +3028,25 @@ def _mark_job_run_locked(
                             job_id,
                         )
                         return False
+                # A parked re-run already counted toward repeat.times on the
+                # original failed occurrence. Detect it before next_run_at moves.
+                from cron.unreachable_retry import (
+                    clear_state,
+                    is_retry_run,
+                    plan_retry,
+                )
+                ladder_rung = is_retry_run(job)
+
+                def _apply_unreachable_ladder(current: Dict[str, Any]) -> None:
+                    if (
+                        not success
+                        and model_unreachable
+                        and not is_terminal_job(current)
+                    ):
+                        plan_retry(current)
+                    else:
+                        clear_state(current)
+
                 now = _hermes_now().isoformat()
                 job["last_run_at"] = now
                 job.pop("manual_run_at", None)
@@ -3075,7 +3103,7 @@ def _mark_job_run_locked(
                         and times > 0
                         and completed > 0
                     )
-                    if not preclaimed_oneshot:
+                    if not preclaimed_oneshot and not ladder_rung:
                         completed += 1
                         repeat["completed"] = completed
 
@@ -3094,6 +3122,7 @@ def _mark_job_run_locked(
                         job["enabled"] = False
                         job["state"] = "completed"
                         job["next_run_at"] = None
+                        _apply_unreachable_ladder(job)
                         save_jobs(jobs)
                         return True
                 
@@ -3129,6 +3158,7 @@ def _mark_job_run_locked(
                 elif job.get("state") != "paused":
                     job["state"] = "scheduled"
 
+                _apply_unreachable_ladder(job)
                 save_jobs(jobs)
                 return True
 

@@ -30,6 +30,7 @@ Merge commits for #20–#26 are not ancestors of the v0.18.4 tag. Their file cha
 | 2026-10-03 | n/a (delta layer, not a Hermes sha) | Locale overlay | [#30](https://github.com/Jaikarans2003/OkVevo-Nia/pull/30) shipped in **v0.18.4** | Delta step 2. Nia catalogs ship from `brand/locales/`. |
 | 2026-10-04 | n/a (dependency pins, not a Hermes sha) | **B** lock bumps | Batch 1c on `sync/batch1c-security` | httpx2 2.7.0→2.12.0. httpcore2 moves to 2.12.0 because httpx2 2.12.0 requires that exact version; the advisory floor is 2.10.0. tornado 6.5.8→6.5.9 on the messaging extra and the Telegram lazy-install pin. Desktop dompurify 3.4.13→3.4.16. Website, photon, ui-tui, and dev-only npm left alone. |
 | 2026-10-05 | `c48e05a9d012` (newest sha taken in Batch 2b only; not a full `origin/main` sync) | **B** selective cherry-picks | Batch 2b on `sync/batch2b-bugfix` | Previous last synced sha: `0466a04bc874`. Ratio **7/8 ≈ 88%**. See Batch 2b rows below. |
+| 2026-10-05 | `ec58e08a35` (F1 only; not a full `origin/main` sync) | **B** selective cherry-pick | `feat/cron-rerun` | Cron re-run when a fire never reached the model. Hermes docs page skipped. Repeat-slot guard from `c84ef16384` hand-applied. |
 
 ## Phase 4 — Electron major (2026-09-25)
 
@@ -148,3 +149,5 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-09-25 | S3 bumps | **done** | `uv.lock`, `package.json`, lock | anyio 4.14.2; electron-updater 6.8.9; builder-util-runtime 9.7.0; js-yaml 4.3.2; electron 40.10.6 patch |
 | 2026-09-25 | CI gate | **done** | `nia-dep-audit` | pip-audit + `npm audit --omit=dev --audit-level=critical`; no Dependabot auto-PR yaml |
 | 2026-10-01 | n/a (CI gate, not a Hermes sha) | diff-aware dependency review | [#24](https://github.com/Jaikarans2003/OkVevo-Nia/pull/24), shipped in v0.18.4 | PRs fail only on high/critical advisories introduced by the diff (`dependency-review-action`, required via `all-checks-pass`). Full pip-audit + npm audit is daily and on push to `staging`/`main`, and files a tracking issue. |
+| 2026-10-05 | `ec58e08a35` | **backported** | `cron/jobs.py`, `cron/scheduler.py`, `cron/unreachable_retry.py`, `tests/cron/test_unreachable_retry.py` | Cherry-pick conflicted: Nia has no `scheduler_preflight`, `_advance_after_run`, or `_finish_completed_run`. Ladder is applied inside `_mark_job_run_locked`. Docs page `website/docs/user-guide/features/cron.md` not taken. |
+| 2026-10-05 | `c84ef16384` | **backported** (repeat-slot guard only) | `cron/jobs.py`, `cron/unreachable_retry.py` | Upstream fix needs `_scheduled_instant` and `cron.occurrences`, which Nia does not have. A parked re-run is `unreachable_retry.at == next_run_at` and does not bump `repeat.completed`. |

@@ -6713,6 +6713,18 @@ def run_job(
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.exception("Job '%s' failed: %s", job_name, error_msg)
+        # Flag fires that never reached the model so the bookkeeping tail can
+        # schedule a bounded re-run. Classification must not mask the failure.
+        try:
+            from cron.unreachable_retry import is_model_unreachable_failure
+            if is_model_unreachable_failure(
+                e, agent, transient=_is_transient_provider_resolve_error(e),
+            ):
+                job["_model_unreachable"] = True
+        except Exception:
+            logger.debug(
+                "Job '%s': unreachable-failure classification failed", job_id,
+            )
         # Best-effort audit write on failure path. _audit_fire_id
         # may be unset if the exception fired before submit() — guard
         # with a None check so the audit write itself never raises.
@@ -7375,6 +7387,15 @@ def _run_one_job_body(
             should_deliver = bool(deliver_content.strip())
             if blocked_config_silent or drift_skip_silent:
                 should_deliver = False
+            if should_deliver and not success and job.get("_model_unreachable"):
+                # Hold the failure notice while a bounded re-run is still pending.
+                from cron.unreachable_retry import will_retry
+                if will_retry(job):
+                    should_deliver = False
+                    logger.info(
+                        "Job '%s': suppressing failure notice — automatic re-run pending",
+                        job["id"],
+                    )
             unresolved_origin = False
             # Cron silence suppression — see _is_cron_silence_response.  Replaces the
             # old `SILENT_MARKER in ...upper()` substring check, which both leaked
@@ -7483,6 +7504,8 @@ def _run_one_job_body(
             return True
 
         mark_kwargs = {"delivery_error": delivery_error}
+        if not success and job.pop("_model_unreachable", False):
+            mark_kwargs["model_unreachable"] = True
         if fire_owner is not None:
             mark_kwargs["expected_fire_owner"] = fire_owner
         if blocked_config:
