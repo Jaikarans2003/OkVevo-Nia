@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import shutil
+from contextlib import suppress
 import stat
 import tempfile
 import time
@@ -189,6 +190,26 @@ def _copy_fallback(tmp_str: str, real_path: str) -> None:
     except OSError:
         pass
     os.unlink(tmp_str)
+
+
+def fsync_directory(path: Union[str, Path]) -> None:
+    """Best-effort fsync of a directory entry so a just-renamed file survives power loss.
+
+    No-op on Windows (directories can't be opened with ``os.open``; the file fsync still applies)
+    and on any OSError — durability of the directory entry is never worth failing a write that
+    has already been replaced into place.
+    """
+    if os.name == "nt":
+        return
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    except OSError:
+        return
+    try:
+        with suppress(OSError):
+            os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def atomic_replace(tmp_path: Union[str, Path], target: Union[str, Path]) -> str:

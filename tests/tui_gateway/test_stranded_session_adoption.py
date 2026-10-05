@@ -400,8 +400,8 @@ def test_donor_growth_between_export_and_retire_blocks_retirement(stores, monkey
 
     real_export = default_db.export_session_lineage
 
-    def _export_then_append(session_id):
-        payload = real_export(session_id)
+    def _export_then_append(session_id, **kwargs):
+        payload = real_export(session_id, **kwargs)
         # Another backend appends AFTER the export snapshot is taken.
         default_db.append_message(STRANDED_ID, "user", "raced question")
         default_db.append_message(STRANDED_ID, "assistant", "raced answer")
@@ -421,3 +421,28 @@ def test_donor_growth_between_export_and_retire_blocks_retirement(stores, monkey
     second = profile_db.adopt_session_lineage_from(default_db, STRANDED_ID)
     assert second["donor_retired"] is False
     assert not default_db.get_session(STRANDED_ID)["archived"]
+
+
+def _shown(db, session_id, **flags):
+    return [(m["role"], m["content"]) for m in db.get_messages(session_id, **flags)]
+
+
+def test_adoption_carries_compacted_history_before_retiring_the_donor(stores):
+    """The retired donor is unrecoverable, so the profile copy must show the
+    turns in-place compaction archived, and feed the model the same live context."""
+    default_db, profile_db = stores
+    _seed_stranded(default_db, turns=4)
+    tail = default_db.get_messages(STRANDED_ID)[-2:]
+    default_db.archive_and_compact(
+        STRANDED_ID,
+        [{"role": "user", "content": "[summary of turns 1-3]"}, *tail],
+    )
+    shown_before = _shown(default_db, STRANDED_ID, include_compacted=True)
+    live_before = _shown(default_db, STRANDED_ID)
+    assert len(shown_before) > len(live_before)
+
+    result = profile_db.adopt_session_lineage_from(default_db, STRANDED_ID)
+
+    assert result["adopted"] is True
+    assert _shown(profile_db, STRANDED_ID, include_compacted=True) == shown_before
+    assert _shown(profile_db, STRANDED_ID) == live_before
