@@ -28,6 +28,7 @@ Merge commits for #20–#26 are not ancestors of the v0.18.4 tag. Their file cha
 | 2026-10-02 | `0466a04bc874` (newest sha in this batch only; not a full `origin/main` sync) | **B** selective cherry-picks | [#28](https://github.com/Jaikarans2003/OkVevo-Nia/pull/28) shipped in **v0.18.4** | Batch 2a. Ratio **67%** (6/9). Skipped `87bb0d3827a0`. |
 | 2026-10-03 | n/a (delta layer, not a Hermes sha) | Brand assets overlay | [#29](https://github.com/Jaikarans2003/OkVevo-Nia/pull/29) shipped in **v0.18.4** | Delta step 1. Icons live in `brand/assets/` and copy at pack time. |
 | 2026-10-03 | n/a (delta layer, not a Hermes sha) | Locale overlay | [#30](https://github.com/Jaikarans2003/OkVevo-Nia/pull/30) shipped in **v0.18.4** | Delta step 2. Nia catalogs ship from `brand/locales/`. |
+| 2026-10-04 | n/a (dependency pins, not a Hermes sha) | **B** lock bumps | Batch 1c on `sync/batch1c-security` | httpx2 2.7.0→2.12.0. httpcore2 moves to 2.12.0 because httpx2 2.12.0 requires that exact version; the advisory floor is 2.10.0. tornado 6.5.8→6.5.9 on the messaging extra and the Telegram lazy-install pin. Desktop dompurify 3.4.13→3.4.16. Website, photon, ui-tui, and dev-only npm left alone. |
 
 ## Phase 4 — Electron major (2026-09-25)
 
