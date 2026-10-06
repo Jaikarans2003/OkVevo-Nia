@@ -2060,6 +2060,43 @@ def _(rid, params: dict) -> dict:
         _mcp_reset_profile(token)
 
 
+@method("mcp.servers.status")
+def _(rid, params: dict) -> dict:
+    """Cached connection health. Never connects or starts a sign-in.
+
+    Result: ``{servers: [{name, transport, tools, connected, disabled, status}],
+    checked_at}``. Raw error text stays off the wire.
+
+    Runtime state is included only for the launch profile. This process has
+    one MCP registry, so another profile would otherwise see those connections.
+    """
+    token, err = _mcp_resolve_profile(rid, params)
+    if err:
+        return err
+    try:
+        import time
+
+        from hermes_cli.mcp_config import _get_mcp_servers
+        from hermes_constants import get_process_hermes_home, hermes_home_key
+        from tools.mcp_tool import get_mcp_status
+
+        configured = _get_mcp_servers()
+        include_runtime = hermes_home_key() == hermes_home_key(get_process_hermes_home())
+        safe = ("name", "transport", "tools", "connected", "disabled", "status")
+        servers = get_mcp_status(configured, include_runtime=include_runtime)
+        return _ok(
+            rid,
+            {
+                "servers": [{key: entry[key] for key in safe if key in entry} for entry in servers],
+                "checked_at": int(time.time() * 1000),
+            },
+        )
+    except Exception as e:
+        return _err(rid, 5024, str(e))
+    finally:
+        _mcp_reset_profile(token)
+
+
 @method("mcp.servers.add")
 def _(rid, params: dict) -> dict:
     """Add/save an MCP server to a profile's config.yaml.

@@ -51,6 +51,13 @@ Short records of fork choices. One entry each: date, decision, reason, revisit t
 - **Reason:** Batch 1 was 63%, the Batch 2 table 75%, Batch 2a 67%, Batch 2b 88%. Hermes is still adding thousands of commits a week. A rebuild now pauses security and bugfix shipping.
 - **Revisit trigger:** 2026-11-01, threshold 70%.
 
+## Image and search providers stay Fal and Tavily
+
+- **Date:** 2026-10-05
+- **Decision:** Do not add new image or search providers. Image generation stays Fal. Web search stays Tavily.
+- **Reason:** Upstream Meta image generation needs its own API key and a new portal route beside Fal. Perplexity’s Hermes-managed path goes through Nous; a bring-your-own key would clone the Tavily gateway. Codex search needs a Codex login, which is not a normal HTTP search. Fal and Tavily already run through the OkVevo portal.
+- **Revisit trigger:** Revisit if users ask for Perplexity/Meta.
+
 ## How pulls land
 
 - **Date:** 2026-10-04
