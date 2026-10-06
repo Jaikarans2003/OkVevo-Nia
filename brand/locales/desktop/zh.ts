@@ -1596,7 +1596,12 @@ export const zh: Translations = {
     ageDays: days => `${days} 天前`,
     durationSeconds: seconds => `${seconds} 秒`,
     durationMinutes: (minutes, seconds) => `${minutes} 分 ${seconds} 秒`,
-    tokens: value => `${value} 词元`
+    tokens: value => `${value} 词元`,
+    steer: '引导',
+    steerPlaceholder: '此子代理的指令',
+    steerQueued: '已排队，等待下一个检查点',
+    stopRequested: '已请求停止',
+    requestRejected: '子代理未接受请求'
   },
 
   commandCenter: {

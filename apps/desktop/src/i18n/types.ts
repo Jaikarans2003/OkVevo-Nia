@@ -1237,6 +1237,11 @@ export interface Translations {
     streaming: string
     files: string
     moreFiles: (count: number) => string
+    steer: string
+    steerPlaceholder: string
+    steerQueued: string
+    stopRequested: string
+    requestRejected: string
     delegation: (index: number) => string
     workers: (count: number) => string
     workersActive: (count: number) => string
