@@ -32,6 +32,7 @@ Merge commits for #20–#26 are not ancestors of the v0.18.4 tag. Their file cha
 | 2026-10-05 | `c48e05a9d012` (newest sha taken in Batch 2b only; not a full `origin/main` sync) | **B** selective cherry-picks | Batch 2b on `sync/batch2b-bugfix` | Previous last synced sha: `0466a04bc874`. Ratio **7/8 ≈ 88%**. See Batch 2b rows below. |
 | 2026-10-05 | `ec58e08a35` (F1 only; not a full `origin/main` sync) | **B** selective cherry-pick | `feat/cron-rerun` | Cron re-run when a fire never reached the model. Hermes docs page skipped. Repeat-slot guard from `c84ef16384` hand-applied. |
 | 2026-10-05 | `9a1f06293d` (F2 only; not a full `origin/main` sync) | **B** selective cherry-pick | `feat/mcp-health` | MCP discovery concurrency cap and cached `mcp.servers.status`. Hermes docs pages skipped. Health commit `a6699d60f4` / `0d8a1575c5` backported onto the single `mcp_tool.py`. |
+| 2026-10-05 | `6b22e10826` (F3 only; not a full `origin/main` sync) | **B** selective cherry-pick | `feat/group-member-picker` | Group settings can change who is in the room. New labels live in the bots string table. |
 
 ## Phase 4 — Electron major (2026-09-25)
 
@@ -155,3 +156,4 @@ When a SECURITY commit is not a clean cherry-pick, add a row:
 | 2026-10-05 | `5208541ba1` | **backported** | `tools/mcp_tool.py` | Discovery still lives in `mcp_tool.py` (`mcp_tool_discovery.py` is not on Nia). The connect gather takes a semaphore. |
 | 2026-10-05 | `9a1f06293d` | **backported** | `tools/mcp_tool.py`, `hermes_cli/config_defaults.py`, `tests/tools/test_mcp_tool.py` | Cap reads `mcp.discovery_concurrency` (default 4, 0 = unlimited). Pass timeout is 120s per wave, capped at 300s. Lock waiter is that ceiling plus 20 retries so a loser does not start a second discovery. Docs pages not taken. |
 | 2026-10-05 | `a6699d60f4` + `0d8a1575c5` | **backported** (passive status only) | `tools/mcp_tool.py`, `tui_gateway/methods_tools.py`, `tests/tui_gateway/test_mcp_profile_rpcs.py` | `mcp.servers.status` returns cached rows and strips `error`. Nia has no per-server profile tag, so a named profile that is not the launch profile gets config-only rows. Reason codes and the desktop connections contract were not taken. |
+| 2026-10-05 | `6b22e10826` | **backported** | `apps/desktop/src/plugins/hermes-bots/group-chat-view.tsx`, `apps/desktop/src/plugins/hermes-bots/i18n.ts` | Cherry-pick conflicted on the Nia speaker label import. The picker is kept. New on-screen strings are in the bots string table (English, Japanese, and both Chinese catalogs), not hardcoded. |

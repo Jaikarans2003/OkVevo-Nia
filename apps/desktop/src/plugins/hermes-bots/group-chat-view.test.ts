@@ -288,6 +288,12 @@ describe('disband', () => {
 
     expect(envelope.deleted?.['name:Gone']).toBeGreaterThan(0)
   })
+
+  it('refuses to save a group with fewer than two members', async () => {
+    const room = await loadRoom()
+
+    await expect(room.view.setGroupChatMembers('Room', [{ name: 'only' } as RosterRow])).rejects.toThrow(/between 2 and/)
+  })
 })
 
 describe('room message paint sanitizer', () => {
