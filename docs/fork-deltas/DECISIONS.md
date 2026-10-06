@@ -9,6 +9,13 @@ Short records of fork choices. One entry each: date, decision, reason, revisit t
 - **Reason:** The throwaway replay (U3) conflicted on 37 of 60 commits and 314 files. A crude resolve failed branding-adjacent JS checks and 5,721 Python tests. Batch 1 then needed a backport on 12 of 19 commits (63%).
 - **Revisit trigger:** Karan schedules the rebuild, or two further landed batches both need a backport on most commits. Measured again after Batch 2b.
 
+## Delta step 3 (product-name token)
+
+- **Date:** 2026-10-06
+- **Decision:** Delta step 3 (product-name token): not needed now. F5/F6 conflicts are spacing + one French wording, not product names. Revisit only if a future sync shows product-name conflicts.
+- **Reason:** The F5 locale conflicts are column alignment in the catalogs. The French difference is wording, and that wording stays in `brand/locales/` overlays. A product-name token would not remove those conflicts.
+- **Revisit trigger:** A future sync that conflicts on product-name strings.
+
 ## Delta-reduction overlay
 
 - **Date:** 2026-10-02
