@@ -1554,21 +1554,18 @@ export const zhHant = defineLocale({
     failedRename: '重新命名設定檔失敗'
   },
 
+  modelAssignment: {
+    saveFailed: 'Nia 未儲存該模型變更。',
+    confirmTitle: '模型選擇警告',
+    confirmDetail: '僅在你接受此權衡時確認。',
+    confirmAction: '確認',
+    declined: '已取消模型變更 — 你拒絕了資料訓練層級警告。'
+  },
+
   cron: {
     close: '關閉排程',
     title: '排程工作',
     count: count => `${count} 個工作`,
-    modelImpact: {
-      title: '排程工作需要檢查',
-      message: count => `在您檢查模型設定之前，${count} 個排程工作將被略過。`,
-      detailMore: (names, remaining) => `${names}，以及另外 ${remaining} 個`,
-      review: '檢查排程工作',
-      saveFailed: 'Nia 未儲存該模型變更。',
-      confirmTitle: '模型選擇警告',
-      confirmDetail: '僅在你接受此權衡時確認。',
-      confirmAction: '確認',
-      declined: '已取消模型變更 — 你拒絕了資料訓練層級警告。'
-    },
     search: '搜尋排程工作…',
     loading: '正在載入排程工作…',
     states: {

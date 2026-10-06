@@ -2024,48 +2024,67 @@ def _normalize_workdir(workdir: Optional[str]) -> Optional[str]:
     return str(resolved)
 
 
-def _resolve_default_model_snapshot() -> Optional[str]:
-    """Resolve the global default model the same way the cron ticker does.
+def _main_model_pin() -> Tuple[Optional[str], Optional[str]]:
+    """(provider, model) the main agent is using right now.
 
-    Mirrors the unpinned-model resolution in ``cron/scheduler.py`` ``run_job``:
-    read ``config.yaml`` ``model.default`` (or the ``model`` alias / bare string
-    form), applying the managed-scope overlay and env expansion. Used by
-    ``create_job`` to snapshot the default model for unpinned jobs so a later
-    swap of the global default is detected at fire time (#44585).
-
-    Returns the resolved model string, or ``None`` if config is missing/empty
-    or resolution fails (fail-open — caller treats ``None`` as "no snapshot").
+    ``pinned=True`` stores this pair as an ordinary per-job pin. ``(None, None)``
+    when nothing is configured, and the job stays unpinned.
     """
+    model = None
     try:
         from hermes_cli.config import _expand_env_vars, read_user_config_raw
 
         cfg_path = get_hermes_home() / "config.yaml"
-        if not cfg_path.exists():
-            return None
-        cfg = read_user_config_raw(cfg_path)
-        try:
-            from hermes_cli import managed_scope
-            cfg = managed_scope.apply_managed_overlay(cfg)
-        except Exception:
-            pass
-        cfg = _expand_env_vars(cfg)
-        # Mirror run_job's precedence: the explicit cron-fleet default
-        # (cron.model) beats the global chat model for unpinned cron jobs.
-        cron_cfg = cfg.get("cron") or {}
-        if isinstance(cron_cfg, dict):
-            cron_model = cron_cfg.get("model")
-            if isinstance(cron_model, str) and cron_model.strip():
-                return cron_model.strip()
-        model_cfg = cfg.get("model") or {}
-        if isinstance(model_cfg, str):
-            return model_cfg.strip() or None
-        if isinstance(model_cfg, dict):
-            default = model_cfg.get("default") or model_cfg.get("model")
-            if isinstance(default, str):
-                return default.strip() or None
-        return None
+        if cfg_path.exists():
+            cfg = read_user_config_raw(cfg_path)
+            try:
+                from hermes_cli import managed_scope
+                cfg = managed_scope.apply_managed_overlay(cfg)
+            except Exception:
+                pass
+            cfg = _expand_env_vars(cfg)
+            model_cfg = cfg.get("model") or {}
+            if isinstance(model_cfg, str):
+                model = model_cfg.strip() or None
+            elif isinstance(model_cfg, dict):
+                default = model_cfg.get("default") or model_cfg.get("model")
+                if isinstance(default, str):
+                    model = default.strip() or None
     except Exception:
-        return None
+        model = None
+    model = _normalize_job_optional_text(model)
+    if not model:
+        return None, None
+    provider = None
+    try:
+        from hermes_cli.runtime_provider import resolve_runtime_provider
+        provider = _normalize_job_optional_text(
+            resolve_runtime_provider(requested=None).get("provider")
+        )
+    except Exception:
+        provider = None
+    return (provider.lower() if provider else None), model
+
+
+def _apply_pin_update(job: Dict[str, Any], updates: Dict[str, Any]) -> None:
+    """``pinned`` is not stored. It rewrites the per-job pin.
+
+    ``True`` with no explicit model locks the main agent's current
+    provider and model onto the job. ``False`` releases both so the job
+    follows the main model again. An explicit ``model`` in the same
+    update wins over either.
+    """
+    if "pinned" not in updates:
+        return
+    pinned = bool(updates.pop("pinned"))
+    if "model" in updates:
+        return
+    if pinned:
+        if not _normalize_job_optional_text(job.get("model")):
+            updates["provider"], updates["model"] = _main_model_pin()
+    else:
+        updates["provider"], updates["model"] = None, None
+
 
 
 def _normalize_job_optional_text(value: Any, *, strip_trailing_slash: bool = False) -> Optional[str]:
@@ -2111,60 +2130,6 @@ def _normalize_reasoning_effort(value: Any) -> Optional[str]:
         return "none"
     return text
 
-
-def _compute_provider_model_snapshots(
-    *,
-    provider: Any,
-    model: Any,
-    base_url: Any,
-    no_agent: Any,
-) -> Tuple[Optional[str], Optional[str]]:
-    """Snapshot unpinned inference axes for the provider/model drift guard.
-
-    Agent cron jobs with unpinned provider/model follow global config at fire
-    time. Capture the current resolution for each unpinned axis so a later
-    global switch fails closed instead of silently changing spend. Pinned axes
-    and no-agent script jobs intentionally carry no snapshot.
-    """
-    normalized_provider = _normalize_job_optional_text(provider)
-    normalized_model = _normalize_job_optional_text(model)
-    normalized_base_url = _normalize_job_optional_text(
-        base_url,
-        strip_trailing_slash=True,
-    )
-    if bool(no_agent):
-        return None, None
-
-    provider_snapshot: Optional[str] = None
-    model_snapshot: Optional[str] = None
-    if normalized_provider is None:
-        try:
-            from hermes_cli.runtime_provider import resolve_runtime_provider
-
-            runtime_kwargs = {"requested": None}
-            if normalized_base_url:
-                runtime_kwargs["explicit_base_url"] = normalized_base_url
-            snap = resolve_runtime_provider(**runtime_kwargs)
-            snap_provider = str(snap.get("provider") or "").strip().lower()
-            provider_snapshot = snap_provider or None
-        except Exception:
-            provider_snapshot = None
-    if normalized_model is None:
-        try:
-            model_snapshot = _resolve_default_model_snapshot() or None
-        except Exception:
-            model_snapshot = None
-    return provider_snapshot, model_snapshot
-
-
-def _normalized_inference_axes(job: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
-    """Return the stored inference-routing fields in their semantic form."""
-    return (
-        _normalize_job_optional_text(job.get("provider")),
-        _normalize_job_optional_text(job.get("model")),
-        _normalize_job_optional_text(job.get("base_url"), strip_trailing_slash=True),
-        bool(job.get("no_agent")),
-    )
 
 
 def _validate_job_mode_invariants(
@@ -2215,6 +2180,7 @@ def create_job(
     monitor_script: Optional[str] = None,
     monitor_url: Optional[str] = None,
     reasoning_effort: Optional[str] = None,
+    pinned: bool = False,
 ) -> Dict[str, Any]:
     """
     Create a new cron job.
@@ -2308,6 +2274,10 @@ def create_job(
     normalized_skills = _normalize_skill_list(skill, skills)
     normalized_model = _normalize_job_optional_text(model)
     normalized_provider = _normalize_job_optional_text(provider)
+    # pinned=True with no explicit model locks the current main agent
+    # provider+model as an ordinary pin. An explicit model wins.
+    if pinned and not normalized_model:
+        normalized_provider, normalized_model = _main_model_pin()
     normalized_base_url = _normalize_job_optional_text(base_url, strip_trailing_slash=True)
     normalized_script = str(script).strip() if isinstance(script, str) else None
     normalized_script = normalized_script or None
@@ -2358,13 +2328,6 @@ def create_job(
 
     label_source = (prompt_text or (normalized_skills[0] if normalized_skills else None) or (normalized_script if normalized_no_agent else None)) or "cron job"
 
-    provider_snapshot, model_snapshot = _compute_provider_model_snapshots(
-        provider=normalized_provider,
-        model=normalized_model,
-        base_url=normalized_base_url,
-        no_agent=normalized_no_agent,
-    )
-
     next_run_at = compute_next_run(parsed_schedule)
     if parsed_schedule.get("kind") == "once" and next_run_at is None:
         run_at = parsed_schedule.get("run_at") or schedule
@@ -2387,11 +2350,6 @@ def create_job(
         "skill": normalized_skills[0] if normalized_skills else None,
         "model": normalized_model,
         "provider": normalized_provider,
-        # Provider/model resolution captured at creation for unpinned jobs
-        # (#44585). None for pinned axes, no_agent jobs, resolution failures, and
-        # any pre-existing job written before these fields existed (back-compat).
-        "provider_snapshot": provider_snapshot,
-        "model_snapshot": model_snapshot,
         "base_url": normalized_base_url,
         "script": normalized_script,
         "no_agent": normalized_no_agent,
@@ -2567,7 +2525,7 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                         "completed": (job.get("repeat") or {}).get("completed", 0),
                     }
 
-            previous_inference_axes = _normalized_inference_axes(job)
+            _apply_pin_update(job, updates)
             updated = _apply_skill_fields({**job, **updates})
 
             if (
@@ -2605,9 +2563,6 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                 if job_payload_is_empty(updated):
                     raise ValueError(EMPTY_PAYLOAD_ERROR)
             schedule_changed = "schedule" in updates
-            inference_fields_changed = bool(
-                {"provider", "model", "base_url", "no_agent"}.intersection(updates)
-            ) and _normalized_inference_axes(updated) != previous_inference_axes
 
             if "skills" in updates or "skill" in updates:
                 normalized_skills = _normalize_skill_list(updated.get("skill"), updated.get("skills"))
@@ -2650,16 +2605,6 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                             f"{ONESHOT_GRACE_SECONDS}s in the past and cannot be scheduled."
                         )
                     updated["next_run_at"] = updated_next_run
-
-            if inference_fields_changed:
-                provider_snapshot, model_snapshot = _compute_provider_model_snapshots(
-                    provider=updated.get("provider"),
-                    model=updated.get("model"),
-                    base_url=updated.get("base_url"),
-                    no_agent=updated.get("no_agent"),
-                )
-                updated["provider_snapshot"] = provider_snapshot
-                updated["model_snapshot"] = model_snapshot
 
             if updated.get("enabled", True) and updated.get("state") != "paused" and not updated.get("next_run_at"):
                 next_run = compute_next_run(updated["schedule"])

@@ -994,8 +994,9 @@ async def test_dashboard_cron_noop_inference_fields_keep_existing_snapshots(
         name="dashboard-edit-job",
     )
 
-    assert job["provider_snapshot"] == "initial-provider"
-    assert job["model_snapshot"] == "test-model"
+    assert job.get("provider_snapshot") is None
+    assert job.get("model_snapshot") is None
+    assert job.get("model") is None
 
     current_provider["name"] = "changed-provider"
     (isolated_profiles["worker_alpha"] / "config.yaml").write_text(
@@ -1018,8 +1019,9 @@ async def test_dashboard_cron_noop_inference_fields_keep_existing_snapshots(
     )
 
     assert updated["name"] == "dashboard-edit-job-renamed"
-    assert updated["provider_snapshot"] == "initial-provider"
-    assert updated["model_snapshot"] == "test-model"
+    assert updated.get("model") is None
+    assert updated.get("provider_snapshot") is None
+    assert updated.get("model_snapshot") is None
 
 
 @pytest.mark.asyncio
@@ -1046,8 +1048,8 @@ async def test_update_cron_job_clears_snapshots_for_no_agent(
         name="agent-to-script-job",
     )
 
-    assert job["provider_snapshot"] == "worker-provider"
-    assert job["model_snapshot"] == "test-model"
+    assert job.get("provider_snapshot") is None
+    assert job.get("model_snapshot") is None
 
     updated = await web_server.update_cron_job(
         job["id"],
@@ -1060,8 +1062,8 @@ async def test_update_cron_job_clears_snapshots_for_no_agent(
         profile="worker_alpha",
     )
 
-    assert updated["provider_snapshot"] is None
-    assert updated["model_snapshot"] is None
+    assert updated.get("provider_snapshot") is None
+    assert updated.get("model_snapshot") is None
 
 
 @pytest.mark.asyncio

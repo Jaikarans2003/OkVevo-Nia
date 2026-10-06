@@ -7,7 +7,6 @@ import type { HermesConnection } from '@/global'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { activeConnectionScopeSuffix, rescopeConnectionScopedStores } from '@/lib/connection-scoped'
 import { persistBoolean, persistString, readJson, storedBoolean, storedString, writeJson } from '@/lib/storage'
-import { syncCronModelImpactConnection } from '@/store/cron-model-impact-scope'
 import type { SessionInfo, UsageStats } from '@/types/hermes'
 
 import type { SessionOwnerRoute, SessionOwnerScope } from './session-request-router'
@@ -972,7 +971,6 @@ export const setConnection = (next: Updater<HermesConnection | null>) => {
   // consumer reconciles against it. A null descriptor (reconnect blip)
   // keeps the current scope.
   rescopeConnectionScopedStores($connection.get())
-  syncCronModelImpactConnection($connection.get())
 }
 
 export const setGatewayState = (next: Updater<ConnectionState>) => updateAtom($gatewayState, next)

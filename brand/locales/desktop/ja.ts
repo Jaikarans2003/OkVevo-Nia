@@ -1618,21 +1618,18 @@ export const ja = defineLocale({
     failedRename: 'プロファイルの名前変更に失敗しました'
   },
 
+  modelAssignment: {
+    saveFailed: 'Nia はモデルの変更を保存しませんでした。',
+    confirmTitle: 'モデル選択の警告',
+    confirmDetail: 'このトレードオフを受け入れる場合のみ確認してください。',
+    confirmAction: '確認',
+    declined: 'モデル変更をキャンセルしました — データ学習ティアの警告を拒否しました。'
+  },
+
   cron: {
     close: 'Cron を閉じる',
     title: 'スケジュール済みジョブ',
     count: count => `${count} 件のジョブ`,
-    modelImpact: {
-      title: 'スケジュール済みジョブの確認が必要です',
-      message: count => `モデル設定を確認するまで、${count} 件のスケジュール済みジョブがスキップされます。`,
-      detailMore: (names, remaining) => `${names}、ほか ${remaining} 件`,
-      review: 'スケジュール済みジョブを確認',
-      saveFailed: 'Nia はモデルの変更を保存しませんでした。',
-      confirmTitle: 'モデル選択の警告',
-      confirmDetail: 'このトレードオフを受け入れる場合のみ確認してください。',
-      confirmAction: '確認',
-      declined: 'モデル変更をキャンセルしました — データ学習ティアの警告を拒否しました。'
-    },
     search: 'Cron ジョブを検索...',
     loading: 'Cron ジョブを読み込み中...',
     states: {

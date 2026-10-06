@@ -2121,21 +2121,18 @@ export const zh: Translations = {
     failedRename: '重命名配置档案失败'
   },
 
+  modelAssignment: {
+    saveFailed: 'Nia 未保存该模型更改。',
+    confirmTitle: '模型选择警告',
+    confirmDetail: '仅在你接受此权衡时确认。',
+    confirmAction: '确认',
+    declined: '已取消模型更改 — 你拒绝了数据训练层级警告。'
+  },
+
   cron: {
     close: '关闭定时任务',
     title: '定时任务',
     count: count => `${count} 个任务`,
-    modelImpact: {
-      title: '定时任务需要检查',
-      message: count => `在您检查模型设置之前，${count} 个定时任务将被跳过。`,
-      detailMore: (names, remaining) => `${names}，以及另外 ${remaining} 个`,
-      review: '检查定时任务',
-      saveFailed: 'Nia 未保存该模型更改。',
-      confirmTitle: '模型选择警告',
-      confirmDetail: '仅在你接受此权衡时确认。',
-      confirmAction: '确认',
-      declined: '已取消模型更改 — 你拒绝了数据训练层级警告。'
-    },
     search: '搜索定时任务…',
     loading: '正在加载定时任务…',
     states: {
