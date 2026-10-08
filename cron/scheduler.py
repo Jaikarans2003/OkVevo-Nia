@@ -48,8 +48,6 @@ from hermes_constants import get_hermes_home
 from hermes_cli._subprocess_compat import windows_hide_flags
 from hermes_cli.config import (
     _expand_env_vars,
-    cron_model_drift_axes,
-    cron_model_drift_guard_enabled,
     load_config,
     resolve_cron_model_drift_defaults,
 )
@@ -5090,7 +5088,7 @@ def _cron_preflight_enabled(cfg: dict) -> bool:
     """Whether cron pre-dispatch configuration validation is enabled.
 
     Default ON; only the literal boolean ``false`` under ``cron.preflight``
-    opts out (mirrors ``cron_model_drift_guard_enabled`` semantics).
+    opts out.
     """
     cron_cfg = (cfg or {}).get("cron")
     if not isinstance(cron_cfg, dict):
@@ -5908,18 +5906,15 @@ def run_job(
                 else str(delivery_target["thread_id"])
             )
 
-        # Model resolution precedence: per-job override > cron.model (the
-        # cron-fleet default) > HERMES_MODEL env > config.yaml ``model:``
-        # (string or ``{default: ...}``). The per-job value is intentionally
-        # re-read from storage every tick so a ``hermes cron edit --model``
-        # after a failed run takes effect on the next tick — there is no
-        # in-memory cache.
+        # Model resolution precedence: per-job pin > cron.model (the
+        # cron-fleet default) > the main agent model (HERMES_MODEL env, then
+        # config.yaml ``model:``). Re-read every tick so a model change takes
+        # effect on the next fire. Legacy ``*_snapshot`` keys are ignored.
         model = job.get("model") or os.getenv("HERMES_MODEL") or ""
 
         # cron.model / cron.model_provider: a deliberate cron-fleet default
-        # so unattended jobs stop shadowing chat `/model` switches. When an
-        # axis resolves from here, the #44585 drift guard is skipped for that
-        # axis — following cron.model is explicit, not drift.
+        # so the whole fleet can stay off the chat model. Empty falls through
+        # to the main agent model.
         _cron_default_model = ""
         _cron_default_provider = ""
 
@@ -5958,8 +5953,6 @@ def run_job(
                         # the user's explicit "cron runs on this" setting.
                         model = _cron_default_model
                     else:
-                        # Shared with Desktop's post-save impact summary so both
-                        # paths compare snapshots against the same global model.
                         _, _global_model = resolve_cron_model_drift_defaults(_cfg)
                         if _global_model:
                             model = _global_model
@@ -6112,17 +6105,6 @@ def run_job(
             )
             return False, blocked_doc, "", f"{marker} {_pf_reason}"
 
-        primary_model_for_drift = model
-        configured_provider_for_drift = (
-            str(_model_cfg.get("provider") or "").strip().lower()
-            if isinstance(_model_cfg, dict)
-            else ""
-        )
-        primary_provider_for_drift = (
-            str(job.get("provider") or "").strip().lower()
-            or configured_provider_for_drift
-            or None
-        )
         try:
             # Do not inject HERMES_INFERENCE_PROVIDER here. resolve_runtime_provider()
             # already prefers persisted config over stale shell/env overrides when
@@ -6143,10 +6125,6 @@ def run_job(
             if job.get("base_url"):
                 runtime_kwargs["explicit_base_url"] = job.get("base_url")
             runtime = resolve_runtime_provider(**runtime_kwargs)
-            primary_provider_for_drift = (
-                str(runtime.get("provider") or "").strip().lower()
-                or primary_provider_for_drift
-            )
         except Exception as resolve_exc:
             # Primary provider resolution failed. Walk fallback_providers for:
             #   1) AuthError (missing/expired credential)
@@ -6163,10 +6141,6 @@ def run_job(
             if not (is_auth or is_transient_net):
                 raise RuntimeError(format_runtime_provider_error(resolve_exc)) from resolve_exc
 
-            primary_provider_for_drift = (
-                str(getattr(resolve_exc, "provider", "") or "").strip().lower()
-                or primary_provider_for_drift
-            )
             reason = "auth" if is_auth else "transient network"
             logger.warning(
                 "Job '%s': primary provider resolve failed (%s: %s), trying fallback",
@@ -6212,102 +6186,6 @@ def run_job(
         reasoning_config = _resolve_job_reasoning_config(
             job, _cfg if isinstance(_cfg, dict) else {}, str(model)
         )
-
-        # Provider/model-drift fail-closed guard (#44585).
-        #
-        # An UNPINNED job (no explicit job["provider"]/["model"]) follows the
-        # global default, which can change after the job was created — a switch
-        # to a paid PROVIDER (e.g. nous) OR a paid MODEL on the same provider
-        # (e.g. claude-fable-5 on openrouter). Without a guard the job would
-        # silently inherit that change and spend real money on every tick — the
-        # $7.73 incident named BOTH a provider and a model.
-        #
-        # create_job() snapshots whatever resolution would have picked at
-        # creation for each unpinned axis (job["provider_snapshot"] /
-        # job["model_snapshot"]). Here, for each axis that (a) has a snapshot and
-        # (b) is unpinned and (c) currently resolves to a DIFFERENT value, we
-        # fail closed: skip this run, make NO paid call, and deliver a loud,
-        # actionable alert telling the user to pin the axis explicitly.
-        #
-        # Back-compat: an axis with no snapshot (pre-existing jobs, no_agent, or
-        # any axis whose creation-time resolution failed) behaves exactly as
-        # before — the guard never engages for it. Pinned axes are unaffected.
-        #
-        # cron.model / cron.model_provider: an axis resolved from the explicit
-        # cron-fleet default is NOT drift — the user deliberately routed
-        # unpinned cron jobs there, so the guard is skipped for that axis.
-        if cron_model_drift_guard_enabled(_cfg):
-            _drift: list[str] = []
-            _current_provider = str(
-                primary_provider_for_drift or runtime.get("provider") or ""
-            ).strip().lower()
-            _current_model = str(primary_model_for_drift or "").strip().lower()
-            for _axis in cron_model_drift_axes(
-                job,
-                current_provider=_current_provider,
-                current_model=_current_model,
-                config=_cfg,
-            ):
-                _snapshot = str(job.get(f"{_axis}_snapshot") or "").strip().lower()
-                _current = _current_provider if _axis == "provider" else _current_model
-                _drift.append(f"{_axis} '{_snapshot}' -> '{_current}'")
-            if _drift:
-                _changes = "; ".join(_drift)
-                # Lifecycle-aware remediation (#72056, @sashmatash): a finite
-                # one-shot is consumed by this attempted dispatch — telling an
-                # operator to edit a spent job is a dead end. Recurring and
-                # repeatable jobs get the pin command instead.
-                _repeat = job.get("repeat") if isinstance(job.get("repeat"), dict) else {}
-                _finite_oneshot = (
-                    isinstance(job.get("schedule"), dict)
-                    and job["schedule"].get("kind") == "once"
-                    and _repeat.get("times") == 1
-                )
-                if _finite_oneshot:
-                    _remediation = (
-                        "This finite one-shot job is consumed by this attempted run; "
-                        "create a new one-shot job at a future time with an explicit "
-                        "provider and model."
-                    )
-                else:
-                    _remediation = (
-                        "To run on the new config, on the host running Hermes "
-                        "pin it explicitly: "
-                        f"`hermes cron edit {job_id} --provider <provider> "
-                        "--model <model>` (or pin the original values to keep "
-                        "them)."
-                    )
-                logger.warning(
-                    "Job '%s': SKIPPED — global inference config drifted since "
-                    "creation (%s) and this job is unpinned. Skipped to prevent "
-                    "unintended spend. %s",
-                    job_id,
-                    _changes,
-                    _remediation,
-                )
-                # Alert-once (#73506 shape): persist the drift_alerted bit so
-                # only the FIRST drifted tick delivers; run_one_job suppresses
-                # delivery on the silent marker. mark_job_run clears the bit
-                # when a run succeeds (drift healed), re-arming the alert.
-                _drift_already_alerted = False
-                try:
-                    from cron.jobs import mark_drift_alerted
-
-                    _drift_already_alerted = mark_drift_alerted(job_id)
-                except Exception:
-                    pass  # fail open: better a duplicate alert than none
-                _drift_marker = (
-                    DRIFT_SKIP_SILENT_MARKER if _drift_already_alerted
-                    else DRIFT_SKIP_MARKER
-                )
-                raise RuntimeError(
-                    f"{_drift_marker} Skipped to prevent unintended spend: global "
-                    f"inference config drifted since this job was created "
-                    f"({_changes}), and this job is unpinned. No inference call "
-                    f"was made. {_remediation} "
-                    f"This alert is sent once; the job stays skipped until the "
-                    f"config is pinned or restored. See #44585."
-                )
 
         fallback_model = get_fallback_chain(_cfg) or None
         credential_pool = None

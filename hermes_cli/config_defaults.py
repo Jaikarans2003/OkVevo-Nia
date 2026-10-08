@@ -2712,17 +2712,9 @@ DEFAULT_CONFIG = {
         # with ONE alert (no re-alert every tick) and NO LLM call is made.
         # Set to false to restore the old behavior (fail during the run).
         "preflight": True,
-        # Fail closed when an unpinned job's current global model/provider
-        # differs from its creation-time snapshot. This prevents unattended
-        # jobs from silently inheriting a paid default. Set to false only when
-        # jobs should deliberately track changing global inference defaults.
-        "model_drift_guard": True,
-        # Default inference model for cron jobs (Axis A — WHAT model an
-        # agent job runs on). Resolution at fire time: per-job user pin >
-        # cron.model > global model.default. When set, unpinned jobs follow
-        # this deliberately, so the #44585 model-drift fail-closed guard does
-        # not engage for the model axis — cron spend no longer shadows chat
-        # `/model` switches. Empty string = fall through to model.default.
+        # Default model for cron jobs (WHAT model runs). Fire-time resolution: per-job pin >
+        # cron.model > model.default (the main agent model). An unpinned job follows the main
+        # model on every run; cron.model decouples the whole fleet from chat. "" = fall through.
         "model": "",
         # Inference provider paired with cron.model (NOT the scheduler
         # provider below). Empty string = resolve from global config.

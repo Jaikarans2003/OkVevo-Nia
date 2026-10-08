@@ -762,6 +762,8 @@ def _format_job(job: Dict[str, Any]) -> Dict[str, Any]:
         "prompt_preview": prompt[:100] + "..." if len(prompt) > 100 else prompt,
         "model": job.get("model"),
         "provider": job.get("provider"),
+        # Derived, never stored: a job with its own model is locked.
+        "pinned": bool(str(job.get("model") or "").strip()),
         "base_url": job.get("base_url"),
         "schedule": job.get("schedule_display") or "?",
         "repeat": _repeat_display(job),
@@ -1482,6 +1484,7 @@ def cronjob(
     monitor_script: Optional[str] = None,
     monitor_url: Optional[str] = None,
     reasoning_effort: Optional[str] = None,
+    pinned: Optional[bool] = None,
     task_id: str = None,
     session_id: Optional[str] = None,
 ) -> str:
@@ -1598,6 +1601,7 @@ def cronjob(
                     # dispatch below: models do not make model-config
                     # decisions (standing policy).
                     reasoning_effort=reasoning_effort,
+                    pinned=bool(pinned),
                 )
             except CronSchedulerRegistrationError as exc:
                 _partial = exc.to_dict()
@@ -1814,6 +1818,11 @@ def cronjob(
                 # CLI-only lane (see create above): update_job validates
                 # against the canonical grammar; empty string clears the pin.
                 updates["reasoning_effort"] = reasoning_effort
+            if pinned is not None:
+                # Locks or releases the main agent model. Cannot point the
+                # job at a different model — an explicit model in this
+                # update wins inside update_job.
+                updates["pinned"] = bool(pinned)
             # Re-validate the EFFECTIVE provider/base_url on EVERY update, not
             # only when this update supplies provider/base_url. A job persisted
             # before this guard (or written directly to the jobs store) may
@@ -1956,7 +1965,9 @@ CRONJOB_SCHEMA = {
     "name": "cronjob",
     "description": """Manage scheduled cron jobs: action='create' schedules a job from a prompt and/or skills; 'list' inspects jobs; 'update'/'pause'/'resume'/'remove' manage one by job_id (always list first — never guess job IDs); 'run' fires a job immediately in the BACKGROUND (returns a handle at once, outcome re-enters the conversation when done — do not wait or poll; optional 'prompt' adds transient context for that fire only).
 
-Jobs run in a fresh session with no current-chat context, so prompts must be self-contained, and the agent's FINAL RESPONSE is what gets delivered — cron runs are autonomous and cannot ask questions. Prefer updating an existing job over creating near-duplicates.""",
+Jobs run in a fresh session with no current-chat context, so prompts must be self-contained, and the agent's FINAL RESPONSE is what gets delivered — cron runs are autonomous and cannot ask questions. Prefer updating an existing job over creating near-duplicates.
+
+Jobs run on the main agent model at fire time unless pinned. pinned=true locks the current main model onto the job; pinned=false releases it. Only set pinned when the user asks.""",
     "parameters": {
         "type": "object",
         "properties": {
@@ -2024,6 +2035,10 @@ Jobs run in a fresh session with no current-chat context, so prompts must be sel
             "workdir": {
                 "type": "string",
                 "description": "Optional absolute existing path to run the job from: injects that directory's AGENTS.md/context files and anchors terminal/file tools there. On update, '' clears."
+            },
+            "pinned": {
+                "type": "boolean",
+                "description": "For create/update. ONLY set when the user explicitly asks to pin or unpin a job's model. pinned=true locks the CURRENT main agent model (and its provider) onto the job so later model changes never touch it; pinned=false releases the lock so the job follows the main agent model again. Never set it on your own initiative: by default jobs follow the main model. It cannot point the job at a different model."
             },
             "attach_to_session": {
                 "type": "boolean",
@@ -2095,6 +2110,7 @@ def _cronjob_handler(args, **kw):
         workdir=args.get("workdir"),
         no_agent=args.get("no_agent"),
         attach_to_session=args.get("attach_to_session"),
+        pinned=args.get("pinned"),
         monitor_script=_mon_script,
         monitor_url=_mon_url,
         task_id=kw.get("task_id"),

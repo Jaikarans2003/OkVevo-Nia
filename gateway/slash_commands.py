@@ -5314,13 +5314,21 @@ class GatewaySlashCommandsMixin:
         )
 
     async def _handle_branch_command(self, event: MessageEvent) -> str:
-        """Handle /branch [name] — fork the current session into a new independent copy.
+        """Handle /branch [--here] [name] — fork the current session into an independent copy.
 
-        Copies conversation history to a new session so the user can explore
-        a different approach without losing the original.
-        Inspired by Claude Code's /branch command.
+        Thread-capable platforms (Discord, Telegram, Slack, Matrix) open a new
+        sibling thread bound to the clone and leave this chat on the original
+        session. ``--here``, and every platform without threads, switches this
+        chat onto the clone.
         """
+        import json as _json
         import uuid as _uuid
+
+        from gateway.slash_commands_branch_thread import (
+            BRANCH_THREAD_PLATFORMS,
+            format_thread_ref,
+            parse_branch_args,
+        )
 
         if not self._session_db:
             from hermes_state import format_session_db_unavailable
@@ -5335,8 +5343,6 @@ class GatewaySlashCommandsMixin:
         if not history:
             return t("gateway.branch.no_conversation")
 
-        branch_name = event.get_command_args().strip()
-
         # Generate the new session ID
         from datetime import datetime as _dt
         now = _dt.now()
@@ -5344,26 +5350,31 @@ class GatewaySlashCommandsMixin:
         short_uuid = _uuid.uuid4().hex[:6]
         new_session_id = f"{timestamp_str}_{short_uuid}"
 
-        # Determine branch title
-        if branch_name:
-            branch_title = branch_name
-        else:
+        stay_here, branch_title = parse_branch_args(event.get_command_args())
+        if not branch_title:
             current_title = await self._session_db.get_session_title(current_entry.session_id)
             base = current_title or "branch"
             branch_title = await self._session_db.get_next_title_in_lineage(base)
 
         parent_session_id = current_entry.session_id
+        # Open the sibling thread before the clone so a failed create never
+        # leaves an orphan branch row. None means branch in this chat.
+        dest_source = None if stay_here else await self._branch_open_thread(source, branch_title)
+        in_place = dest_source is None
+        if in_place:
+            dest_source = source
+        dest_key = session_key if in_place else self._session_key_for_source(dest_source)
 
         # Serialize the parent's full origin (same shape as the reset path's
         # db_create_kwargs in gateway/session.py, #82633) so the branch row
         # carries complete identity from birth. Prefer the live entry's origin
         # (it may hold richer metadata than the triggering event's source).
-        _branch_origin = current_entry.origin or source
+        # A thread branch is routed by the new thread, so its origin is the
+        # destination. An in-place branch keeps the live entry's origin.
+        _branch_origin = (current_entry.origin or source) if in_place else dest_source
         _branch_origin_json = None
         if _branch_origin is not None:
             try:
-                import json as _json
-
                 _branch_origin_json = _json.dumps(_branch_origin.to_dict())
             except Exception:
                 _branch_origin_json = None
@@ -5397,12 +5408,13 @@ class GatewaySlashCommandsMixin:
                 # path's db_create_kwargs in gateway/session.py, #82633) so
                 # consumers that read routing/presentation data from state.db
                 # (mcp_serve, mirror, channel directory) see the branch row
-                # fully formed with zero backfill gap.
-                user_id=source.user_id,
-                session_key=session_key,
-                chat_id=source.chat_id,
-                chat_type=source.chat_type,
-                thread_id=source.thread_id,
+                # fully formed with zero backfill gap. A sibling thread writes
+                # the destination's columns, not this chat's.
+                user_id=dest_source.user_id,
+                session_key=dest_key,
+                chat_id=dest_source.chat_id,
+                chat_type=dest_source.chat_type,
+                thread_id=dest_source.thread_id,
                 origin_json=_branch_origin_json,
                 display_name=current_entry.display_name,
             )
@@ -5450,18 +5462,64 @@ class GatewaySlashCommandsMixin:
         except Exception:
             pass
 
-        # Switch the session store entry to the new session
-        new_entry = await self.async_session_store.switch_session(session_key, new_session_id)
+        if not in_place:
+            # Materialize the thread's own entry, then point it at the clone.
+            # This chat's session key is never touched, so the original stays live.
+            await self.async_session_store.get_or_create_session(dest_source)
+        new_entry = await self.async_session_store.switch_session(dest_key, new_session_id)
         if not new_entry:
             return t("gateway.branch.switch_failed")
-        self._clear_session_boundary_security_state(session_key)
+        self._clear_session_boundary_security_state(dest_key)
 
-        # Evict any cached agent for this session
-        self._evict_cached_agent(session_key)
+        # Evict any cached agent for the session that moved
+        self._evict_cached_agent(dest_key)
 
         msg_count = len([m for m in history if m.get("role") == "user"])
-        key = "gateway.branch.branched_one" if msg_count == 1 else "gateway.branch.branched_many"
-        return t(key, title=branch_title, count=msg_count, parent=parent_session_id, new=new_session_id)
+        if in_place:
+            key = "gateway.branch.branched_one" if msg_count == 1 else "gateway.branch.branched_many"
+            reply = t(key, title=branch_title, count=msg_count, parent=parent_session_id, new=new_session_id)
+            if not stay_here and source.platform in BRANCH_THREAD_PLATFORMS:
+                reply += "\n" + t("gateway.branch.thread_fallback")
+            return reply
+        key = "gateway.branch.branched_thread_one" if msg_count == 1 else "gateway.branch.branched_thread_many"
+        return t(
+            key,
+            title=branch_title,
+            count=msg_count,
+            parent=parent_session_id,
+            new=new_session_id,
+            thread=format_thread_ref(source.platform, dest_source.thread_id),
+        )
+
+    async def _branch_open_thread(self, source: SessionSource, title: str) -> Optional[SessionSource]:
+        """Open the sibling thread a plain ``/branch`` clones into.
+
+        Returns the destination source, or None when this chat cannot host a
+        thread (in-place fallback). Uses ``_adapter_for_source`` — Nia has no
+        ``_delivery_adapter_for``.
+        """
+        from gateway.slash_commands_branch_thread import branch_dest_source, branch_thread_parent
+
+        parent_id = branch_thread_parent(source)
+        adapter = self._adapter_for_source(source) if parent_id else None
+        if adapter is None:
+            return None
+        try:
+            thread_id = await adapter.create_handoff_thread(parent_id, title)
+        except Exception:
+            logger.warning(
+                "Branch: create_handoff_thread failed on %s; branching in place",
+                source.platform.value,
+                exc_info=True,
+            )
+            return None
+        if not thread_id:
+            return None
+        # Discord only answers un-mentioned follow-ups in threads it has participated in.
+        threads = getattr(adapter, "_threads", None)
+        if threads is not None:
+            threads.mark(str(thread_id))
+        return branch_dest_source(source, parent_id=parent_id, thread_id=str(thread_id), title=title)
 
     async def _handle_topup_command(self, event: MessageEvent) -> str:
         """Handle /topup -- show the Nous balance and hand off to the portal.
