@@ -329,6 +329,19 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Should fix before live (lower severity)
 
+### [ ] Drama Phase 2 video and audio inputs
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live |
+| **Risk if skipped** | Extend, edit-video, and voice-clone jobs fail closed in Phase 1. Continuous scenes use the previous shot's last frame instead, and only when ffmpeg is on PATH. |
+| **Scope** | `skills/creative/short-drama-produce/scripts/provider_adapters.py`, `OkVevo-Web/src/lib/fal/rateCard.ts`, Fal billing-events |
+| **Fix** | After a billing-events check, allow video/audio inputs and settle the reference surcharge from the stored usage row. Do not resubmit. |
+| **Verify** | A two-shot extend fixture is rejected in Phase 1. After the gate opens, one extend job settles once from the billing-events quantity. |
+| **Notes** | Logged 2026-10-10. Phase 1 ships image-to-video continuity only. |
+
+
+
 ### [x] Connect GitHub repo to App Hosting backend `okvevo-web`
 
 | Field | Value |

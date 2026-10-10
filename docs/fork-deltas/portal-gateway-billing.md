@@ -26,6 +26,17 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Re-apply** | Re-add whole `okvevo_gateway.py` if missing; grep `apply_okvevo_gateway` after merges |
 | **Check** | `pytest tests/agent/test_okvevo_gateway.py` (+ Fal/Tavily siblings) |
 
+### Drama Fal adapter
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[portal]` |
+| **Files** | `okvevo/drama_fal_adapter.py`; portal `OkVevo-Web/src/lib/fal/dramaChooser.ts`, `dramaGate.ts`, `app/api/gateway/fal/drama/[command]/route.ts` |
+| **What** | Skill commands POST to the portal. The portal owns choose, quote, and the credit hold. The Python file has no price math and no Fal key. Drama jobs now also submit through `skills/creative/short-drama-produce/scripts/provider_adapters.py` (`portal`). H3 Max quotes use the rate card: omitting resolution used to bill Fal's 768P default while the old flat quote assumed $0.03/s; the card prices 768P explicitly. |
+| **Why** | One quote, one hold, no provider key in the app |
+| **Re-apply** | Keep the adapter as a client. Do not port `dramaChooser.ts` into Python. |
+| **Check** | `npx tsx src/lib/fal/dramaGate.selfcheck.ts`; snapshot test lists `okvevo/drama_fal_adapter.py` |
+
 ### Billing UI + links
 
 | Field | Value |
