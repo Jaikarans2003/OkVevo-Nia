@@ -57,7 +57,15 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **What** | Native extend/edit/reference/first+last/multi-shot through signed Firebase Storage uploads (`drama-inputs/`). GPT edit refs 16. Formula reserves + provisional settle; capture job reads Fal billing-events with `FAL_BILLING_KEY` (capture SA only; App Hosting never gets it). Voice clone: `fal-ai/minimax/voice-clone` (not chatterbox), ≥10s, consent, clone-once, 7-day warn. Cloned voice SoT is Firestore `clonedVoices` (uid-owned); speech 403 before hold if custom `voice_id` is not owned; local voices file is a cache + portal restore; delete tombstones the id so it cannot be registered or used again (Fal has no delete-voice API). Telegram removed; alerts = `opsAlerts` + log + admin dashboard. Kill switch + daily spend breaker. |
 | **Why** | Full skill parity; realized Fal margin; generation key stays submit-only |
 | **Re-apply** | Keep signed-URL media path. Keep formula reserves. Do not grant `FAL_BILLING_KEY` to App Hosting. Do not wire chatterbox. Do not resurrect Telegram. |
-| **Check** | `pytest tests/skills/test_drama_portal_adapter.py`; portal `npx tsx src/lib/fal/{rateCard,uploads,mediaInputs,capture,dramaSwitches,adminGuard}.selfcheck.ts` + `src/lib/ops/alert.selfcheck.ts` |
+| **Check** | `pytest tests/skills/test_drama_portal_adapter.py tests/agent/test_okvevo_fal_gateway.py`; portal `npx tsx src/lib/fal/{rateCard,uploads,mediaInputs,capture,dramaSwitches,adminGuard,spendGuard}.selfcheck.ts` + `src/lib/ops/alert.selfcheck.ts`. Upload/collect/voice HTTP uses `OKVEVO_WEB_ORIGIN` (no `/fal/queue` prefix). |
+
+### Drama review fix (2026-10-10)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[portal]` |
+| **What** | Portal refuses estimate ≤ 0; requires `run_id` + `approved_credits`; hashes resolved media; POSTs pickSubmitArgs + media only; kill switch + breaker (including this hold USD) on every metered submit; capture queries `captured == false` and skips `cost_total` ≤ 0; `/admin/drama` is a server 404 on the admin claim; billing-key IAM is an exact accessor set. Adapter HTTP uses `OKVEVO_WEB_ORIGIN`. Image/video OkVevo submits attach metering. |
+| **Check** | Same as Drama full parity. `_portal_url("/api/fal/uploads")` has no `/fal/queue` prefix. |
 
 ### Billing UI + links
 

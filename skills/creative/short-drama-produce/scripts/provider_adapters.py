@@ -2659,6 +2659,24 @@ def _portal_upload(job: Mapping[str, Any], path: Path, http: Any) -> str:
     return ref
 
 
+def _portal_site_origin() -> str:
+    origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
+    if not origin:
+        raise AdapterFailure(
+            "OkVevo portal origin is not configured. Nothing was submitted.",
+            category="configuration",
+            code="quote_unavailable",
+            retryable=False,
+        )
+    return origin
+
+
+def _portal_url(path: str) -> str:
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return f"{_portal_site_origin()}{path}"
+
+
 def _default_portal_http() -> "_PortalHttp":
     read_token, resolve, _quote_keys = _gateway_helpers()
     gateway = resolve()
@@ -2670,7 +2688,7 @@ def _default_portal_http() -> "_PortalHttp":
             code="signed_out",
             retryable=False,
         )
-    return _PortalHttp(str(gateway.gateway_origin).rstrip("/"), token)
+    return _PortalHttp(_portal_site_origin(), token)
 
 
 def _portal_media_args(
@@ -2767,14 +2785,7 @@ def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
             code="signed_out",
             retryable=False,
         )
-    origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
-    if not origin:
-        raise AdapterFailure(
-            "OkVevo portal origin is not configured. Nothing was submitted.",
-            category="configuration",
-            code="quote_unavailable",
-            retryable=False,
-        )
+    origin = _portal_site_origin()
     args = explicit_portal_args(job, endpoint)
     if job.get("modality") in {"tts", "speech"}:
         args.update(_portal_speech_args(job))
@@ -2858,7 +2869,7 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
             retryable=False,
         )
     token = read_token()
-    origin = str(gateway.gateway_origin).rstrip("/")
+    origin = _portal_site_origin()
     collecting = _collect_target(job)
     if collecting is not None:
         # collect: the job was submitted (and billed) earlier — poll the same
@@ -2877,7 +2888,7 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
             args["approved_credits"] = job["approved_credits"]
         args.update(_portal_media_args(job, endpoint))
         request = urllib.request.Request(
-            f"{origin}/{endpoint}",
+            f"{origin}/api/gateway/fal/queue/{endpoint}",
             data=json.dumps(args).encode("utf-8"),
             method="POST",
             headers={"Authorization": f"Key {token}", "Content-Type": "application/json"},

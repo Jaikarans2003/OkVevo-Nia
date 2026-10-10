@@ -13,6 +13,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
+import uuid
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -213,6 +214,19 @@ def okvevo_fal_spend_gate(
     if verdict.get("approved"):
         return None
     return verdict.get("message") or f"BLOCKED: {tool_name} was denied."
+
+
+def attach_okvevo_fal_metering(endpoint: str, arguments: dict) -> dict:
+    """Portal handleQueue requires run_id + approved_credits on every submit."""
+    credits = _quote_okvevo_fal_credits(endpoint, arguments)
+    if credits is None or credits <= 0:
+        raise OkvevoGatewayConfigError(
+            "OkVevo could not price this request. Nothing was submitted."
+        )
+    out = dict(arguments)
+    out["run_id"] = str(uuid.uuid4())
+    out["approved_credits"] = credits
+    return out
 
 
 def okvevo_fal_available() -> bool:

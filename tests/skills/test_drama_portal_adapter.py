@@ -517,3 +517,12 @@ def test_oversized_image_downscales_under_portal_bound(tmp_path):
     out.write_bytes(data)
     width, height, _ = adapters._probe_image(out)
     assert max(width, height) <= adapters.PORTAL_IMAGE_EDGE
+
+
+def test_portal_upload_url_has_no_queue_prefix(monkeypatch):
+    adapters = _load()
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", "https://www.okvevo.com")
+    url = adapters._portal_url("/api/fal/uploads")
+    assert url == "https://www.okvevo.com/api/fal/uploads"
+    assert "/fal/queue" not in url
+    assert adapters._portal_url("api/fal/uploads") == url

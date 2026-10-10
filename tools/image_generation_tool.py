@@ -855,6 +855,10 @@ def _submit_fal_request(model: str, arguments: Dict[str, Any]):
         return fal_client.submit(model, arguments=arguments, headers=request_headers)
 
     managed_client = _get_managed_fal_client(managed_gateway)
+    if getattr(managed_gateway, "vendor", "") == "okvevo-fal":
+        from agent.okvevo_gateway import attach_okvevo_fal_metering
+
+        arguments = attach_okvevo_fal_metering(model, arguments)
     try:
         return managed_client.submit(
             model,

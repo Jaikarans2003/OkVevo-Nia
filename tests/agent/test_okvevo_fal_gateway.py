@@ -164,3 +164,33 @@ class TestSpendGate:
             args={"duration": "6"},
         )
         assert denial == "BLOCKED: denied by user"
+
+
+def test_attach_metering_sets_run_id_and_approved(monkeypatch, tmp_path):
+    _sign_in(monkeypatch, tmp_path)
+    from agent.okvevo_gateway import attach_okvevo_fal_metering
+
+    monkeypatch.setattr(
+        "agent.okvevo_gateway._quote_okvevo_fal_credits",
+        lambda *_a, **_k: 42,
+    )
+    out = attach_okvevo_fal_metering("fal-ai/nano-banana-pro", {"prompt": "hi"})
+    assert out["prompt"] == "hi"
+    assert out["approved_credits"] == 42
+    assert isinstance(out["run_id"], str) and out["run_id"]
+
+
+def test_attach_metering_refuses_unpriced(monkeypatch, tmp_path):
+    _sign_in(monkeypatch, tmp_path)
+    from agent.okvevo_gateway import OkvevoGatewayConfigError, attach_okvevo_fal_metering
+
+    monkeypatch.setattr(
+        "agent.okvevo_gateway._quote_okvevo_fal_credits",
+        lambda *_a, **_k: 0,
+    )
+    try:
+        attach_okvevo_fal_metering("fal-ai/nano-banana-pro", {})
+    except OkvevoGatewayConfigError as exc:
+        assert "could not price" in str(exc)
+    else:
+        raise AssertionError("unpriced submit must fail closed")
