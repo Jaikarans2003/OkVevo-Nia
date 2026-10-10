@@ -7,6 +7,7 @@ import {
   appendUniquePathEntries,
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
+  bundledFfmpegDir,
   hermesManagedNodePathEntries,
   normalizeHermesHomeRoot,
   pathEnvKey,
@@ -190,6 +191,67 @@ test('Windows PATH casing and delimiter are preserved without POSIX sane entries
 
 test('appendUniquePathEntries drops empty entries and keeps first occurrence', () => {
   assert.equal(appendUniquePathEntries([':/a::/b', ['/a', '/c']], { delimiter: ':' }), '/a:/b:/c')
+})
+
+test('bundled ffmpeg dir resolves first on the backend PATH, before Hermes node', () => {
+  const result = buildDesktopBackendPath({
+    hermesHome: '/Users/test/.hermes',
+    venvRoot: '/Users/test/.hermes/hermes-agent/venv',
+    currentPath: '/usr/bin:/bin',
+    platform: 'darwin',
+    pathModule: path.posix,
+    bundledToolsDir: '/Applications/Nia.app/Contents/Resources/ffmpeg'
+  })
+
+  assert.equal(result.split(':')[0], '/Applications/Nia.app/Contents/Resources/ffmpeg')
+
+  const without = buildDesktopBackendPath({
+    hermesHome: '/Users/test/.hermes',
+    currentPath: '/usr/bin',
+    platform: 'darwin',
+    pathModule: path.posix,
+    bundledToolsDir: null
+  })
+  assert.equal(without.split(':')[0], '/Users/test/.hermes/node/bin')
+})
+
+test('bundledFfmpegDir only resolves a packaged dir that actually ships ffmpeg', () => {
+  const present = bundledFfmpegDir({
+    resourcesPath: '/res',
+    platform: 'darwin',
+    pathModule: path.posix,
+    existsSync: (candidate: string) => candidate === '/res/ffmpeg/ffmpeg'
+  })
+  assert.equal(present, '/res/ffmpeg')
+
+  const missingBinary = bundledFfmpegDir({
+    resourcesPath: '/res',
+    platform: 'darwin',
+    pathModule: path.posix,
+    existsSync: () => false
+  })
+  assert.equal(missingBinary, null)
+
+  const windows = bundledFfmpegDir({
+    resourcesPath: 'C:\\Nia\\resources',
+    platform: 'win32',
+    pathModule: path.win32,
+    existsSync: (candidate: string) => candidate === 'C:\\Nia\\resources\\ffmpeg\\ffmpeg.exe'
+  })
+  assert.equal(windows, 'C:\\Nia\\resources\\ffmpeg')
+
+  assert.equal(bundledFfmpegDir({ resourcesPath: undefined }), null)
+})
+
+test('buildDesktopBackendEnv puts the packaged ffmpeg dir first when it ships', () => {
+  const env = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin' },
+    platform: 'darwin',
+    pathModule: path.posix,
+    bundledToolsDir: '/res/ffmpeg'
+  })
+  assert.ok(env.PATH.startsWith('/res/ffmpeg:'))
 })
 
 test('buildDesktopBackendEnv exports OkVevo web origin (dev localhost, env wins)', () => {

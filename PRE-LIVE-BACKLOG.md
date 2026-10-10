@@ -340,6 +340,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | A two-shot extend fixture is rejected in Phase 1. After the gate opens, one extend job settles once from the billing-events quantity. |
 | **Notes** | Logged 2026-10-10. Phase 1 ships image-to-video continuity only. |
 
+### [ ] Daily Fal spend guard (global circuit breaker)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | A pricing bug or runaway skill can spend unbounded Fal USD in a day. Today the only brakes are per-job (`MAX_JOB_CREDITS` 70,000) and per-user concurrency; nothing stops a fleet-wide bleed, and nobody is alerted on daily totals. |
+| **Scope** | `OkVevo-Web/src/lib/fal/` (new guard read in `handleQueue.ts` before reserve), `src/app/api/cron/fal-drift/route.ts`, `scripts/fal-margin-report.ts` for the daily total |
+| **Fix** | Sum settled Fal USD per UTC day (from `gatewayJobs` or the margin report's billing-events pull); above a set limit, refuse NEW reserves with 429 and fire one HIGH ops alert. Kill switch for single endpoints stays the `METERABLE_ENDPOINTS` allowlist. |
+| **Verify** | Fixture: two days of settled rows; day over limit → new submit refuses before reserve and exactly one HIGH alert fires; next UTC day recovers. |
+| **Notes** | Logged 2026-10-10 during the drama must-fix pass. There is deliberately no `spendGuard.ts` yet — `spendGuard.selfcheck.ts` only pins reserve ordering. |
+
 
 
 ### [x] Connect GitHub repo to App Hosting backend `okvevo-web`

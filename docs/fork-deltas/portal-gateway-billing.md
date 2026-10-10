@@ -37,6 +37,17 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Re-apply** | Keep the adapter as a client. Do not port `dramaChooser.ts` into Python. |
 | **Check** | `npx tsx src/lib/fal/dramaGate.selfcheck.ts`; snapshot test lists `okvevo/drama_fal_adapter.py` |
 
+### Drama must-fix pass (2026-10-10)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[portal]` |
+| **Files** | `skills/creative/short-drama-produce/scripts/production_tool.py` + `provider_adapters.py`; portal `src/lib/fal/handleQueue.ts`, `rateCard.ts`, `holdSweep.ts`, `src/app/api/cron/fal-drift/route.ts`, `scripts/drama-release-hold.ts` |
+| **What** | Prepare fetches a fail-closed portal quote; confirm refuses paid jobs without a usable quote; run sends `approved_credits`; portal `submitPriceGate` refuses before any reserve when fresh price > approved. Portal submit inlines downscaled reference media (≤2048px, JPEG q90/PNG-alpha, 24MB body cap). GPT edit refs capped at 4 both sides until the billing-events smoke prices input tokens. Reserved holds >30m without a Fal request id raise ONE HIGH alert; release is manual via `scripts/drama-release-hold.ts` after a billing-events check. |
+| **Why** | No confirm without a price; no hold on refusal paths; no unpriced edit tokens; no silent stuck holds |
+| **Re-apply** | Keep the quote gate and price gate fail-closed; keep the ref cap mirrored in `GPT_IMAGE_MAX_REFS` and `_portal_endpoint`. |
+| **Check** | `pytest tests/skills/test_drama_produce_quote.py tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/rateCard.selfcheck.ts` |
+
 ### Billing UI + links
 
 | Field | Value |

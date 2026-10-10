@@ -212,6 +212,10 @@ SHOT_MATCH_STRENGTH = 0.7
 SHOT_MATCH_GAIN_LIMITS = (0.6, 1.6)
 SHOT_MATCH_SAMPLE = "fps=4,scale=64:-2"
 STORYBOARD_DOCUMENT = "分镜.md"
+# Delivery H.264 bitrate for the OS hardware encoders (~CRF 18 at 1080×1920).
+# Hardware encoders have no CRF; bitrate is their only quality knob.
+H264_DELIVERY_BITRATE = "12M"
+_ENCODER_LISTING_CACHE: dict[str, str] = {}
 SHOT_HEADING = re.compile(r"^##\s+(SHOT-[^\s·]+)")
 SHOT_REFERENCE = re.compile(r"SHOT-[A-Za-z0-9-]+")
 SCENE_ID = re.compile(r"[A-Za-z]+[0-9]+-SC[0-9]+")
@@ -1436,6 +1440,33 @@ def _normalize(text: str) -> str:
     return re.sub(r"[\s，。！？、；：…—·\-“”‘’\"'()（）]", "", text)
 
 
+def _h264_delivery_args(ffmpeg: str) -> list[str]:
+    """LGPL-safe H.264 encode args. The bundled Nia ffmpeg ships no GPL
+    encoders, so the OS hardware encoder leads; libx264 stays as the fallback
+    for developer machines whose ffmpeg has it. Fails before any rendering."""
+    if ffmpeg not in _ENCODER_LISTING_CACHE:
+        try:
+            result = subprocess.run(
+                [ffmpeg, "-hide_banner", "-encoders"],
+                capture_output=True, text=True, timeout=30,
+            )
+            _ENCODER_LISTING_CACHE[ffmpeg] = result.stdout if result.returncode == 0 else ""
+        except (OSError, subprocess.SubprocessError):
+            _ENCODER_LISTING_CACHE[ffmpeg] = ""
+    encoders = _ENCODER_LISTING_CACHE[ffmpeg]
+    for name in ("h264_videotoolbox", "h264_mf", "libx264"):
+        if f" {name} " not in encoders:
+            continue
+        if name == "libx264":
+            return ["-c:v", "libx264", "-preset", "medium", "-crf", "18"]
+        return ["-c:v", name, "-b:v", H264_DELIVERY_BITRATE]
+    raise EditError(
+        "这个 ffmpeg 没有可用的 H.264 编码器（LGPL 版不含 libx264，"
+        "也找不到 VideoToolbox / Media Foundation 硬件编码器）；"
+        "请使用 Nia 自带的 ffmpeg"
+    )
+
+
 def _resolve_media(episode: Path, project_root: Path, relative: str) -> Optional[Path]:
     """The file a cut list names, against the episode then the project; None if absent.
 
@@ -1512,7 +1543,7 @@ def render(
             if fps:
                 command += ["-frames:v", str(round(length * fps)), "-t", f"{length:.6f}"]
         command += [
-            "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+            *_h264_delivery_args(ffmpeg), "-pix_fmt", "yuv420p",
             "-ar", str(silence[0]), "-channel_layout", silence[1],
             "-c:a", "aac", "-b:a", "192k", str(segment),
         ]
@@ -1616,11 +1647,11 @@ def render(
                 "-filter_complex",
                 f"{chain},format=yuv420p[v]",
                 "-map", "[v]", "-map", "0:a",
-                "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+                *_h264_delivery_args(ffmpeg),
             ]
         elif filters:
-            command += ["-vf", ",".join(filters), "-c:v", "libx264",
-                        "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p"]
+            command += ["-vf", ",".join(filters), *_h264_delivery_args(ffmpeg),
+                        "-pix_fmt", "yuv420p"]
         else:
             command += ["-c:v", "copy"]
         if delivery.loudness_lufs is not None:

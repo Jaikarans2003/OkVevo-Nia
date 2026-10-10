@@ -19,3 +19,11 @@ Pinned source: https://github.com/zenstory-ai/drama-skills `c2426e03c0e7722bebcc
 - `short-drama-produce/scripts/provider_adapters.py`: portal path, speech voice table (schema examples plus Hindi via `language_boost`), speech max 5000, reference-audio cloning rejected in Phase 1, vendor API keys no longer accepted.
 - `short-drama-produce/references/okvevo-adapter.example.json`: commands point at `provider_adapters.py portal`.
 - `short-drama-produce/scripts/production_tool.py`: `--adapter-config` defaults to that example. Prepare preview includes an estimate label.
+
+## 2026-10-10 must-fix pass (quote fail-closed, refs, caps, ffmpeg)
+
+- `production_tool.py`: `prepare` fetches a signed-in portal quote for portal jobs and writes `metadata/quotes/<job>.json`; the preview shows `estimated_credits` or a `quote_error`. `confirm` refuses paid jobs without a usable quote (stale fingerprint, expired, unavailable, signed out). `run` sends `approved_credits` from the receipt.
+- `provider_adapters.py`: `quote` argv / `quote_only` payload → `POST /api/fal/quote` (fail-closed). Portal submit now inlines reference media: `image_url` (i2v, one first frame) / `image_urls` (gpt edit), downscaled to ≤2048px via ffmpeg and re-encoded JPEG q90 (PNG when alpha); body capped at 24MB (Cloud Run rejects >32MB before the app). Failures raise before submit, so before any hold.
+- gpt-image-2 edit references capped at 4 (adapter and `rateCard.ts` `GPT_IMAGE_MAX_REFS`) until the billing-events smoke prices input tokens; the card comment documents how to lift.
+- `short-drama-edit/scripts/edit_tool.py`: H.264 encode resolves the OS hardware encoder first (`h264_videotoolbox`, then `h264_mf`) at a 12 Mbps delivery bitrate, libx264 CRF 18 fallback on dev machines, clear error otherwise — the bundled LGPL ffmpeg ships no libx264. VP8-alpha overlay still decodes via `libvpx` (bundled).
+- Packaging: `apps/desktop/scripts/fetch-ffmpeg.mjs` (+ `build-ffmpeg-macos.mjs`) bundle pinned LGPL ffmpeg/ffprobe into `resources/ffmpeg/<platform>-<arch>/` → extraResources `ffmpeg/`; backend PATH puts it first (`bundledFfmpegDir` in `backend-env.ts`).
