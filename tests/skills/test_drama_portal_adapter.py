@@ -101,3 +101,26 @@ def test_download_allowlist_rejects_other_hosts():
             "a.mp4",
             provider="okvevo",
         )
+
+
+def test_wan_profile_routes_through_adapter():
+    """A profile whose target_video_model is wan-3.0 is not in the generic
+    chooser menu, but the adapter must still reach alibaba/wan-3.0-prime."""
+    adapters = _load()
+    job = {"modality": "video", "parameters": {"model": "wan-3.0"}, "references": []}
+    assert adapters._portal_endpoint(job) == "alibaba/wan-3.0-prime/text-to-video"
+    job["references"] = ["/tmp/ref.png"]
+    assert adapters._portal_endpoint(job) == "alibaba/wan-3.0-prime/image-to-video"
+
+
+def test_gpt_edit_ref_cap_is_four():
+    adapters = _load()
+    job = {
+        "modality": "image",
+        "parameters": {"model": "gpt-image-2"},
+        "references": [f"/tmp/r{i}.png" for i in range(5)],
+    }
+    with pytest.raises(adapters.AdapterFailure, match="at most 4"):
+        adapters._portal_endpoint(job)
+    job["references"] = job["references"][:4]
+    assert adapters._portal_endpoint(job) == "openai/gpt-image-2/edit"
