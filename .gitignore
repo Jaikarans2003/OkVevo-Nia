@@ -109,6 +109,9 @@ apps/shared/src/**/*.js
 apps/shared/src/**/*.js.map
 apps/shared/src/**/*.d.ts
 apps/desktop/release/
+# Bundled LGPL ffmpeg binaries (built/fetched by apps/desktop/scripts/fetch-ffmpeg.mjs;
+# license texts stay tracked under apps/desktop/resources/ffmpeg-licenses/).
+apps/desktop/resources/ffmpeg/
 *.tsbuildinfo
 
 # Web UI assets — synced from @nous-research/ui at build time via

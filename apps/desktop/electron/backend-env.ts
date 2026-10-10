@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 
 import { resolveOkvevoWebOrigin } from './okvevo-auth'
@@ -90,19 +91,43 @@ function hermesManagedNodePathEntries(
   return platform === 'win32' ? [root, bin] : [bin, root]
 }
 
+/**
+ * Packaged LGPL ffmpeg directory (extraResources `ffmpeg/`): the binary that
+ * must win resolution over anything on the user's PATH. Returns null when the
+ * app is unpackaged or the pack shipped no ffmpeg, so callers can pass the
+ * result straight into buildDesktopBackendPath.
+ */
+function bundledFfmpegDir({
+  resourcesPath = process.resourcesPath,
+  platform = process.platform,
+  pathModule = pathModuleForPlatform(platform),
+  existsSync = fs.existsSync
+}: any = {}) {
+  if (!resourcesPath) {
+    return null
+  }
+
+  const dir = pathModule.join(resourcesPath, 'ffmpeg')
+  const binary = pathModule.join(dir, platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')
+
+  return existsSync(binary) ? dir : null
+}
+
 function buildDesktopBackendPath({
   hermesHome,
   venvRoot,
   currentPath = '',
   platform = process.platform,
-  pathModule = pathModuleForPlatform(platform)
+  pathModule = pathModuleForPlatform(platform),
+  bundledToolsDir = null
 }: any = {}) {
   const delimiter = delimiterForPlatform(platform)
   const hermesNodeDirs = hermesManagedNodePathEntries(hermesHome, { platform, pathModule })
   const venvBin = venvRoot ? pathModule.join(venvRoot, platform === 'win32' ? 'Scripts' : 'bin') : null
   const saneEntries = platform === 'win32' ? [] : POSIX_SANE_PATH_ENTRIES
 
-  return appendUniquePathEntries([hermesNodeDirs, venvBin, currentPath, saneEntries], { delimiter })
+  // Bundled ffmpeg first: resolution order is bundled, then PATH.
+  return appendUniquePathEntries([bundledToolsDir, hermesNodeDirs, venvBin, currentPath, saneEntries], { delimiter })
 }
 
 function normalizeHermesHomeRoot(hermesHome, { pathModule = pathModuleForPlatform(process.platform) }: any = {}) {
@@ -127,8 +152,11 @@ function buildDesktopBackendEnv({
   currentEnv = process.env,
   platform = process.platform,
   pathModule = pathModuleForPlatform(platform),
-  devServer = false
+  devServer = false,
+  bundledToolsDir
 }: any = {}) {
+  const toolsDir =
+    bundledToolsDir === undefined ? bundledFfmpegDir({ platform, pathModule }) : bundledToolsDir
   const delimiter = delimiterForPlatform(platform)
   const currentPythonPath = currentEnv?.PYTHONPATH || ''
   const key = pathEnvKey(currentEnv, platform)
@@ -147,7 +175,8 @@ function buildDesktopBackendEnv({
       venvRoot,
       currentPath: currentPathValue(currentEnv, platform),
       platform,
-      pathModule
+      pathModule,
+      bundledToolsDir: toolsDir
     })
   }
 
@@ -172,6 +201,7 @@ export {
   appendUniquePathEntries,
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
+  bundledFfmpegDir,
   delimiterForPlatform,
   hermesManagedNodePathEntries,
   normalizeHermesHomeRoot,

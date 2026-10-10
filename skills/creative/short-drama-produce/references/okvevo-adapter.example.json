@@ -1,0 +1,20 @@
+{
+  "adapters": {
+    "okvevo-image": {
+      "command": ["python3", "skills/creative/short-drama-produce/scripts/provider_adapters.py", "portal"],
+      "timeout_seconds": 600
+    },
+    "okvevo-video": {
+      "command": ["python3", "skills/creative/short-drama-produce/scripts/provider_adapters.py", "portal"],
+      "timeout_seconds": 3600
+    },
+    "okvevo-speech": {
+      "command": ["python3", "skills/creative/short-drama-produce/scripts/provider_adapters.py", "portal"],
+      "timeout_seconds": 600
+    },
+    "okvevo-music": {
+      "command": ["python3", "skills/creative/short-drama-produce/scripts/provider_adapters.py", "portal"],
+      "timeout_seconds": 600
+    }
+  }
+}

@@ -329,6 +329,19 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Should fix before live (lower severity)
 
+### [x] Drama voice-clone TTS endpoint unmapped
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix / Nice-to-have (blocks voice-clone only) |
+| **Risk if skipped** | Cloned-voice speech jobs fail before hold. Preset `speech-02-hd` voices still work. |
+| **Scope** | `provider_adapters.py` `prepare_speech`; portal `SINGULAR_MEDIA_KEYS`; rate card |
+| **Fix** | Wired `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s server-measured sample, clone-once per character, 7-day unused warn, first speech-02-hd marks permanent. |
+| **Verify** | `pytest tests/skills/test_drama_portal_adapter.py` (voice clone + Hindi + restore/delete); `npx tsx src/lib/fal/voiceOwnership.selfcheck.ts`; `npx tsx src/lib/fal/rateCard.selfcheck.ts`; `npx tsx src/lib/fal/mediaInputs.selfcheck.ts`. |
+| **Notes** | Closed 2026-10-10. Addendum 3. |
+
+
+
 ### [x] Connect GitHub repo to App Hosting backend `okvevo-web`
 
 | Field | Value |
@@ -425,6 +438,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Insert a reserved job older than the TTL, run the sweeper, `creditBalance` restored, job `released`, no debit row. |
 | **Notes** | Logged 2026-09-07 with Phase 6 reserve-then-reconcile. Out of scope for 6a/6b. |
 
+### [ ] Landing page: exact React Bits Pro blocks + free-trial card
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Nice-to-have |
+| **Risk if skipped** | None for users. Navbar, footer and pricing on www.okvevo.com are in-house look-alikes of `@reactbits-pro/navigation-2`, `footer-8` and `pricing-1`, not the licensed blocks. The "free trial card" from `pricing-1` is not shown because no free trial exists as a product. |
+| **Scope** | `OkVevo-Web/src/components/landing-page/Navbar.tsx`, `Footer.tsx`, `Pricing.tsx`; `OkVevo-Web/components.json` (`@reactbits-pro` registry) |
+| **Fix** | Karan adds `REACTBITS_LICENSE_KEY` to `OkVevo-Web/.env.local` (never paste the value in chat), then run `npx shadcn@latest add @reactbits-pro/navigation-2 @reactbits-pro/footer-8 @reactbits-pro/pricing-1` and port our links/Razorpay wiring into them. Add the trial card only if a free trial is actually offered. |
+| **Verify** | Registry add succeeds (no 401); `/` renders the licensed blocks; checkout buttons still open Razorpay for USD and INR, Monthly and Annual. |
+| **Notes** | Logged 2026-10-04. Registry returned 401 without a license key, so the look-alikes shipped instead. |
+
 ### [ ] Fal `units`-priced models unmetered (GPT Image, Seedream Pro, Gemini Omni, …)
 
 | Field | Value |
@@ -486,6 +510,9 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| Drama voice-clone TTS endpoint unmapped | 2026-10-10 | `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s, clone-once, 7-day warn. Verify: `pytest tests/skills/test_drama_portal_adapter.py`. |
+| Drama Phase 2 video and audio inputs | 2026-10-10 | Code on `feat/drama-fal-portal` + `feat/drama-skills-portal-fal`. Native extend/edit/reference via signed uploads; formula reserve + billing-events capture (`FAL_BILLING_KEY` on capture SA only). Verify: `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/rateCard.selfcheck.ts`. Live smoke is G3. |
+| Daily Fal spend guard (global circuit breaker) | 2026-10-10 | `dramaSwitches.ts` + `spendDaily/{day}`; HIGH at 80%, 429 at 100%; kill switch `opsConfig/drama.disabled`. Verify: `npx tsx src/lib/fal/dramaSwitches.selfcheck.ts`. |
 | www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after **Publish release**. |
 | Staging pack publishes stable download names under `staging/` | 2026-09-18 | `syncFeed` staging mode copies `Nia-{ver}-mac-arm64.dmg` / `Nia-{ver}-win-x64.exe` → `Nia-mac-arm64.dmg` / `Nia-win-x64.exe` under the staging prefix (same pattern as promote at root). Vitest `publish-release-feed.test.mjs`. |
 | Pin packaged agent/runtime to the same release as the shell | 2026-09-14 | extraResources snapshot + stamp re-extract. Vitest `packaged-snapshot` / `pack-agent-snapshot` / bundled installer. |

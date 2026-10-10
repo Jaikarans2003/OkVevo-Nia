@@ -658,6 +658,10 @@ def _submit_fal_video_request(endpoint: str, arguments: Dict[str, Any]):
         return _fal_client.submit(endpoint, arguments=arguments, headers=request_headers)
 
     managed_client = _get_managed_fal_video_client(managed_gateway)
+    if getattr(managed_gateway, "vendor", "") == "okvevo-fal":
+        from agent.okvevo_gateway import attach_okvevo_fal_metering
+
+        arguments = attach_okvevo_fal_metering(endpoint, arguments)
     try:
         return managed_client.submit(
             endpoint,
