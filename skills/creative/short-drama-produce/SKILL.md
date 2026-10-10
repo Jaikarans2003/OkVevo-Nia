@@ -126,7 +126,22 @@ adapter 配置必须在项目外，只包含 argv 命令和超时；凭据由 ad
 
 OkVevo 只用项目外的 adapter 配置，命令是 `choose`、`quote`、`submit`、`collect`、`cancel`。配置示例见 [okvevo-adapter.example.json](references/okvevo-adapter.example.json)。凭据是已登录的门户 token 和 `OKVEVO_WEB_ORIGIN`，配置文件里不写供应商密钥。`choose` 和 `quote` 在确认前调用。`submit` 只在报价不超过已同意的估计时执行。门户要扣的金额高于已同意的估计时停下来，请创作者重新同意，不要提交。
 
-门户没有已计价的语音或音乐 endpoint。`tts` 和 `music` 停下来，并说明 OkVevo 目前不能单独生成配音或配乐。`audio_generation` 为 `same_pass` 时，声音随视频一次生成。不要调用下面的 MiniMax 语音、MiniMax 音乐、Seedance 或 GPT Image 适配器，它们会向供应商要密钥。
+门户路径不用 base64 内联：本地参考文件（图片、视频、音频）走门户的计量上传流程——adapter 请求签名上传地址、PUT 字节、由门户在服务端实测类型、时长与像素后再计价；报价与提交使用同一份实测值。超过 2048px 的参考图会先由 ffmpeg 压到 2048px 以内。上一段已生成的视频作为下一段输入时，adapter 复用仍在线的 Fal 输出地址（保存在 handle 旁的媒体缓存里），不重复上传。
+
+**声音与人脸同意**：任何参考文件离开本机之前，必须先向创作者出示同意说明——「你上传的人声、人脸或形象将发送给 AI 提供方 fal.ai 用于生成；文件最多保存 7 天后删除。只上传你有权使用的声音、人脸或形象。」——并拿到明确同意，然后在 job 的 `parameters` 里写 `consent_rights: true`。没有这一项，adapter 在上传前直接失败。
+
+续接与编辑按技能文档原生走：`task` 为 `extend`/`edit` 的视频 job 路由到 seedance-2.5 的 reference endpoint（`extension`/`editing`），必须把上一段的**真实视频**绑定为 `reference_video`（H3 则整组译为 `reference_video + reference_image`）；首帧+尾帧走各家 image-to-video 的 `image_url`/`start_image_url` + `end_image_url`；多槽位参考（图/视频/音频）走各家 reference endpoint 的对应数组字段。
+
+门户已计价语音与音乐：`tts` 走 `fal-ai/minimax/speech-02-hd`（`voice_direction` 映射到已验证的 voice_id，支持 Hindi `language_boost`），`music` 走 music-3。声音克隆走 `fal-ai/minimax/voice-clone`（$1.50/次 + 预览字数 $0.30/1k），**不要接 chatterbox**。规则：
+
+- 样本必须 ≥10 秒（门户服务端实测）；报价里会展示一行预览台词。
+- 克隆前必须拿到创作者明确同意，并在 job 里写 `parameters.voice_clone_consent: true`。没有同意、没有样本，直接失败。
+- 每个角色只克隆一次。门户把 `{uid, custom_voice_id, character, …}` 记在账户上；本地 `metadata/voices/<角色>.json` 只是缓存。缓存丢了就向门户 `GET /api/fal/voices` 恢复，不要重新克隆。后续 `tts` 把 `custom_voice_id` 当作 speech-02-hd 的 `voice_id`。门户会拒绝别人的 custom voice_id（403，扣款前）。
+- Fal 会在 7 天内删除从未被 TTS 端点用过的克隆；克隆接口上的预览**不算** TTS 使用。存 `cloned_at`，第 6 天起在报价里警告；第一次真正的 speech-02-hd 作业写 `used_in_tts_at`，视为永久。
+- 禁止静默再克隆。再克隆是新的 $1.50，必须 `confirm_reclone: true`。
+- 删除：`python3 {技能目录}/scripts/provider_adapters.py delete-voice`（stdin 带 `character` 或 `custom_voice_id`）。只删我们的记录。**Fal/MiniMax 没有 delete-voice API**；未使用的供应商克隆 7 天后自动过期。
+
+`audio_generation` 为 `same_pass` 时，声音仍随视频一次生成。不要调用下面的 MiniMax 语音、MiniMax 音乐、Seedance 或 GPT Image 适配器，它们会向供应商要密钥。
 
 本技能可选提供四个 stdlib adapter，均通过项目外 adapter config 选择，凭据只从运行环境读取。OkVevo 不使用它们：
 

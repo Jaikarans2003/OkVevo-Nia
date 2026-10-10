@@ -31,7 +31,16 @@
 
 - `modality`: `image`, `video`, `tts`, or `music`. `tts` is one bounded spoken
   utterance; `music` is a separately accepted timeline-level cue or song and
-  must not be smuggled into every shot's video job.
+  must not be smuggled into every shot's video job. Voice clone is still
+  `tts`: set `parameters.voice_clone_consent: true` with a `reference_audio`
+  sample (≥10s). The portal routes that job to `fal-ai/minimax/voice-clone`,
+  stores `custom_voice_id` per character on the signed-in account (Firestore).
+  The local `metadata/voices/<character>.json` file is a cache; if it is
+  missing the adapter `GET /api/fal/voices` and reuses the owned id instead
+  of re-cloning. Later `tts` jobs reuse it as `speech-02-hd` `voice_id`.
+  Re-clone needs `confirm_reclone: true`. Preview text appears on the quote.
+  `delete-voice` removes our record only — Fal/MiniMax has no delete-voice
+  API. Do not use chatterbox.
 - `source`: optional current project text/spec that owns the prompt.
 - `source_entry`: for a creator-first job, the exact uppercase H2 ID inside a
   canonical `剧集|episodes/<EP>/` creator document, matched to that document:

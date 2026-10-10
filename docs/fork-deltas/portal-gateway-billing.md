@@ -48,6 +48,17 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Re-apply** | Keep the quote gate and price gate fail-closed; keep the ref cap mirrored in `GPT_IMAGE_MAX_REFS` and `_portal_endpoint`. |
 | **Check** | `pytest tests/skills/test_drama_produce_quote.py tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/rateCard.selfcheck.ts` |
 
+### Drama full parity (2026-10-10, authorize/capture)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[portal]` |
+| **Files** | adapter `provider_adapters.py` + `production_tool.py`; portal `rateCard.ts`, `uploads.ts`, `mediaInputs.ts`, `mediaResolve.ts`, `handleQueue.ts`, `capture.ts`, `scripts/fal-capture-job.ts`, `jobs/fal-capture/Dockerfile`, `dramaSwitches.ts`, `verifyWebhook.ts`, `src/app/api/fal/uploads/**`, `src/app/api/webhooks/fal/`, `src/app/admin/drama/`, `src/app/api/admin/drama/**`, `src/app/api/cron/fal-drift/route.ts`, `scripts/drama-infra.sh`, `docs/adr/ADR-001-drama-full-parity.md` |
+| **What** | Native extend/edit/reference/first+last/multi-shot through signed Firebase Storage uploads (`drama-inputs/`). GPT edit refs 16. Formula reserves + provisional settle; capture job reads Fal billing-events with `FAL_BILLING_KEY` (capture SA only; App Hosting never gets it). Voice clone: `fal-ai/minimax/voice-clone` (not chatterbox), ≥10s, consent, clone-once, 7-day warn. Cloned voice SoT is Firestore `clonedVoices` (uid-owned); speech 403 before hold if custom `voice_id` is not owned; local voices file is a cache + portal restore; delete tombstones the id so it cannot be registered or used again (Fal has no delete-voice API). Telegram removed; alerts = `opsAlerts` + log + admin dashboard. Kill switch + daily spend breaker. |
+| **Why** | Full skill parity; realized Fal margin; generation key stays submit-only |
+| **Re-apply** | Keep signed-URL media path. Keep formula reserves. Do not grant `FAL_BILLING_KEY` to App Hosting. Do not wire chatterbox. Do not resurrect Telegram. |
+| **Check** | `pytest tests/skills/test_drama_portal_adapter.py`; portal `npx tsx src/lib/fal/{rateCard,uploads,mediaInputs,capture,dramaSwitches,adminGuard}.selfcheck.ts` + `src/lib/ops/alert.selfcheck.ts` |
+
 ### Billing UI + links
 
 | Field | Value |
