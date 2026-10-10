@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import importlib.util
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -124,3 +127,43 @@ def test_gpt_edit_ref_cap_is_four():
         adapters._portal_endpoint(job)
     job["references"] = job["references"][:4]
     assert adapters._portal_endpoint(job) == "openai/gpt-image-2/edit"
+
+
+def test_portal_media_args_shape():
+    adapters = _load()
+    job = {"references": ["/tmp/a.png", "/tmp/b.png"]}
+    with pytest.raises(adapters.AdapterFailure, match="one first-frame"):
+        adapters._portal_media_args(job, "alibaba/wan-3.0-prime/image-to-video")
+    assert adapters._portal_media_args({"references": []}, "openai/gpt-image-2") == {}
+    with pytest.raises(adapters.AdapterFailure, match="first-frame"):
+        adapters._portal_media_args({"references": []}, "alibaba/wan-3.0-prime/image-to-video")
+
+
+@pytest.mark.skipif(
+    shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
+    reason="ffmpeg/ffprobe required to build and probe reference images",
+)
+def test_nine_references_downscale_under_portal_cap(tmp_path):
+    """9 realistic 3000x2000 PNGs (multi-MB each, photo-like grain) must fit
+    the portal body cap after the ffmpeg downscale/re-encode pass."""
+    adapters = _load()
+    refs = []
+    for i in range(9):
+        target = tmp_path / f"ref-{i}.png"
+        subprocess.run(
+            ["ffmpeg", "-y", "-v", "error", "-f", "lavfi",
+             "-i", "testsrc2=size=3000x2000:duration=1,noise=alls=25:allf=t",
+             "-frames:v", "1", str(target)],
+            check=True,
+        )
+        assert target.stat().st_size > 2 * 1024 * 1024  # realistic source size
+        refs.append(target)
+    urls = [adapters._portal_image_data_url(path) for path in refs]
+    assert all(url.startswith("data:image/") for url in urls)
+    assert sum(len(url) for url in urls) < adapters.PORTAL_INLINE_BODY_LIMIT
+    assert all(len(url) < path.stat().st_size for url, path in zip(urls, refs))
+    header, b64 = urls[0].split(",", 1)
+    decoded = tmp_path / f"decoded.{header.removeprefix('data:image/')}"
+    decoded.write_bytes(base64.b64decode(b64))
+    width, height, _ = adapters._probe_image(decoded)
+    assert max(width, height) <= adapters.PORTAL_IMAGE_EDGE

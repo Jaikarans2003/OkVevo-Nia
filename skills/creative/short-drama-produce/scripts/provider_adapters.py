@@ -19,7 +19,9 @@ import re
 import secrets
 import shutil
 import stat
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -76,6 +78,11 @@ INLINE_REFERENCE_LIMITS = {
     "audio_url": 15 * 1024 * 1024,
 }
 INLINE_REFERENCE_BODY_LIMIT = 64 * 1024 * 1024
+# App Hosting runs on Cloud Run, which rejects request bodies above 32MB
+# before the app sees them; stay under with margin for JSON + auth overhead.
+PORTAL_INLINE_BODY_LIMIT = 24 * 1024 * 1024
+PORTAL_IMAGE_EDGE = 2048
+PORTAL_PASSTHROUGH_BYTES = 1536 * 1024
 INLINE_REFERENCE_MIME = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -1756,6 +1763,151 @@ def explicit_portal_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any
     return args
 
 
+def _portal_image_data_url(path: Path) -> str:
+    """One reference image as a data URL, downscaled/re-encoded via ffmpeg when
+    the raw bytes or dimensions would blow the portal body cap. Fail-closed:
+    every problem raises AdapterFailure before anything is submitted."""
+    suffix = path.suffix.casefold()
+    mime = INLINE_REFERENCE_MIME.get(suffix)
+    if mime is None or not mime.startswith("image"):
+        raise AdapterFailure(
+            f"portal reference {path.name} is not a supported image",
+            category="configuration",
+            code="invalid_reference_type",
+            retryable=False,
+        )
+    try:
+        content = path.read_bytes()
+    except OSError as exc:
+        raise AdapterFailure(
+            "portal could not read a project reference",
+            category="configuration",
+            code="unreadable_reference",
+            retryable=False,
+        ) from exc
+    if not content:
+        raise AdapterFailure(
+            "portal project reference is empty",
+            category="configuration",
+            code="empty_reference",
+            retryable=False,
+        )
+    _validate_media_content(path.name, content)
+    width, height, pix_fmt = _probe_image(path)
+    alpha = _has_alpha(pix_fmt)
+    if len(content) <= PORTAL_PASSTHROUGH_BYTES and max(width, height) <= PORTAL_IMAGE_EDGE:
+        out_mime, out = mime, content
+    else:
+        out_mime = "image/png" if alpha else "image/jpeg"
+        out = _downscale_image(path, alpha=alpha)
+    encoded = base64.b64encode(out).decode("ascii")
+    return f"data:{out_mime};base64,{encoded}"
+
+
+def _has_alpha(pix_fmt: str) -> bool:
+    # ponytail: exotic alpha layouts (e.g. ya16be) fall through to JPEG and are
+    # flattened; the common PNG/WebP formats are covered. Upgrade: parse the
+    # full pix_fmt list from ffprobe -pix_fmts.
+    fmt = pix_fmt.strip().lower()
+    return fmt.startswith(("rgba", "bgra", "argb", "abgr", "yuva")) or fmt in {"ya8", "ya16"}
+
+
+def _probe_image(path: Path) -> tuple[int, int, str]:
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        raise AdapterFailure(
+            "ffprobe is required to prepare reference images. Nothing was submitted.",
+            code="missing_ffprobe",
+            retryable=False,
+        )
+    result = subprocess.run(
+        [ffprobe, "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height,pix_fmt", "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True, timeout=30,
+    )
+    parts = result.stdout.strip().split(",")
+    if result.returncode != 0 or len(parts) < 2:
+        raise AdapterFailure(
+            f"ffprobe could not read reference image {path.name}. Nothing was submitted.",
+            category="configuration",
+            code="invalid_reference_type",
+            retryable=False,
+        )
+    try:
+        return int(parts[0]), int(parts[1]), parts[2] if len(parts) > 2 else ""
+    except ValueError as exc:
+        raise AdapterFailure(
+            f"ffprobe could not read reference image {path.name}. Nothing was submitted.",
+            category="configuration",
+            code="invalid_reference_type",
+            retryable=False,
+        ) from exc
+
+
+def _downscale_image(path: Path, *, alpha: bool) -> bytes:
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise AdapterFailure(
+            "ffmpeg is required to downscale reference images. Nothing was submitted.",
+            code="missing_ffmpeg",
+            retryable=False,
+        )
+    fd, out_path = tempfile.mkstemp(suffix=".png" if alpha else ".jpg")
+    os.close(fd)
+    try:
+        command = [
+            ffmpeg, "-y", "-v", "error", "-i", str(path),
+            "-vf", f"scale='min({PORTAL_IMAGE_EDGE},iw)':'min({PORTAL_IMAGE_EDGE},ih)':force_original_aspect_ratio=decrease",
+            "-frames:v", "1",
+        ]
+        if not alpha:
+            command += ["-q:v", "4"]  # ~JPEG q90: reference fidelity, sane bytes
+        command.append(out_path)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            raise AdapterFailure(
+                f"ffmpeg could not downscale reference image {path.name}. Nothing was submitted.",
+                code="downscale_failed",
+                retryable=False,
+            )
+        return Path(out_path).read_bytes()
+    finally:
+        Path(out_path).unlink(missing_ok=True)
+
+
+def _portal_media_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any]:
+    """Inline the reference images Fal expects. The portal forwards the full
+    body to Fal, so these keys pass straight through; metering never sees them
+    (it reads SUBMIT_KEYS only). Any failure here is before any hold."""
+    refs = [Path(p) for p in (job.get("references") or [])]
+    if endpoint.endswith("/image-to-video"):
+        if not refs:
+            raise AdapterFailure(
+                "portal image-to-video needs a first-frame reference. Nothing was submitted.",
+                category="configuration",
+                code="invalid_reference_type",
+                retryable=False,
+            )
+        if len(refs) > 1:
+            raise AdapterFailure(
+                "portal video accepts one first-frame reference per job; multi-image "
+                "reference sets are not supported yet. Nothing was submitted.",
+                code="too_many_refs",
+                retryable=False,
+            )
+        return {"image_url": _portal_image_data_url(refs[0])}
+    if endpoint.endswith("/edit"):
+        if not refs:
+            raise AdapterFailure(
+                "portal image edit needs at least one reference. Nothing was submitted.",
+                category="configuration",
+                code="invalid_reference_type",
+                retryable=False,
+            )
+        return {"image_urls": [_portal_image_data_url(path) for path in refs]}
+    return {}
+
+
 def _selftest() -> None:
     scene = phase1_scene(
         [
@@ -2033,9 +2185,18 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
         args["run_id"] = job["run_id"]
     if isinstance(job.get("approved_credits"), int):
         args["approved_credits"] = job["approved_credits"]
+    args.update(_portal_media_args(job, endpoint))
     origin = str(gateway.gateway_origin).rstrip("/")
     url = f"{origin}/{endpoint}"
     body = json.dumps(args).encode("utf-8")
+    if len(body) > PORTAL_INLINE_BODY_LIMIT:
+        raise AdapterFailure(
+            "references are too large for the portal even after downscaling; "
+            "use fewer or smaller reference images. Nothing was submitted.",
+            category="configuration",
+            code="reference_body_too_large",
+            retryable=False,
+        )
     request = urllib.request.Request(
         url,
         data=body,
