@@ -721,7 +721,14 @@
     },
     {
       "id": "fal-ai/minimax/speech-02-hd",
-      "notes": "Drama skills speech. Billed per 1000 characters. Text max 5000.",
+      "notes": "Drama skills speech. Billed per 1000 characters. Text max 5000. voice_id is a string (preset or custom_voice_id). language_boost includes Hindi.",
+      "tier": "standard",
+      "modes": ["speech"],
+      "shipped": false
+    },
+    {
+      "id": "fal-ai/minimax/voice-clone",
+      "notes": "Drama skills voice clone. $1.5/clone + $0.3/1k preview chars. audio_url >=10s. custom_voice_id reused on speech-02-hd. Fal deletes unused clones after 7 days.",
       "tier": "standard",
       "modes": ["speech"],
       "shipped": false

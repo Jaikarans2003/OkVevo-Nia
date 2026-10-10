@@ -711,8 +711,8 @@ def _canonical_creator_source_modality(source: str | None) -> str | None:
 def _normalize_reference_bindings(value: object) -> list[dict[str, Any]]:
     if value is None:
         return []
-    if not isinstance(value, list) or len(value) > 16:
-        raise ValueError("reference_bindings must be a list of at most sixteen entries")
+    if not isinstance(value, list) or len(value) > 50:
+        raise ValueError("reference_bindings must be a list of at most fifty entries")
     normalized: list[dict[str, Any]] = []
     for index, binding in enumerate(value, 1):
         label = f"reference_bindings[{index}]"
@@ -1062,7 +1062,7 @@ def _normalize_job(root: Path, raw: object) -> dict[str, Any]:
     references_supplied = "references" in raw
     supplied_references = [
         _relative_path(path)
-        for path in _string_list(raw.get("references", []), label="references", limit=16)
+        for path in _string_list(raw.get("references", []), label="references", limit=50)
     ]
     reference_bindings = _normalize_reference_bindings(raw.get("reference_bindings"))
     binding_references = [str(binding["path"]) for binding in reference_bindings]
@@ -1154,6 +1154,10 @@ def _quote_for_job(root: Path, job: Mapping[str, Any], adapter_config: Path) -> 
         return record
     payload = {key: job[key] for key in ALLOWED_JOB_KEYS if key in job}
     payload["quote_only"] = True
+    # The portal adapter measures/uploads reference media to price them, so it
+    # needs to read the project files at quote time too. Read-only: nothing in
+    # the project is written.
+    payload["project_root"] = str(root)
     try:
         response = _run_adapter(command, timeout, payload, root)
     except Exception as exc:
@@ -1169,6 +1173,10 @@ def _quote_for_job(root: Path, job: Mapping[str, Any], adapter_config: Path) -> 
         record["snapshotId"] = response["snapshotId"]
     if isinstance(response.get("expiresAt"), str):
         record["expiresAt"] = response["expiresAt"]
+    if isinstance(response.get("preview_text"), str):
+        record["preview_text"] = response["preview_text"]
+    if isinstance(response.get("warning"), str):
+        record["warning"] = response["warning"]
     return record
 
 
@@ -1300,7 +1308,7 @@ def _validate_stored_job(
     if source_entry is not None and creator_source_modality != modality:
         raise ValueError("stored job creator source path is invalid")
     references = _string_list(
-        document.get("references"), label="stored references", limit=16
+        document.get("references"), label="stored references", limit=50
     )
     if any(_relative_path(reference) != reference for reference in references):
         raise ValueError("stored job references are invalid")
@@ -1392,6 +1400,8 @@ def _preview(job: Mapping[str, Any], quote: Mapping[str, Any] | None = None) -> 
         "snapshotId": (quote or {}).get("snapshotId") if paid else None,
         "expiresAt": (quote or {}).get("expiresAt") if paid else None,
         "quote_error": (quote or {}).get("error") if paid else None,
+        "preview_text": (quote or {}).get("preview_text") if paid else None,
+        "warning": (quote or {}).get("warning") if paid else None,
     }
 
 

@@ -12,6 +12,8 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import calendar
+import hashlib
 import json
 import mimetypes
 import os
@@ -78,11 +80,6 @@ INLINE_REFERENCE_LIMITS = {
     "audio_url": 15 * 1024 * 1024,
 }
 INLINE_REFERENCE_BODY_LIMIT = 64 * 1024 * 1024
-# App Hosting runs on Cloud Run, which rejects request bodies above 32MB
-# before the app sees them; stay under with margin for JSON + auth overhead.
-PORTAL_INLINE_BODY_LIMIT = 24 * 1024 * 1024
-PORTAL_IMAGE_EDGE = 2048
-PORTAL_PASSTHROUGH_BYTES = 1536 * 1024
 INLINE_REFERENCE_MIME = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -1248,27 +1245,39 @@ def _download(
     return path
 
 
-def _record_handle(job: Mapping[str, Any], provider_job_id: str) -> None:
+def _record_handle(
+    job: Mapping[str, Any],
+    provider_job_id: str,
+    *,
+    endpoint: str | None = None,
+    fal_urls: Collection[str] = (),
+    finished_at: float | None = None,
+) -> None:
     """Write the provider task id where the caller can find it after a crash.
 
     A video task is billed at submission. Everything after that — polling,
     downloading — can be interrupted, and without this the caller is left with a
     live, already-paid task it has no id for. Written before the first poll, and
     deliberately best-effort: failing to record the handle must not fail a task
-    that was submitted successfully.
+    that was submitted successfully. On success the endpoint and Fal output URLs
+    are added so an audit can trace which Fal media a job produced.
     """
 
     destination = job.get("handle_path")
     if not isinstance(destination, str) or not destination:
         return
+    record: dict[str, Any] = {"provider_job_id": provider_job_id}
+    if endpoint:
+        record["endpoint"] = endpoint
+    if fal_urls:
+        record["fal_urls"] = list(fal_urls)
+    if finished_at is not None:
+        record["finished_at"] = finished_at
     try:
         path = Path(destination)
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-        temporary.write_text(
-            json.dumps({"provider_job_id": provider_job_id}, ensure_ascii=True),
-            encoding="utf-8",
-        )
+        temporary.write_text(json.dumps(record, ensure_ascii=True), encoding="utf-8")
         temporary.replace(path)
     except OSError:
         return
@@ -1623,9 +1632,51 @@ def _poll_minimax_video(
     )
 
 
-# Phase 1 portal path. Extend (video input) stays in the map for Phase 2.
-PHASE = 1
+# OkVevo portal path (full parity). References reach Fal through the portal's
+# measured-upload flow (POST /api/fal/uploads -> signed PUT -> complete), never
+# inline: the portal sniffs the type and measures duration/pixels server-side
+# and prices deterministically from those measurements. A prior upload or a
+# prior Fal output still inside its retention window is reused via the media
+# cache instead of uploading again.
 SPEECH_MAX_CHARS = 5000
+# MiniMax speech-02-hd. voice_id is a string (schema default Wise_Woman);
+# custom_voice_id from fal-ai/minimax/voice-clone is accepted the same way.
+# language_boost includes Hindi. $0.10 / 1k chars.
+PORTAL_SPEECH_ENDPOINT = "fal-ai/minimax/speech-02-hd"
+# $1.50 / clone + $0.30 / 1k preview chars. Preview is billed on the clone
+# endpoint. Fal retains the voice only if it is used with a TTS endpoint
+# within 7 days (llms.txt 2026-10-10). The clone preview is not that TTS use.
+PORTAL_VOICE_CLONE_ENDPOINT = "fal-ai/minimax/voice-clone"
+VOICE_CLONE_MIN_SECONDS = 10
+VOICE_CLONE_RETAIN_DAYS = 7
+VOICE_CLONE_WARN_DAYS = 6
+VOICE_CLONE_PREVIEW = "This is a short preview of the cloned voice."
+PORTAL_IMAGE_EDGE = 2048
+PORTAL_UPLOAD_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+}
+# Mirrors UPLOAD_CAPS in OkVevo-Web src/lib/fal/uploads.ts.
+PORTAL_UPLOAD_CAPS = {
+    "image": 30 * 1024 * 1024,
+    "video": 200 * 1024 * 1024,
+    "audio": 15 * 1024 * 1024,
+}
+# Cache reuse windows, mirrors of the portal: drama uploads live 7 days
+# (lifecycle rule), Fal output URLs are reused only while the portal's media
+# index still knows them (conservative 48 h).
+PORTAL_UPLOAD_REUSE_S = 6 * 24 * 3600
+PORTAL_FAL_REUSE_S = 48 * 3600
+PORTAL_MEDIA_CACHE = "fal-media-cache.json"
+PORTAL_GPT_EDIT_MAX_REFS = 16
 
 # Verified 2026-10-10 from fal-ai/minimax/speech-02-hd OpenAPI.
 # voice_id is a string, default Wise_Woman. These ids are the schema examples,
@@ -1652,12 +1703,12 @@ PORTAL_ENDPOINTS = {
     "seedance-2.5": {
         "text": "bytedance/seedance-2.5/text-to-video",
         "image": "bytedance/seedance-2.5/image-to-video",
-        "extend": "bytedance/seedance-2.5/reference-to-video",
+        "reference": "bytedance/seedance-2.5/reference-to-video",
     },
     "seedance-2.0": {
         "text": "bytedance/seedance-2.0/text-to-video",
         "image": "bytedance/seedance-2.0/image-to-video",
-        "extend": "bytedance/seedance-2.0/reference-to-video",
+        "reference": "bytedance/seedance-2.0/reference-to-video",
     },
     "h3-max": {
         "text": "minimax/h3-max/text-to-video",
@@ -1674,30 +1725,321 @@ PORTAL_ENDPOINTS = {
         "edit": "openai/gpt-image-2/edit",
     },
     "music-3": {"music": "minimax/music-3"},
-    "speech-02-hd": {"tts": "fal-ai/minimax/speech-02-hd"},
+    "speech-02-hd": {"tts": PORTAL_SPEECH_ENDPOINT},
+    "voice-clone": {"clone": PORTAL_VOICE_CLONE_ENDPOINT},
 }
+
+# Seedance extend/edit (task) exists only on the 2.5 reference endpoint.
+PORTAL_TASK_ENDPOINT = "bytedance/seedance-2.5/reference-to-video"
+_PORTAL_TASK = {
+    "extend": "extension",
+    "extension": "extension",
+    "edit": "editing",
+    "editing": "editing",
+    "reference": "reference",
+    "auto": "reference",
+}
+PORTAL_BINDING_ROLES = frozenset({
+    "first_frame", "last_frame", "reference_image", "reference_video",
+    "reference_audio",
+})
 
 
 def map_speech_voice(language: str, age: str, gender: str) -> tuple[str, str | None]:
     key = (language.lower()[:2], age.lower(), gender.lower())
     if key not in VOICE_TABLE:
-        raise ValueError(f"no Phase 1 voice for language={language} age={age} gender={gender}")
+        raise ValueError(f"no portal voice for language={language} age={age} gender={gender}")
     voice_id, boost = VOICE_TABLE[key]
     if voice_id not in VERIFIED_VOICE_IDS:
         raise ValueError("voice id is not in the verified speech-02-hd examples")
     return voice_id, boost
 
 
-def prepare_speech(job: Mapping[str, Any], *, hold: Any = None) -> dict[str, Any]:
-    """Fail before hold. hold is unused and must stay uncalled."""
+def _character_key(job: Mapping[str, Any]) -> str:
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    direction = params.get("voice_direction") if isinstance(params.get("voice_direction"), Mapping) else {}
+    for candidate in (
+        direction.get("character") if isinstance(direction, Mapping) else None,
+        params.get("character"),
+        job.get("character"),
+    ):
+        if isinstance(candidate, str) and candidate.strip():
+            slug = re.sub(r"[^A-Za-z0-9._-]+", "-", candidate.strip())[:80].strip("-")
+            return slug or "default"
+    return "default"
+
+
+def _project_key(job: Mapping[str, Any]) -> str:
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    for candidate in (job.get("project"), params.get("project")):
+        if isinstance(candidate, str) and candidate.strip():
+            slug = re.sub(r"[^A-Za-z0-9._-]+", "-", candidate.strip())[:80].strip("-")
+            return slug
+    return ""
+
+
+def _voice_store_path(job: Mapping[str, Any]) -> Path | None:
+    character = _character_key(job)
+    handle = job.get("handle_path")
+    if isinstance(handle, str) and handle:
+        return Path(handle).parent / "metadata" / "voices" / f"{character}.json"
+    root = job.get("output_root") or job.get("project_root") or job.get("workdir")
+    if isinstance(root, str) and root:
+        return Path(root) / "metadata" / "voices" / f"{character}.json"
+    return None
+
+
+def _voice_store_read_local(job: Mapping[str, Any]) -> dict[str, Any] | None:
+    path = _voice_store_path(job)
+    if path is None:
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _try_portal_voices(http: Any = None) -> list[Any]:
+    """Fail-soft: missing sign-in or a dead portal returns []. Never clones."""
+    try:
+        client = http if http is not None else _default_portal_http()
+        data = client.get_json("/api/fal/voices")
+    except Exception:
+        return []
+    voices = data.get("voices") if isinstance(data, Mapping) else None
+    return list(voices) if isinstance(voices, list) else []
+
+
+def _voice_store_read(
+    job: Mapping[str, Any], *, http: Any = None, fetch_portal: bool = True
+) -> dict[str, Any] | None:
+    """Local metadata/voices file is a cache. Missing file → portal list."""
+    local = _voice_store_read_local(job)
+    if local and isinstance(local.get("custom_voice_id"), str) and local["custom_voice_id"].strip():
+        return local
+    if not fetch_portal:
+        return local
+    character = _character_key(job)
+    for row in _try_portal_voices(http):
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("character") or "") != character:
+            continue
+        voice_id = row.get("custom_voice_id")
+        if not isinstance(voice_id, str) or not voice_id.strip():
+            continue
+        record = {
+            "custom_voice_id": voice_id.strip(),
+            "cloned_at": row.get("cloned_at") if isinstance(row.get("cloned_at"), str) else None,
+            "used_in_tts_at": row.get("used_in_tts_at") if isinstance(row.get("used_in_tts_at"), str) else None,
+            "character": character,
+            "project": row.get("project") if isinstance(row.get("project"), str) else _project_key(job),
+            "consent_at": row.get("consent_at") if isinstance(row.get("consent_at"), str) else None,
+            "sample_sha256": row.get("sample_sha256") if isinstance(row.get("sample_sha256"), str) else None,
+            "endpoint": PORTAL_VOICE_CLONE_ENDPOINT,
+        }
+        try:
+            _voice_store_write(job, record)
+        except ValueError:
+            pass
+        return record
+    return local
+
+
+def delete_cloned_voice(job: Mapping[str, Any], *, http: Any = None) -> dict[str, Any]:
+    """Remove our portal record (and the local cache). Fal has no delete-voice API."""
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    voice_id = params.get("custom_voice_id")
+    if not isinstance(voice_id, str) or not voice_id.strip():
+        store = _voice_store_read(job, http=http)
+        voice_id = store.get("custom_voice_id") if store else None
+    if not isinstance(voice_id, str) or not voice_id.strip():
+        raise ValueError("no cloned voice to delete for this character. Nothing was submitted.")
+    voice_id = voice_id.strip()
+    try:
+        client = http if http is not None else _default_portal_http()
+        result = client.delete_json(f"/api/fal/voices/{urllib.parse.quote(voice_id, safe='')}")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise ValueError("voice not found on the portal. Nothing was submitted.") from exc
+        raise AdapterFailure(
+            "could not delete the cloned voice on the portal. Nothing was submitted.",
+            category="provider_response",
+            code="voice_delete_failed",
+            http_status=exc.code,
+            retryable=exc.code >= 500,
+        ) from exc
+    except AdapterFailure:
+        raise
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        raise AdapterFailure(
+            "could not delete the cloned voice on the portal. Nothing was submitted.",
+            category="network",
+            code="voice_delete_failed",
+            retryable=True,
+        ) from exc
+    path = _voice_store_path(job)
+    if path is not None:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    if not isinstance(result, Mapping):
+        result = {}
+    return {
+        "deleted": True,
+        "provider_deleted": False,
+        "custom_voice_id": voice_id,
+        "note": result.get("note")
+        if isinstance(result.get("note"), str)
+        else "Fal/MiniMax has no delete-voice API. Unused provider clones auto-delete after 7 days.",
+    }
+
+
+def _voice_store_write(job: Mapping[str, Any], record: Mapping[str, Any]) -> None:
+    path = _voice_store_path(job)
+    if path is None:
+        raise ValueError(
+            "voice clone needs handle_path or output_root to store custom_voice_id. "
+            "Nothing was submitted."
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(dict(record), ensure_ascii=True), encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _days_since_iso(iso: str) -> float | None:
+    try:
+        parsed = time.strptime(iso[:19], "%Y-%m-%dT%H:%M:%S")
+        return max(0.0, (time.time() - calendar.timegm(parsed)) / 86400.0)
+    except (ValueError, OverflowError):
+        return None
+
+
+def _clone_retain_warning(store: Mapping[str, Any]) -> str | None:
+    if store.get("used_in_tts_at"):
+        return None
+    cloned_at = store.get("cloned_at")
+    if not isinstance(cloned_at, str):
+        return None
+    age = _days_since_iso(cloned_at)
+    if age is None:
+        return None
+    left = VOICE_CLONE_RETAIN_DAYS - age
+    if left <= 0:
+        return (
+            f"cloned voice for {_character_key({'parameters': {'character': store.get('character')}})} "
+            "is past Fal's 7-day unused window and may already be deleted. "
+            "Re-cloning costs $1.50 and needs confirm_reclone: true."
+        )
+    if age >= VOICE_CLONE_WARN_DAYS:
+        return (
+            f"cloned voice is unused in TTS and Fal may delete it in about {left:.1f} days. "
+            "The first real speech-02-hd job marks it permanent. The clone preview does not."
+        )
+    return None
+
+
+def _has_reference_audio(job: Mapping[str, Any]) -> bool:
     bindings = job.get("reference_bindings") or []
-    if any(b.get("role") in {"reference_audio", "voice_clone"} for b in bindings if isinstance(b, Mapping)):
-        raise ValueError("Phase 1 speech does not accept reference audio for voice cloning. Nothing was submitted.")
+    return any(
+        isinstance(b, Mapping) and b.get("role") in {"reference_audio", "voice_clone"}
+        for b in bindings
+    )
+
+
+def _wants_voice_clone(job: Mapping[str, Any], *, http: Any = None) -> bool:
+    """Clone only with explicit consent. Never re-clone when a stored id exists
+    unless confirm_reclone is true."""
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    if params.get("voice_clone_consent") is not True:
+        return False
+    store = _voice_store_read(job, http=http)
+    if store and store.get("custom_voice_id") and params.get("confirm_reclone") is not True:
+        return False
+    return True
+
+
+def prepare_voice_clone(job: Mapping[str, Any], *, hold: Any = None, http: Any = None) -> dict[str, Any]:
+    """Fail before hold. hold is unused and must stay uncalled."""
+    del hold
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    if params.get("voice_clone_consent") is not True:
+        raise ValueError(
+            "voice clone needs explicit consent (parameters.voice_clone_consent: true) "
+            "and a sample of at least 10 seconds. Endpoint fal-ai/minimax/voice-clone. "
+            "Nothing was submitted."
+        )
+    if not _has_reference_audio(job):
+        raise ValueError(
+            "voice clone needs a reference_audio sample of at least "
+            f"{VOICE_CLONE_MIN_SECONDS} seconds (server-measured). Nothing was submitted."
+        )
+    store = _voice_store_read(job, http=http)
+    if store and store.get("custom_voice_id") and params.get("confirm_reclone") is not True:
+        raise ValueError(
+            "this character already has a custom_voice_id "
+            f"(cloned_at={store.get('cloned_at')}). Reuse it in speech-02-hd. "
+            "Re-cloning is a new $1.50 charge and needs confirm_reclone: true. "
+            "Nothing was submitted."
+        )
+    if _voice_store_path(job) is None:
+        raise ValueError(
+            "voice clone needs handle_path or output_root to store custom_voice_id. "
+            "Nothing was submitted."
+        )
+    model = str(params.get("model") or "speech-02-hd")
+    return {
+        "text": VOICE_CLONE_PREVIEW,
+        "model": model,
+        "endpoint": PORTAL_VOICE_CLONE_ENDPOINT,
+        "preview_text": VOICE_CLONE_PREVIEW,
+    }
+
+
+def prepare_speech(job: Mapping[str, Any], *, hold: Any = None, http: Any = None) -> dict[str, Any]:
+    """Fail before hold. hold is unused and must stay uncalled.
+
+    A stored custom_voice_id is reused (local cache, else portal GET /api/fal/voices).
+    reference_audio without a store is a clone request and must go through
+    prepare_voice_clone (consent + $1.50). Never silently clone or substitute
+    a preset for a stored custom id.
+    """
+    del hold
+    if _wants_voice_clone(job, http=http):
+        return prepare_voice_clone(job, http=http)
     text = str(job.get("prompt") or "")
     if len(text) > SPEECH_MAX_CHARS:
         raise ValueError(f"speech text exceeds {SPEECH_MAX_CHARS} characters. Nothing was submitted.")
     params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
-    direction = params.get("voice_direction") if isinstance(params, Mapping) else None
+    store = _voice_store_read(job, http=http)
+    warning = _clone_retain_warning(store) if store else None
+    if store and isinstance(store.get("custom_voice_id"), str) and store["custom_voice_id"].strip():
+        voice_id, boost = store["custom_voice_id"].strip(), None
+        direction = params.get("voice_direction") if isinstance(params.get("voice_direction"), Mapping) else {}
+        language = str(direction.get("language") or "")
+        if language.lower().startswith("hi"):
+            boost = "Hindi"
+        elif language.lower().startswith("zh"):
+            boost = "Chinese"
+        out = {
+            "text": text,
+            "voice_id": voice_id,
+            "language_boost": boost,
+            "endpoint": PORTAL_SPEECH_ENDPOINT,
+        }
+        if warning:
+            out["_retain_warning"] = warning
+        return out
+    if _has_reference_audio(job):
+        raise ValueError(
+            "clone the voice first: set parameters.voice_clone_consent true on a tts job "
+            "with reference_audio (>=10s). Endpoint fal-ai/minimax/voice-clone ($1.50). "
+            "Do not re-clone silently. Nothing was submitted."
+        )
+    direction = params.get("voice_direction") if isinstance(params.get("voice_direction"), Mapping) else None
     if isinstance(direction, Mapping):
         voice_id, boost = map_speech_voice(
             str(direction.get("language") or "en"),
@@ -1706,45 +2048,177 @@ def prepare_speech(job: Mapping[str, Any], *, hold: Any = None) -> dict[str, Any
         )
     else:
         voice_id, boost = "Wise_Woman", None
-    return {"text": text, "voice_id": voice_id, "language_boost": boost, "endpoint": PORTAL_ENDPOINTS["speech-02-hd"]["tts"]}
+    return {
+        "text": text,
+        "voice_id": voice_id,
+        "language_boost": boost,
+        "endpoint": PORTAL_SPEECH_ENDPOINT,
+    }
 
 
-def phase1_scene(shots: Sequence[Mapping[str, Any]], *, ffmpeg_available: bool, hold: Any = None) -> list[dict[str, Any]]:
-    """Adjacent shots in one scene. Phase 1 uses the previous last frame as an image, not extend."""
-    compiled: list[dict[str, Any]] = []
-    for index, shot in enumerate(shots):
-        task = str(shot.get("task") or "text")
-        continuous = bool(shot.get("continuous")) and index > 0
-        if continuous and shot.get("needs_frame_extract") and not ffmpeg_available:
-            raise ValueError(
-                "ffmpeg is not available, so the previous shot's last frame cannot be extracted. "
-                "Nothing was submitted."
+def _portal_speech_args(job: Mapping[str, Any]) -> dict[str, Any]:
+    prepared = prepare_speech(job)
+    return {
+        k: v
+        for k, v in prepared.items()
+        if k not in {"endpoint", "_retain_warning", "preview_text"}
+    }
+
+
+def _extract_custom_voice_id(payload: Any) -> str | None:
+    if not isinstance(payload, Mapping):
+        return None
+    for key in ("custom_voice_id", "voice_id"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    for nested_key in ("data", "output", "result"):
+        nested = payload.get(nested_key)
+        found = _extract_custom_voice_id(nested)
+        if found:
+            return found
+    return None
+
+
+def _mark_voice_used_in_tts(job: Mapping[str, Any]) -> None:
+    store = _voice_store_read(job)
+    if not store or not store.get("custom_voice_id") or store.get("used_in_tts_at"):
+        return
+    updated = dict(store)
+    updated["used_in_tts_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    try:
+        _voice_store_write(job, updated)
+    except ValueError:
+        pass
+
+
+def _portal_task(job: Mapping[str, Any]) -> str | None:
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    raw = str(
+        params.get("task") or params.get("omni_reference_task_type") or ""
+    ).strip().lower()
+    if not raw:
+        return None
+    task = _PORTAL_TASK.get(raw)
+    if task is None:
+        raise AdapterFailure(
+            f"unsupported video task {raw!r}; expected extend, edit or reference. "
+            "Nothing was submitted.",
+            category="configuration",
+            code="invalid_task",
+            retryable=False,
+        )
+    return task
+
+
+def _portal_family(job: Mapping[str, Any]) -> str:
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    model = str(params.get("model") or job.get("model") or "").lower()
+    if "wan" in model:
+        return "wan-3.0"
+    if "h3" in model:
+        return "h3-max"
+    if "2.0" in model and "2.5" not in model:
+        return "seedance-2.0"
+    return "seedance-2.5"
+
+
+def _portal_roles(job: Mapping[str, Any]) -> list[str]:
+    """The provider role of each reference. reference_bindings win; without
+    them roles are inferred from the file kind (first image = first_frame,
+    later images = reference_image)."""
+    refs = job.get("references") or []
+    bindings = job.get("reference_bindings") or []
+    if bindings:
+        if len(bindings) != len(refs):
+            raise AdapterFailure(
+                "references need one reference_bindings entry each, carrying the "
+                "provider role for that file. Nothing was submitted.",
+                category="configuration",
+                code="missing_reference_roles",
+                retryable=False,
             )
-        if continuous and (task == "extend" or shot.get("video_input")):
-            if PHASE < 2:
-                frame = shot.get("start_frame") or shots[index - 1].get("last_frame")
-                if not frame:
-                    raise ValueError(
-                        "Phase 1 continuous shot needs the previous shot's real last frame. Nothing was submitted."
-                    )
-                compiled.append({
-                    "task": "image",
-                    "endpoint": PORTAL_ENDPOINTS["seedance-2.5"]["image"],
-                    "image_url": frame,
-                })
-                continue
-            compiled.append({"task": "extend", "endpoint": PORTAL_ENDPOINTS["seedance-2.5"]["extend"]})
-            continue
-        mode = "image" if task == "image" else "text"
-        compiled.append({"task": mode, "endpoint": PORTAL_ENDPOINTS["seedance-2.5"][mode]})
-    if hold is not None:
-        raise AssertionError("phase1_scene must not hold")
-    return compiled
+        roles: list[str] = []
+        for binding in bindings:
+            role = binding.get("role") if isinstance(binding, Mapping) else None
+            if role not in PORTAL_BINDING_ROLES:
+                raise AdapterFailure(
+                    "reference role must be one of "
+                    + ", ".join(sorted(PORTAL_BINDING_ROLES))
+                    + f"; got {role!r}. Nothing was submitted.",
+                    category="configuration",
+                    code="invalid_reference_role",
+                    retryable=False,
+                )
+            roles.append(str(role))
+        return roles
+    inferred: list[str] = []
+    image_seen = False
+    for ref in refs:
+        mime = PORTAL_UPLOAD_MIME.get(Path(str(ref)).suffix.casefold())
+        if mime is None:
+            raise AdapterFailure(
+                f"portal references accept {', '.join(sorted(PORTAL_UPLOAD_MIME))} "
+                f"files; got {Path(str(ref)).suffix or 'a suffixless file'}. "
+                "Nothing was submitted.",
+                category="configuration",
+                code="invalid_reference_type",
+                retryable=False,
+            )
+        kind = mime.split("/", 1)[0]
+        if kind == "image":
+            inferred.append("reference_image" if image_seen else "first_frame")
+            image_seen = True
+        elif kind == "video":
+            inferred.append("reference_video")
+        else:
+            inferred.append("reference_audio")
+    return inferred
+
+
+def _portal_endpoint(job: Mapping[str, Any]) -> str:
+    modality = str(job.get("modality") or "")
+    if modality in {"tts", "speech"}:
+        prepared = prepare_speech(job)
+        return str(prepared["endpoint"])
+    if modality == "music":
+        return PORTAL_ENDPOINTS["music-3"]["music"]
+    if modality == "image":
+        refs = job.get("references") or []
+        # Mirror of GPT_IMAGE_MAX_REFS in OkVevo-Web rateCard.ts (the Fal
+        # schema maximum for gpt-image-2 edit).
+        if len(refs) > PORTAL_GPT_EDIT_MAX_REFS:
+            raise AdapterFailure(
+                f"gpt-image-2 edit accepts at most {PORTAL_GPT_EDIT_MAX_REFS} "
+                "reference images. Nothing was submitted.",
+                code="too_many_refs",
+                retryable=False,
+            )
+        return PORTAL_ENDPOINTS["gpt-image-2"]["edit" if refs else "text"]
+    family = _portal_family(job)
+    task = _portal_task(job)
+    if task in {"extension", "editing"}:
+        if "reference_video" not in _portal_roles(job):
+            raise AdapterFailure(
+                f"seedance-2.5 {task} needs the previous shot's real video bound "
+                "as a reference_video. Nothing was submitted.",
+                category="configuration",
+                code="invalid_reference_role",
+                retryable=False,
+            )
+        return PORTAL_TASK_ENDPOINT
+    roles = _portal_roles(job)
+    if not roles:
+        return PORTAL_ENDPOINTS[family]["text"]
+    frames_only = len(roles) <= 2 and set(roles) <= {"first_frame", "last_frame"}
+    return PORTAL_ENDPOINTS[family]["image" if frames_only else "reference"]
 
 
 def explicit_portal_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any]:
     params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
     args = dict(params)
+    args.pop("omni_reference_task_type", None)
+    args.pop("voice_direction", None)
     if "video" in endpoint or endpoint.endswith("music-3"):
         args.setdefault("resolution", "720p")
         args.setdefault("duration", 5)
@@ -1752,56 +2226,127 @@ def explicit_portal_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any
     if "gpt-image-2" in endpoint:
         args.setdefault("quality", "high")
         args.setdefault("image_size", "1024x1024")
-    if endpoint.endswith("/edit"):
-        # The gateway meters edit references by count, not by bytes; without
-        # this the job would meter as zero references.
-        args["reference_image_count"] = len(job.get("references") or [])
     if job.get("quality"):
         args["quality"] = job["quality"]
-    elif "quality" not in args and "gpt-image-2" in endpoint:
-        args["quality"] = "high"
+    task = _portal_task(job)
+    if endpoint == PORTAL_TASK_ENDPOINT and task:
+        args["task"] = task
+        if task == "editing":
+            # Fal forces duration=auto for edits and the portal prices the edit
+            # on the server-measured input seconds; a sent duration is wrong.
+            args.pop("duration", None)
+    if endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
+        args.pop("duration", None)
+        args.pop("resolution", None)
+        args.pop("generate_audio", None)
+        args.pop("confirm_reclone", None)
+        args.pop("consent_rights", None)
+        args.pop("voice_direction", None)
+        args.setdefault("text", VOICE_CLONE_PREVIEW)
+        args.setdefault("model", "speech-02-hd")
+        # voice_clone_consent stays: portal records consent_at; pickSubmitArgs
+        # strips it before Fal sees the body.
+    args["character"] = _character_key(job)
+    project = _project_key(job)
+    if project:
+        args["project"] = project
     return args
 
 
-def _portal_image_data_url(path: Path) -> str:
-    """One reference image as a data URL, downscaled/re-encoded via ffmpeg when
-    the raw bytes or dimensions would blow the portal body cap. Fail-closed:
-    every problem raises AdapterFailure before anything is submitted."""
-    suffix = path.suffix.casefold()
-    mime = INLINE_REFERENCE_MIME.get(suffix)
-    if mime is None or not mime.startswith("image"):
-        raise AdapterFailure(
-            f"portal reference {path.name} is not a supported image",
-            category="configuration",
-            code="invalid_reference_type",
-            retryable=False,
-        )
+def _media_slot(endpoint: str, role: str) -> tuple[str, bool]:
+    """(Fal arg key, is_array) for a reference role on this endpoint. Key names
+    verified 2026-10-10 against the Fal OpenAPI schemas."""
+    if endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
+        if role in {"reference_audio", "voice_clone"}:
+            return "audio_url", False
+    if endpoint.endswith("/edit"):  # openai/gpt-image-2/edit
+        if role in {"first_frame", "last_frame", "reference_image"}:
+            return "image_urls", True
+    elif endpoint.endswith("/image-to-video"):
+        if role == "first_frame":
+            return ("start_image_url", False) if "wan-3.0" in endpoint else ("image_url", False)
+        if role == "last_frame":
+            return "end_image_url", False
+    elif endpoint.endswith("/reference-to-video"):
+        if "seedance" in endpoint:
+            if role in {"first_frame", "last_frame", "reference_image"}:
+                return "image_urls", True
+            if role == "reference_video":
+                return "video_urls", True
+            return "audio_urls", True
+        if "h3-max" in endpoint:
+            if role == "first_frame":
+                return "image_url", False
+            if role == "last_frame":
+                return "end_image_url", False
+            if role == "reference_image":
+                return "reference_image_urls", True
+            if role == "reference_video":
+                return "reference_video_urls", True
+            return "reference_audio_urls", True
+        # wan-3.0-prime
+        if role in {"first_frame", "last_frame", "reference_image"}:
+            return "reference_image_urls", True
+        if role == "reference_video":
+            return "reference_video_urls", True
+        return "reference_audio_urls", True
+    raise AdapterFailure(
+        f"{role} references do not belong on {endpoint}. Nothing was submitted.",
+        category="configuration",
+        code="invalid_reference_role",
+        retryable=False,
+    )
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _media_cache_file(job: Mapping[str, Any]) -> Path | None:
+    handle = job.get("handle_path")
+    if isinstance(handle, str) and handle:
+        return Path(handle).parent / PORTAL_MEDIA_CACHE
+    return None
+
+
+def _media_cache_load(job: Mapping[str, Any]) -> dict[str, Any]:
+    path = _media_cache_file(job)
+    if path is None:
+        return {}
     try:
-        content = path.read_bytes()
-    except OSError as exc:
-        raise AdapterFailure(
-            "portal could not read a project reference",
-            category="configuration",
-            code="unreadable_reference",
-            retryable=False,
-        ) from exc
-    if not content:
-        raise AdapterFailure(
-            "portal project reference is empty",
-            category="configuration",
-            code="empty_reference",
-            retryable=False,
-        )
-    _validate_media_content(path.name, content)
-    width, height, pix_fmt = _probe_image(path)
-    alpha = _has_alpha(pix_fmt)
-    if len(content) <= PORTAL_PASSTHROUGH_BYTES and max(width, height) <= PORTAL_IMAGE_EDGE:
-        out_mime, out = mime, content
-    else:
-        out_mime = "image/png" if alpha else "image/jpeg"
-        out = _downscale_image(path, alpha=alpha)
-    encoded = base64.b64encode(out).decode("ascii")
-    return f"data:{out_mime};base64,{encoded}"
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _media_cache_store(job: Mapping[str, Any], cache: Mapping[str, Any]) -> None:
+    """Best-effort, like _record_handle: a lost cache write costs one re-upload."""
+    path = _media_cache_file(job)
+    if path is None:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(cache), encoding="utf-8")
+        temporary.replace(path)
+    except OSError:
+        return
+
+
+def _cache_fresh_ref(cache: Mapping[str, Any], digest: str, now: float) -> str | None:
+    entry = cache.get(digest)
+    if not isinstance(entry, Mapping):
+        return None
+    ref, at = entry.get("ref"), entry.get("at")
+    if not isinstance(ref, str) or not isinstance(at, (int, float)) or isinstance(at, bool):
+        return None
+    window = PORTAL_UPLOAD_REUSE_S if ref.startswith("drama-upload://") else PORTAL_FAL_REUSE_S
+    return ref if 0 <= now - float(at) < window else None
 
 
 def _has_alpha(pix_fmt: str) -> bool:
@@ -1875,70 +2420,622 @@ def _downscale_image(path: Path, *, alpha: bool) -> bytes:
         Path(out_path).unlink(missing_ok=True)
 
 
-def _portal_media_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any]:
-    """Inline the reference images Fal expects. The portal forwards the full
-    body to Fal, so these keys pass straight through; metering never sees them
-    (it reads SUBMIT_KEYS only). Any failure here is before any hold."""
-    refs = [Path(p) for p in (job.get("references") or [])]
-    if endpoint.endswith("/image-to-video"):
-        if not refs:
+def _portal_image_bytes(path: Path) -> tuple[bytes, str]:
+    """Reference image bytes within the portal's normalization bound (<=2048px
+    long edge, the size the rate card prices against). Downscale/re-encode via
+    ffmpeg when the source is larger. Fail-closed."""
+    mime = PORTAL_UPLOAD_MIME.get(path.suffix.casefold())
+    if mime is None or not mime.startswith("image"):
+        raise AdapterFailure(
+            f"portal reference {path.name} is not a supported image. Nothing was submitted.",
+            category="configuration",
+            code="invalid_reference_type",
+            retryable=False,
+        )
+    try:
+        content = path.read_bytes()
+    except OSError as exc:
+        raise AdapterFailure(
+            "portal could not read a project reference. Nothing was submitted.",
+            category="configuration",
+            code="unreadable_reference",
+            retryable=False,
+        ) from exc
+    if not content:
+        raise AdapterFailure(
+            "portal project reference is empty. Nothing was submitted.",
+            category="configuration",
+            code="empty_reference",
+            retryable=False,
+        )
+    _validate_media_content(path.name, content)
+    width, height, pix_fmt = _probe_image(path)
+    alpha = _has_alpha(pix_fmt)
+    if len(content) <= PORTAL_UPLOAD_CAPS["image"] and max(width, height) <= PORTAL_IMAGE_EDGE:
+        return content, mime
+    out = _downscale_image(path, alpha=alpha)
+    if len(out) > PORTAL_UPLOAD_CAPS["image"]:
+        raise AdapterFailure(
+            f"reference image stays above the {PORTAL_UPLOAD_CAPS['image'] // (1024 * 1024)}MB "
+            "cap even after downscaling. Nothing was submitted.",
+            category="configuration",
+            code="reference_too_large",
+            retryable=False,
+        )
+    return out, ("image/png" if alpha else "image/jpeg")
+
+
+class _PortalHttp:
+    """Portal transport. Tests inject a fake with the same methods."""
+
+    def __init__(self, origin: str, token: str) -> None:
+        self._origin = origin
+        self._token = token
+
+    def _request(self, path: str, method: str, body: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        data = json.dumps(body).encode("utf-8") if body is not None else None
+        headers = {"Authorization": f"Key {self._token}"}
+        if data is not None:
+            headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(
+            f"{self._origin}{path}",
+            data=data,
+            method=method,
+            headers=headers,
+        )
+        with urllib.request.urlopen(request, timeout=60) as response:
+            raw = response.read().decode("utf-8")
+        parsed = json.loads(raw) if raw else {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    def post_json(self, path: str, body: Mapping[str, Any]) -> dict[str, Any]:
+        return self._request(path, "POST", body)
+
+    def get_json(self, path: str) -> dict[str, Any]:
+        return self._request(path, "GET")
+
+    def delete_json(self, path: str) -> dict[str, Any]:
+        return self._request(path, "DELETE")
+
+    def put_bytes(self, url: str, data: bytes, content_type: str) -> None:
+        request = urllib.request.Request(
+            url, data=data, method="PUT", headers={"Content-Type": content_type}
+        )
+        with urllib.request.urlopen(request, timeout=300) as response:
+            response.read()
+
+
+def _portal_upload(job: Mapping[str, Any], path: Path, http: Any) -> str:
+    """One reference file through the portal's measured-upload flow. The
+    creator's consent is required before any file leaves the machine."""
+    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
+    if params.get("consent_rights") is not True:
+        raise AdapterFailure(
+            "reference uploads need the creator's explicit consent for voices, "
+            "faces and likenesses (parameters.consent_rights: true). "
+            "Nothing was submitted.",
+            category="configuration",
+            code="consent_required",
+            retryable=False,
+        )
+    mime = PORTAL_UPLOAD_MIME.get(path.suffix.casefold())
+    if mime is None:
+        raise AdapterFailure(
+            f"portal references accept {', '.join(sorted(PORTAL_UPLOAD_MIME))} "
+            f"files; got {path.suffix or 'a suffixless file'}. Nothing was submitted.",
+            category="configuration",
+            code="invalid_reference_type",
+            retryable=False,
+        )
+    kind = mime.split("/", 1)[0]
+    if kind == "image":
+        data, mime = _portal_image_bytes(path)
+    else:
+        data = _read_reference(path)
+        if len(data) > PORTAL_UPLOAD_CAPS[kind]:
             raise AdapterFailure(
-                "portal image-to-video needs a first-frame reference. Nothing was submitted.",
+                f"{kind} references are limited to "
+                f"{PORTAL_UPLOAD_CAPS[kind] // (1024 * 1024)}MB. Nothing was submitted.",
                 category="configuration",
-                code="invalid_reference_type",
+                code="reference_too_large",
                 retryable=False,
             )
-        if len(refs) > 1:
+    try:
+        created = http.post_json(
+            "/api/fal/uploads",
+            {"contentType": mime, "bytes": len(data), "consentRights": True},
+        )
+        upload_path = created.get("path")
+        upload_url = created.get("uploadUrl")
+        if not isinstance(upload_path, str) or not isinstance(upload_url, str):
             raise AdapterFailure(
-                "portal video accepts one first-frame reference per job; multi-image "
-                "reference sets are not supported yet. Nothing was submitted.",
-                code="too_many_refs",
-                retryable=False,
+                "portal returned an unusable upload ticket. Nothing was submitted.",
+                code="upload_failed",
+                retryable=True,
             )
-        return {"image_url": _portal_image_data_url(refs[0])}
-    if endpoint.endswith("/edit"):
-        if not refs:
+        http.put_bytes(upload_url, data, mime)
+        done = http.post_json("/api/fal/uploads/complete", {"path": upload_path})
+    except AdapterFailure:
+        raise
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        raise AdapterFailure(
+            "portal upload failed. Nothing was submitted.",
+            category="network",
+            code="upload_failed",
+            retryable=True,
+        ) from exc
+    ref = done.get("ref") if isinstance(done, Mapping) else None
+    if not isinstance(ref, str) or not ref.startswith("drama-upload://"):
+        raise AdapterFailure(
+            "portal did not finalize the upload. Nothing was submitted.",
+            code="upload_failed",
+            retryable=True,
+        )
+    return ref
+
+
+def _default_portal_http() -> "_PortalHttp":
+    read_token, resolve, _quote_keys = _gateway_helpers()
+    gateway = resolve()
+    token = read_token()
+    if gateway is None or not token:
+        raise AdapterFailure(
+            "Sign in to OkVevo to upload references. Nothing was submitted.",
+            category="authentication",
+            code="signed_out",
+            retryable=False,
+        )
+    return _PortalHttp(str(gateway.gateway_origin).rstrip("/"), token)
+
+
+def _portal_media_args(
+    job: Mapping[str, Any],
+    endpoint: str,
+    *,
+    http: Any = None,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Map this job's references to the Fal media keys for endpoint. A cached
+    ref (a prior upload, or a prior Fal output still inside retention — the
+    extend chain reuses the previous shot's Fal URL this way) wins; anything
+    else is uploaded through the measured-upload flow. Every failure is before
+    any hold."""
+    refs = job.get("references") or []
+    if not refs:
+        return {}
+    roles = _portal_roles(job)
+    paths = _reference_paths(job)
+    now = time.time() if now is None else now
+    cache = _media_cache_load(job)
+    dirty = False
+    args: dict[str, Any] = {}
+    for path, role in zip(paths, roles):
+        key, many = _media_slot(endpoint, role)
+        digest = _sha256_path(path)
+        ref = _cache_fresh_ref(cache, digest, now)
+        if ref is None:
+            if http is None:
+                http = _default_portal_http()
+            ref = _portal_upload(job, path, http)
+            cache[digest] = {"ref": ref, "at": now}
+            dirty = True
+        if many:
+            args.setdefault(key, []).append(ref)
+        else:
+            if key in args:
+                raise AdapterFailure(
+                    f"{endpoint} accepts one {role} reference. Nothing was submitted.",
+                    category="configuration",
+                    code="invalid_reference_role",
+                    retryable=False,
+                )
+            args[key] = ref
+    if dirty:
+        _media_cache_store(job, cache)
+    return args
+
+
+def _payload_result_urls(payload: Any) -> list[str]:
+    """Output media URLs in a Fal result payload: video.url, images[].url or
+    audio.url, in that order."""
+    rec = payload if isinstance(payload, Mapping) else {}
+    urls: list[str] = []
+    video = rec.get("video")
+    if isinstance(video, Mapping) and isinstance(video.get("url"), str):
+        urls.append(video["url"])
+    images = rec.get("images")
+    if isinstance(images, list):
+        for image in images:
+            if isinstance(image, Mapping) and isinstance(image.get("url"), str):
+                urls.append(image["url"])
+    audio = rec.get("audio")
+    if isinstance(audio, Mapping) and isinstance(audio.get("url"), str):
+        urls.append(audio["url"])
+    return urls
+
+
+def _gateway_helpers():
+    root = Path(__file__).resolve().parents[4]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from agent.okvevo_gateway import (
+        _QUOTE_ARG_KEYS,
+        read_okvevo_id_token,
+        resolve_okvevo_fal_gateway,
+    )
+    return read_okvevo_id_token, resolve_okvevo_fal_gateway, _QUOTE_ARG_KEYS
+
+
+def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
+    """Read-only credit estimate from POST /api/fal/quote. Fail-closed: any
+    failure is an AdapterFailure so the skill cannot confirm an unpriced job.
+    Never reserves, never debits, never submits. Reference media is uploaded
+    first (consent required) so the estimate is the number the hold later
+    reserves."""
+    endpoint = _portal_endpoint(job)
+    read_token, resolve, quote_keys = _gateway_helpers()
+    gateway = resolve()
+    if gateway is None or not read_token():
+        raise AdapterFailure(
+            "Sign in to OkVevo to see the credit estimate. Nothing was submitted.",
+            category="authentication",
+            code="signed_out",
+            retryable=False,
+        )
+    origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
+    if not origin:
+        raise AdapterFailure(
+            "OkVevo portal origin is not configured. Nothing was submitted.",
+            category="configuration",
+            code="quote_unavailable",
+            retryable=False,
+        )
+    args = explicit_portal_args(job, endpoint)
+    if job.get("modality") in {"tts", "speech"}:
+        args.update(_portal_speech_args(job))
+    args.update(_portal_media_args(job, endpoint))
+    body = json.dumps(
+        {"endpoint": endpoint, "args": {k: v for k, v in args.items() if k in quote_keys}}
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        f"{origin}/api/fal/quote",
+        data=body,
+        method="POST",
+        headers={"Authorization": f"Key {read_token()}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            quoted = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
             raise AdapterFailure(
-                "portal image edit needs at least one reference. Nothing was submitted.",
-                category="configuration",
-                code="invalid_reference_type",
+                "Sign in to OkVevo to see the credit estimate. Nothing was submitted.",
+                category="authentication",
+                code="signed_out",
+                http_status=exc.code,
+                retryable=False,
+            ) from exc
+        raise AdapterFailure(
+            "OkVevo could not quote this job. Nothing was submitted.",
+            category="provider_response",
+            code="quote_unavailable",
+            http_status=exc.code,
+            retryable=exc.code >= 500,
+        ) from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise AdapterFailure(
+            "OkVevo could not quote this job. Nothing was submitted.",
+            category="timeout",
+            code="quote_unavailable",
+            retryable=True,
+        ) from exc
+    credits = quoted.get("credits") if isinstance(quoted, Mapping) else None
+    if not isinstance(credits, int) or isinstance(credits, bool) or credits < 0:
+        raise AdapterFailure(
+            "OkVevo returned an unusable quote. Nothing was submitted.",
+            category="provider_response",
+            code="quote_unavailable",
+            retryable=True,
+        )
+    out = {
+        "estimate": True,
+        "estimated_credits": credits,
+        "snapshotId": quoted.get("snapshotId") if isinstance(quoted.get("snapshotId"), str) else None,
+        "expiresAt": quoted.get("expiresAt") if isinstance(quoted.get("expiresAt"), str) else None,
+    }
+    if endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
+        out["preview_text"] = VOICE_CLONE_PREVIEW
+    if job.get("modality") in {"tts", "speech"}:
+        prepared = prepare_speech(job)
+        warning = prepared.get("_retain_warning")
+        if isinstance(warning, str):
+            out["warning"] = warning
+        preview = prepared.get("preview_text")
+        if isinstance(preview, str):
+            out["preview_text"] = preview
+    return out
+
+
+def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
+    if job.get("modality") in {"tts", "speech"}:
+        try:
+            prepare_speech(job)
+        except ValueError as exc:
+            raise AdapterFailure(str(exc), code="invalid_job", retryable=False) from exc
+    endpoint = _portal_endpoint(job)
+    read_token, resolve, _quote_keys = _gateway_helpers()
+    gateway = resolve()
+    if gateway is None or not read_token():
+        raise AdapterFailure(
+            "Sign in to OkVevo to generate. Nothing was submitted.",
+            category="authentication",
+            code="signed_out",
+            retryable=False,
+        )
+    token = read_token()
+    origin = str(gateway.gateway_origin).rstrip("/")
+    collecting = _collect_target(job)
+    if collecting is not None:
+        # collect: the job was submitted (and billed) earlier — poll the same
+        # request, never resubmit.
+        request_id = collecting
+        status_url = f"{origin}/api/gateway/fal/queue/{endpoint}/requests/{request_id}/status"
+        response_url = f"{origin}/api/gateway/fal/queue/{endpoint}/requests/{request_id}"
+    else:
+        # _portal_endpoint has already validated task/reference combinations.
+        args = explicit_portal_args(job, endpoint)
+        if job.get("modality") in {"tts", "speech"}:
+            args.update(_portal_speech_args(job))
+        if isinstance(job.get("run_id"), str):
+            args["run_id"] = job["run_id"]
+        if isinstance(job.get("approved_credits"), int):
+            args["approved_credits"] = job["approved_credits"]
+        args.update(_portal_media_args(job, endpoint))
+        request = urllib.request.Request(
+            f"{origin}/{endpoint}",
+            data=json.dumps(args).encode("utf-8"),
+            method="POST",
+            headers={"Authorization": f"Key {token}", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                submitted = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raise AdapterFailure(
+                "OkVevo did not accept the job. Nothing further was submitted.",
+                category="provider_response",
+                code="submit_rejected",
+                http_status=exc.code,
+                retryable=False,
+            ) from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise AdapterFailure(
+                "OkVevo submit outcome is unknown. The hold is kept. Do not submit again.",
+                category="timeout",
+                code="submit_unknown",
+                retryable=False,
+            ) from exc
+        request_id = str(submitted.get("request_id") or "")
+        if not request_id:
+            raise AdapterFailure(
+                "OkVevo submit outcome is unknown. The hold is kept. Do not submit again.",
+                code="submit_unknown",
                 retryable=False,
             )
-        return {"image_urls": [_portal_image_data_url(path) for path in refs]}
-    return {}
+        # Billed from here on. Record the id before the first poll.
+        _record_handle(job, request_id, endpoint=endpoint)
+        status_url = str(submitted.get("status_url") or "")
+        response_url = str(submitted.get("response_url") or "")
+    deadline = time.time() + 3600
+    delay = 1.0
+    retried_auth = False
+    while time.time() < deadline:
+        token = read_token()
+        poll = urllib.request.Request(status_url, headers={"Authorization": f"Key {token}"})
+        try:
+            with urllib.request.urlopen(poll, timeout=30) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401 and not retried_auth:
+                retried_auth = True
+                continue
+            raise AdapterFailure("status poll failed", http_status=exc.code, retryable=False) from exc
+        status = str(payload.get("status") or "").upper()
+        if status == "COMPLETED":
+            result_payload: Any = payload
+            if response_url:
+                fetch = urllib.request.Request(
+                    response_url, headers={"Authorization": f"Key {token}"}
+                )
+                try:
+                    with urllib.request.urlopen(fetch, timeout=30) as response:
+                        result_payload = json.loads(response.read().decode("utf-8"))
+                except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+                    raise AdapterFailure(
+                        "could not fetch the completed result payload",
+                        code="result_fetch",
+                        retryable=True,
+                    ) from exc
+            urls = _payload_result_urls(result_payload)
+            if endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
+                voice_id = _extract_custom_voice_id(result_payload)
+                if not voice_id:
+                    raise AdapterFailure(
+                        "clone completed without custom_voice_id",
+                        code="missing_voice_id",
+                        retryable=False,
+                    )
+                _voice_store_write(
+                    job,
+                    {
+                        "custom_voice_id": voice_id,
+                        "cloned_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "preview_text": VOICE_CLONE_PREVIEW,
+                        "used_in_tts_at": None,
+                        "character": _character_key(job),
+                        "endpoint": PORTAL_VOICE_CLONE_ENDPOINT,
+                    },
+                )
+            elif endpoint == PORTAL_SPEECH_ENDPOINT:
+                _mark_voice_used_in_tts(job)
+            if not urls:
+                if endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
+                    target = str((job.get("outputs") or ["voice.json"])[0])
+                    suffix = Path(target).suffix.casefold() or ".json"
+                    path = _output_root(job) / f"result{suffix}"
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(
+                        json.dumps({"custom_voice_id": voice_id}, ensure_ascii=True),
+                        encoding="utf-8",
+                    )
+                    _record_handle(
+                        job,
+                        request_id,
+                        endpoint=endpoint,
+                        fal_urls=[],
+                        finished_at=time.time(),
+                    )
+                    return path, request_id
+                raise AdapterFailure("completed job has no download URL", retryable=False)
+            target = str((job.get("outputs") or ["out.bin"])[0])
+            path = _download(job, urls[0], target, provider="okvevo")
+            # Feed the media cache: a later job that binds this output (the
+            # extend chain's next shot) reuses the Fal URL instead of
+            # re-uploading, while the portal still serves it.
+            try:
+                cache = _media_cache_load(job)
+                cache[_sha256_path(path)] = {"ref": urls[0], "at": time.time()}
+                _media_cache_store(job, cache)
+            except OSError:
+                pass
+            _record_handle(
+                job,
+                request_id,
+                endpoint=endpoint,
+                fal_urls=urls,
+                finished_at=time.time(),
+            )
+            return path, request_id
+        if status in {"FAILED", "ERROR"}:
+            raise AdapterFailure("generation failed", code="fal_failed", retryable=False)
+        time.sleep(delay)
+        delay = min(delay * 2, 8)
+    raise AdapterFailure("timed out waiting for the result", code="poll_timeout", retryable=False)
 
 
 def _selftest() -> None:
-    scene = phase1_scene(
-        [
-            {"task": "text", "continuous": True, "last_frame": "shot-1-last.png"},
-            {"task": "extend", "continuous": True, "start_frame": "shot-1-last.png"},
-        ],
-        ffmpeg_available=True,
-    )
-    if not scene[1]["endpoint"].endswith("image-to-video"):
-        raise AssertionError("phase 1 continuous shot 2 must be image-to-video")
-    if scene[1]["task"] == "extend":
-        raise AssertionError("phase 1 must not emit an extend job")
+    # Endpoint routing: text / frames / reference / task per family.
+    def video_job(**params):
+        return {
+            "modality": "video", "prompt": "p", "outputs": ["o.mp4"],
+            "parameters": params, "references": [],
+        }
+
+    if _portal_endpoint(video_job()) != "bytedance/seedance-2.5/text-to-video":
+        raise AssertionError("default family routing failed")
+    if _portal_endpoint(video_job(model="wan-3.0")) != "alibaba/wan-3.0-prime/text-to-video":
+        raise AssertionError("wan routing failed")
+    if _portal_endpoint(video_job(model="minimax-h3")) != "minimax/h3-max/text-to-video":
+        raise AssertionError("h3 routing failed")
+    if _portal_endpoint(video_job(model="seedance-2.0")) != "bytedance/seedance-2.0/text-to-video":
+        raise AssertionError("2.0 routing failed")
+    if _portal_endpoint({**video_job(), "references": ["a.png"]}) != "bytedance/seedance-2.5/image-to-video":
+        raise AssertionError("first frame must route to image-to-video")
+    if _portal_endpoint({**video_job(), "references": ["a.png", "b.png"]}) != "bytedance/seedance-2.5/reference-to-video":
+        raise AssertionError("two images route to reference (first frame + reference image)")
+    if _portal_endpoint({
+        **video_job(), "references": ["a.png", "b.png"],
+        "reference_bindings": [{"role": "first_frame"}, {"role": "last_frame"}],
+    }) != "bytedance/seedance-2.5/image-to-video":
+        raise AssertionError("first+last frames route to image-to-video")
+    if _portal_endpoint({**video_job(task="extend"), "references": ["shot1.mp4"]}) != PORTAL_TASK_ENDPOINT:
+        raise AssertionError("extend must route to the 2.5 reference endpoint")
+    if _portal_endpoint({**video_job(task="edit"), "references": ["shot1.mp4"]}) != PORTAL_TASK_ENDPOINT:
+        raise AssertionError("edit must route to the 2.5 reference endpoint")
+    if _portal_endpoint({
+        **video_job(model="minimax-h3"), "references": ["clip.mp4"],
+    }) != "minimax/h3-max/reference-to-video":
+        raise AssertionError("h3 video reference routing failed")
     try:
-        phase1_scene(
-            [
-                {"task": "text", "last_frame": "a.png"},
-                {"task": "extend", "continuous": True, "needs_frame_extract": True},
-            ],
-            ffmpeg_available=False,
-        )
-    except ValueError as exc:
-        if "ffmpeg" not in str(exc):
-            raise AssertionError("missing ffmpeg must be reported") from exc
+        _portal_endpoint({**video_job(task="rewind"), "references": []})
+    except AdapterFailure as exc:
+        if exc.code != "invalid_task":
+            raise AssertionError("bad task must fail with invalid_task") from exc
     else:
-        raise AssertionError("missing ffmpeg was accepted")
-    speech = prepare_speech({
+        raise AssertionError("an unknown task was accepted")
+    # Media slot mapping (Fal schema key names).
+    if _media_slot("alibaba/wan-3.0-prime/image-to-video", "first_frame") != ("start_image_url", False):
+        raise AssertionError("wan first frame key failed")
+    if _media_slot("bytedance/seedance-2.5/image-to-video", "last_frame") != ("end_image_url", False):
+        raise AssertionError("seedance last frame key failed")
+    if _media_slot(PORTAL_TASK_ENDPOINT, "reference_video") != ("video_urls", True):
+        raise AssertionError("seedance reference video key failed")
+    if _media_slot("minimax/h3-max/reference-to-video", "reference_video") != ("reference_video_urls", True):
+        raise AssertionError("h3 reference video key failed")
+    if _media_slot("openai/gpt-image-2/edit", "reference_image") != ("image_urls", True):
+        raise AssertionError("gpt edit key failed")
+    # gpt edit cap: 16 pass, 17 fail.
+    many = {**video_job(), "modality": "image", "references": [f"r{i}.png" for i in range(16)]}
+    if _portal_endpoint(many) != "openai/gpt-image-2/edit":
+        raise AssertionError("16 gpt refs must route to edit")
+    many["references"] = many["references"] + ["r16.png"]
+    try:
+        _portal_endpoint(many)
+    except AdapterFailure as exc:
+        if exc.code != "too_many_refs":
+            raise AssertionError("17 gpt refs must fail too_many_refs") from exc
+    else:
+        raise AssertionError("17 gpt refs were accepted")
+    # Speech: preset voices, length cap, voice cloning fails naming the pending endpoint.
+    hindi = prepare_speech({
         "prompt": "Hello, world 2.",
         "parameters": {"voice_direction": {"language": "hi", "age": "adult", "gender": "female"}},
     })
-    if speech["voice_id"] != "Wise_Woman" or speech["language_boost"] != "Hindi":
+    if hindi["voice_id"] != "Wise_Woman" or hindi["language_boost"] != "Hindi":
         raise AssertionError("Hindi voice map failed")
+    try:
+        prepare_speech({"prompt": "hello", "reference_bindings": [{"role": "reference_audio"}]})
+    except ValueError as exc:
+        if PORTAL_VOICE_CLONE_ENDPOINT not in str(exc):
+            raise AssertionError("voice-clone refusal must name fal-ai/minimax/voice-clone") from exc
+    else:
+        raise AssertionError("reference audio was accepted for speech")
+    try:
+        prepare_voice_clone({"prompt": "x", "reference_bindings": [{"role": "reference_audio"}]})
+    except ValueError as exc:
+        if "consent" not in str(exc):
+            raise AssertionError("clone without consent must fail") from exc
+    else:
+        raise AssertionError("clone without consent was accepted")
+    clone_dir = tempfile.mkdtemp(prefix="nia-voice-selftest-")
+    clone_job = {
+        "prompt": "preview",
+        "handle_path": str(Path(clone_dir) / "handle.json"),
+        "reference_bindings": [{"role": "reference_audio"}],
+        "parameters": {"voice_clone_consent": True, "character": "hero"},
+    }
+    cloned = prepare_voice_clone(clone_job)
+    if cloned["endpoint"] != PORTAL_VOICE_CLONE_ENDPOINT or cloned["text"] != VOICE_CLONE_PREVIEW:
+        raise AssertionError("consenting clone must route to fal-ai/minimax/voice-clone")
+    _voice_store_write(
+        clone_job,
+        {
+            "custom_voice_id": "cloned-hero-1",
+            "cloned_at": "2026-10-10T00:00:00Z",
+            "used_in_tts_at": None,
+            "character": "hero",
+        },
+    )
+    reused = prepare_speech({**clone_job, "prompt": "line", "parameters": {"character": "hero"}})
+    if reused["voice_id"] != "cloned-hero-1" or reused["endpoint"] != PORTAL_SPEECH_ENDPOINT:
+        raise AssertionError("stored custom_voice_id must be reused on speech-02-hd")
+    try:
+        prepare_voice_clone(clone_job)
+    except ValueError as exc:
+        if "confirm_reclone" not in str(exc):
+            raise AssertionError("second clone must require confirm_reclone") from exc
+    else:
+        raise AssertionError("silent re-clone was accepted")
     try:
         prepare_speech({"prompt": "x" * (SPEECH_MAX_CHARS + 1)})
     except ValueError as exc:
@@ -1946,6 +3043,24 @@ def _selftest() -> None:
             raise AssertionError("speech max must be reported") from exc
     else:
         raise AssertionError("over-long speech was accepted")
+    # Result payload shapes.
+    if _payload_result_urls({"video": {"url": "https://v3b.fal.media/a.mp4"}}) != ["https://v3b.fal.media/a.mp4"]:
+        raise AssertionError("video payload extraction failed")
+    if _payload_result_urls({"images": [{"url": "https://v3b.fal.media/a.png"}]}) != ["https://v3b.fal.media/a.png"]:
+        raise AssertionError("image payload extraction failed")
+    if _payload_result_urls({"audio": {"url": "https://v3b.fal.media/a.mp3"}}) != ["https://v3b.fal.media/a.mp3"]:
+        raise AssertionError("audio payload extraction failed")
+    if _payload_result_urls({"logs": []}) != []:
+        raise AssertionError("empty payload must yield no URLs")
+    # Media cache freshness windows.
+    fresh = {"d" * 64: {"ref": "drama-upload://x", "at": 1000.0}}
+    if _cache_fresh_ref(fresh, "d" * 64, 1000.0 + PORTAL_UPLOAD_REUSE_S - 1) != "drama-upload://x":
+        raise AssertionError("fresh upload ref must be reused")
+    if _cache_fresh_ref(fresh, "d" * 64, 1000.0 + PORTAL_UPLOAD_REUSE_S + 1) is not None:
+        raise AssertionError("stale upload ref must not be reused")
+    fal = {"e" * 64: {"ref": "https://v3b.fal.media/a.mp4", "at": 1000.0}}
+    if _cache_fresh_ref(fal, "e" * 64, 1000.0 + PORTAL_FAL_REUSE_S + 1) is not None:
+        raise AssertionError("stale Fal URL must not be reused")
     image = {
         "modality": "image", "prompt": "portrait", "references": [],
         "outputs": ["制作成果/a.png"], "parameters": {"width": 1024, "height": 1536},
@@ -2029,240 +3144,6 @@ def _selftest() -> None:
         raise AssertionError("mismatched Seedance reference role was accepted")
 
 
-def _gateway_helpers():
-    root = Path(__file__).resolve().parents[4]
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
-    from agent.okvevo_gateway import (
-        _QUOTE_ARG_KEYS,
-        read_okvevo_id_token,
-        resolve_okvevo_fal_gateway,
-    )
-    return read_okvevo_id_token, resolve_okvevo_fal_gateway, _QUOTE_ARG_KEYS
-
-
-def _portal_endpoint(job: Mapping[str, Any]) -> str:
-    modality = str(job.get("modality") or "")
-    if modality in {"tts", "speech"}:
-        return prepare_speech(job)["endpoint"]
-    if modality == "music":
-        return PORTAL_ENDPOINTS["music-3"]["music"]
-    if modality == "image":
-        refs = job.get("references") or []
-        mode = "edit" if refs else "text"
-        # Mirror of GPT_IMAGE_MAX_REFS in OkVevo-Web rateCard.ts. Capped at 4
-        # until the billing-events smoke prices edit input tokens (1 vs 4 refs).
-        if mode == "edit" and len(refs) > 4:
-            raise AdapterFailure(
-                "gpt-image-2 edit accepts at most 4 reference images. Nothing was submitted.",
-                code="too_many_refs",
-                retryable=False,
-            )
-        return PORTAL_ENDPOINTS["gpt-image-2"][mode]
-    params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
-    model = str(params.get("model") or job.get("model") or "").lower()
-    family = "seedance-2.5"
-    if "wan" in model:
-        family = "wan-3.0"
-    elif "h3" in model:
-        family = "h3-max"
-    elif "2.0" in model and "2.5" not in model:
-        family = "seedance-2.0"
-    task = str(params.get("task") or params.get("omni_reference_task_type") or "").lower()
-    if task in {"extend", "edit"} or params.get("video_url") or params.get("audio_url"):
-        try:
-            scene = phase1_scene(
-                [{"task": "text", "last_frame": params.get("start_frame") or params.get("image_url")},
-                 {"task": "extend", "continuous": True,
-                  "start_frame": params.get("start_frame") or params.get("image_url"),
-                  "needs_frame_extract": bool(params.get("needs_frame_extract")),
-                  "video_input": True}],
-                ffmpeg_available=shutil.which("ffmpeg") is not None,
-            )
-        except ValueError as exc:
-            raise AdapterFailure(str(exc), code="phase1", retryable=False) from exc
-        return scene[1]["endpoint"]
-    refs = job.get("references") or []
-    mode = "image" if refs else "text"
-    return PORTAL_ENDPOINTS[family][mode]
-
-
-def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
-    """Read-only credit estimate from POST /api/fal/quote. Fail-closed: any
-    failure is an AdapterFailure so the skill cannot confirm an unpriced job.
-    Never reserves, never debits, never submits."""
-    endpoint = _portal_endpoint(job)
-    read_token, resolve, quote_keys = _gateway_helpers()
-    gateway = resolve()
-    if gateway is None or not read_token():
-        raise AdapterFailure(
-            "Sign in to OkVevo to see the credit estimate. Nothing was submitted.",
-            category="authentication",
-            code="signed_out",
-            retryable=False,
-        )
-    origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
-    if not origin:
-        raise AdapterFailure(
-            "OkVevo portal origin is not configured. Nothing was submitted.",
-            category="configuration",
-            code="quote_unavailable",
-            retryable=False,
-        )
-    args = {
-        key: value
-        for key, value in explicit_portal_args(job, endpoint).items()
-        if key in quote_keys
-    }
-    body = json.dumps({"endpoint": endpoint, "args": args}).encode("utf-8")
-    request = urllib.request.Request(
-        f"{origin}/api/fal/quote",
-        data=body,
-        method="POST",
-        headers={"Authorization": f"Key {read_token()}", "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            quoted = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        if exc.code in (401, 403):
-            raise AdapterFailure(
-                "Sign in to OkVevo to see the credit estimate. Nothing was submitted.",
-                category="authentication",
-                code="signed_out",
-                http_status=exc.code,
-                retryable=False,
-            ) from exc
-        raise AdapterFailure(
-            "OkVevo could not quote this job. Nothing was submitted.",
-            category="provider_response",
-            code="quote_unavailable",
-            http_status=exc.code,
-            retryable=exc.code >= 500,
-        ) from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise AdapterFailure(
-            "OkVevo could not quote this job. Nothing was submitted.",
-            category="timeout",
-            code="quote_unavailable",
-            retryable=True,
-        ) from exc
-    credits = quoted.get("credits") if isinstance(quoted, Mapping) else None
-    if not isinstance(credits, int) or isinstance(credits, bool) or credits < 0:
-        raise AdapterFailure(
-            "OkVevo returned an unusable quote. Nothing was submitted.",
-            category="provider_response",
-            code="quote_unavailable",
-            retryable=True,
-        )
-    return {
-        "estimate": True,
-        "estimated_credits": credits,
-        "snapshotId": quoted.get("snapshotId") if isinstance(quoted.get("snapshotId"), str) else None,
-        "expiresAt": quoted.get("expiresAt") if isinstance(quoted.get("expiresAt"), str) else None,
-    }
-
-
-def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
-    if job.get("modality") in {"tts", "speech"}:
-        try:
-            prepare_speech(job)
-        except ValueError as exc:
-            raise AdapterFailure(str(exc), code="phase1", retryable=False) from exc
-    endpoint = _portal_endpoint(job)
-    read_token, resolve, _quote_keys = _gateway_helpers()
-    gateway = resolve()
-    if gateway is None or not read_token():
-        raise AdapterFailure(
-            "Sign in to OkVevo to generate. Nothing was submitted.",
-            category="authentication",
-            code="signed_out",
-            retryable=False,
-        )
-    token = read_token()
-    args = explicit_portal_args(job, endpoint)
-    if isinstance(job.get("run_id"), str):
-        args["run_id"] = job["run_id"]
-    if isinstance(job.get("approved_credits"), int):
-        args["approved_credits"] = job["approved_credits"]
-    args.update(_portal_media_args(job, endpoint))
-    origin = str(gateway.gateway_origin).rstrip("/")
-    url = f"{origin}/{endpoint}"
-    body = json.dumps(args).encode("utf-8")
-    if len(body) > PORTAL_INLINE_BODY_LIMIT:
-        raise AdapterFailure(
-            "references are too large for the portal even after downscaling; "
-            "use fewer or smaller reference images. Nothing was submitted.",
-            category="configuration",
-            code="reference_body_too_large",
-            retryable=False,
-        )
-    request = urllib.request.Request(
-        url,
-        data=body,
-        method="POST",
-        headers={"Authorization": f"Key {token}", "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            submitted = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise AdapterFailure(
-            "OkVevo did not accept the job. Nothing further was submitted.",
-            category="provider_response",
-            code="submit_rejected",
-            http_status=exc.code,
-            retryable=False,
-        ) from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise AdapterFailure(
-            "OkVevo submit outcome is unknown. The hold is kept. Do not submit again.",
-            category="timeout",
-            code="submit_unknown",
-            retryable=False,
-        ) from exc
-    request_id = str(submitted.get("request_id") or "")
-    if not request_id:
-        raise AdapterFailure(
-            "OkVevo submit outcome is unknown. The hold is kept. Do not submit again.",
-            code="submit_unknown",
-            retryable=False,
-        )
-    _record_handle(job, request_id)
-    status_url = str(submitted.get("status_url") or "")
-    deadline = time.time() + 3600
-    delay = 1.0
-    retried_auth = False
-    while time.time() < deadline:
-        token = read_token()
-        poll = urllib.request.Request(status_url, headers={"Authorization": f"Key {token}"})
-        try:
-            with urllib.request.urlopen(poll, timeout=30) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if exc.code == 401 and not retried_auth:
-                retried_auth = True
-                continue
-            raise AdapterFailure("status poll failed", http_status=exc.code, retryable=False) from exc
-        status = str(payload.get("status") or "").upper()
-        if status == "COMPLETED":
-            result_url = ""
-            video = payload.get("video") if isinstance(payload.get("video"), Mapping) else None
-            if isinstance(video, Mapping) and isinstance(video.get("url"), str):
-                result_url = video["url"]
-            elif isinstance(payload.get("url"), str):
-                result_url = payload["url"]
-            if not result_url:
-                raise AdapterFailure("completed job has no download URL", retryable=False)
-            target = str((job.get("outputs") or ["out.bin"])[0])
-            return _download(job, result_url, target, provider="okvevo"), request_id
-        if status in {"FAILED", "ERROR"}:
-            raise AdapterFailure("generation failed", code="fal_failed", retryable=False)
-        time.sleep(delay)
-        delay = min(delay * 2, 8)
-    raise AdapterFailure("timed out waiting for the result", code="poll_timeout", retryable=False)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -2270,7 +3151,7 @@ def main() -> int:
         nargs="?",
         choices=(
             "seedance", "gpt-image-2", "minimax-music", "minimax-h3",
-            "minimax-speech", "portal", "quote",
+            "minimax-speech", "portal", "quote", "delete-voice",
         ),
     )
     parser.add_argument("--selftest", action="store_true")
@@ -2284,6 +3165,9 @@ def main() -> int:
         job = json.load(sys.stdin.buffer)
         if not isinstance(job, Mapping):
             raise ValueError("adapter input must be an object")
+        if args.provider == "delete-voice":
+            json.dump(delete_cloned_voice(job), sys.stdout, ensure_ascii=True)
+            return 0
         if args.provider == "quote" or (
             args.provider == "portal" and job.get("quote_only") is True
         ):

@@ -69,12 +69,18 @@ def nia_is_internal_channel() -> bool:
 
 
 # Mirror of SUBMIT_KEYS in OkVevo-Web src/lib/fal/handleQueue.ts — the only
-# argument keys the gateway meters on. Filtering here keeps multi-MB data-URL
-# image payloads out of the quote POST and makes quote == submit-time debit.
+# argument keys the gateway meters on. Filtering here keeps accidental junk
+# out of the quote POST and makes quote == submit-time debit. Media references
+# are short strings (drama-upload:// refs or fal.media URLs — uploads happen
+# before quoting), so they are cheap to include and required for media pricing.
 _QUOTE_ARG_KEYS = frozenset({
     "duration", "num_images", "image_size", "generate_audio", "resolution",
     "num_frames", "width", "height", "enable_web_search", "web_search",
-    "quality", "text", "lyrics", "reference_image_count", "size",
+    "quality", "text", "lyrics", "size", "task", "aspect_ratio", "prompt",
+    "voice_id", "language_boost", "model", "audio_url",
+    "image_url", "start_image_url", "end_image_url", "middle_image_url",
+    "mask_url", "target_audio_url", "image_urls", "reference_image_urls",
+    "video_urls", "reference_video_urls", "audio_urls", "reference_audio_urls",
 })
 
 
