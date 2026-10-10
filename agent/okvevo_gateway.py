@@ -74,6 +74,7 @@ def nia_is_internal_channel() -> bool:
 _QUOTE_ARG_KEYS = frozenset({
     "duration", "num_images", "image_size", "generate_audio", "resolution",
     "num_frames", "width", "height", "enable_web_search", "web_search",
+    "quality", "text", "lyrics", "reference_image_count", "size",
 })
 
 
