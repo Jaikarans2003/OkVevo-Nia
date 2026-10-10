@@ -2357,7 +2357,92 @@ def _has_alpha(pix_fmt: str) -> bool:
     return fmt.startswith(("rgba", "bgra", "argb", "abgr", "yuva")) or fmt in {"ya8", "ya16"}
 
 
-def _probe_image(path: Path) -> tuple[int, int, str]:
+def _jpeg_size(content: bytes) -> tuple[int, int] | None:
+    if not content.startswith(b"\xff\xd8") or len(content) < 4:
+        return None
+    i = 2
+    n = len(content)
+    while i + 1 < n:
+        if content[i] != 0xFF:
+            return None
+        marker = content[i + 1]
+        i += 2
+        if marker in {0xD8, 0xD9, 0x01} or 0xD0 <= marker <= 0xD7:
+            continue
+        if i + 1 >= n:
+            return None
+        length = int.from_bytes(content[i : i + 2], "big")
+        if length < 2 or i + length > n:
+            return None
+        if 0xC0 <= marker <= 0xCF and marker not in {0xC4, 0xC8, 0xCC}:
+            if length < 7:
+                return None
+            height = int.from_bytes(content[i + 3 : i + 5], "big")
+            width = int.from_bytes(content[i + 5 : i + 7], "big")
+            if width < 1 or height < 1:
+                return None
+            return width, height
+        i += length
+    return None
+
+
+def _webp_size(content: bytes) -> tuple[int, int, str] | None:
+    if len(content) < 30 or content[:4] != b"RIFF" or content[8:12] != b"WEBP":
+        return None
+    kind = content[12:16]
+    if kind == b"VP8X":
+        width = 1 + int.from_bytes(content[24:27], "little")
+        height = 1 + int.from_bytes(content[27:30], "little")
+        if width < 1 or height < 1:
+            return None
+        return width, height, "rgba" if content[20] & 0x10 else "rgb"
+    if kind == b"VP8 " and content[23:26] == b"\x9d\x01\x2a":
+        width = int.from_bytes(content[26:28], "little") & 0x3FFF
+        height = int.from_bytes(content[28:30], "little") & 0x3FFF
+        if width < 1 or height < 1:
+            return None
+        return width, height, "yuvj420p"
+    if kind == b"VP8L" and len(content) >= 25 and content[20] == 0x2F:
+        bits = int.from_bytes(content[21:25], "little")
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+        return width, height, "rgba" if (bits >> 28) & 1 else "rgb"
+    return None
+
+
+def _image_header_size(content: bytes) -> tuple[int, int, str] | None:
+    """PNG / JPEG / WebP size from the file header. None if the layout is unknown."""
+    if (
+        content.startswith(b"\x89PNG\r\n\x1a\n")
+        and len(content) >= 26
+        and content[12:16] == b"IHDR"
+    ):
+        width = int.from_bytes(content[16:20], "big")
+        height = int.from_bytes(content[20:24], "big")
+        if width < 1 or height < 1:
+            return None
+        return width, height, "rgba" if content[25] in (4, 6) else "rgb"
+    jpeg = _jpeg_size(content)
+    if jpeg is not None:
+        return jpeg[0], jpeg[1], "yuvj420p"
+    return _webp_size(content)
+
+
+def _probe_image(path: Path, content: bytes | None = None) -> tuple[int, int, str]:
+    data = content
+    if data is None:
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            raise AdapterFailure(
+                f"ffprobe could not read reference image {path.name}. Nothing was submitted.",
+                category="configuration",
+                code="invalid_reference_type",
+                retryable=False,
+            ) from exc
+    parsed = _image_header_size(data)
+    if parsed is not None:
+        return parsed
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
         raise AdapterFailure(
@@ -2449,7 +2534,7 @@ def _portal_image_bytes(path: Path) -> tuple[bytes, str]:
             retryable=False,
         )
     _validate_media_content(path.name, content)
-    width, height, pix_fmt = _probe_image(path)
+    width, height, pix_fmt = _probe_image(path, content)
     alpha = _has_alpha(pix_fmt)
     if len(content) <= PORTAL_UPLOAD_CAPS["image"] and max(width, height) <= PORTAL_IMAGE_EDGE:
         return content, mime
@@ -2659,11 +2744,11 @@ def _gateway_helpers():
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
     from agent.okvevo_gateway import (
-        _QUOTE_ARG_KEYS,
+        _quote_args,
         read_okvevo_id_token,
         resolve_okvevo_fal_gateway,
     )
-    return read_okvevo_id_token, resolve_okvevo_fal_gateway, _QUOTE_ARG_KEYS
+    return read_okvevo_id_token, resolve_okvevo_fal_gateway, _quote_args
 
 
 def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
@@ -2673,7 +2758,7 @@ def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
     first (consent required) so the estimate is the number the hold later
     reserves."""
     endpoint = _portal_endpoint(job)
-    read_token, resolve, quote_keys = _gateway_helpers()
+    read_token, resolve, quote_args = _gateway_helpers()
     gateway = resolve()
     if gateway is None or not read_token():
         raise AdapterFailure(
@@ -2695,7 +2780,7 @@ def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
         args.update(_portal_speech_args(job))
     args.update(_portal_media_args(job, endpoint))
     body = json.dumps(
-        {"endpoint": endpoint, "args": {k: v for k, v in args.items() if k in quote_keys}}
+        {"endpoint": endpoint, "args": quote_args(args)}
     ).encode("utf-8")
     request = urllib.request.Request(
         f"{origin}/api/fal/quote",

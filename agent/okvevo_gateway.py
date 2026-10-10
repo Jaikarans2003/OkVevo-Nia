@@ -73,6 +73,7 @@ def nia_is_internal_channel() -> bool:
 # out of the quote POST and makes quote == submit-time debit. Media references
 # are short strings (drama-upload:// refs or fal.media URLs — uploads happen
 # before quoting), so they are cheap to include and required for media pricing.
+# data: payloads are not a price input and must not ride the quote POST.
 _QUOTE_ARG_KEYS = frozenset({
     "duration", "num_images", "image_size", "generate_audio", "resolution",
     "num_frames", "width", "height", "enable_web_search", "web_search",
@@ -82,6 +83,27 @@ _QUOTE_ARG_KEYS = frozenset({
     "mask_url", "target_audio_url", "image_urls", "reference_image_urls",
     "video_urls", "reference_video_urls", "audio_urls", "reference_audio_urls",
 })
+
+
+def _is_data_url(value: object) -> bool:
+    return isinstance(value, str) and value.lstrip().startswith("data:")
+
+
+def _quote_args(args: Optional[dict]) -> dict:
+    """Metering keys only; drop data: payloads (keep short upload/Fal refs)."""
+    out: dict = {}
+    for key, value in (args or {}).items():
+        if key not in _QUOTE_ARG_KEYS:
+            continue
+        if isinstance(value, list):
+            kept = [item for item in value if not _is_data_url(item)]
+            if kept:
+                out[key] = kept
+            continue
+        if _is_data_url(value):
+            continue
+        out[key] = value
+    return out
 
 
 def _quote_okvevo_fal_credits(endpoint: str, args: dict) -> Optional[int]:
@@ -98,10 +120,7 @@ def _quote_okvevo_fal_credits(endpoint: str, args: dict) -> Optional[int]:
         res = httpx.post(
             f"{origin}/api/fal/quote",
             headers={"Authorization": f"Key {token}"},
-            json={
-                "endpoint": endpoint,
-                "args": {k: v for k, v in (args or {}).items() if k in _QUOTE_ARG_KEYS},
-            },
+            json={"endpoint": endpoint, "args": _quote_args(args)},
             timeout=10.0,
         )
         if res.status_code != 200:

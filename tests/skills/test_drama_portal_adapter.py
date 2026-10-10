@@ -212,6 +212,16 @@ def test_media_slot_keys_match_fal_schema():
 
 # --- upload flow -------------------------------------------------------------
 
+def test_probe_image_reads_png_header_without_ffprobe(tmp_path, monkeypatch):
+    adapters = _load()
+    monkeypatch.setattr(adapters.shutil, "which", lambda _name: None)
+    _project(tmp_path, {"a.png": PNG})
+    assert adapters._probe_image(tmp_path / "a.png") == (1, 1, "rgb")
+    data, mime = adapters._portal_image_bytes(tmp_path / "a.png")
+    assert data == PNG
+    assert mime == "image/png"
+
+
 def test_upload_flow_consent_put_complete(tmp_path):
     adapters = _load()
     _project(tmp_path, {"a.png": PNG})
