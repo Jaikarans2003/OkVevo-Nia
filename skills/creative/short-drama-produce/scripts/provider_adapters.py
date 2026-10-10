@@ -1745,6 +1745,10 @@ def explicit_portal_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any
     if "gpt-image-2" in endpoint:
         args.setdefault("quality", "high")
         args.setdefault("image_size", "1024x1024")
+    if endpoint.endswith("/edit"):
+        # The gateway meters edit references by count, not by bytes; without
+        # this the job would meter as zero references.
+        args["reference_image_count"] = len(job.get("references") or [])
     if job.get("quality"):
         args["quality"] = job["quality"]
     elif "quality" not in args and "gpt-image-2" in endpoint:
@@ -1877,8 +1881,12 @@ def _gateway_helpers():
     root = Path(__file__).resolve().parents[4]
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
-    from agent.okvevo_gateway import read_okvevo_id_token, resolve_okvevo_fal_gateway
-    return read_okvevo_id_token, resolve_okvevo_fal_gateway
+    from agent.okvevo_gateway import (
+        _QUOTE_ARG_KEYS,
+        read_okvevo_id_token,
+        resolve_okvevo_fal_gateway,
+    )
+    return read_okvevo_id_token, resolve_okvevo_fal_gateway, _QUOTE_ARG_KEYS
 
 
 def _portal_endpoint(job: Mapping[str, Any]) -> str:
@@ -1890,9 +1898,11 @@ def _portal_endpoint(job: Mapping[str, Any]) -> str:
     if modality == "image":
         refs = job.get("references") or []
         mode = "edit" if refs else "text"
-        if mode == "edit" and len(refs) > 16:
+        # Mirror of GPT_IMAGE_MAX_REFS in OkVevo-Web rateCard.ts. Capped at 4
+        # until the billing-events smoke prices edit input tokens (1 vs 4 refs).
+        if mode == "edit" and len(refs) > 4:
             raise AdapterFailure(
-                "gpt-image-2 edit accepts at most 16 reference images. Nothing was submitted.",
+                "gpt-image-2 edit accepts at most 4 reference images. Nothing was submitted.",
                 code="too_many_refs",
                 retryable=False,
             )
@@ -1925,6 +1935,82 @@ def _portal_endpoint(job: Mapping[str, Any]) -> str:
     return PORTAL_ENDPOINTS[family][mode]
 
 
+def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
+    """Read-only credit estimate from POST /api/fal/quote. Fail-closed: any
+    failure is an AdapterFailure so the skill cannot confirm an unpriced job.
+    Never reserves, never debits, never submits."""
+    endpoint = _portal_endpoint(job)
+    read_token, resolve, quote_keys = _gateway_helpers()
+    gateway = resolve()
+    if gateway is None or not read_token():
+        raise AdapterFailure(
+            "Sign in to OkVevo to see the credit estimate. Nothing was submitted.",
+            category="authentication",
+            code="signed_out",
+            retryable=False,
+        )
+    origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
+    if not origin:
+        raise AdapterFailure(
+            "OkVevo portal origin is not configured. Nothing was submitted.",
+            category="configuration",
+            code="quote_unavailable",
+            retryable=False,
+        )
+    args = {
+        key: value
+        for key, value in explicit_portal_args(job, endpoint).items()
+        if key in quote_keys
+    }
+    body = json.dumps({"endpoint": endpoint, "args": args}).encode("utf-8")
+    request = urllib.request.Request(
+        f"{origin}/api/fal/quote",
+        data=body,
+        method="POST",
+        headers={"Authorization": f"Key {read_token()}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            quoted = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            raise AdapterFailure(
+                "Sign in to OkVevo to see the credit estimate. Nothing was submitted.",
+                category="authentication",
+                code="signed_out",
+                http_status=exc.code,
+                retryable=False,
+            ) from exc
+        raise AdapterFailure(
+            "OkVevo could not quote this job. Nothing was submitted.",
+            category="provider_response",
+            code="quote_unavailable",
+            http_status=exc.code,
+            retryable=exc.code >= 500,
+        ) from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise AdapterFailure(
+            "OkVevo could not quote this job. Nothing was submitted.",
+            category="timeout",
+            code="quote_unavailable",
+            retryable=True,
+        ) from exc
+    credits = quoted.get("credits") if isinstance(quoted, Mapping) else None
+    if not isinstance(credits, int) or isinstance(credits, bool) or credits < 0:
+        raise AdapterFailure(
+            "OkVevo returned an unusable quote. Nothing was submitted.",
+            category="provider_response",
+            code="quote_unavailable",
+            retryable=True,
+        )
+    return {
+        "estimate": True,
+        "estimated_credits": credits,
+        "snapshotId": quoted.get("snapshotId") if isinstance(quoted.get("snapshotId"), str) else None,
+        "expiresAt": quoted.get("expiresAt") if isinstance(quoted.get("expiresAt"), str) else None,
+    }
+
+
 def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
     if job.get("modality") in {"tts", "speech"}:
         try:
@@ -1932,12 +2018,12 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
         except ValueError as exc:
             raise AdapterFailure(str(exc), code="phase1", retryable=False) from exc
     endpoint = _portal_endpoint(job)
-    read_token, resolve = _gateway_helpers()
+    read_token, resolve, _quote_keys = _gateway_helpers()
     gateway = resolve()
     if gateway is None or not read_token():
         raise AdapterFailure(
             "Sign in to OkVevo to generate. Nothing was submitted.",
-            category="auth",
+            category="authentication",
             code="signed_out",
             retryable=False,
         )
@@ -2037,17 +2123,10 @@ def main() -> int:
         job = json.load(sys.stdin.buffer)
         if not isinstance(job, Mapping):
             raise ValueError("adapter input must be an object")
-        if args.provider == "quote":
-            json.dump(
-                {
-                    "estimate": True,
-                    "estimated_credits": None,
-                    "snapshotId": None,
-                    "expiresAt": None,
-                    "note": "quote runs through the OkVevo portal when signed in",
-                },
-                sys.stdout,
-            )
+        if args.provider == "quote" or (
+            args.provider == "portal" and job.get("quote_only") is True
+        ):
+            json.dump(_quote_portal(job), sys.stdout, ensure_ascii=True)
             return 0
         path, provider_job_id = _run_portal(job)
         response: dict[str, Any] = {
@@ -2059,7 +2138,10 @@ def main() -> int:
         return 0
     except AdapterFailure as exc:
         # Provider bodies and credentials are intentionally never reflected.
-        json.dump({"error": exc.public(args.provider)}, sys.stdout, ensure_ascii=True)
+        # The runner validates error.provider against the job's adapter profile
+        # name, so emit that, not the argv word.
+        profile = str(job.get("adapter") or args.provider)
+        json.dump({"error": exc.public(profile)}, sys.stdout, ensure_ascii=True)
         print("provider adapter failed safely", file=sys.stderr)
         return 1
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):

@@ -65,7 +65,9 @@ def main() -> int:
             encoding="utf-8",
         )
 
-        preview = prepare_job(project, job_path)
+        preview = prepare_job(project, job_path, adapter_config=config)
+        require(preview["paid"] is False, "fixture adapter must not be a paid portal job")
+        require(preview["estimated_credits"] is None, "fixture job must have no credit estimate")
         try:
             confirm_job(project, job_id=job["job_id"], confirmation="CONFIRM wrong")
         except ConfirmationRequiredError:
@@ -127,7 +129,7 @@ def main() -> int:
         "MiniMax Music profile compiled the wrong model",
     )
 
-    print("8 self-tests passed")
+    print("10 self-tests passed")
     return 0
 
 

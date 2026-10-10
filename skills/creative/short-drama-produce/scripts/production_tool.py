@@ -1124,22 +1124,115 @@ def _normalize_job(root: Path, raw: object) -> dict[str, Any]:
     return execution
 
 
-def prepare_job(root: Path, job_file: Path) -> dict[str, Any]:
+def _is_portal_quote_capable(command: list[str]) -> bool:
+    """Only the OkVevo portal adapter answers quote_only without generating."""
+    return bool(command) and command[-1] == "portal"
+
+
+def _quote_for_job(root: Path, job: Mapping[str, Any], adapter_config: Path) -> dict[str, Any]:
+    """Best-effort portal quote recorded next to the job. Never raises: the
+    record carries the error so prepare can say so and confirm can refuse."""
+    record: dict[str, Any] = {
+        "schema_version": JOB_SCHEMA,
+        "job_id": job["job_id"],
+        "fingerprint": job["fingerprint"],
+        "quoted_at": utc_now(),
+        "paid": True,
+        "credits": None,
+        "snapshotId": None,
+        "expiresAt": None,
+        "error": None,
+    }
+    try:
+        command, timeout, _roles = _load_adapter(adapter_config, str(job["adapter"]), root)
+    except Exception as exc:
+        record["error"] = f"adapter profile unavailable: {exc}"
+        return record
+    if not _is_portal_quote_capable(command):
+        # A non-portal adapter has no credit quote; confirm stays free-form.
+        record["paid"] = False
+        return record
+    payload = {key: job[key] for key in ALLOWED_JOB_KEYS if key in job}
+    payload["quote_only"] = True
+    try:
+        response = _run_adapter(command, timeout, payload, root)
+    except Exception as exc:
+        public = exc.public_error if isinstance(exc, AdapterError) else None
+        record["error"] = str((public or {}).get("code") or "quote_failed")
+        return record
+    credits = response.get("estimated_credits")
+    if not isinstance(credits, int) or isinstance(credits, bool) or credits < 0:
+        record["error"] = "quote_invalid"
+        return record
+    record["credits"] = credits
+    if isinstance(response.get("snapshotId"), str):
+        record["snapshotId"] = response["snapshotId"]
+    if isinstance(response.get("expiresAt"), str):
+        record["expiresAt"] = response["expiresAt"]
+    return record
+
+
+def _read_quote_record(root: Path, job: Mapping[str, Any]) -> dict[str, Any] | None:
+    try:
+        document = _metadata_read_json(
+            root,
+            ("quotes",),
+            f"{_job_key(str(job['job_id']))}.json",
+            maximum=MAX_JOB_BYTES,
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def _usable_quote_credits(root: Path, job: Mapping[str, Any]) -> int | None:
+    """Fail-closed price gate. Returns the approved credits, or None when the
+    job's adapter is not the paid portal. Anything missing or stale refuses."""
+    quote = _read_quote_record(root, job)
+    if not isinstance(quote, dict) or quote.get("fingerprint") != job.get("fingerprint"):
+        raise ConfirmationRequiredError(
+            "job has no matching portal quote; run prepare again before confirmation"
+        )
+    if not quote.get("paid"):
+        return None
+    error = quote.get("error")
+    if error:
+        raise ConfirmationRequiredError(
+            f"portal quote unavailable ({error}); sign in to OkVevo and prepare again"
+        )
+    credits = quote.get("credits")
+    if not isinstance(credits, int) or isinstance(credits, bool) or credits < 0:
+        raise ConfirmationRequiredError("portal quote is missing credits; prepare again")
+    expires = quote.get("expiresAt")
+    if isinstance(expires, str) and expires:
+        try:
+            until = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+        except ValueError:
+            until = None
+        if until is not None and until <= datetime.now(timezone.utc):
+            raise ConfirmationRequiredError("portal quote expired; prepare again")
+    return credits
+
+
+def prepare_job(root: Path, job_file: Path, *, adapter_config: Path | None = None) -> dict[str, Any]:
     root = find_project(root)
     if job_file.stat().st_size > MAX_JOB_BYTES:
         raise ValueError("job file is too large")
     raw = json.loads(job_file.read_text(encoding="utf-8"))
     job = _normalize_job(root, raw)
+    config = adapter_config if adapter_config is not None else _default_adapter_config()
+    quote = _quote_for_job(root, job, config)
     with _project_lock(root):
         if _active_run(root, str(job["job_id"])) is not None:
             raise RuntimeError("this job is already running")
         job_name = f"{_job_key(str(job['job_id']))}.json"
         _metadata_atomic_json(root, ("jobs",), job_name, job)
+        _metadata_atomic_json(root, ("quotes",), job_name, quote)
         try:
             _metadata_unlink(root, ("confirmations",), job_name)
         except FileNotFoundError:
             pass
-    return _preview(job)
+    return _preview(job, quote)
 
 
 def _validate_stored_job(
@@ -1275,8 +1368,9 @@ def _read_job(root: Path, job_id: str) -> dict[str, Any]:
     return _validate_stored_job(root, document, expected_job_id=job_id)
 
 
-def _preview(job: Mapping[str, Any]) -> dict[str, Any]:
+def _preview(job: Mapping[str, Any], quote: Mapping[str, Any] | None = None) -> dict[str, Any]:
     confirmation = f"CONFIRM {job['job_id']} {str(job['fingerprint'])[:12]}"
+    paid = bool(quote and quote.get("paid"))
     return {
         "job_id": job["job_id"],
         "modality": job["modality"],
@@ -1293,9 +1387,11 @@ def _preview(job: Mapping[str, Any]) -> dict[str, Any]:
         "confirmation": confirmation,
         "state": "needs_confirmation",
         "estimate": True,
-        "estimated_credits": None,
-        "snapshotId": None,
-        "expiresAt": None,
+        "paid": paid,
+        "estimated_credits": (quote or {}).get("credits") if paid else None,
+        "snapshotId": (quote or {}).get("snapshotId") if paid else None,
+        "expiresAt": (quote or {}).get("expiresAt") if paid else None,
+        "quote_error": (quote or {}).get("error") if paid else None,
     }
 
 
@@ -1308,6 +1404,7 @@ def confirm_job(root: Path, *, job_id: str, confirmation: str) -> dict[str, Any]
         expected = _preview(job)["confirmation"]
         if confirmation != expected:
             raise ConfirmationRequiredError("confirmation does not match the exact current job")
+        approved_credits = _usable_quote_credits(root, job)
         receipt = {
             "schema_version": JOB_SCHEMA,
             "job_id": job_id,
@@ -1315,6 +1412,7 @@ def confirm_job(root: Path, *, job_id: str, confirmation: str) -> dict[str, Any]
             "confirmed_at": utc_now(),
             "consumed_at": None,
             "run_id": None,
+            "approved_credits": approved_credits,
         }
         _metadata_atomic_json(
             root, ("confirmations",), f"{_job_key(job_id)}.json", receipt
@@ -1789,6 +1887,10 @@ def run_job(root: Path, *, job_id: str, adapter_config: Path) -> dict[str, Any]:
                 "handle_path": str(_handle_metadata_path(root, job_id, run_id)),
             }
         )
+        approved = receipt.get("approved_credits")
+        if isinstance(approved, int) and not isinstance(approved, bool) and approved >= 0:
+            # The gateway refuses the submit when the fresh reserve exceeds this.
+            payload["approved_credits"] = approved
         try:
             response = _run_adapter(command, timeout, payload, root)
             adapter_outputs = _validate_adapter_outputs(job, response, output_root)
@@ -2277,6 +2379,7 @@ def build_parser() -> argparse.ArgumentParser:
     prepare = commands.add_parser("prepare", help="Validate and preview a media job.")
     prepare.add_argument("project")
     prepare.add_argument("--job", required=True)
+    prepare.add_argument("--adapter-config")
     confirm = commands.add_parser("confirm", help="Confirm the exact prepared job.")
     confirm.add_argument("project")
     confirm.add_argument("--job-id", required=True)
@@ -2314,7 +2417,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "prepare":
-            result = prepare_job(Path(args.project), Path(args.job))
+            result = prepare_job(
+                Path(args.project),
+                Path(args.job),
+                adapter_config=_adapter_config_arg(args.adapter_config),
+            )
         elif args.command == "confirm":
             result = confirm_job(
                 Path(args.project), job_id=args.job_id, confirmation=args.confirmation
