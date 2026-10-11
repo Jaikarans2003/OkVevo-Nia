@@ -80,7 +80,10 @@ function fetchWindows(arch) {
   const scratch = path.join(CACHE, 'btbn-extract')
   fs.rmSync(scratch, { recursive: true, force: true })
   fs.mkdirSync(scratch, { recursive: true })
-  run('tar', ['-xf', zip, '-C', scratch])
+  // Git Bash puts GNU tar first on PATH; it cannot read .zip and parses "D:" as a host.
+  const tar =
+    process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar'
+  run(tar, ['-xf', zip, '-C', scratch])
   const inner = fs.readdirSync(scratch)[0]
   fs.copyFileSync(path.join(scratch, inner, 'bin', 'ffmpeg.exe'), ffmpeg)
   fs.copyFileSync(path.join(scratch, inner, 'bin', 'ffprobe.exe'), ffprobe)
