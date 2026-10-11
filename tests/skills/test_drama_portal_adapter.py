@@ -28,10 +28,34 @@ _PATH = (
 )
 
 
+# Price math and vendor keys belong on the portal. A missing adapter file
+# fails this module; CI must not skip the check because the sibling repo
+# is absent.
+_PRICE_OR_KEY = (
+    "unit_price",
+    "creditsFromUsd",
+    "rawMicro",
+    "FAL_KEY",
+    "FAL_API_KEY",
+    "def choose",
+    "MARGIN",
+)
+
+
+def test_adapter_file_exists_and_has_no_price_logic_or_fal_key():
+    assert _PATH.is_file(), f"drama adapter missing: {_PATH}"
+    text = _PATH.read_text(encoding="utf-8")
+    for word in _PRICE_OR_KEY:
+        assert word not in text, word
+
+
 def _load():
+    if not _PATH.is_file():
+        raise AssertionError(f"drama adapter missing: {_PATH}")
     spec = importlib.util.spec_from_file_location("provider_adapters", _PATH)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"drama adapter missing: {_PATH}")
     module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
 
