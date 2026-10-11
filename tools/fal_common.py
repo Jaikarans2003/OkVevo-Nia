@@ -26,8 +26,45 @@ issue #26241 for details.
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Dict, Optional, Union
 from urllib.parse import urlencode
+
+
+def _slot_wait_line(payload: Dict[str, Any]) -> Optional[str]:
+    if payload.get("state") != "queued":
+        return None
+    try:
+        used = int(payload.get("slots_in_use") or 0)
+        limit = int(payload.get("slots_limit") or 0)
+    except (TypeError, ValueError):
+        return None
+    return f"Waiting for a free slot ({used} of {limit} in use)"
+
+
+def _install_slot_wait(http_client: Any) -> None:
+    """Print the portal slot line when a status poll is waiting. Does not resubmit."""
+    if getattr(http_client, "_nia_slot_wait", False):
+        return
+    original = getattr(http_client, "request", None)
+    if original is None:
+        return
+
+    def request(method: str, url: str, *args: Any, **kwargs: Any):
+        response = original(method, url, *args, **kwargs)
+        if str(method).upper() == "GET" and str(url).rstrip("/").endswith("/status"):
+            try:
+                data = response.json()
+            except Exception:
+                return response
+            if isinstance(data, dict):
+                line = _slot_wait_line(data)
+                if line:
+                    print(line, file=sys.stderr, flush=True)
+        return response
+
+    http_client.request = request
+    http_client._nia_slot_wait = True
 
 
 def import_fal_client() -> Any:
@@ -99,6 +136,8 @@ class _ManagedFalSyncClient:
         self._queue_url_format = _normalize_fal_queue_url_format(queue_run_origin)
         self._sync_client = sync_client_class(key=key)
         self._http_client = getattr(self._sync_client, "_client", None)
+        if self._http_client is not None:
+            _install_slot_wait(self._http_client)
         self._maybe_retry_request = getattr(client_module, "_maybe_retry_request", None)
         self._raise_for_status = getattr(client_module, "_raise_for_status", None)
         self._request_handle_class = getattr(client_module, "SyncRequestHandle", None)

@@ -171,6 +171,10 @@ jobs:
       - name: Require pack-env
         working-directory: apps/desktop
         run: node scripts/write-okvevo-pack-env.mjs --require
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: apps/desktop/resources/ffmpeg
+          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         env:
@@ -188,6 +192,7 @@ jobs:
           echo "Pack version $VERSION"
           # Empty CSC_LINK makes electron-builder treat cwd as a cert file.
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
+          node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --mac dmg zip --publish never \
             -c.extraMetadata.version="$VERSION" \
@@ -273,6 +278,10 @@ jobs:
         working-directory: apps/desktop
         shell: bash
         run: node scripts/write-okvevo-pack-env.mjs --require
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: apps/desktop/resources/ffmpeg
+          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         shell: bash
@@ -291,6 +300,7 @@ jobs:
           echo "Pack version $VERSION"
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           if [ -z "${WIN_CSC_LINK:-}" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD || true; fi
+          node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --win nsis --publish never \
             -c.extraMetadata.version="$VERSION" \

@@ -35,6 +35,17 @@
 | **Re-apply** | Do not replace with Nous release workflows |
 | **Check** | Green Desktop staging after push (when pack paths change) |
 
+### Bundled LGPL ffmpeg (2026-10-10)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[desktop]` + `[agent]` |
+| **Files** | `apps/desktop/scripts/fetch-ffmpeg.mjs`, `build-ffmpeg-macos.mjs`, `resources/ffmpeg-licenses/`; `apps/desktop/electron/backend-env.ts` (`bundledFfmpegDir`); `apps/desktop/package.json` extraResources `ffmpeg/`; `.github/workflows/desktop-pack.yml` fetch step + cache; `skills/creative/short-drama-edit/scripts/edit_tool.py` (`_h264_delivery_args`) |
+| **What** | Pinned LGPL-only ffmpeg/ffprobe ship in the DMG/EXE (macOS built from checksummed source, Windows BtbN lgpl pinned). No GPL encoders; H.264 = VideoToolbox / Media Foundation at 12 Mbps, libx264 only on dev machines. Backend PATH resolves bundled first, then PATH. |
+| **Why** | Drama edit must not depend on a user-installed ffmpeg, and GPL x264 cannot ship in a commercial bundle |
+| **Re-apply** | Keep `--disable-gpl` and the fetch-time asserts (no `--enable-gpl`/libx264/libx265, hardware encoder present); keep licenses + `SOURCE-OFFER.txt` in the bundle |
+| **Check** | `pytest tests/skills/test_drama_edit_h264.py` (bundled last-frame extraction runs when `resources/ffmpeg/` is populated); `npx vitest run electron/backend-env.test.ts` |
+
 ### Windows STT pins
 
 | Field | Value |

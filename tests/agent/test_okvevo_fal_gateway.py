@@ -164,3 +164,32 @@ class TestSpendGate:
             args={"duration": "6"},
         )
         assert denial == "BLOCKED: denied by user"
+
+
+def test_ensure_run_id_reuses_and_skips_quote(monkeypatch, tmp_path):
+    _sign_in(monkeypatch, tmp_path)
+    from agent.okvevo_gateway import ensure_okvevo_fal_run_id
+
+    def _boom(*_a, **_k):
+        raise AssertionError("quote must not run for normal image/video tools")
+
+    monkeypatch.setattr("agent.okvevo_gateway._quote_okvevo_fal_credits", _boom)
+    first = ensure_okvevo_fal_run_id({"prompt": "hi"})
+    assert first["prompt"] == "hi"
+    assert "approved_credits" not in first
+    assert isinstance(first["run_id"], str) and first["run_id"]
+    retry = ensure_okvevo_fal_run_id(first)
+    assert retry["run_id"] == first["run_id"]
+
+
+def test_ensure_run_id_survives_quote_outage(monkeypatch, tmp_path):
+    _sign_in(monkeypatch, tmp_path)
+    from agent.okvevo_gateway import ensure_okvevo_fal_run_id
+
+    monkeypatch.setattr(
+        "agent.okvevo_gateway._quote_okvevo_fal_credits",
+        lambda *_a, **_k: None,
+    )
+    out = ensure_okvevo_fal_run_id({})
+    assert out["run_id"]
+    assert "approved_credits" not in out

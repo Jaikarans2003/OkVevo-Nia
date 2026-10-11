@@ -32,6 +32,7 @@
     "postbuild": "node scripts/assert-dist-built.mjs",
     "prebuilder": "node scripts/patch-electron-builder-mac-binary.mjs",
     "builder": "cross-env NODE_OPTIONS=--max-old-space-size=16384 node scripts/run-electron-builder.mjs",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs",
     "pack": "npm run build && npm run builder -- --dir --publish never",
     "pack:internal": "cross-env NIA_BUILD_CHANNEL=internal npm run build && node scripts/run-internal-builder.mjs --dir",
     "dist": "npm run build && npm run builder",
@@ -250,6 +251,10 @@
       {
         "from": "assets/icon.ico",
         "to": "icon.ico"
+      },
+      {
+        "from": "resources/ffmpeg/${platform}-${arch}",
+        "to": "ffmpeg"
       }
     ],
     "asar": true,

@@ -1,0 +1,11 @@
+{
+  "status": "accepted",
+  "choices": {
+    "quality_band": "standard",
+    "spend_cap_credits": 5000,
+    "target_video_model": null,
+    "video_prompt_dialect": "generic",
+    "video_prompt_language": "zh-CN",
+    "audio_generation": "same_pass"
+  }
+}
