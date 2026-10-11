@@ -54,17 +54,17 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 |-------|-------|
 | **Tags** | `[agent]` + `[portal]` |
 | **Files** | adapter `provider_adapters.py` + `production_tool.py`; portal `rateCard.ts`, `uploads.ts`, `mediaInputs.ts`, `mediaResolve.ts`, `handleQueue.ts`, `capture.ts`, `scripts/fal-capture-job.ts`, `jobs/fal-capture/Dockerfile`, `dramaSwitches.ts`, `verifyWebhook.ts`, `src/app/api/fal/uploads/**`, `src/app/api/webhooks/fal/`, `src/app/api/cron/fal-drift/route.ts`, `scripts/drama-infra.sh`, `scripts/drama-kill-switch.ts`, `docs/adr/ADR-001-drama-full-parity.md` |
-| **What** | Native extend/edit/reference/first+last/multi-shot through signed Firebase Storage uploads (`drama-inputs/`). GPT edit refs 16. Formula reserves + provisional settle; capture job reads Fal billing-events with `FAL_BILLING_KEY` (capture SA only; App Hosting never gets it). Voice clone: `fal-ai/minimax/voice-clone` (not chatterbox), ≥10s, consent, clone-once, 7-day warn. Cloned voice SoT is Firestore `clonedVoices` (uid-owned); speech 403 before hold if custom `voice_id` is not owned; local voices file is a cache + portal restore; delete tombstones the id so it cannot be registered or used again (Fal has no delete-voice API). Telegram removed; alerts = `opsAlerts` + structured log + Cloud Monitoring email. Kill switch script + daily spend breaker. Admin console deferred to a separate plan. |
+| **What** | Native extend/edit/reference/first+last/multi-shot through signed Firebase Storage uploads (`drama-inputs/`). GPT edit refs 16. Formula reserves + provisional settle; capture job reads Fal billing-events with `FAL_BILLING_KEY` (capture SA only; App Hosting never gets it). Voice clone: `fal-ai/minimax/voice-clone` (not chatterbox), ≥10s, consent, clone-once, 7-day warn. Cloned voice SoT is Firestore `clonedVoices` (uid-owned); speech 403 before hold if custom `voice_id` is not owned; local voices file is a cache + portal restore; delete tombstones the id so it cannot be registered or used again (Fal has no delete-voice API). Telegram removed; alerts = `opsAlerts` + structured log + Cloud Monitoring email. Admin console deferred to a separate plan. The kill switch and daily spend breaker named here were removed 2026-10-11 (see Always-on generation). |
 | **Why** | Full skill parity; realized Fal margin; generation key stays submit-only |
 | **Re-apply** | Keep signed-URL media path. Keep formula reserves. Do not grant `FAL_BILLING_KEY` to App Hosting. Do not wire chatterbox. Do not resurrect Telegram. |
-| **Check** | `pytest tests/skills/test_drama_portal_adapter.py tests/agent/test_okvevo_fal_gateway.py`; portal `npx tsx src/lib/fal/{rateCard,uploads,mediaInputs,capture,dramaSwitches,killSwitch,spendGuard}.selfcheck.ts` + `src/lib/ops/alert.selfcheck.ts`. Upload/collect/voice HTTP uses `OKVEVO_WEB_ORIGIN` (no `/fal/queue` prefix). |
+| **Check** | `pytest tests/skills/test_drama_portal_adapter.py tests/agent/test_okvevo_fal_gateway.py`; portal `npx tsx src/lib/fal/{rateCard,uploads,mediaInputs,capture,dramaSwitches,falQueue,spendGuard}.selfcheck.ts` + `src/lib/ops/alert.selfcheck.ts`. Upload/collect/voice HTTP uses `OKVEVO_WEB_ORIGIN` (no `/fal/queue` prefix). |
 
 ### Drama review fix (2026-10-10)
 
 | Field | Value |
 |-------|-------|
 | **Tags** | `[agent]` + `[portal]` |
-| **What** | Portal refuses estimate ≤ 0; hashes client `drama-upload://` refs (never signed URLs); 409 never holds; replay before breaker/cap; daily-spend close lives in the settle tx (second settle is a no-op, `falUsdHeld` ≥ 0); `approved_credits` required only for drama-skill rate-card jobs; normal image/video tools reuse one `run_id` and reserve the server price. Kill switch stops every metered Fal submit. |
+| **What** | Portal refuses estimate ≤ 0; hashes client `drama-upload://` refs (never signed URLs); 409 never holds; replay before breaker/cap; daily-spend close lives in the settle tx (second settle is a no-op, `falUsdHeld` ≥ 0); `approved_credits` required only for drama-skill rate-card jobs; normal image/video tools reuse one `run_id` and reserve the server price. The kill switch named here was removed 2026-10-11 (see Always-on generation). |
 | **Check** | Same as Drama full parity. `_portal_url("/api/fal/uploads")` has no `/fal/queue` prefix. |
 
 ### Drama review fix 3 (2026-10-11)
@@ -73,10 +73,21 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 |-------|-------|
 | **Tags** | `[agent]` + `[portal]` |
 | **Files** | portal `idempotency.ts`, `handleQueue.ts`, `scripts/drama-kill-switch.ts`, `scripts/drama-infra.sh`, `scripts/backfill-captured-false.ts`; `tests/skills/test_drama_portal_adapter.py` |
-| **What** | The submit hash is the client request (model id, price params, prompt, `drama-upload://` or the original Fal media URL, sorted keys) and is taken before any signed URL is minted, including `audio_url`. Admin console deferred to a separate plan: no admin UI in these PRs. Kill switch is `scripts/drama-kill-switch.ts` (flag + audit: who, when, old → new). Production stays OFF until `--on`. HIGH logs and a missing heartbeat email from `drama-infra.sh` (23h absence; fal-drift every 12h, because Cloud Monitoring rejects windows over 23h30m). Adapter "no price logic / no Fal key" runs in Nia pytest and fails if `provider_adapters.py` is missing. Web checks stay in-repo and fail if a drama, billing, or rules check file is missing. Backfill sets `captured=false` only for `provider == fal`, inside a per-document transaction that re-reads and skips when `captured` is already set. |
+| **What** | The submit hash is the client request (model id, price params, prompt, `drama-upload://` or the original Fal media URL, sorted keys) and is taken before any signed URL is minted, including `audio_url`. Admin console deferred to a separate plan: no admin UI in these PRs. HIGH logs and a missing heartbeat email from `drama-infra.sh` (23h absence; fal-drift every 12h, because Cloud Monitoring rejects windows over 23h30m). Adapter "no price logic / no Fal key" runs in Nia pytest and fails if `provider_adapters.py` is missing. Web checks stay in-repo and fail if a drama, billing, or rules check file is missing. Backfill sets `captured=false` only for `provider == fal`, inside a per-document transaction that re-reads and skips when `captured` is already set. The kill switch in this entry was removed the same day; see Always-on generation below. |
 | **Why** | A re-minted signed URL was a different hash (new hold or 409). Web CI skipped the adapter check when the Nia checkout was absent. The admin UI is not the operator surface for this ship. |
 | **Re-apply** | Hash the client body, then sign. Do not add an admin console in this change. Do not skip adapter, billing, or rules checks when a file is missing. |
-| **Check** | `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/{idempotency,killSwitch,spendGuard,capture,dramaGate,mediaCatalog}.selfcheck.ts` |
+| **Check** | `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/{idempotency,spendGuard,capture,dramaGate,mediaCatalog}.selfcheck.ts` |
+
+### Always-on generation and per-plan queue (2026-10-11)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[portal]` |
+| **Files** | portal `falQueue.ts`, `dispatch.ts`, `handleQueue.ts`, `holdSweep.ts`, `src/app/api/cron/fal-dispatch/route.ts`; adapter `provider_adapters.py`; `tools/fal_common.py` |
+| **What** | No kill switch and no daily spend stop. $250 raw Fal USD/day emails once and does not block. Slots: Starter 2, Pro 5, Max 10. Over the limit the job is `queued` (credits reserved, FIFO). Settle/fail/cancel dispatches the next job; a minute cron is the backup. Inactive plan stays `plan not active`. |
+| **Why** | A global off switch and a hard spend stop blocked testers. Per-user slots match the plan price. |
+| **Re-apply** | One slot map in `falQueue.ts`. Do not reject a submit that can queue. Do not sweep queued jobs as abandoned. |
+| **Check** | `npx tsx src/lib/fal/falQueue.selfcheck.ts`; `pytest tests/skills/test_drama_portal_adapter.py tests/tools/test_fal_common.py -k "slot or queued"`. |
 
 ### Billing UI + links
 

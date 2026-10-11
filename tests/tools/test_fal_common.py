@@ -13,7 +13,9 @@ import pytest
 from tools.fal_common import (
     _ManagedFalSyncClient,
     _extract_http_status,
+    _install_slot_wait,
     _normalize_fal_queue_url_format,
+    _slot_wait_line,
     import_fal_client,
 )
 
@@ -603,3 +605,24 @@ class TestManagedFalSyncClientSubmit:
         client._add_timeout_header.assert_called_once()
         headers = client._maybe_retry_request.call_args[1]["headers"]
         assert headers["X-Custom"] == "val"
+
+
+def test_slot_wait_prints_and_does_not_resubmit(capsys):
+    assert _slot_wait_line({"state": "running"}) is None
+    assert _slot_wait_line({"state": "queued", "slots_in_use": 2, "slots_limit": 2}) == (
+        "Waiting for a free slot (2 of 2 in use)"
+    )
+    posts = []
+
+    class Http:
+        def request(self, method, url, *args, **kwargs):
+            if method != "GET":
+                posts.append(method)
+            body = {"state": "queued", "slots_in_use": 2, "slots_limit": 2, "status": "IN_QUEUE"}
+            return types.SimpleNamespace(json=lambda: body)
+
+    http = Http()
+    _install_slot_wait(http)
+    http.request("GET", "https://portal.example/requests/abc/status")
+    assert posts == []
+    assert "Waiting for a free slot (2 of 2 in use)" in capsys.readouterr().err

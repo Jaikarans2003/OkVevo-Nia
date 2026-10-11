@@ -2852,6 +2852,23 @@ def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+def slot_wait_text(slots_in_use: int, slots_limit: int) -> str:
+    return f"Waiting for a free slot ({slots_in_use} of {slots_limit} in use)"
+
+
+def portal_poll_action(payload: Mapping[str, Any]) -> str:
+    """queued = keep polling the same request. Never a reason to submit again."""
+    state = str(payload.get("state") or "")
+    status = str(payload.get("status") or "").upper()
+    if state == "queued":
+        return "wait"
+    if status == "COMPLETED":
+        return "done"
+    if status in {"FAILED", "ERROR"}:
+        return "fail"
+    return "poll"
+
+
 def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
     if job.get("modality") in {"tts", "speech"}:
         try:
@@ -2937,7 +2954,20 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
                 continue
             raise AdapterFailure("status poll failed", http_status=exc.code, retryable=False) from exc
         status = str(payload.get("status") or "").upper()
-        if status == "COMPLETED":
+        action = portal_poll_action(payload)
+        if action == "wait":
+            print(
+                slot_wait_text(
+                    int(payload.get("slots_in_use") or 0),
+                    int(payload.get("slots_limit") or 0),
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, 8)
+            continue
+        if action == "done" or status == "COMPLETED":
             result_payload: Any = payload
             if response_url:
                 fetch = urllib.request.Request(
@@ -3238,6 +3268,12 @@ def _selftest() -> None:
         pass
     else:
         raise AssertionError("mismatched Seedance reference role was accepted")
+    if portal_poll_action({"state": "queued", "status": "IN_QUEUE", "slots_in_use": 2, "slots_limit": 2}) != "wait":
+        raise AssertionError("queued status must keep polling and must not resubmit")
+    if slot_wait_text(2, 2) != "Waiting for a free slot (2 of 2 in use)":
+        raise AssertionError("slot wait text mismatch")
+    if portal_poll_action({"status": "COMPLETED", "logs": []}) != "done":
+        raise AssertionError("completed status must finish")
 
 
 def main() -> int:

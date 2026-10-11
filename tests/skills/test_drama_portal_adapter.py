@@ -509,6 +509,15 @@ def test_payload_result_urls_by_shape():
     assert adapters._payload_result_urls({"status": "COMPLETED", "logs": []}) == []
 
 
+def test_queued_status_waits_without_resubmit():
+    adapters = _load()
+    payload = {"state": "queued", "status": "IN_QUEUE", "slots_in_use": 2, "slots_limit": 2}
+    assert adapters.portal_poll_action(payload) == "wait"
+    assert adapters.slot_wait_text(2, 2) == "Waiting for a free slot (2 of 2 in use)"
+    assert adapters.portal_poll_action({"status": "COMPLETED", "logs": []}) == "done"
+    assert adapters.portal_poll_action({"status": "IN_PROGRESS", "logs": []}) == "poll"
+
+
 def test_download_allowlist_rejects_other_hosts():
     adapters = _load()
     with pytest.raises(adapters.AdapterFailure, match="allowlist"):
