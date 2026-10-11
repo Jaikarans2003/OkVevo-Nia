@@ -41,6 +41,10 @@ Pinned source: https://github.com/zenstory-ai/drama-skills `c2426e03c0e7722bebcc
 - `production_tool.py`: job `references` / `reference_bindings` caps raised 16 → 50 (seedance-2.5 reference-to-video accepts ≤50 files total).
 - `short-drama-produce/SKILL.md`: consent confirmation required before uploading voice or face references.
 
+## 2026-10-11 job status messages
+
+- `provider_adapters.py`: submit and status HTTP errors show the portal `error.message` (`plan inactive`, Fal did not accept the job). The poller still does not submit again.
+
 ## 2026-10-10 voice ownership
 
 - Portal `clonedVoices` is the SoT (`uid`, `custom_voice_id`, `character`, `project`, `cloned_at`, `used_in_tts_at`, `consent_at`, `sample_sha256`). Local `metadata/voices/` is a cache.

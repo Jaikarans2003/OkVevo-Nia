@@ -509,6 +509,25 @@ def test_payload_result_urls_by_shape():
     assert adapters._payload_result_urls({"status": "COMPLETED", "logs": []}) == []
 
 
+def test_portal_failure_message_is_the_user_text():
+    adapters = _load()
+    assert (
+        adapters.portal_failure_message(
+            '{"error":{"message":"plan inactive"}}',
+            "status poll failed",
+        )
+        == "plan inactive"
+    )
+    assert (
+        adapters.portal_failure_message(
+            '{"error":{"message":"Fal did not accept this job. Your credits were returned."}}',
+            "status poll failed",
+        )
+        == "Fal did not accept this job. Your credits were returned."
+    )
+    assert adapters.portal_failure_message("not-json", "status poll failed") == "status poll failed"
+
+
 def test_queued_status_waits_without_resubmit():
     adapters = _load()
     payload = {"state": "queued", "status": "IN_QUEUE", "slots_in_use": 2, "slots_limit": 2}

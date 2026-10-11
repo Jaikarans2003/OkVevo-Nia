@@ -2856,6 +2856,21 @@ def slot_wait_text(slots_in_use: int, slots_limit: int) -> str:
     return f"Waiting for a free slot ({slots_in_use} of {slots_limit} in use)"
 
 
+def portal_failure_message(raw: str, fallback: str) -> str:
+    """Surface the portal's error.message. A 429 or a lapsed plan must not be a generic poll error."""
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return fallback
+    if not isinstance(parsed, dict):
+        return fallback
+    error = parsed.get("error")
+    message = error.get("message") if isinstance(error, dict) else None
+    if isinstance(message, str) and message.strip():
+        return message.strip()
+    return fallback
+
+
 def portal_poll_action(payload: Mapping[str, Any]) -> str:
     """queued = keep polling the same request. Never a reason to submit again."""
     state = str(payload.get("state") or "")
@@ -2914,8 +2929,12 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
             with urllib.request.urlopen(request, timeout=60) as response:
                 submitted = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", "replace")
             raise AdapterFailure(
-                "OkVevo did not accept the job. Nothing further was submitted.",
+                portal_failure_message(
+                    raw,
+                    "OkVevo did not accept the job. Nothing further was submitted.",
+                ),
                 category="provider_response",
                 code="submit_rejected",
                 http_status=exc.code,
@@ -2952,7 +2971,12 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
             if exc.code == 401 and not retried_auth:
                 retried_auth = True
                 continue
-            raise AdapterFailure("status poll failed", http_status=exc.code, retryable=False) from exc
+            raw = exc.read().decode("utf-8", "replace")
+            raise AdapterFailure(
+                portal_failure_message(raw, "status poll failed"),
+                http_status=exc.code,
+                retryable=False,
+            ) from exc
         status = str(payload.get("status") or "").upper()
         action = portal_poll_action(payload)
         if action == "wait":

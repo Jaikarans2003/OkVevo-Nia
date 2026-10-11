@@ -78,6 +78,17 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Re-apply** | Hash the client body, then sign. Do not add an admin console in this change. Do not skip adapter, billing, or rules checks when a file is missing. |
 | **Check** | `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/{idempotency,spendGuard,capture,dramaGate,mediaCatalog}.selfcheck.ts` |
 
+### Fal job machine (2026-10-11)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[portal]` |
+| **Files** | portal `jobMachine.ts`, `dispatch.ts`, `handleQueue.ts`, `falQueue.ts`, `debit.ts`; adapter `provider_adapters.py` |
+| **What** | One compare-and-set status machine: queued → dispatching → submitted → settled or released, plus unknown. Dispatch claims queued → dispatching before any Fal call. Cancel of a queued job refunds in that transaction and does not call Fal. Cancel after dispatch calls Fal cancel only once a request id exists, and releases only when Fal confirms. A released job cannot be submitted or settled. Finishing a job frees its slot and promotes that user's oldest waiter in the same transaction. A new submit takes a slot only when the queue is empty. A Fal 429 (or any explicit rejection) is "not accepted": the job returns to the head with the hold kept, retries up to 6 attempts or 10 minutes, then releases with a clear message. Timeouts stay `unknown` and are not resubmitted. An unknown active plan uses starter slots and logs a warning. A lapsed plan releases queued holds and the client sees "plan inactive". A failed spend-alert write does not block submit. |
+| **Why** | Cancel and dispatch could both refund and charge. A submit during finish could pass an older waiter. A 429 was described as Fal accepting the overflow. |
+| **Re-apply** | Do not write `status` outside a transaction that checks the current state. Do not send a job that is not `dispatching`. Do not promote a later job ahead of a head that is waiting to retry. |
+| **Check** | `npx tsx src/lib/fal/jobMachine.selfcheck.ts`; `npx tsx src/lib/fal/falQueue.selfcheck.ts`; `firebase emulators:exec --only firestore --project demo-okvevo -- "npx tsx src/lib/fal/jobMachine.emulator.ts"`; `pytest tests/skills/test_drama_portal_adapter.py -k portal_failure_message` |
+
 ### Always-on generation and per-plan queue (2026-10-11)
 
 | Field | Value |
