@@ -64,7 +64,7 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | Field | Value |
 |-------|-------|
 | **Tags** | `[agent]` + `[portal]` |
-| **What** | Portal refuses estimate ≤ 0; requires `run_id` + `approved_credits`; hashes resolved media; POSTs pickSubmitArgs + media only; kill switch + breaker (including this hold USD) on every metered submit; capture queries `captured == false` and skips `cost_total` ≤ 0; `/admin/drama` is a server 404 on the admin claim; billing-key IAM is an exact accessor set. Adapter HTTP uses `OKVEVO_WEB_ORIGIN`. Image/video OkVevo submits attach metering. |
+| **What** | Portal refuses estimate ≤ 0; hashes client `drama-upload://` refs (never signed URLs); 409 never holds; replay before breaker/cap; daily-spend close lives in the settle tx (second settle is a no-op, `falUsdHeld` ≥ 0); `approved_credits` required only for drama-skill rate-card jobs; normal image/video tools reuse one `run_id` and reserve the server price. Kill switch stops every metered Fal submit. `/admin/drama` is a server 404 without a Firebase session cookie (`createSessionCookie`, path `/admin`, revocation check). |
 | **Check** | Same as Drama full parity. `_portal_url("/api/fal/uploads")` has no `/fal/queue` prefix. |
 
 ### Billing UI + links

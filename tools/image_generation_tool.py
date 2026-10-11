@@ -856,9 +856,9 @@ def _submit_fal_request(model: str, arguments: Dict[str, Any]):
 
     managed_client = _get_managed_fal_client(managed_gateway)
     if getattr(managed_gateway, "vendor", "") == "okvevo-fal":
-        from agent.okvevo_gateway import attach_okvevo_fal_metering
+        from agent.okvevo_gateway import ensure_okvevo_fal_run_id
 
-        arguments = attach_okvevo_fal_metering(model, arguments)
+        arguments = ensure_okvevo_fal_run_id(arguments)
     try:
         return managed_client.submit(
             model,
@@ -1404,6 +1404,9 @@ def image_generate_tool(
             )
             if denial:
                 raise ValueError(denial)
+            from agent.okvevo_gateway import ensure_okvevo_fal_run_id
+
+            arguments = ensure_okvevo_fal_run_id(arguments)
 
         handler = _submit_fal_request(endpoint, arguments=arguments)
         result = _wait_fal_result(handler)

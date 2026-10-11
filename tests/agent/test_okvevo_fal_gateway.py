@@ -166,31 +166,30 @@ class TestSpendGate:
         assert denial == "BLOCKED: denied by user"
 
 
-def test_attach_metering_sets_run_id_and_approved(monkeypatch, tmp_path):
+def test_ensure_run_id_reuses_and_skips_quote(monkeypatch, tmp_path):
     _sign_in(monkeypatch, tmp_path)
-    from agent.okvevo_gateway import attach_okvevo_fal_metering
+    from agent.okvevo_gateway import ensure_okvevo_fal_run_id
+
+    def _boom(*_a, **_k):
+        raise AssertionError("quote must not run for normal image/video tools")
+
+    monkeypatch.setattr("agent.okvevo_gateway._quote_okvevo_fal_credits", _boom)
+    first = ensure_okvevo_fal_run_id({"prompt": "hi"})
+    assert first["prompt"] == "hi"
+    assert "approved_credits" not in first
+    assert isinstance(first["run_id"], str) and first["run_id"]
+    retry = ensure_okvevo_fal_run_id(first)
+    assert retry["run_id"] == first["run_id"]
+
+
+def test_ensure_run_id_survives_quote_outage(monkeypatch, tmp_path):
+    _sign_in(monkeypatch, tmp_path)
+    from agent.okvevo_gateway import ensure_okvevo_fal_run_id
 
     monkeypatch.setattr(
         "agent.okvevo_gateway._quote_okvevo_fal_credits",
-        lambda *_a, **_k: 42,
+        lambda *_a, **_k: None,
     )
-    out = attach_okvevo_fal_metering("fal-ai/nano-banana-pro", {"prompt": "hi"})
-    assert out["prompt"] == "hi"
-    assert out["approved_credits"] == 42
-    assert isinstance(out["run_id"], str) and out["run_id"]
-
-
-def test_attach_metering_refuses_unpriced(monkeypatch, tmp_path):
-    _sign_in(monkeypatch, tmp_path)
-    from agent.okvevo_gateway import OkvevoGatewayConfigError, attach_okvevo_fal_metering
-
-    monkeypatch.setattr(
-        "agent.okvevo_gateway._quote_okvevo_fal_credits",
-        lambda *_a, **_k: 0,
-    )
-    try:
-        attach_okvevo_fal_metering("fal-ai/nano-banana-pro", {})
-    except OkvevoGatewayConfigError as exc:
-        assert "could not price" in str(exc)
-    else:
-        raise AssertionError("unpriced submit must fail closed")
+    out = ensure_okvevo_fal_run_id({})
+    assert out["run_id"]
+    assert "approved_credits" not in out

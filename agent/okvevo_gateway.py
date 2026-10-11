@@ -216,16 +216,21 @@ def okvevo_fal_spend_gate(
     return verdict.get("message") or f"BLOCKED: {tool_name} was denied."
 
 
-def attach_okvevo_fal_metering(endpoint: str, arguments: dict) -> dict:
-    """Portal handleQueue requires run_id + approved_credits on every submit."""
-    credits = _quote_okvevo_fal_credits(endpoint, arguments)
-    if credits is None or credits <= 0:
-        raise OkvevoGatewayConfigError(
-            "OkVevo could not price this request. Nothing was submitted."
-        )
+def ensure_okvevo_fal_run_id(arguments: dict) -> dict:
+    """Attach one run_id per tool call. Reuse it on retries.
+
+    Normal image/video tools do not send approved_credits — the portal
+    reserves the server-computed price (capped by MAX_JOB_CREDITS). A
+    quote outage must not block them. The portal still refuses any job
+    it cannot price. Drama-skill jobs send approved_credits from the
+    rate-card quote the user already confirmed.
+    """
     out = dict(arguments)
+    existing = out.get("run_id")
+    if isinstance(existing, str) and existing.strip():
+        out["run_id"] = existing.strip()
+        return out
     out["run_id"] = str(uuid.uuid4())
-    out["approved_credits"] = credits
     return out
 
 

@@ -659,9 +659,9 @@ def _submit_fal_video_request(endpoint: str, arguments: Dict[str, Any]):
 
     managed_client = _get_managed_fal_video_client(managed_gateway)
     if getattr(managed_gateway, "vendor", "") == "okvevo-fal":
-        from agent.okvevo_gateway import attach_okvevo_fal_metering
+        from agent.okvevo_gateway import ensure_okvevo_fal_run_id
 
-        arguments = attach_okvevo_fal_metering(endpoint, arguments)
+        arguments = ensure_okvevo_fal_run_id(arguments)
     try:
         return managed_client.submit(
             endpoint,
@@ -1080,6 +1080,9 @@ class FALVideoGenProvider(VideoGenProvider):
                     error_type="approval_denied",
                     provider="fal", model=family_id, prompt=prompt,
                 )
+            from agent.okvevo_gateway import ensure_okvevo_fal_run_id
+
+            payload = ensure_okvevo_fal_run_id(payload)
 
         try:
             handle = _submit_fal_video_request(endpoint, payload)
