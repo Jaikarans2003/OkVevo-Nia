@@ -51,6 +51,7 @@ test('repo snapshot members exist and pack a readable tar.gz', { timeout: 60_000
   assert.equal(listed.status, 0)
   const names = listed.stdout.split('\n')
   assert.ok(names.some((name) => name.endsWith('okvevo/drama_fal_adapter.py')))
+  assert.ok(names.some((name) => name.endsWith('okvevo/fal-schemas/openai__gpt-image-2.json')))
   assert.ok(names.some((name) => name.endsWith('skills/creative/short-drama-produce/scripts/provider_adapters.py')))
   assert.ok(names.some((name) => name.endsWith('skills/creative/short-drama-produce/references/okvevo-adapter.example.json')))
   for (const skill of [

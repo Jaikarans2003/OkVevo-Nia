@@ -100,6 +100,17 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Re-apply** | One slot map in `falQueue.ts`. Do not reject a submit that can queue. Do not sweep queued jobs as abandoned. |
 | **Check** | `npx tsx src/lib/fal/falQueue.selfcheck.ts`; `pytest tests/skills/test_drama_portal_adapter.py tests/tools/test_fal_common.py -k "slot or queued"`. |
 
+### Fal request contract (2026-10-12)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[portal]` |
+| **Files** | `okvevo/fal-schemas/*.json` (17, byte-identical to OkVevo-Web `src/lib/fal/schemas/`); adapter `provider_adapters.py` (`fal_input_schema`, `explicit_portal_args`, `portal_request_body`); `tests/skills/test_drama_fal_contract.py`; portal `falSchema.ts`, `handleQueue.ts`, `idempotency.ts` `SUBMIT_KEYS`, `voiceOwnership.ts` `speechVoiceId`, `app/api/cron/fal-drift/route.ts`, `scripts/pin-fal-schemas.ts` |
+| **What** | Fal's OpenAPI input schema per rate-card endpoint is pinned with its fetch date. The adapter builds bodies from it (schema fields only, exact enum case, price fields explicit). The portal validates the final body (after media resolution) against the same files before pricing and any hold: invalid → 400 with `error.fields`. The 12h fal-drift cron diffs pinned vs live: required/enum change = HIGH email, other input change = INFO. Speech voice is `voice_setting.voice_id` (top-level `voice_id` was ignored by Fal); ownership reads the nested id. |
+| **Why** | G3 job 1 failed at Fal after a hold: no `prompt`, `image_size` string. Nothing compared bodies with Fal's schema. |
+| **Re-apply** | Re-pin with `npx tsx scripts/pin-fal-schemas.ts` (OkVevo-Web), copy to `okvevo/fal-schemas/`. Never send a field the pinned schema lacks. Keep the guard before `reserveFalRun`. |
+| **Check** | `pytest tests/skills/test_drama_fal_contract.py`; `npx tsx src/lib/fal/falSchema.selfcheck.ts`. |
+
 ### Billing UI + links
 
 | Field | Value |

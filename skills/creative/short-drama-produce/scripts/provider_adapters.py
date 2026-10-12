@@ -2056,15 +2056,6 @@ def prepare_speech(job: Mapping[str, Any], *, hold: Any = None, http: Any = None
     }
 
 
-def _portal_speech_args(job: Mapping[str, Any]) -> dict[str, Any]:
-    prepared = prepare_speech(job)
-    return {
-        k: v
-        for k, v in prepared.items()
-        if k not in {"endpoint", "_retain_warning", "preview_text"}
-    }
-
-
 def _extract_custom_voice_id(payload: Any) -> str | None:
     if not isinstance(payload, Mapping):
         return None
@@ -2214,42 +2205,246 @@ def _portal_endpoint(job: Mapping[str, Any]) -> str:
     return PORTAL_ENDPOINTS[family]["image" if frames_only else "reference"]
 
 
+# Fal input schemas pinned per endpoint (fetch date inside each file), byte-
+# identical to OkVevo-Web src/lib/fal/schemas. The portal validates the final
+# body against the same files before any hold.
+FAL_SCHEMA_DIR = Path(__file__).resolve().parents[4] / "okvevo" / "fal-schemas"
+_FAL_SCHEMAS: dict[str, dict[str, Any]] = {}
+
+
+def fal_input_schema(endpoint: str) -> dict[str, Any]:
+    """The pinned Fal OpenAPI input schema (properties/required) for endpoint."""
+    if endpoint not in _FAL_SCHEMAS:
+        path = FAL_SCHEMA_DIR / (endpoint.replace("/", "__") + ".json")
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))["openapi"]
+            ref = doc["paths"]["/" + endpoint]["post"]["requestBody"]["content"][
+                "application/json"]["schema"]["$ref"]
+            _FAL_SCHEMAS[endpoint] = doc["components"]["schemas"][ref.rsplit("/", 1)[-1]]
+        except (OSError, ValueError, KeyError) as exc:
+            raise AdapterFailure(
+                f"no pinned Fal schema for {endpoint}. Nothing was submitted.",
+                category="configuration",
+                code="schema_missing",
+                retryable=False,
+            ) from exc
+    return _FAL_SCHEMAS[endpoint]
+
+
+def _schema_choices(prop: Mapping[str, Any]) -> list[Any]:
+    if "const" in prop:
+        return [prop["const"]]
+    if "enum" in prop:
+        return list(prop["enum"])
+    for alt in prop.get("anyOf", ()):
+        if "enum" in alt:
+            return list(alt["enum"])
+    return []
+
+
+def _schema_types(prop: Mapping[str, Any]) -> set[str]:
+    types = {prop.get("type")} | {alt.get("type") for alt in prop.get("anyOf", ())}
+    return {t for t in types if t and t != "null"}
+
+
+def _invalid_param(endpoint: str, name: str, value: Any, allowed: Sequence[Any]) -> AdapterFailure:
+    return AdapterFailure(
+        f"{endpoint} {name} must be one of {', '.join(map(str, allowed))}; got {value!r}. "
+        "Nothing was submitted.",
+        category="configuration",
+        code="invalid_parameter",
+        retryable=False,
+    )
+
+
+def _schema_pick(endpoint: str, name: str, prop: Mapping[str, Any], value: Any) -> Any:
+    """value in the schema's exact spelling (case-insensitive match), else fail."""
+    choices = _schema_choices(prop)
+    for choice in choices:
+        if str(choice).casefold() == str(value).casefold():
+            return choice
+    raise _invalid_param(endpoint, name, value, choices)
+
+
+def _schema_duration(endpoint: str, prop: Mapping[str, Any], value: Any) -> Any:
+    """Seconds in the schema's type: seedance a string enum, wan an integer,
+    h3/music a number."""
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        seconds = float("nan")
+    if isinstance(value, bool) or seconds != seconds:
+        raise _invalid_param(endpoint, "duration", value, _schema_choices(prop) or ["a number"])
+    whole = int(seconds) if seconds.is_integer() else None
+    types = _schema_types(prop)
+    if "string" in types:
+        return _schema_pick(endpoint, "duration", prop, whole if whole is not None else value)
+    if "integer" in types:
+        if whole is None:
+            raise _invalid_param(endpoint, "duration", value, ["whole seconds"])
+        return whole
+    return whole if whole is not None else seconds
+
+
+def _gpt_image_size(params: Mapping[str, Any]) -> dict[str, int]:
+    """Always {width, height}: the portal prices the exact pixel size and a
+    preset name would be priced as a guess."""
+    width, height = params.get("width"), params.get("height")
+    size = params.get("image_size", params.get("size"))
+    if width is None and height is None and size is not None:
+        if isinstance(size, Mapping):
+            width, height = size.get("width"), size.get("height")
+        else:
+            match = re.fullmatch(r"\s*(\d+)\s*x\s*(\d+)\s*", str(size))
+            if match:
+                width, height = int(match[1]), int(match[2])
+            else:
+                width = height = None
+                size = str(size)
+            if width is None:
+                raise AdapterFailure(
+                    f"gpt-image-2 size must be width/height or WxH; got {size!r}. "
+                    "Nothing was submitted.",
+                    category="configuration",
+                    code="invalid_parameter",
+                    retryable=False,
+                )
+    if width is None and height is None:
+        width, height = 1024, 1024
+    if (
+        not isinstance(width, int) or not isinstance(height, int)
+        or isinstance(width, bool) or isinstance(height, bool)
+        or width <= 0 or height <= 0 or width % 16 or height % 16
+    ):
+        raise AdapterFailure(
+            "gpt-image-2 width and height must be positive multiples of 16. "
+            "Nothing was submitted.",
+            category="configuration",
+            code="invalid_parameter",
+            retryable=False,
+        )
+    return {"width": width, "height": height}
+
+
+_ASPECT_ALIASES = {"auto": "adaptive", "adaptive": "auto"}
+_IMAGE_FORMATS = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".webp": "webp"}
+
+
 def explicit_portal_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any]:
+    """The Fal request body for endpoint, built from its pinned input schema.
+
+    Only schema properties are sent (plus the portal control fields character,
+    project and voice_clone_consent, which the portal strips before Fal).
+    Price-affecting fields are always explicit. Media keys come from
+    _portal_media_args; portal_request_body merges both and checks required.
+    """
+    schema = fal_input_schema(endpoint)
+    props: Mapping[str, Any] = schema.get("properties") or {}
     params = job.get("parameters") if isinstance(job.get("parameters"), Mapping) else {}
-    args = dict(params)
-    args.pop("omni_reference_task_type", None)
-    args.pop("voice_direction", None)
-    if "video" in endpoint or endpoint.endswith("music-3"):
-        args.setdefault("resolution", "720p")
-        args.setdefault("duration", 5)
-        args.setdefault("generate_audio", True)
-    if "gpt-image-2" in endpoint:
-        args.setdefault("quality", "high")
-        args.setdefault("image_size", "1024x1024")
-    if job.get("quality"):
-        args["quality"] = job["quality"]
-    task = _portal_task(job)
-    if endpoint == PORTAL_TASK_ENDPOINT and task:
-        args["task"] = task
-        if task == "editing":
+    prompt = str(job.get("prompt") or "")
+    args: dict[str, Any] = {}
+
+    if endpoint == PORTAL_SPEECH_ENDPOINT:
+        prepared = prepare_speech(job)
+        args["text"] = prepared["text"]
+        args["voice_setting"] = {"voice_id": prepared["voice_id"]}
+        if prepared.get("language_boost"):
+            args["language_boost"] = _schema_pick(
+                endpoint, "language_boost", props["language_boost"], prepared["language_boost"]
+            )
+        args["output_format"] = "url"
+    elif endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
+        args["text"] = VOICE_CLONE_PREVIEW
+        args["model"] = _schema_pick(
+            endpoint, "model", props["model"], params.get("model") or "speech-02-hd"
+        )
+        if params.get("voice_clone_consent") is True:
+            # Portal records consent_at; pickSubmitArgs strips it before Fal.
+            args["voice_clone_consent"] = True
+    elif endpoint == PORTAL_ENDPOINTS["music-3"]["music"]:
+        args["prompt"] = prompt
+        lyrics = params.get("lyrics")
+        if params.get("is_instrumental") is True and not lyrics:
+            lyrics = "[instrumental]"
+        if isinstance(lyrics, str) and lyrics.strip():
+            args["lyrics"] = lyrics
+        args["duration"] = _schema_duration(
+            endpoint, props["duration"], params.get("duration", props["duration"].get("default"))
+        )
+    elif endpoint.startswith("openai/gpt-image-2"):
+        args["prompt"] = prompt
+        args["image_size"] = _gpt_image_size(params)
+        args["quality"] = _schema_pick(
+            endpoint, "quality", props["quality"],
+            job.get("quality") or params.get("quality") or "high",
+        )
+        args["num_images"] = params.get("num_images", 1)
+        outputs = job.get("outputs") or []
+        fmt = _IMAGE_FORMATS.get(Path(str(outputs[0])).suffix.casefold()) if outputs else None
+        if fmt:
+            args["output_format"] = fmt
+    else:  # video: seedance / h3-max / wan
+        if prompt:
+            args["prompt"] = prompt
+        res_prop = props["resolution"]
+        resolution = params.get("resolution")
+        if resolution is None:
+            # 720p where offered; h3-max has no 720P, so its schema default (768P).
+            offered = [str(c).casefold() for c in _schema_choices(res_prop)]
+            resolution = "720p" if "720p" in offered else res_prop.get("default")
+        args["resolution"] = _schema_pick(endpoint, "resolution", res_prop, resolution)
+        task = _portal_task(job) if endpoint == PORTAL_TASK_ENDPOINT else None
+        if "task" in props:
+            args["task"] = task or "reference"
+        if task != "editing":
             # Fal forces duration=auto for edits and the portal prices the edit
             # on the server-measured input seconds; a sent duration is wrong.
-            args.pop("duration", None)
-    if endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
-        args.pop("duration", None)
-        args.pop("resolution", None)
-        args.pop("generate_audio", None)
-        args.pop("confirm_reclone", None)
-        args.pop("consent_rights", None)
-        args.pop("voice_direction", None)
-        args.setdefault("text", VOICE_CLONE_PREVIEW)
-        args.setdefault("model", "speech-02-hd")
-        # voice_clone_consent stays: portal records consent_at; pickSubmitArgs
-        # strips it before Fal sees the body.
+            args["duration"] = _schema_duration(endpoint, props["duration"], params.get("duration", 5))
+        ratio = params.get("aspect_ratio", params.get("ratio"))
+        if ratio and "aspect_ratio" in props and not endpoint.endswith("/image-to-video"):
+            # image-to-video takes its shape from the first frame.
+            prop = props["aspect_ratio"]
+            offered = [str(c) for c in _schema_choices(prop)]
+            ratio = str(ratio)
+            if ratio not in offered and _ASPECT_ALIASES.get(ratio) in offered:
+                ratio = _ASPECT_ALIASES[ratio]
+            args["aspect_ratio"] = _schema_pick(endpoint, "aspect_ratio", prop, ratio)
+        if "generate_audio" in props:
+            args["generate_audio"] = params.get("generate_audio", True) is not False
+        if "audio" in props:  # wan names it audio
+            args["audio"] = params.get("audio", params.get("generate_audio", True)) is not False
+        if "prompt_expansion_mode" in props:
+            prop = props["prompt_expansion_mode"]
+            args["prompt_expansion_mode"] = str(params.get("prompt_expansion_mode") or prop.get("default"))
+    seed = params.get("seed")
+    if "seed" in props and isinstance(seed, int) and not isinstance(seed, bool):
+        args["seed"] = seed
+
     args["character"] = _character_key(job)
     project = _project_key(job)
     if project:
         args["project"] = project
+    return args
+
+
+def portal_request_body(
+    job: Mapping[str, Any], endpoint: str, *, http: Any = None
+) -> dict[str, Any]:
+    """Schema-built args + media refs. Every required Fal field must be
+    present before any quote or hold."""
+    args = explicit_portal_args(job, endpoint)
+    args.update(_portal_media_args(job, endpoint, http=http))
+    missing = [
+        name for name in fal_input_schema(endpoint).get("required") or []
+        if args.get(name) in (None, "", [])
+    ]
+    if missing:
+        raise AdapterFailure(
+            f"{endpoint} needs {', '.join(missing)}. Nothing was submitted.",
+            category="configuration",
+            code="missing_required_field",
+            retryable=False,
+        )
     return args
 
 
@@ -2786,10 +2981,7 @@ def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
             retryable=False,
         )
     origin = _portal_site_origin()
-    args = explicit_portal_args(job, endpoint)
-    if job.get("modality") in {"tts", "speech"}:
-        args.update(_portal_speech_args(job))
-    args.update(_portal_media_args(job, endpoint))
+    args = portal_request_body(job, endpoint)
     body = json.dumps(
         {"endpoint": endpoint, "args": quote_args(args)}
     ).encode("utf-8")
@@ -2911,14 +3103,11 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
         response_url = f"{origin}/api/gateway/fal/queue/{endpoint}/requests/{request_id}"
     else:
         # _portal_endpoint has already validated task/reference combinations.
-        args = explicit_portal_args(job, endpoint)
-        if job.get("modality") in {"tts", "speech"}:
-            args.update(_portal_speech_args(job))
+        args = portal_request_body(job, endpoint)
         if isinstance(job.get("run_id"), str):
             args["run_id"] = job["run_id"]
         if isinstance(job.get("approved_credits"), int):
             args["approved_credits"] = job["approved_credits"]
-        args.update(_portal_media_args(job, endpoint))
         request = urllib.request.Request(
             f"{origin}/api/gateway/fal/queue/{endpoint}",
             data=json.dumps(args).encode("utf-8"),

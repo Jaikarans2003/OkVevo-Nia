@@ -325,9 +325,31 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `rg -n -i 'hermes profile|openrouter|~/.hermes|config\\.yaml|auth\\.json' skills --glob '**/SKILL.md'` — triage every hit; none should instruct the model to edit internals or name vendors to the user. |
 | **Notes** | Logged 2026-09-14 with nia-public-guard (OWASP LLM02). Public builds already block file/shell access to the agent home and scrub leftovers; this audit removes the teaching source. |
 
+### [x] Drama portal adapter sends Fal-invalid bodies (G3 job 1 failed)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Every drama image, video and music job fails at Fal after the user confirms; nothing is generated (holds release, so nobody is charged). |
+| **Scope** | `skills/creative/short-drama-produce/scripts/provider_adapters.py` (`explicit_portal_args`, `portal_request_body`), `okvevo/fal-schemas/`, `tests/skills/test_drama_fal_contract.py`; OkVevo-Web `src/lib/fal/falSchema.ts`, `handleQueue.ts`, `idempotency.ts` `SUBMIT_KEYS`, `cron/fal-drift`. |
+| **Fix** | Bodies are built from the pinned Fal OpenAPI input schema per endpoint: `prompt` always; gpt-image-2 `image_size` `{width, height}`; h3-max `resolution` upper-case + `prompt_expansion_mode` (schema default `balanced`); music only `prompt`/`lyrics`/`duration`; seedance string `duration`; wan `audio`; speech `voice_setting.voice_id`. Portal validates the final body before any hold (400 + field errors). fal-drift diffs pinned vs live schemas (required/enum change = HIGH). |
+| **Verify** | `pytest tests/skills/test_drama_fal_contract.py`; OkVevo-Web `npx tsx src/lib/fal/falSchema.selfcheck.ts`. Live: G3 re-run from job 1 on okvevo-testing. |
+| **Notes** | Found 2026-10-12 in the G3 smoke (hold `f74c40e3-dcba-40e9-b7b9-db172fa3d556`, Fal `01a130d6-808e-77a3-aaea-40209422d785`): Fal accepted, then failed; ledger released, 0 credits, no billing-events charge. Fixture tests passed because they never compared the body with Fal's schema. Speech also sent a top-level `voice_id` that Fal ignores (default voice used). Closed 2026-10-12, PR: PR_LINK_PENDING. |
+
 ---
 
 ## Should fix before live (lower severity)
+
+### [ ] gpt-image-2 edit without `image_size` is priced as 1024×1024
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix / Nice-to-have |
+| **Risk if skipped** | The image tool calls `openai/gpt-image-2/edit` without `image_size`; Fal uses `auto` (output follows the input image) while `rateCard.imageSizeKey` prices 1024×1024 (and any preset other than `square`/`square_hd` also falls back to 1024×1024). Charged credits can differ from Fal's bill. |
+| **Scope** | OkVevo-Web `src/lib/fal/rateCard.ts` `imageSizeKey`; `tools/image_generation_tool.py` edit path |
+| **Fix** | Either send an explicit `{width, height}` from the image tool, or price `auto`/presets from the measured input image and refuse unknown presets before the hold. The drama adapter already sends `{width, height}` only. |
+| **Verify** | `npx tsx src/lib/fal/rateCard.selfcheck.ts` with an `auto` and a `landscape_16_9` case; billing-events reconcile on one edit job. |
+| **Notes** | Logged 2026-10-12 while fixing the Fal request contract. Not on the G3 drama path. |
 
 ### [x] Drama voice-clone TTS endpoint unmapped
 
@@ -510,6 +532,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| Drama portal adapter sends Fal-invalid bodies (G3 job 1) | 2026-10-12 | Bodies built from pinned Fal input schemas; portal schema guard before hold; schema drift in fal-drift. PR: PR_LINK_PENDING. Verify: `pytest tests/skills/test_drama_fal_contract.py`; `npx tsx src/lib/fal/falSchema.selfcheck.ts`. |
 | Drama voice-clone TTS endpoint unmapped | 2026-10-10 | `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s, clone-once, 7-day warn. Verify: `pytest tests/skills/test_drama_portal_adapter.py`. |
 | Drama Phase 2 video and audio inputs | 2026-10-10 | Code on `feat/drama-fal-portal` + `feat/drama-skills-portal-fal`. Native extend/edit/reference via signed uploads; formula reserve + billing-events capture (`FAL_BILLING_KEY` on capture SA only). Verify: `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/rateCard.selfcheck.ts`. Live smoke is G3. |
 | Daily Fal spend guard (global circuit breaker) | 2026-10-10 | Superseded 2026-10-11. Was `dramaSwitches.ts` + hard stop. Replaced by an alert-only $250/day email and a per-plan queue. |

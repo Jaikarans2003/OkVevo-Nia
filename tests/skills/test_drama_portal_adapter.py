@@ -332,7 +332,7 @@ def test_extend_chain_reuses_prior_fal_output(tmp_path):
     assert http.posts == [] and http.puts == []
     portal_args = adapters.explicit_portal_args(job, endpoint)
     assert portal_args["task"] == "extension"
-    assert portal_args["duration"] == 5  # extension bills requested output seconds
+    assert portal_args["duration"] == "5"  # seedance schema: string enum; bills requested seconds
 
 
 def test_stale_cache_entry_reuploads(tmp_path):
