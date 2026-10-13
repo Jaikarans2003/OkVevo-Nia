@@ -2985,10 +2985,13 @@ def _gateway_helpers():
         sys.path.insert(0, str(root))
     from agent.okvevo_gateway import (
         _quote_args,
-        read_okvevo_id_token,
+        ensure_okvevo_id_token,
         resolve_okvevo_fal_gateway,
     )
-    return read_okvevo_id_token, resolve_okvevo_fal_gateway, _quote_args
+    # ensure_okvevo_id_token re-reads the file AND refreshes the JWT when near
+    # expiry (or when force=True after a 401). Re-read alone cannot help once
+    # the ID token itself has expired — see G3 job 4 (2026-10-13).
+    return ensure_okvevo_id_token, resolve_okvevo_fal_gateway, _quote_args
 
 
 def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
@@ -3178,6 +3181,7 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
     delay = 1.0
     retried_auth = False
     while time.time() < deadline:
+        # Proactive refresh when the JWT is near expiry; re-read alone is not enough.
         token = read_token()
         poll = urllib.request.Request(status_url, headers={"Authorization": f"Key {token}"})
         try:
@@ -3185,7 +3189,16 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             if exc.code == 401 and not retried_auth:
+                # One forced refresh + retry this poll only — never resubmit.
                 retried_auth = True
+                token = read_token(force=True)
+                if not token:
+                    raw = exc.read().decode("utf-8", "replace")
+                    raise AdapterFailure(
+                        portal_failure_message(raw, "status poll failed"),
+                        http_status=exc.code,
+                        retryable=False,
+                    ) from exc
                 continue
             raw = exc.read().decode("utf-8", "replace")
             raise AdapterFailure(
