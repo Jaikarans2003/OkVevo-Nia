@@ -336,6 +336,39 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `pytest tests/skills/test_drama_fal_contract.py`; OkVevo-Web `npx tsx src/lib/fal/falSchema.selfcheck.ts`. Live: G3 re-run from job 1 on okvevo-testing. |
 | **Notes** | Found 2026-10-12 in the G3 smoke (hold `f74c40e3-dcba-40e9-b7b9-db172fa3d556`, Fal `01a130d6-808e-77a3-aaea-40209422d785`): Fal accepted, then failed; ledger released, 0 credits, no billing-events charge. Fixture tests passed because they never compared the body with Fal's schema. Speech also sent a top-level `voice_id` that Fal ignores (default voice used). Closed 2026-10-12, PR: [OkVevo-Nia #52](https://github.com/Jaikarans2003/OkVevo-Nia/pull/52) + [OkVevo-Web #11](https://github.com/Jaikarans2003/OkVevo-Web/pull/11). |
 
+### [x] Drama target file type the endpoint cannot return (G3 job 3 billed, then failed)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | A music cue planned as `.mp3` (allowed by `production_tool.py`) is generated and charged, then the download fails the media check: user pays, gets no file. Same for speech `.wav`, gpt-image-2 `.gif`, video `.mov`. |
+| **Scope** | `skills/creative/short-drama-produce/scripts/provider_adapters.py` (`_output_suffixes`, `portal_request_body`); `tests/skills/test_drama_fal_contract.py`. |
+| **Fix** | `portal_request_body` (quote and run) refuses a target suffix the endpoint cannot return before any portal request: `unsupported_output_format`, message names the allowed types. music-3 `.wav`, speech `.mp3`, gpt-image-2 png/jpg/jpeg/webp, video `.mp4`. |
+| **Verify** | `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"` (fails on the old adapter). Live: G3 job 3 re-run with a `.wav` target. |
+| **Notes** | G3 2026-10-13 hold `b4f14121-a3a6-4af6-ab9a-a7ef767a7752`, Fal `01a1344e-504c-7891-8636-4e41de81bd84`: Fal billed $0.02 = 40 credits charged (consistent), file rejected (WAV bytes, `.mp3` target). The contract matrix itself used `m.mp3` for music. Closed 2026-10-13, PR: G3_JOB3_PR. |
+
+### [x] Fal capture job never captured (wrong response key + skipped entrypoint)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Settled Fal jobs keep the reserve estimate forever; no refund when Fal bills less. |
+| **Scope** | OkVevo-Web `scripts/fal-capture-job.ts`, `src/lib/fal/capture.ts` (`billingEventsFrom`), `capture.selfcheck.ts`. |
+| **Fix** | Read `billing_events` (Fal's documented key, not `items`/`data`); call `main()` unconditionally (the image runs `dist/capture.mjs`, so the argv-name guard skipped every run). |
+| **Verify** | `npx tsx src/lib/fal/capture.selfcheck.ts`; Cloud Run execution logs `{"captured": n, …}`; G3 job 1 `captured: true`, `capturedFalUsd: 0.006`. |
+| **Notes** | Found in G3 2026-10-12. okvevo-testing only (production has no capture job). Closed 2026-10-12, PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [OkVevo-Web #13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13); redeployed via `drama-infra.sh --project okvevo-testing --apply`. |
+
+### [ ] Fal capture throughput + production capture job
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | The capture job makes one billing-events call per job and treats any non-200 (e.g. 429) as "pending" silently: on testing it cleared only 7–11 jobs per run (backlog 61 → 54 → 46 → 35 → 25 → 16). At real volume captures (refunds) fall behind without an alert. Production (`text2video-16cbf`) has no capture job or scheduler at all. |
+| **Scope** | OkVevo-Web `scripts/fal-capture-job.ts`; `scripts/drama-infra.sh` (`CAPTURE_CRON`). |
+| **Fix** | Batch up to N request ids per call (`request_id=a,b,c` is supported by the API); log + HIGH-alert on 429/5xx instead of counting pending; then deploy the capture job + scheduler on production via `drama-infra.sh` with Karan's yes. |
+| **Verify** | Capture selfcheck with a batched response; one execution clears a 60-job backlog; prod `gcloud scheduler jobs list` shows `nia-fal-capture`. |
+| **Notes** | Logged 2026-10-13 during G3. Deferred: throughput, not correctness; G3 jobs reconcile. |
+
 ---
 
 ## Should fix before live (lower severity)
@@ -532,6 +565,8 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| Drama target file type the endpoint cannot return (G3 job 3) | 2026-10-13 | `portal_request_body` refuses unsupported target suffixes before quote/hold. PR: G3_JOB3_PR. Verify: `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"`. |
+| Fal capture job never captured | 2026-10-12 | `billing_events` key + unconditional `main()`. PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [#13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13). Verify: `npx tsx src/lib/fal/capture.selfcheck.ts`. |
 | Drama portal adapter sends Fal-invalid bodies (G3 job 1) | 2026-10-12 | Bodies built from pinned Fal input schemas; portal schema guard before hold; schema drift in fal-drift. PR: [OkVevo-Nia #52](https://github.com/Jaikarans2003/OkVevo-Nia/pull/52) + [OkVevo-Web #11](https://github.com/Jaikarans2003/OkVevo-Web/pull/11). Verify: `pytest tests/skills/test_drama_fal_contract.py`; `npx tsx src/lib/fal/falSchema.selfcheck.ts`. |
 | Drama voice-clone TTS endpoint unmapped | 2026-10-10 | `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s, clone-once, 7-day warn. Verify: `pytest tests/skills/test_drama_portal_adapter.py`. |
 | Drama Phase 2 video and audio inputs | 2026-10-10 | Code on `feat/drama-fal-portal` + `feat/drama-skills-portal-fal`. Native extend/edit/reference via signed uploads; formula reserve + billing-events capture (`FAL_BILLING_KEY` on capture SA only). Verify: `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/rateCard.selfcheck.ts`. Live smoke is G3. |
