@@ -2427,11 +2427,38 @@ def explicit_portal_args(job: Mapping[str, Any], endpoint: str) -> dict[str, Any
     return args
 
 
+def _output_suffixes(endpoint: str) -> set[str] | None:
+    """File types endpoint can return for the body we build. None = unchecked."""
+    if endpoint == PORTAL_SPEECH_ENDPOINT:
+        return {".mp3"}  # audio_setting.format default; we never send it
+    if endpoint == PORTAL_ENDPOINTS["music-3"]["music"]:
+        return {".wav"}  # music-3 has no format field and always returns WAV
+    if endpoint.startswith("openai/gpt-image-2"):
+        return set(_IMAGE_FORMATS)
+    if endpoint == PORTAL_VOICE_CLONE_ENDPOINT:
+        return None
+    return {".mp4"}
+
+
 def portal_request_body(
     job: Mapping[str, Any], endpoint: str, *, http: Any = None
 ) -> dict[str, Any]:
     """Schema-built args + media refs. Every required Fal field must be
-    present before any quote or hold."""
+    present, and every target a file type the endpoint returns, before any
+    quote or hold."""
+    allowed = _output_suffixes(endpoint)
+    wrong = [
+        str(target) for target in job.get("outputs") or []
+        if allowed is not None and Path(str(target)).suffix.casefold() not in allowed
+    ]
+    if wrong:
+        raise AdapterFailure(
+            f"{endpoint} returns {'/'.join(sorted(allowed or ()))}; change target "
+            f"{', '.join(wrong)} to one of those. Nothing was submitted.",
+            category="configuration",
+            code="unsupported_output_format",
+            retryable=False,
+        )
     args = explicit_portal_args(job, endpoint)
     args.update(_portal_media_args(job, endpoint, http=http))
     missing = [

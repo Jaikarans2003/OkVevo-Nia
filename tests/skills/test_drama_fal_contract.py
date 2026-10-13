@@ -14,6 +14,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -133,10 +134,10 @@ CASES = [
      {"modality": "image", "prompt": "make it night", "outputs": ["a.jpg"], "references": ["r.png"],
       "parameters": {**_CONSENT, "size": "1024x1024"}}, {"r.png": PNG}),
     ("music lyrics", "minimax/music-3",
-     {"modality": "music", "prompt": "lofi", "outputs": ["m.mp3"],
+     {"modality": "music", "prompt": "lofi", "outputs": ["m.wav"],
       "parameters": {"lyrics": "[Verse]\nHello", "duration": 30}}, {}),
     ("music instrumental", "minimax/music-3",
-     {"modality": "music", "prompt": "lofi", "outputs": ["m.mp3"],
+     {"modality": "music", "prompt": "lofi", "outputs": ["m.wav"],
       "parameters": {"is_instrumental": True}}, {}),
     ("speech preset", "fal-ai/minimax/speech-02-hd",
      {"modality": "tts", "prompt": "Hello there.", "outputs": ["s.mp3"],
@@ -196,6 +197,35 @@ def test_g3_job1_regression(tmp_path, monkeypatch):
     assert body["quality"] == "low" and body["output_format"] == "png"
 
 
+class NoHttp:
+    def __getattr__(self, name):
+        raise AssertionError(f"portal called ({name}) before the output check")
+
+
+def test_g3_job3_regression(tmp_path):
+    """G3 job 3 (2026-10-13): music-3 returned WAV for an .mp3 target; Fal was
+    billed, then the download failed the media check. Refuse in the body builder
+    (quote and run both call it before any portal request)."""
+    adapters = _load()
+    g3 = {"modality": "music", "prompt": "gentle lo-fi piano sting", "outputs": ["g3/03.mp3"],
+          "parameters": {"is_instrumental": True, "duration": 10},
+          "project_root": str(tmp_path), "handle_path": str(tmp_path / "h.json")}
+    with pytest.raises(adapters.AdapterFailure, match=r"returns \.wav") as exc:
+        adapters.portal_request_body(g3, adapters._portal_endpoint(g3), http=NoHttp())
+    assert exc.value.code == "unsupported_output_format"
+
+
+@pytest.mark.parametrize("job,allowed", [
+    ({"modality": "tts", "prompt": "Hi.", "outputs": ["s.wav"]}, ".mp3"),
+    ({"modality": "image", "prompt": "door", "outputs": ["a.gif"]}, ".jpeg/.jpg/.png/.webp"),
+    ({**_V, "outputs": ["o.mov"]}, ".mp4"),
+])
+def test_unsupported_output_format_fails_before_hold(job, allowed, tmp_path, monkeypatch):
+    adapters = _load()
+    with pytest.raises(adapters.AdapterFailure, match=f"returns {re.escape(allowed)};"):
+        _build(adapters, monkeypatch, tmp_path, job, {})
+
+
 def test_schema_spelling_and_defaults(tmp_path, monkeypatch):
     adapters = _load()
     by_id = {c[0]: c for c in CASES}
@@ -227,7 +257,7 @@ def test_invalid_values_fail_before_hold(tmp_path, monkeypatch):
     h3_720 = {**_V, "parameters": {"model": "h3-max", "resolution": "720p"}}
     with pytest.raises(adapters.AdapterFailure, match="480P, 768P, 1080P"):
         _build(adapters, monkeypatch, tmp_path, h3_720, {})
-    no_lyrics = {"modality": "music", "prompt": "lofi", "outputs": ["m.mp3"], "parameters": {}}
+    no_lyrics = {"modality": "music", "prompt": "lofi", "outputs": ["m.wav"], "parameters": {}}
     with pytest.raises(adapters.AdapterFailure, match="lyrics"):
         _build(adapters, monkeypatch, tmp_path, no_lyrics, {})
     preset = {"modality": "image", "prompt": "door", "outputs": ["a.png"], "parameters": {"size": "square_hd"}}

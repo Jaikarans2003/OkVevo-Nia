@@ -54,3 +54,7 @@ Pinned source: https://github.com/zenstory-ai/drama-skills `c2426e03c0e7722bebcc
 ## 2026-10-12 Fal request contract (G3 job 1 fix)
 
 - `provider_adapters.py`: portal bodies are built from the pinned Fal OpenAPI input schema per endpoint (`okvevo/fal-schemas/`, fetch date in each file; byte-identical to OkVevo-Web `src/lib/fal/schemas/`). Only schema fields are sent; `prompt` always; gpt-image-2 `image_size` is `{width, height}` (presets refused); h3-max `resolution` in schema case (`768P`) + `prompt_expansion_mode` (schema default `balanced`); seedance `duration` is the string enum; wan sends `audio` not `generate_audio`; music sends only `prompt`/`lyrics`/`duration` (`[instrumental]` when instrumental, duration default 60); speech sends `voice_setting.voice_id` (top-level `voice_id` was ignored by Fal) and `output_format: url`. `portal_request_body` fails before quote/hold when a required field is missing. Contract tests: `tests/skills/test_drama_fal_contract.py`.
+
+## 2026-10-13 Output file type check (G3 job 3 fix)
+
+- `provider_adapters.py`: `portal_request_body` refuses a target the endpoint cannot return (`unsupported_output_format`) before quote/hold. music-3 `.wav` only, speech `.mp3`, gpt-image-2 png/jpg/jpeg/webp, video `.mp4`. G3 job 3 asked music-3 for `.mp3`; Fal returned WAV, was billed, and the download check rejected it.
