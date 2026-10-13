@@ -100,6 +100,16 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Re-apply** | One slot map in `falQueue.ts`. Do not reject a submit that can queue. Do not sweep queued jobs as abandoned. |
 | **Check** | `npx tsx src/lib/fal/falQueue.selfcheck.ts`; `pytest tests/skills/test_drama_portal_adapter.py tests/tools/test_fal_common.py -k "slot or queued"`. |
 
+### Firebase ID token refresh on long Fal polls (2026-10-13)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[desktop]` |
+| **Files** | `agent/okvevo_gateway.py` (`ensure_okvevo_id_token`, `refresh_okvevo_id_token`); drama `provider_adapters.py` poll loop; Electron `okvevo-auth.ts` / `okvevo-auth-flow.ts` / `main.ts` (writes `okvevo-firebase-refresh-token` next to the ID token); `tests/agent/test_okvevo_id_token_refresh.py` |
+| **What** | Re-reading the ID token file on every portal request is necessary but not sufficient: the JWT expires after ~1h. Electron already refreshes via `/api/auth/desktop/refresh` and now also writes the refresh token to a sibling file. Python `ensure_okvevo_id_token` refreshes proactively within 5 minutes of expiry, and the drama poll retries **once** with `force=True` on 401 (poll only — never resubmit). |
+| **Why** | G3 job 4 waited ~32 minutes in the OkVevo concurrency queue; the ID token expired; re-read still 401'd (`invalid_token`). |
+| **Check** | `pytest tests/agent/test_okvevo_id_token_refresh.py` |
+
 ### Fal request contract (2026-10-12)
 
 | Field | Value |
