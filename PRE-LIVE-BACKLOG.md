@@ -345,7 +345,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | `skills/creative/short-drama-produce/scripts/provider_adapters.py` (`_output_suffixes`, `portal_request_body`); `tests/skills/test_drama_fal_contract.py`. |
 | **Fix** | `portal_request_body` (quote and run) refuses a target suffix the endpoint cannot return before any portal request: `unsupported_output_format`, message names the allowed types. music-3 `.wav`, speech `.mp3`, gpt-image-2 png/jpg/jpeg/webp, video `.mp4`. |
 | **Verify** | `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"` (fails on the old adapter). Live: G3 job 3 re-run with a `.wav` target. |
-| **Notes** | G3 2026-10-13 hold `b4f14121-a3a6-4af6-ab9a-a7ef767a7752`, Fal `01a1344e-504c-7891-8636-4e41de81bd84`: Fal billed $0.02 = 40 credits charged (consistent), file rejected (WAV bytes, `.mp3` target). The contract matrix itself used `m.mp3` for music. Closed 2026-10-13, PR: G3_JOB3_PR. |
+| **Notes** | G3 2026-10-13 hold `b4f14121-a3a6-4af6-ab9a-a7ef767a7752`, Fal `01a1344e-504c-7891-8636-4e41de81bd84`: Fal billed $0.02 = 40 credits charged (consistent), file rejected (WAV bytes, `.mp3` target). The contract matrix itself used `m.mp3` for music. Closed 2026-10-13, PR: [OkVevo-Nia #53](https://github.com/Jaikarans2003/OkVevo-Nia/pull/53). |
 
 ### [x] Fal capture job never captured (wrong response key + skipped entrypoint)
 
@@ -565,7 +565,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
-| Drama target file type the endpoint cannot return (G3 job 3) | 2026-10-13 | `portal_request_body` refuses unsupported target suffixes before quote/hold. PR: G3_JOB3_PR. Verify: `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"`. |
+| Drama target file type the endpoint cannot return (G3 job 3) | 2026-10-13 | `portal_request_body` refuses unsupported target suffixes before quote/hold. PR: [OkVevo-Nia #53](https://github.com/Jaikarans2003/OkVevo-Nia/pull/53). Verify: `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"`. |
 | Fal capture job never captured | 2026-10-12 | `billing_events` key + unconditional `main()`. PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [#13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13). Verify: `npx tsx src/lib/fal/capture.selfcheck.ts`. |
 | Drama portal adapter sends Fal-invalid bodies (G3 job 1) | 2026-10-12 | Bodies built from pinned Fal input schemas; portal schema guard before hold; schema drift in fal-drift. PR: [OkVevo-Nia #52](https://github.com/Jaikarans2003/OkVevo-Nia/pull/52) + [OkVevo-Web #11](https://github.com/Jaikarans2003/OkVevo-Web/pull/11). Verify: `pytest tests/skills/test_drama_fal_contract.py`; `npx tsx src/lib/fal/falSchema.selfcheck.ts`. |
 | Drama voice-clone TTS endpoint unmapped | 2026-10-10 | `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s, clone-once, 7-day warn. Verify: `pytest tests/skills/test_drama_portal_adapter.py`. |
