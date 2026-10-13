@@ -358,16 +358,6 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `npx tsx src/lib/fal/capture.selfcheck.ts`; Cloud Run execution logs `{"captured": n, …}`; G3 job 1 `captured: true`, `capturedFalUsd: 0.006`. |
 | **Notes** | Found in G3 2026-10-12. okvevo-testing only (production has no capture job). Closed 2026-10-12, PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [OkVevo-Web #13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13); redeployed via `drama-infra.sh --project okvevo-testing --apply`. |
 
-### [ ] falQueue.running keeps settled jobs (blocks waiters forever)
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Required before live |
-| **Risk if skipped** | After a settle, if `finishSlot`/`handoffSlot` misses (or an older path settled without it), the hold id stays in `falQueue.running`. Both Starter slots fill with dead ids; every new job sits in `queued` forever (credits held, no Fal submit). G3 job 4 (2026-10-13): waited 32+ minutes behind two settled ids (`2bc9a069`, `689e6343`). The 30-minute abandoned sweep does **not** apply to `queued` (`holdCountsAsAbandoned` is false by design). |
-| **Scope** | OkVevo-Web `src/lib/fal/dispatch.ts` `takeNextQueued` / `handoffSlot`; maybe a minute-dispatcher prune of terminal statuses in `running`. |
-| **Fix** | On each dispatch tick, drop `running` ids whose `gatewayJobs` status is terminal (`settled`/`released`/`unknown`/…) and promote the queue head. Selfcheck: two settled ids in running + one queued → after dispatch, queued is promoted. |
-| **Verify** | Emulator job in `jobMachine.emulator.ts`; live: clear the two stale ids on okvevo-testing and confirm job 4 (or a new waiter) moves. |
-| **Notes** | Logged 2026-10-13 during G3. Separate from the ID-token refresh fix. `drama-release-hold.ts` also refuses `queued` today. |
 
 ### [ ] Fal capture throughput + production capture job
 
@@ -582,6 +572,7 @@ _(Move items here when done.)_
 | Drama voice-clone TTS endpoint unmapped | 2026-10-10 | `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s, clone-once, 7-day warn. Verify: `pytest tests/skills/test_drama_portal_adapter.py`. |
 | Drama Phase 2 video and audio inputs | 2026-10-10 | Code on `feat/drama-fal-portal` + `feat/drama-skills-portal-fal`. Native extend/edit/reference via signed uploads; formula reserve + billing-events capture (`FAL_BILLING_KEY` on capture SA only). Verify: `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/rateCard.selfcheck.ts`. Live smoke is G3. |
 | Daily Fal spend guard (global circuit breaker) | 2026-10-10 | Superseded 2026-10-11. Was `dramaSwitches.ts` + hard stop. Replaced by an alert-only $250/day email and a per-plan queue. |
+| falQueue.running keeps settled jobs | 2026-10-13 | Minute dispatcher prunes terminal `running` ids; aged queued holds blocked only by dead slots go `unknown` (credits held). Verify: emulator `pruneSettledRunningAbandonsAgedWaiter`; live hold `77816306-…` → unknown → released; job 4 retry settled. |
 | Kill switch and daily spend breaker removed | 2026-10-11 | Generation always on. Slots Starter 2 / Pro 5 / Max 10, queue instead of reject, $250/day alert does not block. Verify: `npx tsx src/lib/fal/falQueue.selfcheck.ts`; `pytest tests/skills/test_drama_portal_adapter.py tests/tools/test_fal_common.py -k slot`. |
 | www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after **Publish release**. |
 | Staging pack publishes stable download names under `staging/` | 2026-09-18 | `syncFeed` staging mode copies `Nia-{ver}-mac-arm64.dmg` / `Nia-{ver}-win-x64.exe` → `Nia-mac-arm64.dmg` / `Nia-win-x64.exe` under the staging prefix (same pattern as promote at root). Vitest `publish-release-feed.test.mjs`. |
