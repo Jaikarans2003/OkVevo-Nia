@@ -97,8 +97,18 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Files** | portal `falQueue.ts`, `dispatch.ts`, `handleQueue.ts`, `holdSweep.ts`, `src/app/api/cron/fal-dispatch/route.ts`; adapter `provider_adapters.py`; `tools/fal_common.py` |
 | **What** | No kill switch and no daily spend stop. $250 raw Fal USD/day emails once and does not block. Slots: Starter 2, Pro 5, Max 10. Over the limit the job is `queued` (credits reserved, FIFO). Settle/fail/cancel dispatches the next job; a minute cron is the backup. Inactive plan stays `plan not active`. |
 | **Why** | A global off switch and a hard spend stop blocked testers. Per-user slots match the plan price. |
-| **Re-apply** | One slot map in `falQueue.ts`. Do not reject a submit that can queue. Do not sweep queued jobs as abandoned. |
+| **Re-apply** | One slot map in `falQueue.ts`. Do not reject a submit that can queue. Do not sweep queued jobs as abandoned **unless** they are past the 30m window and blocked only by terminal (`settled`/`released`/`unknown`) ids left in `running` — those go to `unknown` (credits held), never auto-submitted. |
 | **Check** | `npx tsx src/lib/fal/falQueue.selfcheck.ts`; `pytest tests/skills/test_drama_portal_adapter.py tests/tools/test_fal_common.py -k "slot or queued"`. |
+
+### Prune terminal falQueue.running + abandon stuck queued (2026-10-13)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[portal]` |
+| **Files** | portal `dispatch.ts` (`recoverStaleRunningSlots`), `handleQueue.ts` (`dispatchQueuedUsers`), `holdSweep.ts`, `jobMachine.ts` (`queued → unknown`) |
+| **What** | Each dispatch tick drops terminal ids from `falQueue.running`. A queued hold older than 30m with no Fal request id that was blocked only by those dead slots moves to `unknown` (credits held, not submitted). Operator releases via `drama-release-hold.ts`. |
+| **Why** | Missed `finishSlot` left settled ids in `running`; Starter’s 2 slots filled forever; G3 job 4 waited behind two settled ids until the client’s ID token expired. |
+| **Check** | Portal PR [OkVevo-Web #14](https://github.com/Jaikarans2003/OkVevo-Web/pull/14); emulator `pruneSettledRunningAbandonsAgedWaiter`. |
 
 ### Firebase ID token refresh on long Fal polls (2026-10-13)
 
