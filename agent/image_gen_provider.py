@@ -42,12 +42,11 @@ produce. The tool wrapper JSON-serializes it. Keys:
 from __future__ import annotations
 
 import abc
-import base64
-import datetime
 import logging
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+from agent.nia_generated_media import save_generated_b64, save_generated_url
 
 logger = logging.getLogger(__name__)
 
@@ -233,39 +232,6 @@ def normalize_reference_images(value: Any) -> Optional[List[str]]:
     return out or None
 
 
-def _images_cache_dir() -> Path:
-    """Return ``$HERMES_HOME/cache/images/``, creating parents as needed."""
-    from hermes_constants import get_hermes_home
-
-    path = get_hermes_home() / "cache" / "images"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def save_b64_image(
-    b64_data: str,
-    *,
-    prefix: str = "image",
-    extension: str = "png",
-) -> Path:
-    """Decode base64 image data and write it under ``$HERMES_HOME/cache/images/``.
-
-    Returns the absolute :class:`Path` to the saved file.
-
-    Filename format: ``<prefix>_<YYYYMMDD_HHMMSS>_<short-uuid>.<ext>``.
-    """
-    raw = base64.b64decode(b64_data)
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    short = uuid.uuid4().hex[:8]
-    path = _images_cache_dir() / f"{prefix}_{ts}_{short}.{extension}"
-    path.write_bytes(raw)
-    return path
-
-
-# Extension inference for save_url_image — keep small and explicit.  We don't
-# want to import mimetypes for a handful of formats every image_gen provider
-# actually returns, and we never want to inherit a content-type that points
-# at HTML or JSON when the API gives us a degenerate response.
 _URL_IMAGE_CONTENT_TYPES = {
     "image/png": "png",
     "image/jpeg": "jpg",
@@ -274,8 +240,28 @@ _URL_IMAGE_CONTENT_TYPES = {
     "image/gif": "gif",
 }
 
-_REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
-_MAX_SAVE_URL_REDIRECTS = 5
+
+def save_b64_image(
+    b64_data: str,
+    *,
+    prefix: str = "image",
+    extension: str = "png",
+    output_dir: Optional[str] = None,
+    apply_tiers: bool = True,
+) -> Path:
+    """Decode base64 image data into durable storage; return the absolute path.
+
+    Default: ``$HERMES_HOME/cache/generated/images/``. With ``apply_tiers`` and
+    an ``output_dir`` / attached Project, validates then moves flat into that folder.
+    """
+    return save_generated_b64(
+        "images",
+        b64_data,
+        prefix=prefix,
+        extension=extension,
+        output_dir=output_dir,
+        apply_tiers=apply_tiers,
+    ).path
 
 
 def save_url_image(
@@ -284,89 +270,29 @@ def save_url_image(
     prefix: str = "image",
     timeout: float = 60.0,
     max_bytes: int = 25 * 1024 * 1024,
+    output_dir: Optional[str] = None,
+    apply_tiers: bool = True,
 ) -> Path:
-    """Download an image URL and write it under ``$HERMES_HOME/cache/images/``.
+    """Download an (often ephemeral) image URL into durable storage.
 
-    Used by providers (xAI, fallback OpenAI) whose API returns an *ephemeral*
-    URL instead of inline base64 — those URLs frequently expire before a
-    downstream consumer (Telegram ``send_photo``, browser fetch) can resolve
-    them, so we materialise the bytes locally at tool-completion time.
-    Mirrors :func:`save_b64_image`'s shape so providers can swap in one line.
-
-    The URL is provider-supplied, so every hop is validated with
-    ``tools.url_safety`` before a socket opens (and again at TCP connect by the
-    guarded transport). Caller-supplied auth headers are not used here.
-
-    Returns the absolute :class:`Path` to the saved file.  Raises on any
-    network / HTTP / oversize / non-image-content-type error so callers can
-    fall back to returning the bare URL with a clear error message.
+    Raises on network / HTTP / oversize / empty errors so callers can fall back
+    to the bare URL. Validates tier a/b folders before any download.
     """
-    from urllib.parse import urljoin
-
-    from tools.url_safety import create_ssrf_safe_client, is_safe_url
-
-    current_url = url
-    for _ in range(_MAX_SAVE_URL_REDIRECTS + 1):
-        if not is_safe_url(current_url):
-            raise ValueError(f"Image URL failed the SSRF safety check: {current_url}")
-        with create_ssrf_safe_client(timeout=timeout, follow_redirects=False) as client:
-            with client.stream("GET", current_url) as response:
-                if response.status_code in _REDIRECT_STATUS_CODES:
-                    location = response.headers.get("location")
-                    if not location:
-                        raise ValueError(
-                            f"Image download redirected without a Location: {current_url}"
-                        )
-                    current_url = urljoin(current_url, location)
-                    continue
-                if not response.is_success:
-                    response.read()
-                    response.raise_for_status()
-
-                content_type = (
-                    (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-                )
-                extension = _URL_IMAGE_CONTENT_TYPES.get(content_type)
-                if extension is None:
-                    url_path = current_url.split("?", 1)[0].lower()
-                    for ext in ("png", "jpg", "jpeg", "webp", "gif"):
-                        if url_path.endswith(f".{ext}"):
-                            extension = "jpg" if ext == "jpeg" else ext
-                            break
-                if extension is None:
-                    extension = "png"
-
-                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                short = uuid.uuid4().hex[:8]
-                path = _images_cache_dir() / f"{prefix}_{ts}_{short}.{extension}"
-
-                bytes_written = 0
-                with path.open("wb") as fh:
-                    for chunk in response.iter_bytes(chunk_size=64 * 1024):
-                        if not chunk:
-                            continue
-                        bytes_written += len(chunk)
-                        if bytes_written > max_bytes:
-                            fh.close()
-                            try:
-                                path.unlink()
-                            except OSError:
-                                pass
-                            raise ValueError(
-                                f"Image at {url} exceeds {max_bytes // (1024 * 1024)}MB cap; "
-                                "refusing to cache."
-                            )
-                        fh.write(chunk)
-
-                if bytes_written == 0:
-                    try:
-                        path.unlink()
-                    except OSError:
-                        pass
-                    raise ValueError(f"Image at {url} returned 0 bytes; refusing to cache.")
-
-                return path
-    raise ValueError(f"Image download exceeded {_MAX_SAVE_URL_REDIRECTS} redirects: {url}")
+    return save_generated_url(
+        "images",
+        url,
+        prefix=prefix,
+        output_dir=output_dir,
+        apply_tiers=apply_tiers,
+        timeout=timeout,
+        max_bytes=max_bytes,
+        chunk_size=64 * 1024,
+        content_types=_URL_IMAGE_CONTENT_TYPES,
+        url_extensions=("png", "jpg", "jpeg", "webp", "gif"),
+        default_extension="png",
+        label="Image",
+        empty_error="Image at {url} returned 0 bytes; refusing to cache.",
+    ).path
 
 
 def success_response(

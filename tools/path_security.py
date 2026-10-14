@@ -6,10 +6,16 @@ skills_hub, cronjob_tools, and credential_files.
 """
 
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# Control chars + Unicode line separators (NEL, LS, PS): newline-bearing paths
+# are legal POSIX names, but they corrupt line-delimited protocols (MEDIA: tags)
+# and forge log lines.
+_UNSAFE_PATH_CHARS = re.compile(r"[\x00-\x1f\x7f\x85\u2028\u2029]")
 
 
 def validate_within_dir(path: Path, root: Path) -> Optional[str]:
@@ -41,3 +47,8 @@ def has_traversal_component(path_str: str) -> bool:
     """
     parts = Path(path_str).parts
     return ".." in parts
+
+
+def has_unsafe_path_chars(path_str: str) -> bool:
+    """True when *path_str* contains control characters or line separators."""
+    return bool(_UNSAFE_PATH_CHARS.search(path_str))

@@ -159,11 +159,14 @@ def list_sprite_providers() -> list[dict]:
 
 
 def _save_local(image_ref: str, *, prefix: str) -> Path:
-    """Return a local path for *image_ref*, downloading it if it's a URL."""
+    """Return a local path for *image_ref*, downloading it if it's a URL.
+
+    Pet always uses tier c (``cache/generated/images``) — never Project / output_dir.
+    """
     if image_ref.startswith(("http://", "https://")):
         from agent.image_gen_provider import save_url_image
 
-        return Path(save_url_image(image_ref, prefix=prefix))
+        return Path(save_url_image(image_ref, prefix=prefix, apply_tiers=False))
     return Path(image_ref)
 
 

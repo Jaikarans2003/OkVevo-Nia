@@ -132,7 +132,16 @@ Options:
   process.exit(0);
 }
 
-const projectDir = resolve(args.project);
+function resolveProjectDir() {
+  // Env folder only (plan): skill --output-dir / session Project wins over CLI.
+  return resolve(
+    process.env.HERMES_GENERATED_OUTPUT_DIR ||
+      process.env.HERMES_SESSION_PROJECT_PATH ||
+      args.project,
+  );
+}
+
+const projectDir = resolveProjectDir();
 const type = args.type;
 const intent = args.intent;
 const entity = args.entity || null;
@@ -894,7 +903,7 @@ async function ingest(src) {
 }
 
 async function showCandidates() {
-  const projectDir = resolve(args.project);
+  const projectDir = resolveProjectDir();
   const type = args.type;
   if (!type || !listTypes().includes(type)) {
     console.error(`error: --candidates requires --type (one of: ${listTypes().join(", ")})`);
@@ -1151,7 +1160,7 @@ function emailFromAuthStatus(text) {
 }
 
 async function reuseGlobal(shaArg) {
-  const projectDir = resolve(args.project);
+  const projectDir = resolveProjectDir();
   const type = args.type;
   if (!type || !listTypes().includes(type)) {
     console.error(`error: --reuse requires --type (one of: ${listTypes().join(", ")})`);

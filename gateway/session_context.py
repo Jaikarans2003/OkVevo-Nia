@@ -141,6 +141,10 @@ _CRON_AUTO_DELIVER_PLATFORM: ContextVar = ContextVar("HERMES_CRON_AUTO_DELIVER_P
 _CRON_AUTO_DELIVER_CHAT_ID: ContextVar = ContextVar("HERMES_CRON_AUTO_DELIVER_CHAT_ID", default=_UNSET)
 _CRON_AUTO_DELIVER_THREAD_ID: ContextVar = ContextVar("HERMES_CRON_AUTO_DELIVER_THREAD_ID", default=_UNSET)
 
+# Attached Project ``primary_path`` for durable generated-media tier b.
+# Never cwd / git_repo_root — only the project's configured primary folder.
+_SESSION_PROJECT_PATH: ContextVar = ContextVar("HERMES_SESSION_PROJECT_PATH", default=_UNSET)
+
 _VAR_MAP = {
     "HERMES_SESSION_PLATFORM": _SESSION_PLATFORM,
     "HERMES_SESSION_SOURCE": _SESSION_SOURCE,
@@ -157,6 +161,7 @@ _VAR_MAP = {
     "HERMES_UI_SESSION_ID": _SESSION_UI_SESSION_ID,
     "HERMES_SESSION_MESSAGE_ID": _SESSION_MESSAGE_ID,
     "HERMES_SESSION_PROFILE": _SESSION_PROFILE,
+    "HERMES_SESSION_PROJECT_PATH": _SESSION_PROJECT_PATH,
     "HERMES_BROWSER_CONTROL_PRINCIPAL": _BROWSER_CONTROL_PRINCIPAL,
     "HERMES_BROWSER_CONTROL_TRANSPORT_FAMILY": _BROWSER_CONTROL_TRANSPORT_FAMILY,
     "HERMES_CRON_SESSION": _CRON_SESSION,
@@ -242,6 +247,7 @@ def set_session_vars(
     async_delivery: bool = True,
     ui_session_id: str = "",
     cron_session: Any = _UNSET,
+    project_path: str = "",
 ) -> list:
     """Set all session context variables and return reset tokens.
 
@@ -252,6 +258,9 @@ def set_session_vars(
     only for API compatibility.
 
     ``cwd`` pins the logical working directory for this context.
+
+    ``project_path`` is the attached Project's ``primary_path`` (absolute).
+    Used for durable generated-media tier b; never confuse with ``cwd``.
 
     ``async_delivery`` declares whether this session's channel can route a
     background completion back to the agent after the turn ends (see
@@ -283,6 +292,7 @@ def set_session_vars(
         _SESSION_UI_SESSION_ID.set(ui_session_id),
         _SESSION_MESSAGE_ID.set(message_id),
         _SESSION_PROFILE.set(profile),
+        _SESSION_PROJECT_PATH.set(project_path or ""),
         _BROWSER_CONTROL_PRINCIPAL.set(browser_control_principal),
         _BROWSER_CONTROL_TRANSPORT_FAMILY.set(browser_control_transport_family),
         _CRON_SESSION.set(cron_session),
@@ -324,6 +334,7 @@ def clear_session_vars(tokens: list) -> None:
         _SESSION_UI_SESSION_ID,
         _SESSION_MESSAGE_ID,
         _SESSION_PROFILE,
+        _SESSION_PROJECT_PATH,
         _BROWSER_CONTROL_PRINCIPAL,
         _BROWSER_CONTROL_TRANSPORT_FAMILY,
         _CRON_SESSION,

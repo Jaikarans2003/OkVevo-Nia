@@ -118,6 +118,19 @@ describe('sanitizeUserFacingBrand', () => {
     expect(sanitizeUserFacingBrand('Stored at ~/.hermes/foo.')).toBe('Stored at your Nia data folder.')
   })
 
+  it('never emits hermes for HERMES_HOME paths (Mac + Windows forms)', () => {
+    const samples = [
+      '/Users/karan/.hermes/cache/generated/images/x.png',
+      'C:\\Users\\karan\\.hermes\\cache\\generated\\videos\\y.mp4',
+      'C:/Users/karan/.hermes/cache/generated/audio/z.mp3',
+      '~/.hermes/cache/generated/images/a.png',
+    ]
+    for (const sample of samples) {
+      const scrubbed = sanitizeUserFacingBrand(sample)
+      expect(scrubbed.toLowerCase()).not.toMatch(/hermes/)
+    }
+  })
+
   it('leaves a legitimate deliverable path tildified, not scrubbed', () => {
     expect(sanitizeUserFacingBrand('Saved to ~/Documents/budget.csv')).toBe('Saved to ~/Documents/budget.csv')
   })

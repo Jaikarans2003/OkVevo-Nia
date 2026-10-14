@@ -2383,35 +2383,66 @@ def audit_project(root: Path) -> dict[str, Any]:
     }
 
 
+def resolve_production_root(project: str, output_dir: str | None = None) -> Path:
+    """Resolve short-drama project root: ``--output-dir`` → session Project → arg → default.
+
+    Subprocess-safe (no ``nia_generated_media`` import). Default durable root:
+    ``$HERMES_HOME/cache/generated/short-drama-produce/``.
+    """
+    if output_dir and str(output_dir).strip():
+        root = Path(str(output_dir).strip()).expanduser()
+        root.mkdir(parents=True, exist_ok=True)
+        return root.resolve()
+    session = (os.environ.get("HERMES_SESSION_PROJECT_PATH") or "").strip()
+    if session:
+        cand = Path(session).expanduser()
+        if cand.is_dir():
+            return cand.resolve()
+    if project and str(project).strip() not in ("", "."):
+        return Path(project).expanduser().resolve()
+    home = Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
+    root = home / "cache" / "generated" / "short-drama-produce"
+    root.mkdir(parents=True, exist_ok=True)
+    return root.resolve()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run confirmed short-drama media jobs.")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    def _add_root_args(sub: argparse.ArgumentParser) -> None:
+        sub.add_argument("project")
+        sub.add_argument(
+            "--output-dir",
+            help="Override project root (wins over HERMES_SESSION_PROJECT_PATH).",
+        )
+
     prepare = commands.add_parser("prepare", help="Validate and preview a media job.")
-    prepare.add_argument("project")
+    _add_root_args(prepare)
     prepare.add_argument("--job", required=True)
     prepare.add_argument("--adapter-config")
     confirm = commands.add_parser("confirm", help="Confirm the exact prepared job.")
-    confirm.add_argument("project")
+    _add_root_args(confirm)
     confirm.add_argument("--job-id", required=True)
     confirm.add_argument("--confirmation", required=True)
     run = commands.add_parser("run", help="Execute a confirmed job through an adapter.")
-    run.add_argument("project")
+    _add_root_args(run)
     run.add_argument("--job-id", required=True)
     run.add_argument("--adapter-config")
     collect = commands.add_parser(
         "collect",
         help="Fetch the result of an already-submitted provider task without paying again.",
     )
-    collect.add_argument("project")
+    _add_root_args(collect)
     collect.add_argument("--job-id", required=True)
     collect.add_argument("--adapter-config")
     status = commands.add_parser("status", help="Show one media job state.")
-    status.add_argument("project")
+    _add_root_args(status)
     status.add_argument("--job-id", required=True)
     audit = commands.add_parser(
         "audit", help="Reconcile attempt history and current output bytes."
     )
-    audit.add_argument("project")
+    _add_root_args(audit)
     return parser
 
 
@@ -2426,32 +2457,36 @@ def _adapter_config_arg(value: str | None) -> Path:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        root = resolve_production_root(
+            getattr(args, "project", "."),
+            getattr(args, "output_dir", None),
+        )
         if args.command == "prepare":
             result = prepare_job(
-                Path(args.project),
+                root,
                 Path(args.job),
                 adapter_config=_adapter_config_arg(args.adapter_config),
             )
         elif args.command == "confirm":
             result = confirm_job(
-                Path(args.project), job_id=args.job_id, confirmation=args.confirmation
+                root, job_id=args.job_id, confirmation=args.confirmation
             )
         elif args.command == "run":
             result = run_job(
-                Path(args.project),
+                root,
                 job_id=args.job_id,
                 adapter_config=_adapter_config_arg(args.adapter_config),
             )
         elif args.command == "collect":
             result = collect_job(
-                Path(args.project),
+                root,
                 job_id=args.job_id,
                 adapter_config=_adapter_config_arg(args.adapter_config),
             )
         elif args.command == "status":
-            result = job_status(Path(args.project), job_id=args.job_id)
+            result = job_status(root, job_id=args.job_id)
         else:
-            result = audit_project(Path(args.project))
+            result = audit_project(root)
         print(json.dumps(result, ensure_ascii=True, sort_keys=True))
         return 0
     except Exception as exc:

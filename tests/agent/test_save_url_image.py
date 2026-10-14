@@ -122,7 +122,7 @@ class TestSaveUrlImage:
         assert path.read_bytes() == PNG_1PX
         # The cache directory must be under HERMES_HOME — gateway cleanup
         # relies on this being the canonical location.
-        assert "cache/images" in str(path)
+        assert "cache/generated/images" in str(path).replace("\\", "/")
         assert path.suffix == ".png"
 
 
@@ -165,9 +165,10 @@ class TestSaveUrlImage:
     def test_oversize_raises_and_cleans_up(self, http_server, tmp_path):
         """Oversize downloads must NOT leak a partial file into the cache."""
         base, _ = http_server
-        from agent.image_gen_provider import save_url_image, _images_cache_dir
+        from agent.image_gen_provider import save_url_image
+        from agent.provider_media import cache_dir as provider_cache_dir
 
-        cache_dir = _images_cache_dir()
+        cache_dir = provider_cache_dir("generated/images")
         before = set(cache_dir.glob("*"))
         with pytest.raises(ValueError, match="exceeds"):
             save_url_image(f"{base}/oversize", max_bytes=1024 * 1024)

@@ -47,12 +47,15 @@ All providers return a dict built by :func:`success_response` /
 from __future__ import annotations
 
 import abc
-import base64
-import datetime
 import logging
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+from agent.nia_generated_media import (
+    save_generated_b64,
+    save_generated_bytes,
+    save_generated_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -215,49 +218,6 @@ class VideoGenProvider(abc.ABC):
 # ---------------------------------------------------------------------------
 
 
-def _videos_cache_dir() -> Path:
-    """Return ``$HERMES_HOME/cache/videos/``, creating parents as needed."""
-    from hermes_constants import get_hermes_home
-
-    path = get_hermes_home() / "cache" / "videos"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def save_b64_video(
-    b64_data: str,
-    *,
-    prefix: str = "video",
-    extension: str = "mp4",
-) -> Path:
-    """Decode base64 video data and write under ``$HERMES_HOME/cache/videos/``.
-
-    Returns the absolute :class:`Path` to the saved file.
-
-    Filename format: ``<prefix>_<YYYYMMDD_HHMMSS>_<short-uuid>.<ext>``.
-    """
-    raw = base64.b64decode(b64_data)
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    short = uuid.uuid4().hex[:8]
-    path = _videos_cache_dir() / f"{prefix}_{ts}_{short}.{extension}"
-    path.write_bytes(raw)
-    return path
-
-
-def save_bytes_video(
-    raw: bytes,
-    *,
-    prefix: str = "video",
-    extension: str = "mp4",
-) -> Path:
-    """Write raw video bytes (e.g. an HTTP download body) to the cache."""
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    short = uuid.uuid4().hex[:8]
-    path = _videos_cache_dir() / f"{prefix}_{ts}_{short}.{extension}"
-    path.write_bytes(raw)
-    return path
-
-
 _URL_VIDEO_CONTENT_TYPES = {
     "video/mp4": "mp4",
     "video/webm": "webm",
@@ -266,68 +226,79 @@ _URL_VIDEO_CONTENT_TYPES = {
 }
 
 
+def save_b64_video(
+    b64_data: str,
+    *,
+    prefix: str = "video",
+    extension: str = "mp4",
+    output_dir: Optional[str] = None,
+    apply_tiers: bool = True,
+) -> Path:
+    """Decode base64 video data into durable storage; return the absolute path."""
+    return save_generated_b64(
+        "videos",
+        b64_data,
+        prefix=prefix,
+        extension=extension,
+        output_dir=output_dir,
+        apply_tiers=apply_tiers,
+    ).path
+
+
+def save_bytes_video(
+    raw: bytes,
+    *,
+    prefix: str = "video",
+    extension: str = "mp4",
+    output_dir: Optional[str] = None,
+    apply_tiers: bool = True,
+) -> Path:
+    """Write raw video bytes into durable storage."""
+    return save_generated_bytes(
+        "videos",
+        raw,
+        prefix=prefix,
+        extension=extension,
+        output_dir=output_dir,
+        apply_tiers=apply_tiers,
+    ).path
+
+
 def save_url_video(
     url: str,
     *,
     prefix: str = "video",
     timeout: float = 180.0,
     max_bytes: int = 200 * 1024 * 1024,
+    headers: Optional[Dict[str, str]] = None,
+    require_video_content_type: bool = False,
+    trusted_origin: bool = False,
+    output_dir: Optional[str] = None,
+    apply_tiers: bool = True,
 ) -> Path:
-    """Download a video URL and write it under ``$HERMES_HOME/cache/videos/``.
+    """Download an (often ephemeral) video URL into durable storage.
 
-    The video twin of :func:`agent.image_gen_provider.save_url_image`: several
-    backends (DeepInfra, FAL) return an *ephemeral* delivery URL that expires
-    before a downstream consumer can fetch it, so we materialise the bytes
-    locally at tool-completion time. Streams with a size cap.
-
-    Raises on any network / HTTP / oversize error so callers can fall back to
-    returning the bare URL.
+    ``trusted_origin`` is only for URLs built from the operator's configured
+    provider ``base_url`` (see ``provider_media.save_url``).
     """
-    import requests
-
-    response = requests.get(url, timeout=timeout, stream=True)
-    response.raise_for_status()
-
-    content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-    extension = _URL_VIDEO_CONTENT_TYPES.get(content_type)
-    if extension is None:
-        url_path = url.split("?", 1)[0].lower()
-        for ext in ("mp4", "webm", "mov", "mkv"):
-            if url_path.endswith(f".{ext}"):
-                extension = ext
-                break
-    if extension is None:
-        extension = "mp4"
-
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    short = uuid.uuid4().hex[:8]
-    path = _videos_cache_dir() / f"{prefix}_{ts}_{short}.{extension}"
-
-    bytes_written = 0
-    with path.open("wb") as fh:
-        for chunk in response.iter_content(chunk_size=256 * 1024):
-            if not chunk:
-                continue
-            bytes_written += len(chunk)
-            if bytes_written > max_bytes:
-                fh.close()
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
-                raise ValueError(
-                    f"Video at {url} exceeds {max_bytes // (1024 * 1024)}MB cap; refusing to cache."
-                )
-            fh.write(chunk)
-
-    if bytes_written == 0:
-        try:
-            path.unlink()
-        except OSError:
-            pass
-        raise ValueError(f"Video at {url} was empty (0 bytes).")
-
-    return path
+    return save_generated_url(
+        "videos",
+        url,
+        prefix=prefix,
+        output_dir=output_dir,
+        apply_tiers=apply_tiers,
+        timeout=timeout,
+        max_bytes=max_bytes,
+        chunk_size=256 * 1024,
+        content_types=_URL_VIDEO_CONTENT_TYPES,
+        url_extensions=("mp4", "webm", "mov", "mkv"),
+        default_extension="mp4",
+        label="Video",
+        empty_error="Video at {url} was empty (0 bytes).",
+        headers=headers,
+        require_known_content_type=require_video_content_type,
+        trusted_origin=trusted_origin,
+    ).path
 
 
 def success_response(
