@@ -1,0 +1,515 @@
+{
+  "endpoint_id": "alibaba/wan-3.0-prime/image-to-video",
+  "source": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=alibaba/wan-3.0-prime/image-to-video",
+  "fetched_at": "2026-10-12T16:37:38.947Z",
+  "openapi": {
+    "openapi": "3.0.4",
+    "info": {
+      "title": "Queue OpenAPI for alibaba/wan-3.0-prime/image-to-video",
+      "version": "1.0.0",
+      "description": "The OpenAPI schema for the alibaba/wan-3.0-prime/image-to-video queue.",
+      "x-fal-metadata": {
+        "endpointId": "alibaba/wan-3.0-prime/image-to-video",
+        "category": "image-to-video",
+        "thumbnailUrl": "https://v3b.fal.media/files/b/0aa79429/JUbQYD5VzHB08bkIJQC2g.jpg",
+        "playgroundUrl": "https://fal.ai/models/alibaba/wan-3.0-prime/image-to-video",
+        "documentationUrl": "https://fal.ai/models/alibaba/wan-3.0-prime/image-to-video/api",
+        "about": "Generate a video from a first frame with Wan 3.0 Prime."
+      }
+    },
+    "components": {
+      "securitySchemes": {
+        "apiKeyAuth": {
+          "type": "apiKey",
+          "in": "header",
+          "name": "Authorization",
+          "description": "Fal Key"
+        }
+      },
+      "schemas": {
+        "QueueStatus": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "IN_QUEUE",
+                "IN_PROGRESS",
+                "COMPLETED"
+              ]
+            },
+            "request_id": {
+              "type": "string",
+              "description": "The request id."
+            },
+            "response_url": {
+              "type": "string",
+              "description": "The response url."
+            },
+            "status_url": {
+              "type": "string",
+              "description": "The status url."
+            },
+            "cancel_url": {
+              "type": "string",
+              "description": "The cancel url."
+            },
+            "logs": {
+              "type": "object",
+              "description": "The logs.",
+              "additionalProperties": true
+            },
+            "metrics": {
+              "type": "object",
+              "description": "The metrics.",
+              "additionalProperties": true
+            },
+            "queue_position": {
+              "type": "integer",
+              "description": "The queue position."
+            }
+          },
+          "required": [
+            "status",
+            "request_id"
+          ]
+        },
+        "Wan30PrimeImageToVideoInput": {
+          "type": "object",
+          "required": [
+            "start_image_url"
+          ],
+          "title": "Wan30ImageToVideoInput",
+          "properties": {
+            "end_image_url": {
+              "title": "End Image Url",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last frame of the generated video. Requires start_image_url."
+            },
+            "audio": {
+              "type": "boolean",
+              "title": "Audio",
+              "default": true,
+              "description": "Include generated audio."
+            },
+            "start_image_url": {
+              "type": "string",
+              "title": "Start Image Url",
+              "description": "First frame of the generated video."
+            },
+            "enable_prompt_expansion": {
+              "type": "boolean",
+              "title": "Enable Prompt Expansion",
+              "default": true,
+              "description": "Enable intelligent prompt rewriting. Disabling it can save roughly 20-60 seconds of latency but is likely to degrade generation quality."
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "enum": [
+                "adaptive",
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16"
+              ],
+              "title": "Aspect Ratio",
+              "default": "adaptive",
+              "description": "Output aspect ratio, or adaptive selection."
+            },
+            "seed": {
+              "title": "Seed",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "duration": {
+              "title": "Duration",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 30,
+                  "minimum": 2
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 5,
+              "description": "Output duration in seconds. Set to null for smart duration, which lets the model pick a length from the prompt and reference media."
+            },
+            "prompt": {
+              "title": "Prompt",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20000
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Text prompt describing the motion to generate."
+            },
+            "enable_thinking": {
+              "type": "boolean",
+              "title": "Enable Thinking",
+              "default": false,
+              "description": "Enable enhanced reasoning before generation."
+            },
+            "enable_safety_checker": {
+              "type": "boolean",
+              "title": "Enable Safety Checker",
+              "default": true,
+              "description": "Enable content moderation for input and output. Disabling it requires account authorization; unauthorized requests are always checked."
+            },
+            "resolution": {
+              "type": "string",
+              "enum": [
+                "480p",
+                "720p",
+                "1080p"
+              ],
+              "title": "Resolution",
+              "default": "1080p",
+              "description": "Output video resolution tier."
+            }
+          },
+          "x-fal-order-properties": [
+            "prompt",
+            "resolution",
+            "aspect_ratio",
+            "duration",
+            "audio",
+            "enable_prompt_expansion",
+            "enable_thinking",
+            "seed",
+            "enable_safety_checker",
+            "start_image_url",
+            "end_image_url"
+          ]
+        },
+        "Wan30PrimeImageToVideoOutput": {
+          "type": "object",
+          "required": [
+            "video",
+            "seed",
+            "duration"
+          ],
+          "title": "Wan30Output",
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "title": "Seed",
+              "description": "The seed used for generation."
+            },
+            "actual_prompt": {
+              "title": "Actual Prompt",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "duration": {
+              "type": "number",
+              "title": "Duration",
+              "description": "Generated video duration in seconds."
+            },
+            "video": {
+              "$ref": "#/components/schemas/VideoFile",
+              "description": "The generated video file."
+            }
+          },
+          "x-fal-order-properties": [
+            "video",
+            "seed",
+            "duration",
+            "actual_prompt"
+          ]
+        },
+        "VideoFile": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "title": "VideoFile",
+          "properties": {
+            "height": {
+              "title": "Height",
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The height of the video"
+            },
+            "content_type": {
+              "title": "Content Type",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                "image/png"
+              ],
+              "description": "The mime type of the file."
+            },
+            "file_size": {
+              "title": "File Size",
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                4404019
+              ],
+              "description": "The size of the file in bytes."
+            },
+            "file_name": {
+              "title": "File Name",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                "z9RV14K95DvU.png"
+              ],
+              "description": "The name of the file. It will be auto-generated if not provided."
+            },
+            "width": {
+              "title": "Width",
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The width of the video"
+            },
+            "fps": {
+              "title": "Fps",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The FPS of the video"
+            },
+            "duration": {
+              "title": "Duration",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The duration of the video"
+            },
+            "url": {
+              "type": "string",
+              "title": "Url",
+              "description": "The URL where the file can be downloaded from."
+            },
+            "num_frames": {
+              "title": "Num Frames",
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The number of frames in the video"
+            }
+          },
+          "x-fal-order-properties": [
+            "url",
+            "content_type",
+            "file_name",
+            "file_size",
+            "width",
+            "height",
+            "fps",
+            "duration",
+            "num_frames"
+          ]
+        }
+      }
+    },
+    "paths": {
+      "/alibaba/wan-3.0-prime/image-to-video/requests/{request_id}/status": {
+        "get": {
+          "parameters": [
+            {
+              "name": "request_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "Request ID"
+              }
+            },
+            {
+              "name": "logs",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "number",
+                "description": "Whether to include logs (`1`) in the response or not (`0`)."
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The request status.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/QueueStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/alibaba/wan-3.0-prime/image-to-video/requests/{request_id}/cancel": {
+        "put": {
+          "parameters": [
+            {
+              "name": "request_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "Request ID"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The request was cancelled.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": {
+                        "type": "boolean",
+                        "description": "Whether the request was cancelled successfully."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/alibaba/wan-3.0-prime/image-to-video": {
+        "post": {
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wan30PrimeImageToVideoInput"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "The request status.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/QueueStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/alibaba/wan-3.0-prime/image-to-video/requests/{request_id}": {
+        "get": {
+          "parameters": [
+            {
+              "name": "request_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "description": "Request ID"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Result of the request.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Wan30PrimeImageToVideoOutput"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "servers": [
+      {
+        "url": "https://queue.fal.run"
+      }
+    ],
+    "security": [
+      {
+        "apiKeyAuth": []
+      }
+    ]
+  }
+}

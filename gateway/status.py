@@ -2364,6 +2364,7 @@ def get_running_pid(
     primary_record = _read_pid_record(resolved_pid_path)
     fallback_record = _read_gateway_lock_record(resolved_lock_path)
 
+    saw_live_pid = False
     for record in (primary_record, fallback_record):
         pid = _pid_from_record(record)
         if pid is None:
@@ -2379,8 +2380,13 @@ def get_running_pid(
 
         if _record_matches_live_gateway_pid(record, pid):
             return pid
+        # A live record we could not adopt may still be a real gateway (an identity
+        # matcher that lags a new launcher shape). An identity rejection is not
+        # stale-file authority while the PID is alive and the lock is held.
+        saw_live_pid = True
 
-    _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
+    if not saw_live_pid:
+        _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
     if pid_path is None:
         runtime_pid = get_runtime_status_running_pid()
         if runtime_pid is not None:

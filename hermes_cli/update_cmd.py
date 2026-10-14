@@ -3977,6 +3977,23 @@ def _print_fetch_failure(stderr: str) -> None:
         print(f"  {stderr.splitlines()[0]}")
 
 
+def _fetch_git(git_cmd: list, args: list):
+    """Fetch, retrying once if git crashes on a partial-clone pack-objects BUG."""
+    from hermes_cli.gitlock import fetch_with_partial_clone_recovery
+
+    def _run(gc, a):
+        return subprocess.run(
+            gc + a,
+            cwd=_m().PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+    return fetch_with_partial_clone_recovery(_run, git_cmd, args)
+
+
 def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
     """Implement ``hermes update --check``: fetch and report without installing.
 
@@ -4078,23 +4095,13 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         else:
             # No upstream remote, or the upstream fetch failed — use origin.
             print("→ Fetching from origin...")
-            fetch_result = subprocess.run(
-                git_cmd + ["fetch"] + depth_args + ["origin", branch],
-                cwd=_m().PROJECT_ROOT,
-                capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
-            )
+            fetch_result = _fetch_git(git_cmd, ["fetch", *depth_args, "origin", branch])
             upstream_exists = False
             compare_branch = f"origin/{branch}"
     else:
         # Non-default branch: compare against origin/<branch> directly.
         print("→ Fetching from origin...")
-        fetch_result = subprocess.run(
-            git_cmd + ["fetch"] + depth_args + ["origin", branch],
-            cwd=_m().PROJECT_ROOT,
-            capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
-        )
+        fetch_result = _fetch_git(git_cmd, ["fetch", *depth_args, "origin", branch])
         upstream_exists = False
         compare_branch = f"origin/{branch}"
 
@@ -7652,13 +7659,13 @@ def _cmd_update_impl(args, gateway_mode: bool):
             print("  (removed %d aborted-fetch pack temp file(s))" % len(swept))
 
         print("→ Fetching updates...")
-        fetch_result = subprocess.run(
-            git_cmd + ["fetch", "origin", branch],
-            cwd=_m().PROJECT_ROOT,
-            capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
-        )
+        fetch_result = _fetch_git(git_cmd, ["fetch", "origin", branch])
         if fetch_result.returncode != 0:
+            from hermes_cli.gitlock import is_partial_clone_pack_objects_crash
+
+            if is_partial_clone_pack_objects_crash(fetch_result.stderr or ""):
+                print("✗ git still crashed after the partial-clone retry. Heal the checkout once manually:")
+                print("  git -c remote.origin.promisor= fetch origin && git fetch origin")
             _print_fetch_failure(fetch_result.stderr)
             sys.exit(1)
 

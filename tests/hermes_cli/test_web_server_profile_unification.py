@@ -272,19 +272,13 @@ class TestProfileScopedModel:
         )
 
         assert resp.status_code == 200
-        assert resp.json()["cron_model_impact"] == {
-            "available": True,
-            "guard_enabled": True,
-            "affected_count": 1,
-            "truncated": False,
-            "jobs": [
-                {
-                    "id": "worker-job",
-                    "name": "Worker summary",
-                    "drifted_axes": ["provider", "model"],
-                }
-            ],
-        }
+        body = resp.json()
+        assert body["ok"] is True
+        assert "cron_model_impact" not in body
+        assert _cfg(isolated_profiles["worker_beta"])["model"]["default"] == "new/model"
+        default_model = _cfg(isolated_profiles["default"]).get("model", {})
+        if isinstance(default_model, dict):
+            assert default_model.get("default") != "new/model"
 
     def test_unavailable_impact_does_not_fail_persisted_assignment(
         self, client, isolated_profiles, monkeypatch
@@ -306,7 +300,7 @@ class TestProfileScopedModel:
 
         assert resp.status_code == 200
         assert resp.json()["ok"] is True
-        assert resp.json()["cron_model_impact"]["available"] is False
+        assert "cron_model_impact" not in resp.json()
         assert _cfg(isolated_profiles["worker_beta"])["model"]["default"] == "new/model"
 
     def test_auxiliary_and_confirmation_responses_have_no_impact_summary(

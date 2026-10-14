@@ -325,9 +325,78 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `rg -n -i 'hermes profile|openrouter|~/.hermes|config\\.yaml|auth\\.json' skills --glob '**/SKILL.md'` — triage every hit; none should instruct the model to edit internals or name vendors to the user. |
 | **Notes** | Logged 2026-09-14 with nia-public-guard (OWASP LLM02). Public builds already block file/shell access to the agent home and scrub leftovers; this audit removes the teaching source. |
 
+### [x] Drama portal adapter sends Fal-invalid bodies (G3 job 1 failed)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Every drama image, video and music job fails at Fal after the user confirms; nothing is generated (holds release, so nobody is charged). |
+| **Scope** | `skills/creative/short-drama-produce/scripts/provider_adapters.py` (`explicit_portal_args`, `portal_request_body`), `okvevo/fal-schemas/`, `tests/skills/test_drama_fal_contract.py`; OkVevo-Web `src/lib/fal/falSchema.ts`, `handleQueue.ts`, `idempotency.ts` `SUBMIT_KEYS`, `cron/fal-drift`. |
+| **Fix** | Bodies are built from the pinned Fal OpenAPI input schema per endpoint: `prompt` always; gpt-image-2 `image_size` `{width, height}`; h3-max `resolution` upper-case + `prompt_expansion_mode` (schema default `balanced`); music only `prompt`/`lyrics`/`duration`; seedance string `duration`; wan `audio`; speech `voice_setting.voice_id`. Portal validates the final body before any hold (400 + field errors). fal-drift diffs pinned vs live schemas (required/enum change = HIGH). |
+| **Verify** | `pytest tests/skills/test_drama_fal_contract.py`; OkVevo-Web `npx tsx src/lib/fal/falSchema.selfcheck.ts`. Live: G3 re-run from job 1 on okvevo-testing. |
+| **Notes** | Found 2026-10-12 in the G3 smoke (hold `f74c40e3-dcba-40e9-b7b9-db172fa3d556`, Fal `01a130d6-808e-77a3-aaea-40209422d785`): Fal accepted, then failed; ledger released, 0 credits, no billing-events charge. Fixture tests passed because they never compared the body with Fal's schema. Speech also sent a top-level `voice_id` that Fal ignores (default voice used). Closed 2026-10-12, PR: [OkVevo-Nia #52](https://github.com/Jaikarans2003/OkVevo-Nia/pull/52) + [OkVevo-Web #11](https://github.com/Jaikarans2003/OkVevo-Web/pull/11). |
+
+### [x] Drama target file type the endpoint cannot return (G3 job 3 billed, then failed)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | A music cue planned as `.mp3` (allowed by `production_tool.py`) is generated and charged, then the download fails the media check: user pays, gets no file. Same for speech `.wav`, gpt-image-2 `.gif`, video `.mov`. |
+| **Scope** | `skills/creative/short-drama-produce/scripts/provider_adapters.py` (`_output_suffixes`, `portal_request_body`); `tests/skills/test_drama_fal_contract.py`. |
+| **Fix** | `portal_request_body` (quote and run) refuses a target suffix the endpoint cannot return before any portal request: `unsupported_output_format`, message names the allowed types. music-3 `.wav`, speech `.mp3`, gpt-image-2 png/jpg/jpeg/webp, video `.mp4`. |
+| **Verify** | `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"` (fails on the old adapter). Live: G3 job 3 re-run with a `.wav` target. |
+| **Notes** | G3 2026-10-13 hold `b4f14121-a3a6-4af6-ab9a-a7ef767a7752`, Fal `01a1344e-504c-7891-8636-4e41de81bd84`: Fal billed $0.02 = 40 credits charged (consistent), file rejected (WAV bytes, `.mp3` target). The contract matrix itself used `m.mp3` for music. Closed 2026-10-13, PR: [OkVevo-Nia #53](https://github.com/Jaikarans2003/OkVevo-Nia/pull/53). |
+
+### [x] Fal capture job never captured (wrong response key + skipped entrypoint)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Settled Fal jobs keep the reserve estimate forever; no refund when Fal bills less. |
+| **Scope** | OkVevo-Web `scripts/fal-capture-job.ts`, `src/lib/fal/capture.ts` (`billingEventsFrom`), `capture.selfcheck.ts`. |
+| **Fix** | Read `billing_events` (Fal's documented key, not `items`/`data`); call `main()` unconditionally (the image runs `dist/capture.mjs`, so the argv-name guard skipped every run). |
+| **Verify** | `npx tsx src/lib/fal/capture.selfcheck.ts`; Cloud Run execution logs `{"captured": n, …}`; G3 job 1 `captured: true`, `capturedFalUsd: 0.006`. |
+| **Notes** | Found in G3 2026-10-12. okvevo-testing only (production has no capture job). Closed 2026-10-12, PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [OkVevo-Web #13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13); redeployed via `drama-infra.sh --project okvevo-testing --apply`. |
+
+
+### [ ] Fal capture throughput + production capture job
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | The capture job makes one billing-events call per job and treats any non-200 (e.g. 429) as "pending" silently: on testing it cleared only 7–11 jobs per run (backlog 61 → 54 → 46 → 35 → 25 → 16). At real volume captures (refunds) fall behind without an alert. Production (`text2video-16cbf`) has no capture job or scheduler at all. |
+| **Scope** | OkVevo-Web `scripts/fal-capture-job.ts`; `scripts/drama-infra.sh` (`CAPTURE_CRON`). |
+| **Fix** | Batch up to N request ids per call (`request_id=a,b,c` is supported by the API); log + HIGH-alert on 429/5xx instead of counting pending; then deploy the capture job + scheduler on production via `drama-infra.sh` with Karan's yes. |
+| **Verify** | Capture selfcheck with a batched response; one execution clears a 60-job backlog; prod `gcloud scheduler jobs list` shows `nia-fal-capture`. |
+| **Notes** | Logged 2026-10-13 during G3. Deferred: throughput, not correctness; G3 jobs reconcile. |
+
 ---
 
 ## Should fix before live (lower severity)
+
+### [ ] gpt-image-2 edit without `image_size` is priced as 1024×1024
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix / Nice-to-have |
+| **Risk if skipped** | The image tool calls `openai/gpt-image-2/edit` without `image_size`; Fal uses `auto` (output follows the input image) while `rateCard.imageSizeKey` prices 1024×1024 (and any preset other than `square`/`square_hd` also falls back to 1024×1024). Charged credits can differ from Fal's bill. |
+| **Scope** | OkVevo-Web `src/lib/fal/rateCard.ts` `imageSizeKey`; `tools/image_generation_tool.py` edit path |
+| **Fix** | Either send an explicit `{width, height}` from the image tool, or price `auto`/presets from the measured input image and refuse unknown presets before the hold. The drama adapter already sends `{width, height}` only. |
+| **Verify** | `npx tsx src/lib/fal/rateCard.selfcheck.ts` with an `auto` and a `landscape_16_9` case; billing-events reconcile on one edit job. |
+| **Notes** | Logged 2026-10-12 while fixing the Fal request contract. Not on the G3 drama path. |
+
+### [x] Drama voice-clone TTS endpoint unmapped
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix / Nice-to-have (blocks voice-clone only) |
+| **Risk if skipped** | Cloned-voice speech jobs fail before hold. Preset `speech-02-hd` voices still work. |
+| **Scope** | `provider_adapters.py` `prepare_speech`; portal `SINGULAR_MEDIA_KEYS`; rate card |
+| **Fix** | Wired `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s server-measured sample, clone-once per character, 7-day unused warn, first speech-02-hd marks permanent. |
+| **Verify** | `pytest tests/skills/test_drama_portal_adapter.py` (voice clone + Hindi + restore/delete); `npx tsx src/lib/fal/voiceOwnership.selfcheck.ts`; `npx tsx src/lib/fal/rateCard.selfcheck.ts`; `npx tsx src/lib/fal/mediaInputs.selfcheck.ts`. |
+| **Notes** | Closed 2026-10-10. Addendum 3. |
+
+
 
 ### [x] Connect GitHub repo to App Hosting backend `okvevo-web`
 
@@ -425,6 +494,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Insert a reserved job older than the TTL, run the sweeper, `creditBalance` restored, job `released`, no debit row. |
 | **Notes** | Logged 2026-09-07 with Phase 6 reserve-then-reconcile. Out of scope for 6a/6b. |
 
+### [ ] Landing page: exact React Bits Pro blocks + free-trial card
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Nice-to-have |
+| **Risk if skipped** | None for users. Navbar, footer and pricing on www.okvevo.com are in-house look-alikes of `@reactbits-pro/navigation-2`, `footer-8` and `pricing-1`, not the licensed blocks. The "free trial card" from `pricing-1` is not shown because no free trial exists as a product. |
+| **Scope** | `OkVevo-Web/src/components/landing-page/Navbar.tsx`, `Footer.tsx`, `Pricing.tsx`; `OkVevo-Web/components.json` (`@reactbits-pro` registry) |
+| **Fix** | Karan adds `REACTBITS_LICENSE_KEY` to `OkVevo-Web/.env.local` (never paste the value in chat), then run `npx shadcn@latest add @reactbits-pro/navigation-2 @reactbits-pro/footer-8 @reactbits-pro/pricing-1` and port our links/Razorpay wiring into them. Add the trial card only if a free trial is actually offered. |
+| **Verify** | Registry add succeeds (no 401); `/` renders the licensed blocks; checkout buttons still open Razorpay for USD and INR, Monthly and Annual. |
+| **Notes** | Logged 2026-10-04. Registry returned 401 without a license key, so the look-alikes shipped instead. |
+
 ### [ ] Fal `units`-priced models unmetered (GPT Image, Seedream Pro, Gemini Omni, …)
 
 | Field | Value |
@@ -486,6 +566,14 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| Drama target file type the endpoint cannot return (G3 job 3) | 2026-10-13 | `portal_request_body` refuses unsupported target suffixes before quote/hold. PR: [OkVevo-Nia #53](https://github.com/Jaikarans2003/OkVevo-Nia/pull/53). Verify: `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"`. |
+| Fal capture job never captured | 2026-10-12 | `billing_events` key + unconditional `main()`. PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [#13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13). Verify: `npx tsx src/lib/fal/capture.selfcheck.ts`. |
+| Drama portal adapter sends Fal-invalid bodies (G3 job 1) | 2026-10-12 | Bodies built from pinned Fal input schemas; portal schema guard before hold; schema drift in fal-drift. PR: [OkVevo-Nia #52](https://github.com/Jaikarans2003/OkVevo-Nia/pull/52) + [OkVevo-Web #11](https://github.com/Jaikarans2003/OkVevo-Web/pull/11). Verify: `pytest tests/skills/test_drama_fal_contract.py`; `npx tsx src/lib/fal/falSchema.selfcheck.ts`. |
+| Drama voice-clone TTS endpoint unmapped | 2026-10-10 | `fal-ai/minimax/voice-clone` (not chatterbox). Consent, ≥10s, clone-once, 7-day warn. Verify: `pytest tests/skills/test_drama_portal_adapter.py`. |
+| Drama Phase 2 video and audio inputs | 2026-10-10 | Code on `feat/drama-fal-portal` + `feat/drama-skills-portal-fal`. Native extend/edit/reference via signed uploads; formula reserve + billing-events capture (`FAL_BILLING_KEY` on capture SA only). Verify: `pytest tests/skills/test_drama_portal_adapter.py`; `npx tsx src/lib/fal/rateCard.selfcheck.ts`. Live smoke is G3. |
+| Daily Fal spend guard (global circuit breaker) | 2026-10-10 | Superseded 2026-10-11. Was `dramaSwitches.ts` + hard stop. Replaced by an alert-only $250/day email and a per-plan queue. |
+| falQueue.running keeps settled jobs | 2026-10-13 | Minute dispatcher prunes terminal `running` ids; aged queued holds blocked only by dead slots go `unknown` (credits held). Verify: emulator `pruneSettledRunningAbandonsAgedWaiter`; live hold `77816306-…` → unknown → released; job 4 retry settled. |
+| Kill switch and daily spend breaker removed | 2026-10-11 | Generation always on. Slots Starter 2 / Pro 5 / Max 10, queue instead of reject, $250/day alert does not block. Verify: `npx tsx src/lib/fal/falQueue.selfcheck.ts`; `pytest tests/skills/test_drama_portal_adapter.py tests/tools/test_fal_common.py -k slot`. |
 | www.okvevo.com download page (Mac / Windows buttons) | 2026-09-14 | `/nia` stable artifact URLs; `nia-downloads.selfcheck.ts`. Objects appear after **Publish release**. |
 | Staging pack publishes stable download names under `staging/` | 2026-09-18 | `syncFeed` staging mode copies `Nia-{ver}-mac-arm64.dmg` / `Nia-{ver}-win-x64.exe` → `Nia-mac-arm64.dmg` / `Nia-win-x64.exe` under the staging prefix (same pattern as promote at root). Vitest `publish-release-feed.test.mjs`. |
 | Pin packaged agent/runtime to the same release as the shell | 2026-09-14 | extraResources snapshot + stamp re-extract. Vitest `packaged-snapshot` / `pack-agent-snapshot` / bundled installer. |

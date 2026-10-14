@@ -542,6 +542,32 @@ def _(rid, params: dict) -> dict:
                         logger.exception(
                             "stranded-session adoption failed for %s", target
                         )
+                if (
+                    not found
+                    and not is_truthy_value(params.get("lazy", False))
+                    and _is_server_minted_key(target)
+                    and not _any_live_session_claims_key(target)
+                ):
+                    try:
+                        db.create_session(
+                            target,
+                            source=_resolve_session_source(
+                                str(params.get("source") or "").strip() or None
+                            ),
+                            model=_resolve_model(),
+                            profile_name=_response_profile_name(profile) if profile else None,
+                        )
+                        found = db.get_session(target)
+                        logger.info(
+                            "materialized session row for minted-but-unpersisted key %s",
+                            target,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "failed to materialize session row for %s",
+                            target,
+                            exc_info=True,
+                        )
                 if not found:
                     return _err(rid, 4007, "session not found")
 
@@ -3083,10 +3109,10 @@ def _(rid, params: dict) -> dict:
         return _ok(rid, result)
 
     agent = session["agent"]
-    # Mirror the classic CLI /save: snapshot under the Hermes profile home
-    # (~/.hermes/sessions/saved/) rather than the project/workspace CWD, and
-    # include the system prompt so the export matches the dashboard save.
-    saved_dir = get_hermes_home() / "sessions" / "saved"
+    # Snapshot under the session's own profile home, not the launch profile.
+    # This handler runs unscoped, so get_hermes_home() alone names the launch profile.
+    home = session.get("profile_home")
+    saved_dir = (Path(home) if home else get_hermes_home()) / "sessions" / "saved"
     try:
         saved_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:

@@ -1237,6 +1237,11 @@ export interface Translations {
     streaming: string
     files: string
     moreFiles: (count: number) => string
+    steer: string
+    steerPlaceholder: string
+    steerQueued: string
+    stopRequested: string
+    requestRejected: string
     delegation: (index: number) => string
     workers: (count: number) => string
     workersActive: (count: number) => string
@@ -1661,21 +1666,18 @@ export interface Translations {
     failedRename: string
   }
 
+  modelAssignment: {
+    saveFailed: string
+    confirmTitle: string
+    confirmDetail: string
+    confirmAction: string
+    declined: string
+  }
+
   cron: {
     close: string
     title: string
     count: (count: number) => string
-    modelImpact: {
-      title: string
-      message: (count: number) => string
-      detailMore: (names: string, remaining: number) => string
-      review: string
-      saveFailed: string
-      confirmTitle: string
-      confirmDetail: string
-      confirmAction: string
-      declined: string
-    }
     search: string
     loading: string
     states: Record<string, string>

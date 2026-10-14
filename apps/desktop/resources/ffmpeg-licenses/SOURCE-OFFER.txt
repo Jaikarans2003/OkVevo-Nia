@@ -1,0 +1,41 @@
+ffmpeg / ffprobe bundled with Nia — licenses and source offer
+==============================================================
+
+The ffmpeg and ffprobe binaries shipped in this app are built from
+UNMODIFIED upstream sources, LGPL v2.1/v3 only (no --enable-gpl, no
+--enable-nonfree, no libx264, no libx265). H.264 encode uses the OS
+hardware encoders (VideoToolbox on macOS, Media Foundation on Windows).
+
+Components and exact versions
+-----------------------------
+- FFmpeg 8.1.3            LGPL v2.1+      https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz
+- libass 0.17.3           ISC             https://github.com/libass/libass/releases/tag/0.17.3
+- FreeType 2.13.3         FTL (BSD-style) https://download.savannah.gnu.org/releases/freetype/
+- FriBidi 1.0.16          LGPL v2.1       https://github.com/fribidi/fribidi/releases/tag/v1.0.16
+- libvpx 1.15.2           BSD 3-Clause    https://github.com/webmproject/libvpx/releases/tag/v1.15.2
+
+How each platform binary was produced
+-------------------------------------
+- macOS (arm64, x86_64): compiled from the sources above by
+  apps/desktop/scripts/build-ffmpeg-macos.mjs in this repository. The script
+  pins every tarball by SHA-256 and configures FFmpeg with --disable-gpl
+  --disable-version3 --disable-network plus the libraries listed here.
+  Complete corresponding source: the URLs above, at the pinned versions.
+- Windows (x64): BtbN FFmpeg-Builds "win64-lgpl" static build, pinned to
+  autobuild-2026-10-09-14-16 (ffmpeg-n8.1.3-16-ge0a878dd70-win64-lgpl-8.1.zip,
+  SHA-256 346fd19f3afe98a8606da4fc2984c8b411297734dba101cd91ec961fa8b2f875).
+  Build scripts and exact source: https://github.com/BtbN/FFmpeg-Builds
+
+License texts
+-------------
+This directory (also inside the app at resources/ffmpeg/licenses/):
+  COPYING.LGPLv2.1, COPYING.LGPLv3  — FFmpeg
+  fribidi-COPYING                   — FriBidi (LGPL v2.1)
+  libass-COPYING                    — libass (ISC)
+  freetype-FTL.TXT                  — FreeType (FTL)
+  libvpx-LICENSE                    — libvpx (BSD 3-Clause)
+  BtbN-LICENSE.txt                  — Windows bundle only, from the pinned BtbN zip
+
+Written offer: on request to support@okvevo.com we will provide the complete
+corresponding source code for the LGPL components on a durable medium, free
+of charge, for three years from the date of distribution of this build.

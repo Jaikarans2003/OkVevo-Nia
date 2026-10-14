@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { type ReactNode, useEffect, useMemo } from 'react'
+import { Fragment, type ReactNode, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 
 import { blurComposerInput } from '@/app/chat/composer/focus'
@@ -32,6 +32,7 @@ import { openSessionInNewWindow } from '@/store/windows'
 
 import { PreviewStatusRow } from './preview-row'
 import { StatusItemRow } from './status-row'
+import { SubagentControls } from './subagent-controls'
 
 // Slow safety-net poll for silent exits (processes without notify_on_complete
 // emit no event when they die). Only armed while a running row is on screen.
@@ -193,13 +194,17 @@ export function ComposerStatusStack({ queue, sessionId }: ComposerStatusStackPro
           label={groupLabel(group, t.statusStack)}
         >
           {group.items.map(item => (
-            <StatusItemRow
-              item={item}
-              key={item.id}
-              onDismiss={sessionId ? id => dismissBackgroundProcess(sessionId, id) : undefined}
-              onOpen={() => openSubagent(item)}
-              onStop={sessionId ? id => void stopBackgroundProcess(sessionId, id) : undefined}
-            />
+            <Fragment key={item.id}>
+              <StatusItemRow
+                item={item}
+                onDismiss={sessionId ? id => dismissBackgroundProcess(sessionId, id) : undefined}
+                onOpen={() => openSubagent(item)}
+                onStop={sessionId ? id => void stopBackgroundProcess(sessionId, id) : undefined}
+              />
+              {group.type === 'subagent' && sessionId ? (
+                <SubagentControls sessionId={sessionId} subagentId={item.id} />
+              ) : null}
+            </Fragment>
           ))}
         </StatusSection>
       )

@@ -1479,6 +1479,8 @@ def _build_replay_entry(
         ts = msg.get("timestamp")
         if ts:
             entry["timestamp"] = ts
+    if msg.get("_db_persisted"):
+        entry["_db_persisted"] = True
     return entry
 
 

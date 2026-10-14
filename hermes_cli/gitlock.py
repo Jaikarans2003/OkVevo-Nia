@@ -32,7 +32,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -190,3 +190,39 @@ def is_ancestor_of_head(repo_root: Path, rev: str) -> bool:
     except Exception:
         logger.debug("merge-base --is-ancestor probe failed for %s", rev, exc_info=True)
         return False
+
+
+# On a partial clone (clone --filter=tree:0), git 2.53/2.54 crashes every fetch:
+# index-pack --promisor runs pack-objects --exclude-promisor-objects-best-effort,
+# and pack-objects BUG()s (SIGABRT) on a legitimately missing promisor object.
+# One fetch with the promisor machinery disabled clears the state.
+_PACK_OBJECTS_CRASH_MARKERS = (
+    "BUG: builtin/pack-objects.c",
+    "pack-objects died of signal 6",
+    "index-pack failed",
+)
+
+
+def is_partial_clone_pack_objects_crash(stderr: str) -> bool:
+    """True when a fetch failure is the git 2.53/2.54 partial-clone pack-objects BUG."""
+    text = stderr or ""
+    return all(marker in text for marker in _PACK_OBJECTS_CRASH_MARKERS)
+
+
+def fetch_with_partial_clone_recovery(
+    runner: Callable[..., subprocess.CompletedProcess],
+    git_cmd: List[str],
+    fetch_args: List[str],
+) -> subprocess.CompletedProcess:
+    """Run a fetch, retrying once with the promisor machinery disabled on the pack-objects BUG.
+
+    ``runner(git_cmd, args) -> CompletedProcess``. The retry inserts
+    ``-c remote.origin.promisor=`` for this invocation only.
+    """
+    result = runner(git_cmd, fetch_args)
+    if result.returncode == 0 or not is_partial_clone_pack_objects_crash(
+        getattr(result, "stderr", "") or ""
+    ):
+        return result
+    logger.info("pack-objects crash on a partial clone; retrying the fetch with promisor disabled")
+    return runner(git_cmd + ["-c", "remote.origin.promisor="], fetch_args)

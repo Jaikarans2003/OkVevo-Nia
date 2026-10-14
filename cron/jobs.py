@@ -39,7 +39,7 @@ from typing import Optional, Dict, List, Any, Set, Tuple, Union, Collection
 logger = logging.getLogger(__name__)
 
 from hermes_time import now as _hermes_now
-from utils import atomic_replace, atomic_write_text
+from utils import atomic_replace, atomic_write_text, fsync_directory
 
 # ``croniter`` compiles ~15 ms of regexes at import and only matters for
 # 5-field cron expressions. Resolve lazily; ``HAS_CRONITER`` stays a module
@@ -1685,8 +1685,10 @@ def load_jobs() -> List[Dict[str, Any]]:
             # Rewrite into the canonical {"jobs": [...]} form: either the parse
             # hit control-character corruption (_strict_retry) or the store was
             # an id-keyed map. save_jobs() re-emits the list shape every reader
-            # expects.
-            save_jobs(jobs)
+            # expects. replace=True: this is a locked full-store read, so the
+            # repaired list is authoritative (including id-keyed maps the
+            # non-repairing peek refuses to flatten).
+            save_jobs(jobs, replace=True)
             if needs_shape_repair:
                 logger.warning("Auto-repaired jobs.json (id-keyed jobs map flattened to list)")
             else:
@@ -1697,7 +1699,7 @@ def load_jobs() -> List[Dict[str, Any]]:
         # Bare array — likely saved/edited outside save_jobs(). Wrap it back
         # into the expected {"jobs": [...]} structure.
         if data:
-            save_jobs(data)
+            save_jobs(data, replace=True)  # locked full-store read: the repaired list is authoritative
             logger.warning("Auto-repaired jobs.json (bare list wrapped as dict)")
         _record_load_stamp(pre_read_stamp)
         return data
@@ -1845,6 +1847,14 @@ def _save_jobs_unlocked(
     """
     jobs_file = _current_cron_store().jobs_file
     ensure_dirs()
+    # Fail closed: merging against an unreadable store would silently overwrite every job in it.
+    # A matching load stamp means this section already parsed the same bytes, so the
+    # healthy fast path stays a single stat (#80703) and still cannot publish over corruption.
+    if not replace and jobs_file.exists():
+        _stamp = getattr(_jobs_lock_state, "load_stamp", None)
+        _unchanged = _stamp is not None and _jobs_file_stamp(jobs_file) == _stamp
+        if not _unchanged and _peek_jobs_unlocked() is None:
+            raise RuntimeError(f"Cron database corrupted; refusing to overwrite {jobs_file}")
     # Snapshot the current owner BEFORE the atomic replace so a privileged
     # writer (root CLI in Docker) can hand ownership back to the gateway user
     # afterwards instead of locking its ticker out (#68483). When the file is
@@ -1924,6 +1934,7 @@ def _save_jobs_unlocked(
 
             atomic_replace(tmp_path, jobs_file)
             tmp_path = None
+            fsync_directory(jobs_file.parent)
             _secure_file(jobs_file)
             _preserve_file_ownership(jobs_file, _stat_before)
             # Invalidate (never refresh) the stamp after writing: the stamp
@@ -2013,48 +2024,67 @@ def _normalize_workdir(workdir: Optional[str]) -> Optional[str]:
     return str(resolved)
 
 
-def _resolve_default_model_snapshot() -> Optional[str]:
-    """Resolve the global default model the same way the cron ticker does.
+def _main_model_pin() -> Tuple[Optional[str], Optional[str]]:
+    """(provider, model) the main agent is using right now.
 
-    Mirrors the unpinned-model resolution in ``cron/scheduler.py`` ``run_job``:
-    read ``config.yaml`` ``model.default`` (or the ``model`` alias / bare string
-    form), applying the managed-scope overlay and env expansion. Used by
-    ``create_job`` to snapshot the default model for unpinned jobs so a later
-    swap of the global default is detected at fire time (#44585).
-
-    Returns the resolved model string, or ``None`` if config is missing/empty
-    or resolution fails (fail-open — caller treats ``None`` as "no snapshot").
+    ``pinned=True`` stores this pair as an ordinary per-job pin. ``(None, None)``
+    when nothing is configured, and the job stays unpinned.
     """
+    model = None
     try:
         from hermes_cli.config import _expand_env_vars, read_user_config_raw
 
         cfg_path = get_hermes_home() / "config.yaml"
-        if not cfg_path.exists():
-            return None
-        cfg = read_user_config_raw(cfg_path)
-        try:
-            from hermes_cli import managed_scope
-            cfg = managed_scope.apply_managed_overlay(cfg)
-        except Exception:
-            pass
-        cfg = _expand_env_vars(cfg)
-        # Mirror run_job's precedence: the explicit cron-fleet default
-        # (cron.model) beats the global chat model for unpinned cron jobs.
-        cron_cfg = cfg.get("cron") or {}
-        if isinstance(cron_cfg, dict):
-            cron_model = cron_cfg.get("model")
-            if isinstance(cron_model, str) and cron_model.strip():
-                return cron_model.strip()
-        model_cfg = cfg.get("model") or {}
-        if isinstance(model_cfg, str):
-            return model_cfg.strip() or None
-        if isinstance(model_cfg, dict):
-            default = model_cfg.get("default") or model_cfg.get("model")
-            if isinstance(default, str):
-                return default.strip() or None
-        return None
+        if cfg_path.exists():
+            cfg = read_user_config_raw(cfg_path)
+            try:
+                from hermes_cli import managed_scope
+                cfg = managed_scope.apply_managed_overlay(cfg)
+            except Exception:
+                pass
+            cfg = _expand_env_vars(cfg)
+            model_cfg = cfg.get("model") or {}
+            if isinstance(model_cfg, str):
+                model = model_cfg.strip() or None
+            elif isinstance(model_cfg, dict):
+                default = model_cfg.get("default") or model_cfg.get("model")
+                if isinstance(default, str):
+                    model = default.strip() or None
     except Exception:
-        return None
+        model = None
+    model = _normalize_job_optional_text(model)
+    if not model:
+        return None, None
+    provider = None
+    try:
+        from hermes_cli.runtime_provider import resolve_runtime_provider
+        provider = _normalize_job_optional_text(
+            resolve_runtime_provider(requested=None).get("provider")
+        )
+    except Exception:
+        provider = None
+    return (provider.lower() if provider else None), model
+
+
+def _apply_pin_update(job: Dict[str, Any], updates: Dict[str, Any]) -> None:
+    """``pinned`` is not stored. It rewrites the per-job pin.
+
+    ``True`` with no explicit model locks the main agent's current
+    provider and model onto the job. ``False`` releases both so the job
+    follows the main model again. An explicit ``model`` in the same
+    update wins over either.
+    """
+    if "pinned" not in updates:
+        return
+    pinned = bool(updates.pop("pinned"))
+    if "model" in updates:
+        return
+    if pinned:
+        if not _normalize_job_optional_text(job.get("model")):
+            updates["provider"], updates["model"] = _main_model_pin()
+    else:
+        updates["provider"], updates["model"] = None, None
+
 
 
 def _normalize_job_optional_text(value: Any, *, strip_trailing_slash: bool = False) -> Optional[str]:
@@ -2100,60 +2130,6 @@ def _normalize_reasoning_effort(value: Any) -> Optional[str]:
         return "none"
     return text
 
-
-def _compute_provider_model_snapshots(
-    *,
-    provider: Any,
-    model: Any,
-    base_url: Any,
-    no_agent: Any,
-) -> Tuple[Optional[str], Optional[str]]:
-    """Snapshot unpinned inference axes for the provider/model drift guard.
-
-    Agent cron jobs with unpinned provider/model follow global config at fire
-    time. Capture the current resolution for each unpinned axis so a later
-    global switch fails closed instead of silently changing spend. Pinned axes
-    and no-agent script jobs intentionally carry no snapshot.
-    """
-    normalized_provider = _normalize_job_optional_text(provider)
-    normalized_model = _normalize_job_optional_text(model)
-    normalized_base_url = _normalize_job_optional_text(
-        base_url,
-        strip_trailing_slash=True,
-    )
-    if bool(no_agent):
-        return None, None
-
-    provider_snapshot: Optional[str] = None
-    model_snapshot: Optional[str] = None
-    if normalized_provider is None:
-        try:
-            from hermes_cli.runtime_provider import resolve_runtime_provider
-
-            runtime_kwargs = {"requested": None}
-            if normalized_base_url:
-                runtime_kwargs["explicit_base_url"] = normalized_base_url
-            snap = resolve_runtime_provider(**runtime_kwargs)
-            snap_provider = str(snap.get("provider") or "").strip().lower()
-            provider_snapshot = snap_provider or None
-        except Exception:
-            provider_snapshot = None
-    if normalized_model is None:
-        try:
-            model_snapshot = _resolve_default_model_snapshot() or None
-        except Exception:
-            model_snapshot = None
-    return provider_snapshot, model_snapshot
-
-
-def _normalized_inference_axes(job: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
-    """Return the stored inference-routing fields in their semantic form."""
-    return (
-        _normalize_job_optional_text(job.get("provider")),
-        _normalize_job_optional_text(job.get("model")),
-        _normalize_job_optional_text(job.get("base_url"), strip_trailing_slash=True),
-        bool(job.get("no_agent")),
-    )
 
 
 def _validate_job_mode_invariants(
@@ -2204,6 +2180,7 @@ def create_job(
     monitor_script: Optional[str] = None,
     monitor_url: Optional[str] = None,
     reasoning_effort: Optional[str] = None,
+    pinned: bool = False,
 ) -> Dict[str, Any]:
     """
     Create a new cron job.
@@ -2297,6 +2274,10 @@ def create_job(
     normalized_skills = _normalize_skill_list(skill, skills)
     normalized_model = _normalize_job_optional_text(model)
     normalized_provider = _normalize_job_optional_text(provider)
+    # pinned=True with no explicit model locks the current main agent
+    # provider+model as an ordinary pin. An explicit model wins.
+    if pinned and not normalized_model:
+        normalized_provider, normalized_model = _main_model_pin()
     normalized_base_url = _normalize_job_optional_text(base_url, strip_trailing_slash=True)
     normalized_script = str(script).strip() if isinstance(script, str) else None
     normalized_script = normalized_script or None
@@ -2347,13 +2328,6 @@ def create_job(
 
     label_source = (prompt_text or (normalized_skills[0] if normalized_skills else None) or (normalized_script if normalized_no_agent else None)) or "cron job"
 
-    provider_snapshot, model_snapshot = _compute_provider_model_snapshots(
-        provider=normalized_provider,
-        model=normalized_model,
-        base_url=normalized_base_url,
-        no_agent=normalized_no_agent,
-    )
-
     next_run_at = compute_next_run(parsed_schedule)
     if parsed_schedule.get("kind") == "once" and next_run_at is None:
         run_at = parsed_schedule.get("run_at") or schedule
@@ -2376,11 +2350,6 @@ def create_job(
         "skill": normalized_skills[0] if normalized_skills else None,
         "model": normalized_model,
         "provider": normalized_provider,
-        # Provider/model resolution captured at creation for unpinned jobs
-        # (#44585). None for pinned axes, no_agent jobs, resolution failures, and
-        # any pre-existing job written before these fields existed (back-compat).
-        "provider_snapshot": provider_snapshot,
-        "model_snapshot": model_snapshot,
         "base_url": normalized_base_url,
         "script": normalized_script,
         "no_agent": normalized_no_agent,
@@ -2556,7 +2525,7 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                         "completed": (job.get("repeat") or {}).get("completed", 0),
                     }
 
-            previous_inference_axes = _normalized_inference_axes(job)
+            _apply_pin_update(job, updates)
             updated = _apply_skill_fields({**job, **updates})
 
             if (
@@ -2594,9 +2563,6 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                 if job_payload_is_empty(updated):
                     raise ValueError(EMPTY_PAYLOAD_ERROR)
             schedule_changed = "schedule" in updates
-            inference_fields_changed = bool(
-                {"provider", "model", "base_url", "no_agent"}.intersection(updates)
-            ) and _normalized_inference_axes(updated) != previous_inference_axes
 
             if "skills" in updates or "skill" in updates:
                 normalized_skills = _normalize_skill_list(updated.get("skill"), updated.get("skills"))
@@ -2639,16 +2605,6 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                             f"{ONESHOT_GRACE_SECONDS}s in the past and cannot be scheduled."
                         )
                     updated["next_run_at"] = updated_next_run
-
-            if inference_fields_changed:
-                provider_snapshot, model_snapshot = _compute_provider_model_snapshots(
-                    provider=updated.get("provider"),
-                    model=updated.get("model"),
-                    base_url=updated.get("base_url"),
-                    no_agent=updated.get("no_agent"),
-                )
-                updated["provider_snapshot"] = provider_snapshot
-                updated["model_snapshot"] = model_snapshot
 
             if updated.get("enabled", True) and updated.get("state") != "paused" and not updated.get("next_run_at"):
                 next_run = compute_next_run(updated["schedule"])
@@ -2874,7 +2830,14 @@ def mark_job_run(
     status: Optional[str] = None,
     *,
     expected_fire_owner: Optional[str] = None,
+    model_unreachable: bool = False,
 ) -> bool:
+    """Record a finished run.
+
+    ``model_unreachable``: the run failed before any model call (transient
+    network/DNS, zero API calls). Recurring jobs then get a bounded re-run
+    instead of waiting a full period. See ``cron/unreachable_retry.py``.
+    """
     with _fire_job_lock(job_id) as acquired:
         if not acquired:
             return False
@@ -2885,6 +2848,7 @@ def mark_job_run(
             delivery_error,
             status=status,
             expected_fire_owner=expected_fire_owner,
+            model_unreachable=model_unreachable,
         )
 
 
@@ -2979,6 +2943,7 @@ def _mark_job_run_locked(
     *,
     status: Optional[str] = None,
     expected_fire_owner: Optional[str] = None,
+    model_unreachable: bool = False,
 ) -> bool:
     """
     Mark a job as having been run.
@@ -3008,6 +2973,25 @@ def _mark_job_run_locked(
                             job_id,
                         )
                         return False
+                # A parked re-run already counted toward repeat.times on the
+                # original failed occurrence. Detect it before next_run_at moves.
+                from cron.unreachable_retry import (
+                    clear_state,
+                    is_retry_run,
+                    plan_retry,
+                )
+                ladder_rung = is_retry_run(job)
+
+                def _apply_unreachable_ladder(current: Dict[str, Any]) -> None:
+                    if (
+                        not success
+                        and model_unreachable
+                        and not is_terminal_job(current)
+                    ):
+                        plan_retry(current)
+                    else:
+                        clear_state(current)
+
                 now = _hermes_now().isoformat()
                 job["last_run_at"] = now
                 job.pop("manual_run_at", None)
@@ -3064,7 +3048,7 @@ def _mark_job_run_locked(
                         and times > 0
                         and completed > 0
                     )
-                    if not preclaimed_oneshot:
+                    if not preclaimed_oneshot and not ladder_rung:
                         completed += 1
                         repeat["completed"] = completed
 
@@ -3083,6 +3067,7 @@ def _mark_job_run_locked(
                         job["enabled"] = False
                         job["state"] = "completed"
                         job["next_run_at"] = None
+                        _apply_unreachable_ladder(job)
                         save_jobs(jobs)
                         return True
                 
@@ -3118,6 +3103,7 @@ def _mark_job_run_locked(
                 elif job.get("state") != "paused":
                     job["state"] = "scheduled"
 
+                _apply_unreachable_ladder(job)
                 save_jobs(jobs)
                 return True
 

@@ -27,6 +27,9 @@ export interface OkvevoAuthFlowDeps {
   getPending: () => OkvevoAuthPending | null
   writeIdTokenFile: (idToken: string) => void
   clearIdTokenFile: () => void
+  /** Durable half for Python long-poll refresh; optional for unit tests. */
+  writeRefreshTokenFile?: (refreshToken: string) => void
+  clearRefreshTokenFile?: () => void
   rememberLog?: (message: string) => void
   onChange?: (snapshot: OkvevoAuthPublic) => void
   scheduleTimeout?: (ms: number, fn: () => void) => () => void
@@ -156,6 +159,7 @@ export async function completeOkvevoAuthCallback(
   deps.persistSession(session)
   clearPendingIfSame(deps, matched.state, matched.exp)
   deps.writeIdTokenFile(session.idToken)
+  deps.writeRefreshTokenFile?.(session.refreshToken)
   deps.rememberLog?.(`[okvevo-auth] signed in ${session.uid}`)
 
   return notify(deps, session)
@@ -180,6 +184,7 @@ export async function refreshOkvevoAuth(deps: OkvevoAuthFlowDeps): Promise<Okvev
 
   deps.persistSession(session)
   deps.writeIdTokenFile(session.idToken)
+  deps.writeRefreshTokenFile?.(session.refreshToken)
 
   return notify(deps, session)
 }
@@ -188,6 +193,7 @@ export function signOutOkvevo(deps: OkvevoAuthFlowDeps): OkvevoAuthPublic {
   deps.setPending(null)
   deps.persistSession(null)
   deps.clearIdTokenFile()
+  deps.clearRefreshTokenFile?.()
   deps.rememberLog?.('[okvevo-auth] signed out')
 
   return notify(deps, null)

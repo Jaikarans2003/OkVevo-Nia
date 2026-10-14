@@ -14,7 +14,6 @@ import {
   storedStringRecord
 } from '@/lib/storage'
 import { withTimeout } from '@/lib/with-timeout'
-import { invalidateCronModelImpactScopeState } from '@/store/cron-model-impact-scope'
 import {
   $gateway,
   activeGatewayConnectionId,
@@ -364,7 +363,6 @@ $activeGatewayProfile.subscribe(value => {
   setApiRequestProfile(key)
 
   if (_lastRoutedProfile !== null && _lastRoutedProfile !== key) {
-    invalidateCronModelImpactScopeState()
     // Profile-scoped settings + the unified session list are now stale.
     // Narrowed so account/marketplace/onboarding caches don't refetch on
     // every profile switch.

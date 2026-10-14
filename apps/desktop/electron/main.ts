@@ -285,6 +285,7 @@ import {
   OKVEVO_SIGN_IN_TIMEOUT_ERROR,
   OKVEVO_SIGN_IN_TIMEOUT_TITLE,
   okvevoIdTokenFilePath,
+  okvevoRefreshTokenFilePath,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
   refreshDelayMs,
@@ -7625,6 +7626,10 @@ function _okvevoIdTokenPath() {
   return okvevoIdTokenFilePath(HERMES_HOME, (...parts) => path.join(...parts))
 }
 
+function _okvevoRefreshTokenPath() {
+  return okvevoRefreshTokenFilePath(HERMES_HOME, (...parts) => path.join(...parts))
+}
+
 function _writeOkvevoIdTokenFile(idToken: string) {
   const target = _okvevoIdTokenPath()
 
@@ -7632,11 +7637,26 @@ function _writeOkvevoIdTokenFile(idToken: string) {
   writeSecretFileAtomic(target, idToken, { encoding: 'utf8' })
 }
 
+function _writeOkvevoRefreshTokenFile(refreshToken: string) {
+  const target = _okvevoRefreshTokenPath()
+
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  writeSecretFileAtomic(target, refreshToken, { encoding: 'utf8' })
+}
+
 function _clearOkvevoIdTokenFile() {
   try {
     fs.rmSync(_okvevoIdTokenPath(), { force: true })
   } catch (error) {
     rememberLog(`[okvevo-auth] clear token file failed: ${error.message}`)
+  }
+}
+
+function _clearOkvevoRefreshTokenFile() {
+  try {
+    fs.rmSync(_okvevoRefreshTokenPath(), { force: true })
+  } catch (error) {
+    rememberLog(`[okvevo-auth] clear refresh token file failed: ${error.message}`)
   }
 }
 
@@ -7666,6 +7686,8 @@ function _okvevoAuthFlowDeps(): OkvevoAuthFlowDeps {
     getPending: () => loadOkvevoAuthPending(io),
     writeIdTokenFile: _writeOkvevoIdTokenFile,
     clearIdTokenFile: _clearOkvevoIdTokenFile,
+    writeRefreshTokenFile: _writeOkvevoRefreshTokenFile,
+    clearRefreshTokenFile: _clearOkvevoRefreshTokenFile,
     rememberLog,
     onChange: _notifyOkvevoAuth,
     onSignInExpired: () => {
@@ -7705,6 +7727,9 @@ function _hydrateOkvevoAuthFromDisk() {
 
   try {
     _writeOkvevoIdTokenFile(session.idToken)
+    if (session.refreshToken) {
+      _writeOkvevoRefreshTokenFile(session.refreshToken)
+    }
   } catch (error) {
     rememberLog(`[okvevo-auth] write id token file failed: ${error instanceof Error ? error.message : String(error)}`)
   }

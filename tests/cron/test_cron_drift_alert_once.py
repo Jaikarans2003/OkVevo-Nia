@@ -1,19 +1,7 @@
-"""Drift-guard skips must alert once per job, not once per tick (#44585 + #73506).
+"""Legacy snapshot records follow the main model. They are not skipped.
 
-Field report: a fleet-wide config change moved the global
-default provider and every unpinned cron started alerting on every tick —
-40 jobs x N ticks of identical "Skipped to prevent unintended spend" spam.
-The #44585 drift guard correctly fails closed; this wires the existing
-#73506 alert-once shape (persisted per-job bit, cleared when the condition
-heals) to the drift branch, exactly as pre-dispatch preflight already does
-for blocked_config.
-
-Contract:
-- First drifted tick delivers ONE loud, actionable alert.
-- Subsequent drifted ticks deliver nothing.
-- When drift heals (guard passes again), the bit clears, so a FUTURE drift
-  re-alerts instead of being silently swallowed.
-- Only the drift branch gets the bit — other failures keep alerting per tick.
+A stored provider_snapshot used to fail the tick closed. Unpinned jobs now
+run on the current model, and a non-drift failure still alerts every tick.
 """
 
 import sys
@@ -74,54 +62,19 @@ def _tick(job, tmp_path, current_provider, deliveries):
     return ok, mock_agent_cls.called
 
 
-class TestDriftAlertOnce:
-    def test_two_drifted_ticks_alert_exactly_once(self, tmp_path):
-        job = _job()
+class TestLegacySnapshotFollowsMainModel:
+    def test_snapshot_mismatch_still_runs(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("HERMES_MODEL", raising=False)
+        (tmp_path / "config.yaml").write_text("model:\n  default: live-model\n")
+        job = _job(provider_snapshot="old-provider", model_snapshot="old-model")
         deliveries = []
         with cron_jobs.use_cron_store(tmp_path):
             cron_jobs.save_jobs([job])
-            for _ in range(2):
-                fresh = [j for j in cron_jobs.load_jobs() if j["id"] == job["id"]][0]
-                ok, agent_called = _tick(fresh, tmp_path, "nous", deliveries)
-                assert agent_called is False, "drifted tick must not spend"
-
-            stored = [j for j in cron_jobs.load_jobs() if j["id"] == job["id"]][0]
-            assert stored.get("drift_alerted") is True
-
-        assert len(deliveries) == 1, f"expected 1 alert, got {len(deliveries)}: {deliveries}"
-        blob = deliveries[0].lower()
-        assert "drift" in blob
-        assert "pin" in blob
-        assert "host running hermes" in blob
-        # The single alert must carry the complete supported remediation
-        # command — the generic summarizer's 180-char truncation must not eat it.
-        assert "hermes cron edit drift-once-test" in deliveries[0]
-        assert "cronjob action=update" not in deliveries[0]
-        assert "[drift_skip" not in deliveries[0]
-
-    def test_healed_drift_clears_bit_and_redrift_realerts(self, tmp_path):
-        job = _job()
-        deliveries = []
-        with cron_jobs.use_cron_store(tmp_path):
-            cron_jobs.save_jobs([job])
-            # Tick 1: drifted -> one alert, bit set.
             fresh = [j for j in cron_jobs.load_jobs() if j["id"] == job["id"]][0]
-            _tick(fresh, tmp_path, "nous", deliveries)
-            assert len(deliveries) == 1
-
-            # Tick 2: drift healed (resolution matches snapshot) -> runs, bit cleared.
-            fresh = [j for j in cron_jobs.load_jobs() if j["id"] == job["id"]][0]
-            ok, agent_called = _tick(fresh, tmp_path, "openrouter", deliveries)
-            assert agent_called is True
-            stored = [j for j in cron_jobs.load_jobs() if j["id"] == job["id"]][0]
-            assert not stored.get("drift_alerted")
-
-            # Tick 3: drifts again -> re-alerts (not swallowed).
-            fresh = [j for j in cron_jobs.load_jobs() if j["id"] == job["id"]][0]
-            _tick(fresh, tmp_path, "nous", deliveries)
-
-        drift_alerts = [d for d in deliveries if "drift" in d.lower()]
-        assert len(drift_alerts) == 2, f"expected re-alert after heal: {deliveries}"
+            ok, agent_called = _tick(fresh, tmp_path, "new-provider", deliveries)
+        assert agent_called is True
+        assert ok is True
+        assert not any("drift" in d.lower() for d in deliveries)
 
     def test_non_drift_failures_untouched_by_the_bit(self, tmp_path):
         """A job with the drift bit set whose run fails for another reason

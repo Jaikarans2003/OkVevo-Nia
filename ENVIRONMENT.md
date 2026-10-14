@@ -53,7 +53,7 @@ Secrets are never listed. “Testing source” is where the current testing valu
 | Name | Read by | Purpose | Testing source |
 |------|---------|---------|----------------|
 | `OKVEVO_WEB_ORIGIN` | hermes-agent `apps/desktop/electron/okvevo-auth.ts`, `backend-env.ts`; `agent/okvevo_gateway.py` | Portal origin for Sign In, billing (Change Plan / Cancel / Add Credits), LLM gateway | App Hosting `*.hosted.app` for backend `okvevo-web` on `okvevo-testing` |
-| `OKVEVO_FIREBASE_ID_TOKEN_FILE` | Electron sets; Python `okvevo_gateway.py` reads | Path to rotating Firebase ID token (0600) | Electron-injected (`$HERMES_HOME/okvevo-firebase-id-token`). Do not set unless overriding. |
+| `OKVEVO_FIREBASE_ID_TOKEN_FILE` | Electron sets; Python `okvevo_gateway.py` reads | Path to rotating Firebase ID token (0600) | Electron-injected (`$HERMES_HOME/okvevo-firebase-id-token`). Do not set unless overriding. Sibling `okvevo-firebase-refresh-token` (or `OKVEVO_FIREBASE_REFRESH_TOKEN_FILE`) lets Python refresh the JWT on long Fal polls; re-reading the ID file alone cannot survive the 1h expiry. |
 | `NEXT_PUBLIC_SITE_URL` | OkVevo-Web `src/config/env.ts` | SEO / metadataBase / OpenRouter HTTP-Referer | Same `*.hosted.app` origin (or localhost in local mode). `apphosting.yaml` `value`, BUILD+RUNTIME |
 | `ALLOWED_ORIGINS` | OkVevo-Web `env.ts` | CORS allowlist | Testing hosted.app origin + localhost when developing. `apphosting.yaml` `value` |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | OkVevo-Web `env.ts` → `firebase.ts` | Firebase JS client | okvevo-testing web app. yaml `value` |

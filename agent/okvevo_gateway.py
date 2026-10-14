@@ -13,6 +13,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
+import uuid
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -52,6 +53,142 @@ def read_okvevo_id_token() -> Optional[str]:
     return token or None
 
 
+def _okvevo_id_token_path() -> Optional[str]:
+    path = (os.environ.get("OKVEVO_FIREBASE_ID_TOKEN_FILE") or "").strip()
+    return path or None
+
+
+def read_okvevo_refresh_token() -> Optional[str]:
+    """Refresh token next to the ID token file (Electron writes both).
+
+    Re-reading the ID token file alone cannot survive a 1h expiry — the JWT
+    itself is stale. The refresh token is the durable half.
+    """
+    explicit = (os.environ.get("OKVEVO_FIREBASE_REFRESH_TOKEN_FILE") or "").strip()
+    if explicit:
+        path = explicit
+    else:
+        id_path = _okvevo_id_token_path()
+        if not id_path:
+            return None
+        # Sibling of okvevo-firebase-id-token → okvevo-firebase-refresh-token
+        from pathlib import Path
+
+        path = str(Path(id_path).with_name("okvevo-firebase-refresh-token"))
+    try:
+        with open(path, encoding="utf-8") as fh:
+            token = fh.read().strip()
+    except OSError:
+        return None
+    return token or None
+
+
+def id_token_exp_unix(id_token: str) -> Optional[int]:
+    """Best-effort `exp` claim from a Firebase ID JWT. None if unreadable."""
+    try:
+        import base64
+        import json as _json
+
+        part = id_token.split(".")[1]
+        pad = "=" * (-len(part) % 4)
+        claims = _json.loads(base64.urlsafe_b64decode(part + pad))
+        exp = claims.get("exp")
+        return int(exp) if isinstance(exp, (int, float)) else None
+    except (IndexError, ValueError, TypeError, OSError):
+        return None
+
+
+# Refresh when fewer than 5 minutes remain (matches Electron refreshDelayMs skew).
+_ID_TOKEN_REFRESH_SKEW_S = 5 * 60
+
+
+def id_token_needs_refresh(id_token: str, *, now: Optional[float] = None) -> bool:
+    exp = id_token_exp_unix(id_token)
+    if exp is None:
+        return False
+    import time as _time
+
+    return float(exp) - (now if now is not None else _time.time()) <= _ID_TOKEN_REFRESH_SKEW_S
+
+
+def _write_secret_file(path: str, value: str) -> None:
+    import os as _os
+    import tempfile
+    from pathlib import Path
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(target.parent), prefix=".okvevo-tok-")
+    try:
+        with _os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(value)
+        _os.chmod(tmp, 0o600)
+        _os.replace(tmp, path)
+    except Exception:
+        try:
+            _os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def refresh_okvevo_id_token(*, force: bool = False, now: Optional[float] = None) -> Optional[str]:
+    """Exchange the refresh token for a fresh ID token; rewrite the ID file.
+
+    Returns the new ID token, or the current one if refresh was not needed /
+    not possible. Never raises — a failed refresh leaves the old token in place.
+    """
+    current = read_okvevo_id_token()
+    if not current:
+        return None
+    if not force and not id_token_needs_refresh(current, now=now):
+        return current
+    refresh = read_okvevo_refresh_token()
+    origin = (os.environ.get("OKVEVO_WEB_ORIGIN") or "").strip().rstrip("/")
+    id_path = _okvevo_id_token_path()
+    if not refresh or not origin or not id_path:
+        return current
+    import json as _json
+    import urllib.error
+    import urllib.request
+    from pathlib import Path
+
+    try:
+        req = urllib.request.Request(
+            f"{origin}/api/auth/desktop/refresh",
+            data=_json.dumps({"refreshToken": refresh}).encode("utf-8"),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = _json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
+        logger.warning("okvevo id token refresh failed: %s", exc)
+        return current
+    new_id = body.get("idToken") if isinstance(body, dict) else None
+    if not isinstance(new_id, str) or not new_id.strip():
+        return current
+    new_id = new_id.strip()
+    try:
+        _write_secret_file(id_path, new_id)
+        new_refresh = body.get("refreshToken") if isinstance(body, dict) else None
+        if isinstance(new_refresh, str) and new_refresh.strip():
+            refresh_path = (os.environ.get("OKVEVO_FIREBASE_REFRESH_TOKEN_FILE") or "").strip() or str(
+                Path(id_path).with_name("okvevo-firebase-refresh-token")
+            )
+            _write_secret_file(refresh_path, new_refresh.strip())
+    except OSError as exc:
+        logger.warning("okvevo id token write failed: %s", exc)
+        return current
+    return new_id
+
+
+def ensure_okvevo_id_token(*, force: bool = False, now: Optional[float] = None) -> Optional[str]:
+    """ID token for a portal call: refresh proactively when near expiry, else re-read."""
+    refreshed = refresh_okvevo_id_token(force=force, now=now)
+    return refreshed or read_okvevo_id_token()
+
+
 def okvevo_signed_in() -> bool:
     """True when a non-empty OkVevo Firebase ID token file is present."""
     return bool(read_okvevo_id_token())
@@ -69,12 +206,41 @@ def nia_is_internal_channel() -> bool:
 
 
 # Mirror of SUBMIT_KEYS in OkVevo-Web src/lib/fal/handleQueue.ts — the only
-# argument keys the gateway meters on. Filtering here keeps multi-MB data-URL
-# image payloads out of the quote POST and makes quote == submit-time debit.
+# argument keys the gateway meters on. Filtering here keeps accidental junk
+# out of the quote POST and makes quote == submit-time debit. Media references
+# are short strings (drama-upload:// refs or fal.media URLs — uploads happen
+# before quoting), so they are cheap to include and required for media pricing.
+# data: payloads are not a price input and must not ride the quote POST.
 _QUOTE_ARG_KEYS = frozenset({
     "duration", "num_images", "image_size", "generate_audio", "resolution",
     "num_frames", "width", "height", "enable_web_search", "web_search",
+    "quality", "text", "lyrics", "size", "task", "aspect_ratio", "prompt",
+    "voice_id", "language_boost", "model", "audio_url",
+    "image_url", "start_image_url", "end_image_url", "middle_image_url",
+    "mask_url", "target_audio_url", "image_urls", "reference_image_urls",
+    "video_urls", "reference_video_urls", "audio_urls", "reference_audio_urls",
 })
+
+
+def _is_data_url(value: object) -> bool:
+    return isinstance(value, str) and value.lstrip().startswith("data:")
+
+
+def _quote_args(args: Optional[dict]) -> dict:
+    """Metering keys only; drop data: payloads (keep short upload/Fal refs)."""
+    out: dict = {}
+    for key, value in (args or {}).items():
+        if key not in _QUOTE_ARG_KEYS:
+            continue
+        if isinstance(value, list):
+            kept = [item for item in value if not _is_data_url(item)]
+            if kept:
+                out[key] = kept
+            continue
+        if _is_data_url(value):
+            continue
+        out[key] = value
+    return out
 
 
 def _quote_okvevo_fal_credits(endpoint: str, args: dict) -> Optional[int]:
@@ -91,10 +257,7 @@ def _quote_okvevo_fal_credits(endpoint: str, args: dict) -> Optional[int]:
         res = httpx.post(
             f"{origin}/api/fal/quote",
             headers={"Authorization": f"Key {token}"},
-            json={
-                "endpoint": endpoint,
-                "args": {k: v for k, v in (args or {}).items() if k in _QUOTE_ARG_KEYS},
-            },
+            json={"endpoint": endpoint, "args": _quote_args(args)},
             timeout=10.0,
         )
         if res.status_code != 200:
@@ -187,6 +350,24 @@ def okvevo_fal_spend_gate(
     if verdict.get("approved"):
         return None
     return verdict.get("message") or f"BLOCKED: {tool_name} was denied."
+
+
+def ensure_okvevo_fal_run_id(arguments: dict) -> dict:
+    """Attach one run_id per tool call. Reuse it on retries.
+
+    Normal image/video tools do not send approved_credits — the portal
+    reserves the server-computed price (capped by MAX_JOB_CREDITS). A
+    quote outage must not block them. The portal still refuses any job
+    it cannot price. Drama-skill jobs send approved_credits from the
+    rate-card quote the user already confirmed.
+    """
+    out = dict(arguments)
+    existing = out.get("run_id")
+    if isinstance(existing, str) and existing.strip():
+        out["run_id"] = existing.strip()
+        return out
+    out["run_id"] = str(uuid.uuid4())
+    return out
 
 
 def okvevo_fal_available() -> bool:

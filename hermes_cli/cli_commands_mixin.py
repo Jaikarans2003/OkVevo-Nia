@@ -1460,7 +1460,11 @@ class CLICommandsMixin:
             return
 
         parts = cmd_original.split(None, 1)
-        branch_name = parts[1].strip() if len(parts) > 1 else ""
+        raw = parts[1].strip() if len(parts) > 1 else ""
+        # The CLI has no threads, so /branch always stays in this chat.
+        # Strip a leading --here so it never becomes the session title.
+        from gateway.slash_commands_branch_thread import parse_branch_args
+        _, branch_name = parse_branch_args(raw)
 
         # Generate the new session ID
         now = datetime.now()

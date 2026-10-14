@@ -101,13 +101,23 @@ def build_cron_parser(subparsers, *, cmd_cron: Callable) -> None:
         help=(
             "Pin this job to a specific inference model (user-owned; the "
             "agent's cronjob tool cannot set this). Omit to follow "
-            "cron.model / model.default from config.yaml."
+            "cron.model, then the main agent model, at fire time."
+        ),
+    )
+    cron_create.add_argument(
+        "--pin",
+        dest="pinned",
+        action="store_true",
+        default=None,
+        help=(
+            "Lock the current main agent model and its provider onto this job "
+            "so later model changes never touch it. Ignored when --model is given."
         ),
     )
     cron_create.add_argument(
         "--provider",
         dest="model_provider",
-        help="Inference provider paired with --model (e.g. 'openrouter', 'nous').",
+        help="Inference provider paired with --model (e.g. 'openrouter').",
     )
     cron_create.add_argument(
         "--reasoning-effort",
@@ -237,8 +247,22 @@ def build_cron_parser(subparsers, *, cmd_cron: Callable) -> None:
         help=(
             "Pin this job to a specific inference model (user-owned; the "
             "agent's cronjob tool cannot set this). Pass empty string to "
-            "clear the pin and follow cron.model / model.default."
+            "clear the pin and follow cron.model, then the main agent model."
         ),
+    )
+    _pin = cron_edit.add_mutually_exclusive_group()
+    _pin.add_argument(
+        "--pin",
+        dest="pinned",
+        action="store_true",
+        default=None,
+        help="Lock the current main agent model and its provider onto this job.",
+    )
+    _pin.add_argument(
+        "--unpin",
+        dest="pinned",
+        action="store_false",
+        help="Release the job's model pin so it follows the main agent model again.",
     )
     cron_edit.add_argument(
         "--provider",

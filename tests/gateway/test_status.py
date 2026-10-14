@@ -1437,3 +1437,59 @@ def test_strict_gateway_identity_rejects_reused_pid(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="identity changed"):
         status.get_running_pid_identity_strict(pid_path)
 
+
+def test_unscoped_live_identity_mismatch_never_unlinks_active_files(tmp_path, monkeypatch):
+    """A live PID behind a held lock is not stale-cleanup authority: an identity
+    rejection must not unlink gateway.pid / gateway.lock."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    record = {
+        "pid": 4242,
+        "kind": "hermes-gateway",
+        "start_time": 123,
+        "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
+        "hermes_home": str(tmp_path.resolve()),
+    }
+    pid_path = tmp_path / "gateway.pid"
+    lock_path = tmp_path / "gateway.lock"
+    pid_path.write_text(json.dumps(record), encoding="utf-8")
+    lock_path.write_text(json.dumps(record), encoding="utf-8")
+    monkeypatch.setattr(status, "is_gateway_runtime_lock_active", lambda _path=None: True)
+    monkeypatch.setattr(status, "_pid_exists", lambda _pid: True)
+    monkeypatch.setattr(status, "_get_process_start_time", lambda _pid: 123)
+    monkeypatch.setattr(
+        status, "_read_process_cmdline", lambda _pid: "python -m hermes_cli.main chat"
+    )
+    monkeypatch.setattr(status, "get_runtime_status_running_pid", lambda: None)
+
+    assert status.get_running_pid() is None
+    assert pid_path.exists() and lock_path.exists()
+
+
+def test_strict_gateway_identity_adopts_held_lock_when_pid_file_is_gone(tmp_path, monkeypatch):
+    """A held lock whose record validates against the live process is the gateway
+    identity when gateway.pid is already gone."""
+    pid_path = tmp_path / "gateway.pid"
+    lock_path = tmp_path / "gateway.lock"
+    record = {
+        "pid": 123,
+        "start_time": 10.0,
+        "kind": "hermes-gateway",
+        "argv": ["python", "-m", "hermes_cli.main", "gateway", "run", "--replace"],
+    }
+    lock_path.write_text(json.dumps(record), encoding="utf-8")
+    monkeypatch.setattr(status, "_get_gateway_lock_path", lambda _path=None: lock_path)
+    monkeypatch.setattr(status, "_is_gateway_runtime_lock_active_strict", lambda _path=None: True)
+    monkeypatch.setattr(status, "_pid_exists", lambda _pid: True)
+    monkeypatch.setattr(status, "_get_process_start_time", lambda _pid: 10.0)
+    monkeypatch.setattr(
+        status,
+        "_read_process_cmdline",
+        lambda _pid: "python -m hermes_cli.main gateway run --replace",
+    )
+    monkeypatch.setattr(status, "_IS_WINDOWS", False)
+
+    assert status.get_running_pid_identity_strict(pid_path) == (123, 10.0)
+    monkeypatch.setattr(status, "_get_process_start_time", lambda _pid: 20.0)
+    with pytest.raises(RuntimeError, match="identity changed"):
+        status.get_running_pid_identity_strict(pid_path)
+

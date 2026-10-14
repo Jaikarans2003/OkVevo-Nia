@@ -1459,19 +1459,16 @@ export const ar = defineLocale({
     failedCreate: 'فشل الإنشاء',
     failedRename: 'فشل إعادة التسمية'
   },
+  modelAssignment: {
+    saveFailed: 'لم يحفظ Nia تغيير النموذج هذا.',
+    confirmTitle: 'تحذير اختيار النموذج',
+    confirmDetail: 'أكّد فقط إذا كنت تقبل هذه المقايضة.',
+    confirmAction: 'تأكيد',
+    declined: 'أُلغي تغيير النموذج — رفضت تحذير طبقة تدريب البيانات.'
+  },
+
   cron: {
     close: 'إغلاق',
-    modelImpact: {
-      title: 'تحتاج المهام المجدولة إلى المراجعة',
-      message: count => `سيتم تخطي ${count} من المهام المجدولة حتى تراجع إعدادات النموذج الخاصة بها.`,
-      detailMore: (names, remaining) => `${names} و${remaining} أخرى`,
-      review: 'مراجعة المهام المجدولة',
-      saveFailed: 'لم يحفظ Nia تغيير النموذج هذا.',
-      confirmTitle: 'تحذير اختيار النموذج',
-      confirmDetail: 'أكّد فقط إذا كنت تقبل هذه المقايضة.',
-      confirmAction: 'تأكيد',
-      declined: 'أُلغي تغيير النموذج — رفضت تحذير طبقة تدريب البيانات.'
-    },
     search: 'بحث',
     loading: 'جار التحميل...',
     states: {
