@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { displayInstallPath, displayPath, displayWakePhrase, normalizeDisplayPath, paintToolSurface, pathLeaf, sanitizeUserFacingBrand } from './display-path'
+import { displayInstallPath, displayPath, displayWakePhrase, normalizeDisplayPath, pathLeaf, sanitizeUserFacingBrand } from './display-path'
 
 describe('displayPath', () => {
   it('collapses a macOS home prefix to ~', () => {
