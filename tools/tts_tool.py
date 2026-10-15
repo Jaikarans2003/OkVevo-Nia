@@ -262,8 +262,20 @@ TTS_RESPONSE_BODY_LIMIT_BYTES = 16 * 1024 * 1024
 TTS_RESPONSE_BODY_CHUNK_BYTES = 64 * 1024
 
 def _get_default_output_dir() -> str:
+    """Swept inbound/voice-mode audio cache (upstream layout)."""
     from hermes_constants import get_hermes_dir
     return str(get_hermes_dir("cache/audio", "audio_cache"))
+
+
+def _get_explicit_tts_output_dir() -> str:
+    """Durable default for explicit ``text_to_speech`` tool calls (tier c)."""
+    from hermes_constants import get_hermes_home
+    from agent.provider_media import GENERATED_SUBDIR
+
+    path = get_hermes_home() / "cache" / GENERATED_SUBDIR / "audio"
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
+
 
 DEFAULT_OUTPUT_DIR = _get_default_output_dir()
 
@@ -3203,7 +3215,11 @@ def _text_to_speech_single(
     platform = get_session_env("HERMES_SESSION_PLATFORM", "").lower()
     want_opus = platform in OPUS_VOICE_PLATFORMS
 
-    # Determine output path
+    # Determine output path. Explicit tool calls (no output_path) use durable
+    # cache/generated/audio + tiers a/b. Voice-mode passes an absolute path
+    # under swept cache/audio and keeps that layout.
+    tts_move_warning = None
+    _tts_tier_folder = None
     if output_path:
         # Reject '..' traversal components in the user-supplied path. An
         # explicit absolute path is fine (the agent legitimately writes
@@ -3213,7 +3229,20 @@ def _text_to_speech_single(
         # ``output_path="audio/../../etc/cron.d/x"``. The terminal tool
         # can still write anywhere with approval; this just keeps the
         # unattended TTS surface from materializing files via traversal.
-        from tools.path_security import has_traversal_component
+        from tools.path_security import has_traversal_component, has_unsafe_path_chars
+        if has_unsafe_path_chars(output_path):
+            return json.dumps({
+                "success": False,
+                "error": (
+                    "output_path contains control characters or line separators; "
+                    "use a plain filesystem path"
+                ),
+            }, ensure_ascii=False)
+        if re.search(r"MEDIA:", output_path, re.IGNORECASE):
+            return json.dumps({
+                "success": False,
+                "error": "output_path must not contain a media directive (MEDIA:<path>)",
+            }, ensure_ascii=False)
         if has_traversal_component(output_path):
             return json.dumps({
                 "success": False,
@@ -3241,9 +3270,18 @@ def _text_to_speech_single(
                     f"{file_path}. Choose a normal audio output location."
                 ),
             }, ensure_ascii=False)
+        if file_path.is_absolute():
+            file_path = file_path.resolve()
     else:
+        from agent.nia_generated_media import OutputValidationError, resolve_and_validate
+
+        try:
+            tts_target = resolve_and_validate("audio")
+        except OutputValidationError as exc:
+            return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False)
+
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        out_dir = Path(DEFAULT_OUTPUT_DIR)
+        out_dir = Path(_get_explicit_tts_output_dir())
         out_dir.mkdir(parents=True, exist_ok=True)
         if command_provider_config is not None:
             fmt = _get_command_tts_output_format(command_provider_config)
@@ -3254,10 +3292,11 @@ def _text_to_speech_single(
             file_path = out_dir / f"tts_{timestamp}.ogg"
         else:
             file_path = out_dir / f"tts_{timestamp}.mp3"
+        _tts_tier_folder = tts_target.folder
 
     # Ensure parent directory exists
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_str = str(file_path)
+    file_str = str(file_path.resolve()) if Path(file_path).is_absolute() else str(file_path)
 
     try:
         # Generate audio with the configured provider
@@ -3460,6 +3499,27 @@ def _text_to_speech_single(
         elif provider in {"elevenlabs", "openai", "mistral", "gemini"}:
             voice_compatible = want_opus and file_str.endswith(".ogg")
 
+        # Tier a/b: move out of generated/audio into the exact target folder.
+        if _tts_tier_folder is not None:
+            import shutil
+
+            try:
+                _tts_tier_folder.mkdir(parents=True, exist_ok=True)
+                dest = _tts_tier_folder / Path(file_str).name
+                if dest.exists():
+                    dest = _tts_tier_folder / f"{Path(file_str).stem}_moved{Path(file_str).suffix}"
+                shutil.move(file_str, str(dest))
+                file_str = str(dest.resolve())
+            except OSError as exc:
+                tts_move_warning = (
+                    f"Could not move TTS file into {_tts_tier_folder}: {exc}. "
+                    f"Kept durable copy at {file_str}."
+                )
+                logger.warning("%s", tts_move_warning)
+                file_str = str(Path(file_str).resolve())
+        else:
+            file_str = str(Path(file_str).resolve())
+
         file_size = os.path.getsize(file_str)
         logger.info("TTS audio saved: %s (%s bytes, provider: %s)", file_str, f"{file_size:,}", provider)
 
@@ -3468,13 +3528,16 @@ def _text_to_speech_single(
         if voice_compatible:
             media_tag = f"[[audio_as_voice]]\n{media_tag}"
 
-        return json.dumps({
+        payload = {
             "success": True,
             "file_path": file_str,
             "media_tag": media_tag,
             "provider": provider,
             "voice_compatible": voice_compatible,
-        }, ensure_ascii=False)
+        }
+        if tts_move_warning:
+            payload["warning"] = tts_move_warning
+        return json.dumps(payload, ensure_ascii=False)
 
     except ValueError as e:
         # Configuration errors (missing API keys, etc.)
@@ -3988,12 +4051,15 @@ class _SyncSentencePipeline:
         self._executor.shutdown(wait=True)
 
     def _synthesize_to_tmp(self, cleaned: str) -> Optional[str]:
+        """Voice-mode replies stay on swept ``cache/audio`` (not durable generated/)."""
         if self._stop.is_set():
             return None
         tmp_path = None
         try:
-            fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
-            os.close(fd)
+            out_dir = Path(_get_default_output_dir())
+            out_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            tmp_path = str((out_dir / f"voice_{stamp}.mp3").resolve())
             text_to_speech_tool(text=cleaned, output_path=tmp_path)
             return tmp_path
         except Exception as exc:

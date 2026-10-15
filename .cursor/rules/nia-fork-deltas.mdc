@@ -8,8 +8,8 @@ alwaysApply: true
 Before editing agent/desktop/portal paths, read the matching file under
 `hermes-agent/docs/fork-deltas/` (branding, portal-gateway-billing,
 providers-auto-router, desktop-packaging-updater, ui-lockdowns,
-computer-use, SYNC-LOG). Entries are tagged `[agent]` / `[desktop]` /
-`[portal]`.
+computer-use, media-storage, SYNC-LOG). Entries are tagged `[agent]` /
+`[desktop]` / `[portal]`.
 
 ## Must
 

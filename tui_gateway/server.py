@@ -4510,6 +4510,20 @@ def _set_session_context(
                             _methods_browser_control._CLOUD_TRANSPORT_FAMILY
                         )
                     break
+        # Tier-b generated-media root: Project primary_path only (never cwd alone).
+        project_path = ""
+        with _sessions_lock:
+            for sess in list(_sessions.values()):
+                if sess.get("session_key") == session_key:
+                    project_path = str(sess.get("project_path") or "")
+                    break
+        if not project_path and resolved:
+            try:
+                info = _project_info_for_cwd(resolved)
+                if info and info.get("primary_path"):
+                    project_path = str(info["primary_path"])
+            except Exception:
+                project_path = ""
         return set_session_vars(
             session_key=session_key,
             session_id=session_id,
@@ -4519,6 +4533,7 @@ def _set_session_context(
             cwd=resolved,
             ui_session_id=ui_session_id,
             cron_session="",
+            project_path=project_path,
         )
     except Exception:
         return []
@@ -8249,6 +8264,14 @@ def _apply_project_workspace(task_id: str, path: str, _name: str = "") -> None:
     session["explicit_cwd"] = True
     # An explicit project switch supersedes any earlier settle-adopted cwd.
     session["cwd_from_settle"] = False
+    # Durable generated-media tier b: exact Project primary_path (flat folder).
+    try:
+        info = _project_info_for_cwd(resolved)
+        session["project_path"] = (
+            str(info["primary_path"]) if info and info.get("primary_path") else resolved
+        )
+    except Exception:
+        session["project_path"] = resolved
     _register_session_cwd(session)
 
     _persist_session_cwd_and_schedule_git_meta(session, resolved)

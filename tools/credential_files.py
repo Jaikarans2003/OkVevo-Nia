@@ -408,6 +408,9 @@ def iter_skills_files(
 
 # The cache subdirectories that should be mirrored into remote backends.
 # Each tuple is (new_subpath, old_name) matching hermes_constants.get_hermes_dir().
+from agent.provider_media import GENERATED_SUBDIR, MEDIA_CACHE_MAX_AGE_HOURS
+
+_GENERATED_CACHE = f"cache/{GENERATED_SUBDIR}"
 _CACHE_DIRS: list[tuple[str, str]] = [
     ("cache/documents", "document_cache"),
     ("cache/images", "image_cache"),
@@ -421,6 +424,9 @@ _CACHE_DIRS: list[tuple[str, str]] = [
     # read spilled results at the translated path instead of needing a
     # separate in-sandbox copy.
     ("cache/spillover", "cache/spillover"),
+    # Unswept generated deliverables need their own mount/sync entry or remote
+    # backends never see them. No legacy alias exists.
+    (_GENERATED_CACHE, _GENERATED_CACHE),
     # Desktop/clipboard/PDF uploads land in the flat top-level ``images/`` dir
     # (tui_gateway attach RPCs), not under ``cache/``. Mount it so vision can
     # reach uploads inside sandbox containers (#69575). No legacy alias exists,
@@ -576,9 +582,17 @@ def iter_cache_files(
 
     Used by Modal to upload files individually and resync before each command.
     Skips symlinks.  The container paths use the new ``cache/<subdir>`` layout.
+    ``cache/generated`` is never swept, so only its files from the last
+    ``MEDIA_CACHE_MAX_AGE_HOURS`` are synced — otherwise every remote sync
+    would re-walk and upload the whole generation history.
     """
+    import stat
+    import time
+
     from hermes_constants import get_hermes_dir
 
+    generated_cutoff = time.time() - MEDIA_CACHE_MAX_AGE_HOURS * 3600
+    gen_root = f"{container_base.rstrip('/')}/{_GENERATED_CACHE}"
     result: List[Dict[str, str]] = []
     for new_subpath, old_name in _CACHE_DIRS:
         host_dir = get_hermes_dir(new_subpath, old_name)
@@ -586,7 +600,13 @@ def iter_cache_files(
             continue
         container_root = f"{container_base.rstrip('/')}/{new_subpath}"
         for item in host_dir.rglob("*"):
-            if item.is_symlink() or not item.is_file():
+            try:
+                st = item.lstat()
+            except OSError:
+                continue
+            if item.is_symlink() or not stat.S_ISREG(st.st_mode):
+                continue
+            if container_root == gen_root and st.st_mtime < generated_cutoff:
                 continue
             rel = item.relative_to(host_dir)
             result.append({

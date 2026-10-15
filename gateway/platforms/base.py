@@ -1281,6 +1281,7 @@ MEDIA_DELIVERY_SAFE_ROOTS = (
     _HERMES_HOME / "cache" / "videos",
     _HERMES_HOME / "cache" / "documents",
     _HERMES_HOME / "cache" / "screenshots",
+    _HERMES_HOME / "cache" / "generated",
 )
 
 # Default recency window for trusting freshly-produced files (seconds).
@@ -1329,12 +1330,19 @@ _MEDIA_DELIVERY_DENIED_HOME_SUBPATHS = (
 # Canonical cache subdirectories that hold deliverable artifacts. Used both
 # for the top-level safe roots above and to enumerate per-profile cache roots
 # at check time (see _media_delivery_allowed_roots).
+# ``generated`` is unswept durable deliverables (provider_media.GENERATED_SUBDIR).
+try:
+    from agent.provider_media import GENERATED_SUBDIR as _GENERATED_SUBDIR
+except ImportError:  # pragma: no cover - bootstrap edge
+    _GENERATED_SUBDIR = "generated"
+
 _MEDIA_DELIVERY_CACHE_SUBDIRS = (
     "images",
     "audio",
     "videos",
     "documents",
     "screenshots",
+    _GENERATED_SUBDIR,
 )
 
 

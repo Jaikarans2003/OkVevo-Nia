@@ -1323,6 +1323,19 @@ def image_generate_tool(
         if not prompt or not isinstance(prompt, str) or len(prompt.strip()) == 0:
             raise ValueError("Prompt is required and must be a non-empty string")
 
+        # Validate durable target BEFORE any Fal call / credits spend (F1).
+        from agent.nia_generated_media import OutputValidationError, resolve_and_validate
+
+        try:
+            _media_target = resolve_and_validate("images")
+        except OutputValidationError as exc:
+            return json.dumps({
+                "success": False,
+                "image": None,
+                "error": str(exc),
+                "error_type": "OutputValidationError",
+            }, indent=2, ensure_ascii=False)
+
         # Strict selection check: a stored-but-broken selection raises the
         # honest selection-naming error from _resolve_managed_fal_gateway();
         # only the never-configured path can report "no backend at all".
@@ -1464,13 +1477,33 @@ def image_generate_tool(
         # OpenAI / Krea providers already do): fal CDN links are ephemeral,
         # and chat renders the local file, never the remote URL. On any
         # download failure we keep the bare URL rather than fail the turn.
+        save_warning = None
         if formatted_images:
             try:
-                from agent.image_gen_provider import save_url_image
+                from agent.nia_generated_media import save_generated_url
 
-                formatted_images[0]["url"] = str(
-                    save_url_image(formatted_images[0]["url"])
+                result = save_generated_url(
+                    "images",
+                    formatted_images[0]["url"],
+                    prefix="image",
+                    resolved=_media_target,
+                    timeout=60.0,
+                    max_bytes=25 * 1024 * 1024,
+                    chunk_size=64 * 1024,
+                    content_types={
+                        "image/png": "png",
+                        "image/jpeg": "jpg",
+                        "image/jpg": "jpg",
+                        "image/webp": "webp",
+                        "image/gif": "gif",
+                    },
+                    url_extensions=("png", "jpg", "jpeg", "webp", "gif"),
+                    default_extension="png",
+                    label="Image",
+                    empty_error="Image at {url} returned 0 bytes; refusing to cache.",
                 )
+                formatted_images[0]["url"] = str(result.path)
+                save_warning = result.warning
             except Exception as exc:  # noqa: BLE001 — bare-URL fallback
                 logger.warning("Could not cache generated image locally: %s", exc)
 
@@ -1480,6 +1513,8 @@ def image_generate_tool(
             "modality": modality,
             "upscaled": bool(formatted_images and formatted_images[0].get("upscaled")),
         }
+        if save_warning:
+            response_data["warning"] = save_warning
 
         debug_call_data["success"] = True
         debug_call_data["images_generated"] = len(formatted_images)
