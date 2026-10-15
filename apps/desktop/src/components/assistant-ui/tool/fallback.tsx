@@ -17,6 +17,7 @@ import {
 } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
+import { MediaAttachment } from '@/components/assistant-ui/markdown-text'
 import { TimelineTimestamp } from '@/components/assistant-ui/thread/timeline-timestamp'
 import { useElapsedSeconds } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
@@ -39,7 +40,7 @@ import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { ToolIcon } from '@/components/ui/tool-icon'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { sanitizePublicText } from '@/lib/display-path'
+import { type PaintedSurface, paintToolSurface } from '@/lib/display-path'
 import { PrettyLink, LinkifiedText as SharedLinkifiedText, urlSlugTitleLabel } from '@/lib/external-link'
 import { AlertCircle, CheckCircle2 } from '@/lib/icons'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
@@ -113,8 +114,23 @@ const TOOL_PAYLOAD_PRE_CLASS = cn(TOOL_SECTION_SURFACE_CLASS, 'font-mono text-[0
  * a native `<details>`, whose marker is a browser-drawn triangle matching
  * nothing else here.
  */
+function MediaPlayers({ paths }: { paths: readonly string[] }) {
+  if (!paths.length) {
+    return null
+  }
+
+  return (
+    <>
+      {paths.map(path => (
+        <MediaAttachment key={path} path={path} />
+      ))}
+    </>
+  )
+}
+
 function ToolPayloadDisclosure({ args, result }: { args: unknown; result: unknown }) {
   const [open, setOpen] = useState(false)
+  const painted = technicalTracePaint(args, result)
 
   return (
     // `py-0.5` tops up the parent's `p-1.5` to an even block on both edges.
@@ -132,9 +148,12 @@ function ToolPayloadDisclosure({ args, result }: { args: unknown; result: unknow
         Tool payload
       </button>
       {open && (
-        <pre className={cn(TOOL_PAYLOAD_PRE_CLASS, 'mt-1 whitespace-pre-wrap wrap-anywhere')}>
-          {technicalTrace(args, result)}
-        </pre>
+        <>
+          <MediaPlayers paths={painted.mediaPaths} />
+          {painted.prose && (
+            <pre className={cn(TOOL_PAYLOAD_PRE_CLASS, 'mt-1 whitespace-pre-wrap wrap-anywhere')}>{painted.prose}</pre>
+          )}
+        </>
       )}
     </div>
   )
@@ -171,7 +190,7 @@ function prettyTechnicalValue(value: unknown): string {
   }
 }
 
-export function technicalTrace(args: unknown, result: unknown): string {
+export function technicalTracePaint(args: unknown, result: unknown): PaintedSurface {
   const parts = [
     ['Arguments', args],
     ['Result', result]
@@ -179,7 +198,11 @@ export function technicalTrace(args: unknown, result: unknown): string {
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([label, value]) => `${label}:\n${prettyTechnicalValue(value)}`)
 
-  return sanitizePublicText(clampForDisplay(parts.join('\n\n')))
+  return paintToolSurface(clampForDisplay(parts.join('\n\n')))
+}
+
+export function technicalTrace(args: unknown, result: unknown): string {
+  return technicalTracePaint(args, result).prose
 }
 
 function statusGlyph(status: ToolStatus, copy: ToolStatusCopy): ReactNode {
@@ -260,21 +283,26 @@ function SearchResultsList({ hits }: { hits: SearchResultRow[] }) {
     <ol className="m-0 grid list-none gap-2.5 p-0">
       {hits.map((hit, index) => {
         const key = `${hit.url || hit.title}-${index}`
-        const trimmedTitle = hit.title.trim()
+        const titlePaint = paintToolSurface(hit.title.trim())
+        const snippetPaint = hit.snippet ? paintToolSurface(hit.snippet) : null
+        const mediaPaths = [...titlePaint.mediaPaths, ...(snippetPaint?.mediaPaths ?? [])]
 
         return (
           <li className="grid min-w-0 gap-0.5" key={key}>
             {hit.url ? (
               <PrettyLink
                 className={cn(SEARCH_HIT_TITLE_CLASS, 'block max-w-full')}
-                fallbackLabel={trimmedTitle || urlSlugTitleLabel(hit.url)}
+                fallbackLabel={titlePaint.prose || urlSlugTitleLabel(hit.url)}
                 href={hit.url}
-                label={trimmedTitle || undefined}
+                label={titlePaint.prose || undefined}
               />
             ) : (
-              <span className={SEARCH_HIT_TITLE_CLASS}>{trimmedTitle}</span>
+              <span className={SEARCH_HIT_TITLE_CLASS}>{titlePaint.prose}</span>
             )}
-            {hit.snippet && <p className={cn(TOOL_HEADER_SUBTITLE_CLASS, 'm-0 line-clamp-3')}>{hit.snippet}</p>}
+            {snippetPaint?.prose && (
+              <p className={cn(TOOL_HEADER_SUBTITLE_CLASS, 'm-0 line-clamp-3')}>{snippetPaint.prose}</p>
+            )}
+            <MediaPlayers paths={mediaPaths} />
           </li>
         )
       })}
@@ -421,13 +449,16 @@ function ToolEntry({ part }: ToolEntryProps) {
   // search hits) plus the one friendly error line on failure — raw commands,
   // stdout/stderr, and detail dumps are Technical-mode chrome
   // (ToolPayloadDisclosure covers them there).
-  const friendlyErrorLine =
-    toolViewMode !== 'technical' && view.status === 'error' ? sanitizePublicText(view.subtitle.trim()) : ''
+  const titlePaint = paintToolSurface(view.title)
+  const subtitlePaint = view.subtitle.trim() ? paintToolSurface(view.subtitle) : { mediaPaths: [], prose: '' }
+  const friendlyErrorLine = toolViewMode !== 'technical' && view.status === 'error' ? subtitlePaint.prose : ''
+  const rowMediaPaths = [...titlePaint.mediaPaths, ...(view.status === 'error' ? subtitlePaint.mediaPaths : [])]
   const hasExpandableContent = Boolean(
     view.imageUrl ||
     view.inlineDiff ||
     hasSearchHits ||
     friendlyErrorLine ||
+    rowMediaPaths.length ||
     toolViewMode === 'technical'
   )
 
@@ -520,7 +551,7 @@ function ToolEntry({ part }: ToolEntryProps) {
         >
           <span
             className="flex min-w-0 items-center gap-1.5"
-            title={isFileEdit && view.subtitle ? sanitizePublicText(view.subtitle) : undefined}
+            title={isFileEdit && subtitlePaint.prose ? subtitlePaint.prose : undefined}
           >
             <ToolGlyph
               copy={copy}
@@ -533,7 +564,7 @@ function ToolEntry({ part }: ToolEntryProps) {
               isPending={isPending}
               legendary={memoryLegendary}
               status={view.status}
-              title={sanitizePublicText(view.title)}
+              title={titlePaint.prose || titlePaint.mediaPaths.map(path => path.split(/[/\\]/).pop()).filter(Boolean).join(', ')}
               titleAction={view.titleAction}
             />
             {!isPending && view.countLabel && (
@@ -567,7 +598,7 @@ function ToolEntry({ part }: ToolEntryProps) {
               showLabel={false}
               side="left"
               stopPropagation
-              text={sanitizePublicText(copyAction.text)}
+              text={paintToolSurface(copyAction.text).prose}
             />
           )}
           {view.imageUrl && (
@@ -590,6 +621,7 @@ function ToolEntry({ part }: ToolEntryProps) {
           {view.inlineDiff && (
             <FileDiffPanel className="-mt-1.5" diff={view.inlineDiff} path={isFileEdit ? view.subtitle : undefined} />
           )}
+          {rowMediaPaths.length > 0 && <MediaPlayers paths={rowMediaPaths} />}
           {friendlyErrorLine && (
             <p className="max-w-full text-xs leading-relaxed text-destructive">{friendlyErrorLine}</p>
           )}

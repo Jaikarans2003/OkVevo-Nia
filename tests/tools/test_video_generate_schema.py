@@ -234,13 +234,13 @@ class TestDynamicParamGating(unittest.TestCase):
     def test_no_provider_serves_prompt_only(self):
         with patch.object(vt, "_resolve_active_provider", return_value=None):
             schema = _build_dynamic_video_schema()
-        self.assertEqual(sorted(schema["parameters"]["properties"]), ["prompt"])
+        self.assertEqual(sorted(schema["parameters"]["properties"]), ["output_dir", "prompt"])
 
     def test_static_schema_carries_no_capability_args(self):
         props = VIDEO_GENERATE_SCHEMA["parameters"]["properties"]
         self.assertEqual(
             sorted(props),
-            ["aspect_ratio", "duration", "model", "prompt", "resolution"],
+            ["aspect_ratio", "duration", "model", "output_dir", "prompt", "resolution"],
         )
 
 

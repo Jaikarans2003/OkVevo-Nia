@@ -23,6 +23,7 @@ import { GeneratedImage } from '@/components/chat/generated-image-result'
 import { GeneratedVideo } from '@/components/chat/generated-video-result'
 import { SCAFFOLD_LABEL_CLASS, SCAFFOLD_META_CLASS, ScaffoldRow } from '@/components/chat/scaffold-row'
 import { useI18n } from '@/i18n'
+import { renderMediaTags } from '@/lib/chat-messages/parts'
 import { sanitizePublicText, sanitizeUserFacingBrand } from '@/lib/display-path'
 import { generatedImageFromResult, generatedVideoFromResult } from '@/lib/generated-images'
 import { separateGluedReasoningBlocks } from '@/lib/reasoning-blocks'
@@ -144,7 +145,10 @@ const TimelineMarkdownText: FC<TimelineTextPartProps> = ({ completedAt, timestam
   return (
     <>
       <TimelineTimestamp className="mb-0.5 block" completedAt={completedAt} timestamp={timestamp} />
-      <TextMessagePartProvider isRunning={status.type === 'running'} text={sanitizeUserFacingBrand(text)}>
+      <TextMessagePartProvider
+        isRunning={status.type === 'running'}
+        text={sanitizeUserFacingBrand(renderMediaTags(text))}
+      >
         <MarkdownText />
       </TextMessagePartProvider>
     </>

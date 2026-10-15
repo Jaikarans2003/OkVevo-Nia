@@ -48,6 +48,17 @@ attach a `warning` in the tool result.
 ## Absolute stored paths / white-label display-only
 
 - Stored tool JSON / `MEDIA:` / DB = real absolute paths only (never `~`).
+  Tool and terminal results stay absolute; secret redaction still runs.
+- Paint scrubs every tool surface (title, dump, search snippet, run summary,
+  error, toast, tooltip). `MEDIA:` lines become players; the visible prose
+  has neither `hermes` nor the literal `MEDIA:`.
+- `#media:` hrefs, `MEDIA:` paths, and markdown link destinations are masked
+  during brand scrub so the player still loads the file.
+- `cache/generated` shell allow is `Path.resolve()` plus `is_relative_to`
+  (not a string prefix). Settings and `cache/generated-x` stay blocked.
+- `output_dir` (optional folder) is on `image_generate`, `video_generate`,
+  and explicit `text_to_speech`. Invalid folders fail before the provider
+  call. Voice-mode auto replies stay on swept `cache/audio`.
 - White-label scrub (`sanitizeUserFacingBrand` / `displayInstallPath` /
   `brand_scrub.py`) is **render-only**. `resolveMediaDisplaySrc` /
   `readFileDataUrl` always receive the real path first.

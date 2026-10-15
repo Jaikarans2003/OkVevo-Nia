@@ -154,6 +154,18 @@ describe('sanitizeUserFacingBrand', () => {
     )
   })
 
+  it('keeps loadable media destinations and path folders', () => {
+    const href = '[shot](#media:%2FUsers%2Fkaran%2F.hermes%2Fcache%2Fgenerated%2Fimages%2Fx.png)'
+    const media = 'MEDIA:/Users/karan/.hermes/cache/generated/images/x.png'
+    const desktop = '/Users/karan/Desktop/Micro-Drama-Testing/fashion-runway.png'
+
+    expect(sanitizeUserFacingBrand(href)).toBe(href)
+    expect(sanitizeUserFacingBrand(media)).toBe(media)
+    expect(sanitizeUserFacingBrand(`saved at ${desktop}`)).toBe(`saved at ${desktop}`)
+    expect(sanitizeUserFacingBrand('Model minimax/minimax-m3.')).toBe('Model the model.')
+    expect(sanitizeUserFacingBrand('~/.hermes/config.yaml')).toBe('your Nia data folder')
+  })
+
   it('leaves protocol and SDK identifiers', () => {
     expect(sanitizeUserFacingBrand('open hermes://settings')).toBe('open hermes://settings')
     expect(sanitizeUserFacingBrand('import from @hermes/plugin-sdk')).toBe('import from @hermes/plugin-sdk')

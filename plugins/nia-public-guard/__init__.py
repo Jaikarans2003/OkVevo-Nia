@@ -4,8 +4,9 @@ OWASP LLM02 (Sensitive Information Disclosure) defense in depth:
 
 * ``pre_tool_call`` — block file/shell access to the agent data folder and
   the ``hermes`` CLI; redirect bot work to ``manage_bot``.
-* ``transform_tool_result`` / ``transform_terminal_output`` — redact secrets
-  and collapse absolute home paths before the model sees them.
+* ``transform_tool_result`` / ``transform_terminal_output`` — redact secrets.
+  Absolute paths stay absolute so a later ``~`` expansion cannot drop
+  ``.hermes`` from a generated-media path.
 * ``transform_llm_output`` — brand/internals scrub persisted with the turn.
 * ``post_llm_call`` — optional fire-and-forget Jev leak classify (off unless
   ``NIA_JEV_LEAK_CLASSIFY=1`` and an OpenRouter key is present). Never rewrites.
@@ -114,33 +115,83 @@ def _normalize_candidate(text: str) -> str:
     return expanded.replace("\\", "/")
 
 
-def _path_is_hermes_home(text: str) -> bool:
-    candidate = _normalize_candidate(text)
+# Path-shaped tokens inside a command. A string-prefix check is not used to
+# decide the generated-media allow; that decision is resolve + is_relative_to.
+_PATH_TOKEN_RE = re.compile(
+    r"(?:~[/\\][^\s'\"`;|&<>)]+|/(?:[^\s'\"`;|&<>)]+)|[A-Za-z]:[/\\][^\s'\"`;|&<>)]+)"
+)
+
+
+def _path_tokens(text: str) -> List[str]:
+    tokens: List[str] = []
+    for match in _PATH_TOKEN_RE.finditer(text or ""):
+        token = match.group(0).rstrip("),]}>'\"")
+        if token:
+            tokens.append(token)
+    return tokens
+
+
+def _try_resolve(token: str) -> Optional[Path]:
+    candidate = _normalize_candidate(token)
+    if not candidate:
+        return None
+    try:
+        return Path(candidate).resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
+def _generated_roots() -> List[Path]:
+    roots: List[Path] = []
+    for prefix in _hermes_home_prefixes():
+        try:
+            roots.append((prefix / "cache" / "generated").resolve())
+        except OSError:
+            roots.append(prefix / "cache" / "generated")
+    return roots
+
+
+def _is_generated_deliverable(resolved: Path) -> bool:
+    """True only when *resolved* is inside ``cache/generated`` after symlink follow."""
+    for root in _generated_roots():
+        try:
+            if resolved.is_relative_to(root):
+                return True
+        except (ValueError, OSError):
+            continue
+    return False
+
+
+def _under_hermes_home(resolved: Path) -> bool:
+    for prefix in _hermes_home_prefixes():
+        try:
+            root = prefix.resolve()
+        except OSError:
+            root = prefix
+        try:
+            if resolved.is_relative_to(root):
+                return True
+        except (ValueError, OSError):
+            continue
+    return False
+
+
+def _token_is_hermes_home(token: str) -> bool:
+    resolved = _try_resolve(token)
+    # Deliverables under cache/generated may be read or copied. A symlink that
+    # points at settings resolves outside that folder and stays blocked.
+    if resolved is not None and _is_generated_deliverable(resolved):
+        return False
+    candidate = _normalize_candidate(token)
     if not candidate:
         return False
     lowered = candidate.lower()
     if "hermes_home" in lowered:
         return True
+    if resolved is not None and _under_hermes_home(resolved):
+        return True
     if "/.hermes" in lowered or lowered.endswith(".hermes") or lowered.startswith(".hermes"):
         return True
-    try:
-        resolved = Path(candidate).expanduser()
-        try:
-            resolved = resolved.resolve()
-        except OSError:
-            pass
-        for prefix in _hermes_home_prefixes():
-            try:
-                resolved.relative_to(prefix)
-                return True
-            except (ValueError, OSError):
-                try:
-                    resolved.relative_to(prefix.resolve())
-                    return True
-                except (ValueError, OSError):
-                    continue
-    except (OSError, RuntimeError, ValueError):
-        pass
     basename = Path(candidate).name.lower()
     if basename in _SENSITIVE_BASENAMES:
         # Bare settings filenames only count when they sit under the agent home
@@ -148,6 +199,13 @@ def _path_is_hermes_home(text: str) -> bool:
         # A user's project config.yaml must remain editable.
         return False
     return False
+
+
+def _path_is_hermes_home(text: str) -> bool:
+    tokens = _path_tokens(text)
+    if tokens:
+        return any(_token_is_hermes_home(token) for token in tokens)
+    return _token_is_hermes_home(text)
 
 
 def _invokes_hermes_cli(text: str) -> bool:
@@ -175,42 +233,12 @@ def _on_pre_tool_call(
     return {"action": "block", "message": _BLOCK_MESSAGE}
 
 
-def _collapse_home_paths(text: str) -> str:
-    if not text:
-        return text
-    prefixes: List[str] = []
-    try:
-        from hermes_constants import get_hermes_home
-
-        prefixes.append(str(get_hermes_home()))
-        try:
-            prefixes.append(str(get_hermes_home().resolve()))
-        except OSError:
-            pass
-    except Exception:
-        pass
-    prefixes.append(str(Path.home()))
-    try:
-        prefixes.append(str(Path.home().resolve()))
-    except OSError:
-        pass
-    seen: set[str] = set()
-    ordered: List[str] = []
-    for prefix in sorted(prefixes, key=len, reverse=True):
-        if prefix and prefix not in seen:
-            seen.add(prefix)
-            ordered.append(prefix)
-    for prefix in ordered:
-        text = text.replace(prefix, "~")
-        text = text.replace(prefix.replace("/", "\\"), "~")
-    return text
-
-
 def _redact_and_collapse(text: str) -> str:
     from agent.redact import redact_sensitive_text
 
-    redacted = redact_sensitive_text(text, force=True, file_read=True)
-    return _collapse_home_paths(redacted)
+    # Paint-only tildes live in displayPath. The tool string the model and the
+    # UI both store stays the absolute path save_generated_url wrote.
+    return redact_sensitive_text(text, force=True, file_read=True)
 
 
 def _on_transform_tool_result(

@@ -197,7 +197,13 @@ const API_KEY_RE = /\bAPI keys?\b/gi
 const BEDROCK_RE = /\bBedrock\b/gi
 const CREDENTIAL_POOL_RE = /\bcredential pools?\b/gi
 const HERMES_HOME_RE = /\bHERMES_HOME\b/g
-const MODEL_ID_RE = /\b[a-z][a-z0-9.-]{1,32}\/[a-z0-9][a-z0-9._-]*[-:][a-z0-9][a-z0-9._-]*\b/gi
+const MODEL_ID_RE = /(?<![A-Za-z0-9._\\/-])[a-z][a-z0-9.-]{1,32}\/[a-z0-9][a-z0-9._-]*[-:][a-z0-9][a-z0-9._-]*\b/gi
+
+const LOADABLE_DEST_RE =
+  /(?<=\]\()(?:<[^>\n]+>|[^)\n]+)(?=\))|MEDIA:\s*[^\s`'"]+|#media:[^\s)'"]+/gi
+
+const PAINT_MEDIA_RE = /[`"']?MEDIA:\s*(`[^`\n]+`|"[^"\n]+"|'[^'\n]+'|\S+)[`"']?/g
+const PAINT_HASH_RE = /#media:([^\s)'"]+)/g
 const NIA_PROFILE_RE = /\bNia profile\b/g
 const PROFILE_ACTION_RE = /\b(create|created|creating|make|made|making|set up|setup)\s+(a\s+)?(new\s+)?profile\b/gi
 const PROFILE_NAMED_RE = /\bprofile (named|called)\b/gi
@@ -244,10 +250,75 @@ function fenceContainsInternal(block: string): boolean {
   )
 }
 
-function sanitizeUserFacingProse(raw: string): string {
-  const protectedText = raw.replace(/hermes:\/\//gi, PROTO_TOKEN).replace(/@hermes\//g, SDK_TOKEN)
+function liftLoadableSpans(raw: string): { spans: string[]; text: string } {
+  const spans: string[] = []
+  LOADABLE_DEST_RE.lastIndex = 0
 
-  return displayInstallPath(protectedText)
+  const text = raw.replace(LOADABLE_DEST_RE, match => {
+    spans.push(match)
+
+    return `\0LOAD${spans.length - 1}\0`
+  })
+
+  return { spans, text }
+}
+
+function restoreLoadableSpans(text: string, spans: string[]): string {
+  return spans.reduce((next, span, index) => next.replaceAll(`\0LOAD${index}\0`, span), text)
+}
+
+function unquoteMediaPath(value: string): string {
+  const trimmed = value.trim()
+  const quote = trimmed[0]
+
+  return quote && quote === trimmed.at(-1) && ['"', "'", '`'].includes(quote) ? trimmed.slice(1, -1) : trimmed
+}
+
+export interface PaintedSurface {
+  mediaPaths: string[]
+  prose: string
+}
+
+/** Split MEDIA: / #media: paths out, then scrub the leftover prose. */
+export function paintToolSurface(raw: string): PaintedSurface {
+  const mediaPaths: string[] = []
+  PAINT_MEDIA_RE.lastIndex = 0
+  PAINT_HASH_RE.lastIndex = 0
+
+  const rest = (raw || '')
+    .replace(PAINT_MEDIA_RE, (_match, path: string) => {
+      const value = unquoteMediaPath(path)
+
+      if (value) {
+        mediaPaths.push(value)
+      }
+
+      return ''
+    })
+    .replace(PAINT_HASH_RE, (_match, encoded: string) => {
+      try {
+        mediaPaths.push(decodeURIComponent(encoded))
+      } catch {
+        mediaPaths.push(encoded)
+      }
+
+      return ''
+    })
+
+  const prose = sanitizePublicText(rest)
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return { mediaPaths, prose }
+}
+
+function sanitizeUserFacingProse(raw: string): string {
+  const { spans, text: lifted } = liftLoadableSpans(raw)
+  const protectedText = lifted.replace(/hermes:\/\//gi, PROTO_TOKEN).replace(/@hermes\//g, SDK_TOKEN)
+
+  return restoreLoadableSpans(
+    displayInstallPath(protectedText)
     .replace(HERMES_CLI_SPAN_RE, 'a Nia command')
     .replace(HERMES_DASH_P_RE, 'a Nia command')
     .replace(HERMES_DESKTOP_APP_RE, 'Nia desktop app')
@@ -283,7 +354,9 @@ function sanitizeUserFacingProse(raw: string): string {
     .replace(PROFILE_ACTION_RE, match => match.replace(/profile\b/i, 'bot'))
     .replace(PROFILE_NAMED_RE, (_match, verb: string) => `bot ${verb}`)
     .replaceAll(PROTO_TOKEN, 'hermes://')
-    .replaceAll(SDK_TOKEN, '@hermes/')
+    .replaceAll(SDK_TOKEN, '@hermes/'),
+    spans
+  )
 }
 
 /** Rewrite leftover product copy, mechanism terms, and home-dotfile paths for paint. */

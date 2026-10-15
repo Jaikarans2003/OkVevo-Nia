@@ -105,6 +105,10 @@ VIDEO_GENERATE_SCHEMA: Dict[str, Any] = {
                     "``video_gen.model``. Unknown models are rejected."
                 ),
             },
+            "output_dir": {
+                "type": "string",
+                "description": "Optional folder to save into.",
+            },
             # NOTE (schema diet, #95681): image_url / reference_image_urls /
             # negative_prompt / audio / seed / upscale are added
             # per-capability by _build_dynamic_video_schema. Do not re-add
@@ -376,6 +380,28 @@ def _handle_video_generate(args: Dict[str, Any], **_kw: Any) -> str:
     # Drop None entries so providers see clean defaults.
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
+    output_dir = args.get("output_dir")
+    if not isinstance(output_dir, str) or not output_dir.strip():
+        output_dir = None
+    else:
+        output_dir = output_dir.strip()
+    from agent.nia_generated_media import OutputValidationError, resolve_and_validate
+
+    try:
+        resolve_and_validate("videos", output_dir=output_dir)
+    except OutputValidationError as exc:
+        provider_name = getattr(provider, "name", "")
+        model_name = model if isinstance(model, str) else ""
+        return json.dumps(error_response(
+            error=str(exc),
+            error_type="OutputValidationError",
+            provider=provider_name if isinstance(provider_name, str) else "",
+            model=model_name,
+            prompt=prompt,
+        ))
+    if output_dir:
+        kwargs["output_dir"] = output_dir
+
     try:
         result = provider.generate(prompt=prompt, **kwargs)
     except TypeError as exc:
@@ -517,7 +543,10 @@ def _build_dynamic_video_schema() -> Dict[str, Any]:
             "description": "\n".join(parts),
             "parameters": {
                 "type": "object",
-                "properties": {"prompt": static_props["prompt"]},
+                "properties": {
+                    "prompt": static_props["prompt"],
+                    "output_dir": static_props["output_dir"],
+                },
                 "required": ["prompt"],
             },
         }
@@ -652,6 +681,7 @@ def _build_dynamic_video_schema() -> Dict[str, Any]:
         from tools import media_catalog
         model_param["description"] = media_catalog.model_param_description("videos")
     properties["model"] = model_param
+    properties["output_dir"] = static_props["output_dir"]
 
     return {
         "description": "\n".join(parts),

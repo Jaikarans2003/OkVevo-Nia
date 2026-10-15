@@ -1,4 +1,4 @@
-import { sanitizePublicText } from '@/lib/display-path'
+import { paintToolSurface } from '@/lib/display-path'
 import { genericProductPhrasing, listedProductPhrasing } from '@/lib/product-phrasing'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { firstStringField } from '@/lib/text'
@@ -89,7 +89,7 @@ function toolTarget(tool: ToolCallLike): string {
   const path = firstStringField(args, ['path', 'file', 'filepath'])
   const target = path ? fileEditBasename(path) : firstStringField(args, ['query', 'url'])
 
-  return target ? sanitizePublicText(target) : target
+  return target ? paintToolSurface(target).prose : target
 }
 
 /**
@@ -152,7 +152,7 @@ export function summarizeToolRun(
   productMode = false
 ): string {
   if (productMode) {
-    return sanitizePublicText(summarizeProductToolRun(tools, live))
+    return paintToolSurface(summarizeProductToolRun(tools, live)).prose
   }
 
   // Which clause narrates in the present tense: normally the outstanding call,
@@ -181,5 +181,5 @@ export function summarizeToolRun(
     return group ? [clause(category, group, category === liveCategory)] : []
   })
 
-  return sanitizePublicText(clauses.map((text, index) => (index === 0 ? text : lowerFirst(text))).join(', '))
+  return paintToolSurface(clauses.map((text, index) => (index === 0 ? text : lowerFirst(text))).join(', ')).prose
 }

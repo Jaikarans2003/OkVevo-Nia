@@ -14,6 +14,7 @@ import {
   isDesktopSlashCommand,
   resolveDesktopCommand
 } from '@/lib/desktop-slash-commands'
+import { paintToolSurface } from '@/lib/display-path'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { setSessionYolo } from '@/lib/yolo-session'
 import { openCommandPalettePage } from '@/store/command-palette'
@@ -618,7 +619,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
                 durationMs: 5_000,
                 id: noticeId,
                 kind: aborted ? 'error' : 'success',
-                message: lines.join('\n')
+                message: paintToolSurface(lines.join('\n')).prose
               })
 
               return
@@ -628,7 +629,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
 
             if (hostOutput) {
               renderSlashOutput(hostOutput)
-              notify({ durationMs: 5_000, id: noticeId, kind: 'success', message: hostOutput })
+              notify({ durationMs: 5_000, id: noticeId, kind: 'success', message: paintToolSurface(hostOutput).prose })
 
               return
             }
