@@ -158,14 +158,14 @@ class TestDynamicParamGating(unittest.TestCase):
              patch("hermes_cli.plugins._ensure_plugins_discovered"):
             schema = _build_dynamic_image_schema()
         props = schema["parameters"]["properties"]
-        self.assertEqual(sorted(props), ["aspect_ratio", "model", "prompt"])
+        self.assertEqual(sorted(props), ["aspect_ratio", "model", "output_dir", "prompt"])
         self.assertNotIn("upscale", props)
 
     def test_static_schema_carries_no_capability_args(self):
         """The registration-time placeholder must stay minimal — dynamic
         overrides own the capability args (do-not-re-add guard)."""
         props = IMAGE_GENERATE_SCHEMA["parameters"]["properties"]
-        self.assertEqual(sorted(props), ["aspect_ratio", "prompt"])
+        self.assertEqual(sorted(props), ["aspect_ratio", "output_dir", "prompt"])
 
     def test_handler_still_rejects_unadvertised_edit_with_teaching_error(self):
         """Wire compat: image_url on a t2i-only model is accepted by the

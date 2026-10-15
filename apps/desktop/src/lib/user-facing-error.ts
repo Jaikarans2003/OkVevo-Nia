@@ -12,7 +12,7 @@
  */
 
 import { isByokChromeVisible } from '@/lib/build-channel'
-import { sanitizeUserFacingBrand } from '@/lib/display-path'
+import { paintToolSurface } from '@/lib/display-path'
 
 export const PUBLIC_ERROR_COPY = {
   credits:
@@ -163,7 +163,7 @@ export function publicErrorText(raw: string): string {
     return raw
   }
 
-  return friendlyErrorText(raw)
+  return friendlyErrorText(paintToolSurface(raw).prose)
 }
 
 /**
@@ -177,5 +177,5 @@ export function scrubUserFacingText(raw: string): string {
     return raw
   }
 
-  return sanitizeUserFacingBrand(raw)
+  return paintToolSurface(raw).prose
 }

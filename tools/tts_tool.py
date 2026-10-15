@@ -58,7 +58,6 @@ from typing import Callable, Dict, Any, Iterator, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
 from hermes_cli._subprocess_compat import windows_hide_flags
-from hermes_constants import display_hermes_home
 
 logger = logging.getLogger(__name__)
 def get_env_value(name, default=None):
@@ -3159,6 +3158,7 @@ def _text_to_speech_single(
     instructions: Optional[str] = None,
     provider: Optional[str] = None,
     tts_config_override: Optional[Dict[str, Any]] = None,
+    output_dir: Optional[str] = None,
 ) -> str:
     """Synthesize one provider-safe text chunk and return one final-encoded file.
 
@@ -3276,7 +3276,7 @@ def _text_to_speech_single(
         from agent.nia_generated_media import OutputValidationError, resolve_and_validate
 
         try:
-            tts_target = resolve_and_validate("audio")
+            tts_target = resolve_and_validate("audio", output_dir=output_dir)
         except OutputValidationError as exc:
             return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False)
 
@@ -3562,6 +3562,7 @@ def text_to_speech_tool(
     speed: Optional[float] = None,
     instructions: Optional[str] = None,
     provider: Optional[str] = None,
+    output_dir: Optional[str] = None,
 ) -> str:
     """Convert text to speech audio with long-form chunking.
 
@@ -3581,7 +3582,8 @@ def text_to_speech_tool(
             character caps apply automatically (OpenAI 4096, xAI 15000,
             MiniMax 10000, ElevenLabs 5k-40k depending on model); longer
             input is split into ordered chunks without silent truncation.
-        output_path: Optional custom save path.
+        output_path: Optional custom save path. When set, this file wins over output_dir.
+        output_dir: Optional folder to save into.
         speed: Optional playback speed multiplier (0.25-4.0).
         instructions: Optional voice-design guidance (tone, emotion, pacing).
         provider: Optional TTS provider override.
@@ -3637,6 +3639,9 @@ def text_to_speech_tool(
     delivery_profile = _resolve_audio_delivery_profile(platform, tts_config)
 
     # Determine output path (single-chunk short-circuit uses the final path).
+    # A named file (voice-mode's swept cache/audio path, or an explicit
+    # output_path) wins. Otherwise validate output_dir before any provider call.
+    tts_target = None
     if output_path:
         from tools.path_security import has_traversal_component
         if has_traversal_component(output_path):
@@ -3663,8 +3668,18 @@ def text_to_speech_tool(
                 ),
             }, ensure_ascii=False)
     else:
+        from agent.nia_generated_media import OutputValidationError, resolve_and_validate
+
+        if not isinstance(output_dir, str) or not output_dir.strip():
+            output_dir = None
+        else:
+            output_dir = output_dir.strip()
+        try:
+            tts_target = resolve_and_validate("audio", output_dir=output_dir)
+        except OutputValidationError as exc:
+            return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        out_dir = Path(DEFAULT_OUTPUT_DIR)
+        out_dir = Path(_get_explicit_tts_output_dir())
         out_dir.mkdir(parents=True, exist_ok=True)
         if command_provider_config is not None:
             fmt = _get_command_tts_output_format(command_provider_config)
@@ -3735,11 +3750,43 @@ def text_to_speech_tool(
                 f"{os.path.getsize(path):,}",
                 provider,
             )
+        tts_warning = None
+        if tts_target is not None and tts_target.folder is not None:
+            import shutil
+
+            folder = tts_target.folder
+            moved_paths: List[str] = []
+            try:
+                folder.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                tts_warning = (
+                    f"Could not move TTS file into {folder}: {exc}. "
+                    f"Kept durable copy at {final_paths[0]}."
+                )
+                logger.warning("%s", tts_warning)
+            else:
+                for path in final_paths:
+                    src = Path(path)
+                    dest = folder / src.name
+                    if dest.exists():
+                        dest = folder / f"{src.stem}_moved{src.suffix}"
+                    try:
+                        shutil.move(str(src), str(dest))
+                        moved_paths.append(str(dest.resolve()))
+                    except OSError as exc:
+                        tts_warning = (
+                            f"Could not move TTS file into {folder}: {exc}. "
+                            f"Kept durable copy at {src}."
+                        )
+                        logger.warning("%s", tts_warning)
+                        moved_paths.append(str(src.resolve()))
+                final_paths = moved_paths
+
         media_tag = "\n".join(f"MEDIA:{path}" for path in final_paths)
         if voice_compatible:
             media_tag = f"[[audio_as_voice]]\n{media_tag}"
 
-        return json.dumps({
+        payload = {
             "success": True,
             "file_path": final_paths[0],
             "file_paths": final_paths,
@@ -3754,7 +3801,10 @@ def text_to_speech_tool(
                 "max_file_bytes": delivery_profile.max_file_bytes,
                 "target_file_bytes": delivery_profile.target_file_bytes,
             },
-        }, ensure_ascii=False)
+        }
+        if tts_warning:
+            payload["warning"] = tts_warning
+        return json.dumps(payload, ensure_ascii=False)
     except ValueError as exc:
         error_msg = f"TTS delivery error ({provider}): {exc}"
         logger.error("%s", error_msg)
@@ -4573,7 +4623,11 @@ TTS_SCHEMA = {
             },
             "output_path": {
                 "type": "string",
-                "description": f"Optional custom file path to save the audio. Defaults to {display_hermes_home()}/audio_cache/<timestamp>.mp3"
+                "description": "Optional file path to save the audio. When set, this file is used instead of output_dir."
+            },
+            "output_dir": {
+                "type": "string",
+                "description": "Optional folder to save into."
             },
             "speed": {
                 "type": "number",
@@ -4610,6 +4664,7 @@ registry.register(
     handler=lambda args, **kw: text_to_speech_tool(
         text=args.get("text", ""),
         output_path=args.get("output_path"),
+        output_dir=args.get("output_dir"),
         speed=args.get("speed"),
         instructions=args.get("instructions"),
         provider=args.get("provider")),

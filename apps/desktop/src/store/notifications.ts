@@ -2,6 +2,7 @@ import { atom } from 'nanostores'
 
 import { translateNow } from '@/i18n'
 import { isByokChromeVisible } from '@/lib/build-channel'
+import { paintToolSurface } from '@/lib/display-path'
 import { categorizePublicError, isKnownFriendlyError, PUBLIC_ERROR_COPY } from '@/lib/user-facing-error'
 
 export type NotificationKind = 'error' | 'warning' | 'info' | 'success'
@@ -167,7 +168,7 @@ export function readableError(error: unknown, fallback: string): { message: stri
   const summary = summarizeErrorMessage(detail, fallback)
 
   if (!isByokChromeVisible()) {
-    return { message: summary }
+    return { message: paintToolSurface(summary).prose }
   }
 
   return { message: summary, detail: detail === summary ? undefined : detail }

@@ -142,6 +142,84 @@ def test_no_tilde_in_stored_path(hermes_home, tmp_path, monkeypatch):
     assert result.path.is_absolute()
 
 
+def test_output_dir_save_does_not_invoke_cp(hermes_home, tmp_path, monkeypatch):
+    """Save-in-folder is the helper, not a shell cp."""
+    dest = tmp_path / "exports"
+    dest.mkdir()
+    ran = []
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: ran.append(args))
+    result = save_generated_bytes(
+        "images", b"img", prefix="image", extension="png", output_dir=str(dest)
+    )
+    assert result.path.parent == dest.resolve()
+    assert result.path.read_bytes() == b"img"
+    assert ran == []
+    for kind, prefix, extension in (
+        ("videos", "video", "mp4"),
+        ("audio", "tts", "mp3"),
+    ):
+        saved = save_generated_bytes(
+            kind, b"x", prefix=prefix, extension=extension, output_dir=str(dest)
+        )
+        assert saved.path.parent == dest.resolve()
+    assert ran == []
+
+
+def test_image_invalid_output_dir_skips_fal(hermes_home, monkeypatch):
+    from tools import image_generation_tool as igt
+
+    fal_submit = MagicMock()
+    monkeypatch.setattr(igt, "_submit_fal_request", fal_submit)
+    raw = igt.image_generate_tool(prompt="a cat", output_dir="safe/../../etc/shadow")
+    payload = json.loads(raw)
+    assert payload["success"] is False
+    assert "traversal" in payload["error"].lower() or ".." in payload["error"]
+    fal_submit.assert_not_called()
+
+
+def test_video_invalid_output_dir_skips_provider(hermes_home, monkeypatch):
+    from tools import video_generation_tool as vgt
+
+    monkeypatch.setenv("NIA_BUILD_CHANNEL", "internal")
+    provider = MagicMock()
+    provider.name = "fal"
+    provider.default_model.return_value = "test-model"
+    monkeypatch.setattr(vgt, "_resolve_active_provider", lambda: provider)
+    monkeypatch.setattr(vgt, "_read_configured_video_provider", lambda: "fal")
+    monkeypatch.setattr(vgt, "_read_configured_video_model", lambda: None)
+    raw = vgt._handle_video_generate(
+        {"prompt": "a cat", "output_dir": "safe/../../etc/shadow"}
+    )
+    payload = json.loads(raw)
+    assert payload["success"] is False
+    provider.generate.assert_not_called()
+
+
+def test_explicit_tts_invalid_output_dir_skips_provider(hermes_home, monkeypatch):
+    from tools import tts_tool
+
+    called = MagicMock()
+    monkeypatch.setattr(tts_tool, "_text_to_speech_single", called)
+    raw = tts_tool.text_to_speech_tool(text="hello", output_dir="safe/../../etc/shadow")
+    payload = json.loads(raw)
+    assert payload["success"] is False
+    called.assert_not_called()
+
+
+def test_schemas_include_output_dir():
+    from tools.image_generation_tool import IMAGE_GENERATE_SCHEMA, _build_dynamic_image_schema
+    from tools.tts_tool import TTS_SCHEMA
+    from tools.video_generation_tool import VIDEO_GENERATE_SCHEMA, _build_dynamic_video_schema
+
+    assert "output_dir" in IMAGE_GENERATE_SCHEMA["parameters"]["properties"]
+    assert "output_dir" in _build_dynamic_image_schema()["parameters"]["properties"]
+    assert "output_dir" in VIDEO_GENERATE_SCHEMA["parameters"]["properties"]
+    dynamic_video = _build_dynamic_video_schema()["parameters"]["properties"]
+    assert "output_dir" in dynamic_video
+    assert "output_dir" in TTS_SCHEMA["parameters"]["properties"]
+    assert "output_path" in TTS_SCHEMA["parameters"]["properties"]
+
+
 def test_image_tool_validation_reject_skips_fal(hermes_home, monkeypatch):
     """Unit: validation reject → Fal never called, no credits."""
     from tools import image_generation_tool as igt

@@ -100,6 +100,42 @@ class TestPreToolCallPolicy:
     def test_allows_user_workspace(self, plugin, tool_name, args):
         assert plugin._on_pre_tool_call(tool_name=tool_name, args=args) is None
 
+    def test_allows_copy_of_generated_deliverable(self, plugin, public_env):
+        image = public_env / "cache" / "generated" / "images" / "a.png"
+        image.parent.mkdir(parents=True)
+        image.write_bytes(b"png")
+        dest = public_env.parent / "Desktop" / "a.png"
+        command = f"cp {image} {dest}"
+        assert plugin._on_pre_tool_call(tool_name="terminal", args={"command": command}) is None
+
+    def test_blocks_env_sibling_symlink_and_traversal(self, plugin, public_env):
+        blocked = plugin._on_pre_tool_call(
+            tool_name="terminal", args={"command": "cat ~/.hermes/.env"}
+        )
+        assert blocked is not None
+        assert blocked["action"] == "block"
+
+        sibling = public_env / "cache" / "generated-x" / "secret"
+        sibling.parent.mkdir(parents=True)
+        sibling.write_text("nope")
+        assert plugin._on_pre_tool_call(
+            tool_name="read_file", args={"path": str(sibling)}
+        ) is not None
+
+        env = public_env / ".env"
+        env.write_text("SECRET=1")
+        link = public_env / "cache" / "generated" / "leak"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(env)
+        assert plugin._on_pre_tool_call(
+            tool_name="read_file", args={"path": str(link)}
+        ) is not None
+
+        traversal = str(public_env / "cache" / "generated" / ".." / ".." / ".env")
+        assert plugin._on_pre_tool_call(
+            tool_name="read_file", args={"path": traversal}
+        ) is not None
+
     def test_noop_on_internal_channel(self, plugin, monkeypatch):
         monkeypatch.setenv("NIA_BUILD_CHANNEL", "internal")
         out = plugin._on_pre_tool_call(
@@ -112,12 +148,22 @@ class TestBoundaryRedaction:
     def test_collapses_home_and_redacts_secrets(self, plugin, tmp_path, monkeypatch):
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         secret = "sk-ant-api03-" + ("a" * 40)
-        raw = f"home={tmp_path} token={secret}"
+        image = tmp_path / ".hermes" / "cache" / "generated" / "images" / "x.png"
+        raw = f"saved={image} token={secret}"
         out = plugin._on_transform_tool_result(tool_name="terminal", result=raw)
         assert out is not None
-        assert str(tmp_path) not in out
         assert secret not in out
         assert "redacted" in out.lower()
+        assert ".hermes" in out
+        assert str(image) in out
+        assert "~/cache/" not in out
+
+    def test_terminal_result_keeps_absolute_generated_path(self, plugin, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        image = tmp_path / ".hermes" / "cache" / "generated" / "images" / "x.png"
+        out = plugin._on_transform_terminal_output(command="ls", output=str(image))
+        assert out is None or ".hermes" in out
+        assert "~/cache/" not in (out or "")
 
 
 class TestOutputRail:

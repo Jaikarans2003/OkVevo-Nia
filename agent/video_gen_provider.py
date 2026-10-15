@@ -539,14 +539,19 @@ class OpenAICompatibleVideoGenProvider(VideoGenProvider):
                     url = candidate
                     break
 
+            save_dir = kwargs.get("output_dir")
+            if not isinstance(save_dir, str) or not save_dir.strip():
+                save_dir = None
+            else:
+                save_dir = save_dir.strip()
             try:
                 if url:
                     # Materialise the (often short-lived) delivery URL locally.
-                    video_ref = str(save_url_video(url, prefix=self.name))
+                    video_ref = str(save_url_video(url, prefix=self.name, output_dir=save_dir))
                 else:
                     # OpenAI/Sora style: no public URL — pull bytes via the SDK.
                     raw = client.videos.download_content(video.id).read()
-                    video_ref = str(save_bytes_video(raw, prefix=self.name))
+                    video_ref = str(save_bytes_video(raw, prefix=self.name, output_dir=save_dir))
             except Exception as exc:  # noqa: BLE001
                 if url:
                     # Best-effort: hand back the URL rather than fail outright.

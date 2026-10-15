@@ -1230,6 +1230,7 @@ def image_generate_tool(
     reference_image_urls: Optional[list] = None,
     upscale: Optional[bool] = None,
     model: Optional[str] = None,
+    output_dir: Optional[str] = None,
 ) -> str:
     """Generate an image from a text prompt, or edit a source image, via FAL.
 
@@ -1327,7 +1328,7 @@ def image_generate_tool(
         from agent.nia_generated_media import OutputValidationError, resolve_and_validate
 
         try:
-            _media_target = resolve_and_validate("images")
+            _media_target = resolve_and_validate("images", output_dir=output_dir)
         except OutputValidationError as exc:
             return json.dumps({
                 "success": False,
@@ -1726,6 +1727,10 @@ IMAGE_GENERATE_SCHEMA = {
                 "description": "The aspect ratio of the generated image. 'landscape' is 16:9 wide, 'portrait' is 16:9 tall, 'square' is 1:1.",
                 "default": DEFAULT_ASPECT_RATIO,
             },
+            "output_dir": {
+                "type": "string",
+                "description": "Optional folder to save into.",
+            },
             # NOTE (schema diet, #95681): image_url / reference_image_urls /
             # upscale are added per-capability by _build_dynamic_image_schema.
             # Do not re-add them statically.
@@ -2085,6 +2090,11 @@ def _handle_image_generate(args, **kw):
     model = args.get("model")
     if not isinstance(model, str):
         model = None
+    output_dir = args.get("output_dir")
+    if not isinstance(output_dir, str) or not output_dir.strip():
+        output_dir = None
+    else:
+        output_dir = output_dir.strip()
 
     # Public channel lockdown: image generation is the OkVevo Fal path only.
     # A stale ``image_gen.provider`` pick (xAI / Nous Portal / Krea / …) in
@@ -2142,6 +2152,7 @@ def _handle_image_generate(args, **kw):
         reference_image_urls=reference_image_urls,
         upscale=upscale,
         model=model,
+        output_dir=output_dir,
     )
     return _postprocess_image_generate_result(raw, task_id=task_id)
 
@@ -2287,6 +2298,7 @@ def _build_dynamic_image_schema() -> Dict[str, Any]:
     properties: Dict[str, Any] = {
         "prompt": IMAGE_GENERATE_SCHEMA["parameters"]["properties"]["prompt"],
         "aspect_ratio": IMAGE_GENERATE_SCHEMA["parameters"]["properties"]["aspect_ratio"],
+        "output_dir": IMAGE_GENERATE_SCHEMA["parameters"]["properties"]["output_dir"],
     }
 
     if can_edit:

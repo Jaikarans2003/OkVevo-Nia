@@ -9,7 +9,7 @@ import { DiffCount } from '@/components/ui/diff-count'
 import { FadeScroll } from '@/components/ui/fade-scroll'
 import { FileTypeIcon } from '@/components/ui/file-type-icon'
 import { useI18n } from '@/i18n'
-import { displayPath } from '@/lib/display-path'
+import { displayPath, paintToolSurface } from '@/lib/display-path'
 import { cn } from '@/lib/utils'
 import { openReviewForPath, revealReview } from '@/store/review'
 
@@ -61,7 +61,7 @@ export const ChangedFilesCard: FC<{ parts: readonly unknown[] }> = ({ parts }) =
             className="row-hover flex shrink-0 items-center gap-2 rounded-md px-1.5 py-1 text-left"
             key={file.path}
             onClick={() => void openReviewForPath(file.path, scopeCwd, composerScope.target)}
-            title={displayPath(file.path)}
+            title={paintToolSurface(displayPath(file.path)).prose}
             type="button"
           >
             <FileTypeIcon className="shrink-0 text-(--ui-text-tertiary)" path={file.path} size="0.875rem" />

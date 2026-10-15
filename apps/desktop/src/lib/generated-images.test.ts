@@ -38,6 +38,14 @@ describe('stripGeneratedImageEchoes', () => {
       'Saved image:'
     )
   })
+
+  it('keeps a different local media path', () => {
+    const desktop = '[copy](#media:%2FUsers%2Fkaran%2FDesktop%2Ffashion-runway.png)'
+
+    expect(
+      stripGeneratedImageEchoes(`Saved ${desktop}`, ['/Users/karan/.hermes/cache/generated/images/x.png'])
+    ).toBe(`Saved ${desktop}`)
+  })
 })
 
 describe('generatedImageEchoSources', () => {

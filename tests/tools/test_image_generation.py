@@ -359,7 +359,7 @@ class TestRegistryIntegration:
         Model selection stays a user-level config choice, never an
         agent-level arg."""
         props = image_tool.IMAGE_GENERATE_SCHEMA["parameters"]["properties"]
-        assert set(props.keys()) == {"prompt", "aspect_ratio"}
+        assert set(props.keys()) == {"prompt", "aspect_ratio", "output_dir"}
         assert image_tool.IMAGE_GENERATE_SCHEMA["parameters"]["required"] == ["prompt"]
         # The dynamic builder owns the capability args.
         dyn = image_tool._build_dynamic_image_schema()

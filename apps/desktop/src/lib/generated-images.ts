@@ -103,18 +103,64 @@ export function generatedMediaEchoSources(parts: readonly ToolLike[]): string[] 
   ])
 }
 
+function linkDestination(raw: string): string {
+  return raw.trim().replace(/^<|>$/g, '')
+}
+
+function decodedMediaPath(destination: string): string | null {
+  const target = linkDestination(destination)
+
+  if (!target.startsWith('#media:')) {
+    return null
+  }
+
+  try {
+    return decodeURIComponent(target.slice('#media:'.length))
+  } catch {
+    return target.slice('#media:'.length)
+  }
+}
+
+function isRemoteImageUrl(destination: string): boolean {
+  return /^https?:\/\//i.test(linkDestination(destination))
+}
+
+function isToolCardSource(destination: string, sources: readonly string[]): boolean {
+  const target = linkDestination(destination)
+  const decoded = decodedMediaPath(target) ?? target
+
+  return sources.some(source => source === target || source === decoded)
+}
+
 /** Strip a generated image out of prose so it only ever shows in the tool slot.
- *  Once a generation succeeded (`sources` is non-empty) we drop every embedded
- *  image and media link from that message — the model frequently restates the
- *  remote URL while the result holds the local path, so matching the exact
- *  source is not enough. Bare occurrences of the known paths/URLs are removed
- *  too. Surrounding prose is preserved. */
+ *  Drop a `#media:` / `![]()` link when its decoded path is one of the tool-card
+ *  sources, or when it is a remote image URL (the CDN restatement). A different
+ *  local file, such as a Desktop copy, stays. Bare occurrences of the known
+ *  paths/URLs are removed too. Surrounding prose is preserved. */
 export function stripGeneratedImageEchoes(text: string, sources: readonly string[]): string {
   if (!text || sources.length === 0) {
     return text
   }
 
-  let next = text.replace(/!\[[^\]\n]*\]\([^)\n]*\)/g, '').replace(/\[[^\]\n]*\]\(\s*#media:[^)\n]*\)/g, '')
+  let next = text.replace(/!\[[^\]\n]*\]\(([^)\n]*)\)/g, (full, dest: string) => {
+    const target = linkDestination(dest)
+
+    if (isRemoteImageUrl(target) || isToolCardSource(target, sources)) {
+      return ''
+    }
+
+    return full
+  })
+
+  next = next.replace(/\[[^\]\n]*\]\(\s*(#media:[^)\n]*)\)/g, (full, dest: string) => {
+    const decoded = decodedMediaPath(dest) ?? linkDestination(dest)
+
+    if (isRemoteImageUrl(decoded) || isToolCardSource(dest, sources)) {
+      return ''
+    }
+
+    return full
+  })
 
   for (const source of unique([...sources])) {
     next = next.replace(new RegExp(String.raw`(^|[\s([{])<?${regexEscape(source)}>?(?=$|[\s)\]},.!?])`, 'g'), '$1')

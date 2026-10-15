@@ -5,6 +5,7 @@ import { getProfiles } from '@/hermes'
 import type { Translations } from '@/i18n'
 import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import { parseCommandDispatch, parseSlashCommand, sessionTitle } from '@/lib/chat-runtime'
+import { paintToolSurface } from '@/lib/display-path'
 import {
   type CommandsCatalogLike,
   type DesktopActionId,
@@ -618,7 +619,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
                 durationMs: 5_000,
                 id: noticeId,
                 kind: aborted ? 'error' : 'success',
-                message: lines.join('\n')
+                message: paintToolSurface(lines.join('\n')).prose
               })
 
               return
@@ -628,7 +629,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
 
             if (hostOutput) {
               renderSlashOutput(hostOutput)
-              notify({ durationMs: 5_000, id: noticeId, kind: 'success', message: hostOutput })
+              notify({ durationMs: 5_000, id: noticeId, kind: 'success', message: paintToolSurface(hostOutput).prose })
 
               return
             }

@@ -47,8 +47,16 @@ _BEDROCK_RE = re.compile(r"\bBedrock\b", re.IGNORECASE)
 _CREDENTIAL_POOL_RE = re.compile(r"\bcredential pools?\b", re.IGNORECASE)
 _HERMES_HOME_RE = re.compile(r"\bHERMES_HOME\b")
 # Vendor/model ids like minimax/minimax-m3, anthropic/claude-sonnet-4.6 — not apps/desktop.
+# The id must start a token. A path segment (slash, dot, or hyphen before the
+# vendor) keeps Desktop/Micro-Drama-Testing/file.png intact.
 _MODEL_ID_RE = re.compile(
-    r"\b[a-z][a-z0-9.-]{1,32}/[a-z0-9][a-z0-9._-]*[-:][a-z0-9][a-z0-9._-]*\b",
+    r"(?<![A-Za-z0-9._\\/-])[a-z][a-z0-9.-]{1,32}/[a-z0-9][a-z0-9._-]*[-:][a-z0-9][a-z0-9._-]*\b",
+    re.IGNORECASE,
+)
+# Loadable destinations stay byte-for-byte: #media: hrefs, MEDIA: paths, and
+# markdown link/image targets. The prose around them is still scrubbed.
+_LOADABLE_DEST_RE = re.compile(
+    r"(?<=\]\()(?:<[^>\n]+>|[^)\n]+)(?=\))|MEDIA:\s*[^\s`'\"]+|#media:[^\s)'\"]+",
     re.IGNORECASE,
 )
 _NIA_PROFILE_RE = re.compile(r"\bNia profile\b")
@@ -108,8 +116,25 @@ def _replace_profile_named(match: re.Match[str]) -> str:
     return f"bot {verb}"
 
 
+def _lift_loadable_spans(raw: str) -> tuple[str, list[str]]:
+    spans: list[str] = []
+
+    def _repl(match: re.Match[str]) -> str:
+        spans.append(match.group(0))
+        return f"\x00LOAD{len(spans) - 1}\x00"
+
+    return _LOADABLE_DEST_RE.sub(_repl, raw), spans
+
+
+def _restore_loadable_spans(text: str, spans: list[str]) -> str:
+    for index, span in enumerate(spans):
+        text = text.replace(f"\x00LOAD{index}\x00", span)
+    return text
+
+
 def sanitize_user_facing_prose(raw: str) -> str:
-    protected = re.sub(r"hermes://", _PROTO_TOKEN, raw, flags=re.IGNORECASE).replace(
+    lifted, spans = _lift_loadable_spans(raw)
+    protected = re.sub(r"hermes://", _PROTO_TOKEN, lifted, flags=re.IGNORECASE).replace(
         "@hermes/", _SDK_TOKEN
     )
     text = display_install_path(protected)
@@ -144,7 +169,8 @@ def sanitize_user_facing_prose(raw: str) -> str:
     text = _NIA_PROFILE_RE.sub("Nia bot", text)
     text = _PROFILE_ACTION_RE.sub(_replace_profile_action, text)
     text = _PROFILE_NAMED_RE.sub(_replace_profile_named, text)
-    return text.replace(_PROTO_TOKEN, "hermes://").replace(_SDK_TOKEN, "@hermes/")
+    restored = text.replace(_PROTO_TOKEN, "hermes://").replace(_SDK_TOKEN, "@hermes/")
+    return _restore_loadable_spans(restored, spans)
 
 
 def sanitize_user_facing_brand(raw: str) -> str:

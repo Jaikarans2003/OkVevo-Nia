@@ -1137,7 +1137,12 @@ class FALVideoGenProvider(VideoGenProvider):
         try:
             from agent.video_gen_provider import save_url_video
 
-            url = str(save_url_video(url))
+            save_dir = kwargs.get("output_dir")
+            if not isinstance(save_dir, str) or not save_dir.strip():
+                save_dir = None
+            else:
+                save_dir = save_dir.strip()
+            url = str(save_url_video(url, output_dir=save_dir))
         except Exception as exc:  # noqa: BLE001 — bare-URL fallback
             logger.warning("Could not cache generated video locally: %s", exc)
 
