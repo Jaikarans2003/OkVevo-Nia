@@ -1,6 +1,12 @@
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+// Public-channel paint: vitest defines __NIA_BUILD_CHANNEL__ as internal, so
+// sanitizePublicText is a no-op unless we force the public gate closed.
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible: () => false
+}))
+
 // Regression coverage for #93479: a failed dynamic import of the lazily-loaded
 // Shiki diff module (packaged asar/asar.unpacked path mismatch, or any other
 // fetch failure) rejects the `React.lazy()` promise. React.Suspense only
@@ -50,6 +56,22 @@ function renderQuietly(node: Parameters<typeof render>[0]) {
     spy.mockRestore()
   }
 }
+
+describe('FileDiffPanel paints hermes home paths in public channel', () => {
+  it('scrubs absolute .hermes paths from diff line text', async () => {
+    const leak = [
+      '--- a/bridge.py',
+      '+++ b/bridge.py',
+      '@@ -1,1 +1,1 @@',
+      "-open('/Users/me/.hermes/okvevo-firebase-id-token')",
+      "+open('/Users/me/.hermes/okvevo-firebase-id-token')"
+    ].join('\n')
+    const { container } = renderQuietly(<FileDiffPanel diff={leak} path="bridge.py" />)
+    await act(() => new Promise(resolve => setTimeout(resolve, 50)))
+    expect(container.textContent).not.toContain('.hermes')
+    expect(container.textContent).toMatch(/Nia data folder|internal/i)
+  })
+})
 
 describe('FileDiffPanel survives a failed lazy syntax-diff chunk', () => {
   it('degrades to the plain colored diff instead of taking down the surrounding boundary', async () => {

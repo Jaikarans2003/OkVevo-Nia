@@ -152,6 +152,9 @@ describe('sanitizeUserFacingBrand', () => {
     expect(sanitizeUserFacingBrand('Here:\n```ts\nconst answer = 42\n```\nDone.')).toBe(
       'Here:\n```ts\nconst answer = 42\n```\nDone.'
     )
+    expect(
+      sanitizeUserFacingBrand('Here:\n```\n/Users/me/.hermes/okvevo-firebase-id-token\n```\nDone.')
+    ).toBe('Here:\n[internal details omitted]\nDone.')
   })
 
   it('keeps loadable media destinations and path folders', () => {
