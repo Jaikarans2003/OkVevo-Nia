@@ -1456,6 +1456,7 @@ def _load_adapter(config_path: Path, profile: str, root: Path) -> tuple[list[str
     command = _string_list(selected.get("command"), label="adapter command", limit=32)
     if not command or any(not part for part in command):
         raise ValueError("adapter command must be a non-empty argv list")
+    command = _resolve_adapter_argv(command, resolved)
     timeout = selected.get("timeout_seconds", 300)
     if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= MAX_TIMEOUT_SECONDS:
         raise ValueError(f"adapter timeout must be 1-{MAX_TIMEOUT_SECONDS} seconds")

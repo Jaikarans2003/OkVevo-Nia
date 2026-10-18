@@ -120,6 +120,16 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Why** | G3 job 4 waited ~32 minutes in the OkVevo concurrency queue; the ID token expired; re-read still 401'd (`invalid_token`). |
 | **Check** | `pytest tests/agent/test_okvevo_id_token_refresh.py` |
 
+### Packaged adapter argv resolve (B1) (2026-10-18)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` |
+| **Files** | `skills/creative/short-drama-produce/scripts/production_tool.py` (`_resolve_adapter_argv`); `references/okvevo-adapter.example.json`; `SKILL.md`; `tests/skills/test_drama_adapter_argv.py` |
+| **What** | `_load_adapter` replaces `python3`/`python`/`py` with `sys.executable` and resolves relative `*.py` against the adapter config directory (supports `..\\scripts\\...`). Missing script fails closed. Example JSON uses `../scripts/provider_adapters.py`. Auth stays env-only. |
+| **Why** | Packaged `run` used project cwd; repo-relative script paths failed and the model invented `bridge.py`. |
+| **Check** | `pytest tests/skills/test_drama_adapter_argv.py` |
+
 ### Token value redaction (not safeStorage) (2026-10-18)
 
 | Field | Value |

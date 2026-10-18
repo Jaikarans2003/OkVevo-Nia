@@ -124,7 +124,7 @@ adapter 配置必须在项目外，只包含 argv 命令和超时；凭据由 ad
 引用语义说明（中文名、用途、允许控制与不得控制范围）；不会把槽位名误当成要渲染进画面的文字。
 外部 adapter 也必须保留这组语义或明确拒绝，不能只上传文件而静默丢失控制边界。
 
-OkVevo 只用项目外的 adapter 配置，命令是 `choose`、`quote`、`submit`、`collect`、`cancel`。配置示例见 [okvevo-adapter.example.json](references/okvevo-adapter.example.json)。凭据是已登录的门户 token 和 `OKVEVO_WEB_ORIGIN`，配置文件里不写供应商密钥。`choose` 和 `quote` 在确认前调用。`submit` 只在报价不超过已同意的估计时执行。门户要扣的金额高于已同意的估计时停下来，请创作者重新同意，不要提交。
+OkVevo 只走 `production_tool.py` + 项目外的 adapter 配置（示例：[okvevo-adapter.example.json](references/okvevo-adapter.example.json)）。每条命令是 `["python3", "../scripts/provider_adapters.py", "portal"]`；工具会把 `python3` 换成当前解释器，并把相对 `*.py` 解析成配置文件旁的绝对路径。登录 token 由应用注入（`OKVEVO_FIREBASE_ID_TOKEN_FILE` / `OKVEVO_WEB_ORIGIN`），配置里不写密钥。**禁止**手写 `bridge.py` / launcher、伪造 `__file__`、或 glob 找 token。`quote` 在确认前；`run` 只在报价不超过已同意估计时提交；门户金额更高时停下来请创作者重新同意。
 
 门户路径不用 base64 内联：本地参考文件（图片、视频、音频）走门户的计量上传流程——adapter 请求签名上传地址、PUT 字节、由门户在服务端实测类型、时长与像素后再计价；报价与提交使用同一份实测值。超过 2048px 的参考图会先由 ffmpeg 压到 2048px 以内。上一段已生成的视频作为下一段输入时，adapter 复用仍在线的 Fal 输出地址（保存在 handle 旁的媒体缓存里），不重复上传。
 
