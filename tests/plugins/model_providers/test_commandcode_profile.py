@@ -270,7 +270,8 @@ class TestCommandCodeFetchModelsPickerContract:
         chat = resolve_provider_full("commandcode", {}, [])
         assert chat is not None and chat.id == "commandcode"
         assert chat.transport == "openai_chat"
-        assert "COMMANDCODE_API_KEY" in chat.api_key_env_vars
+        # models.dev currently advertises CMD_API_KEY; accept either name.
+        assert set(chat.api_key_env_vars) & {"COMMANDCODE_API_KEY", "CMD_API_KEY"}
 
         anth = resolve_provider_full("commandcode-anthropic", {}, [])
         assert anth is not None and anth.id == "commandcode-anthropic"
