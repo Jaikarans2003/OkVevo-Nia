@@ -120,6 +120,16 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Why** | G3 job 4 waited ~32 minutes in the OkVevo concurrency queue; the ID token expired; re-read still 401'd (`invalid_token`). |
 | **Check** | `pytest tests/agent/test_okvevo_id_token_refresh.py` |
 
+### Rate-limit pause → resume (B3) (2026-10-18)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` |
+| **Files** | `production_tool.py` (pause under `pauses/`, UUID `run_id`, portal `"uuid:source_entry"`); `provider_adapters.py` (portal 429 → `rate_limit`); `tests/skills/test_drama_produce_rate_limit.py`; `SKILL.md` |
+| **What** | On 429, persist pause with backoff (`next_attempt_at`); early `run` returns `paused_until` without sleeping; resume reuses portal `run_id`; re-quote; 24h / higher quote → new confirm; handle present → `collect`. Public error allows `message` + `retry_after_seconds`. |
+| **Why** | Resume after rate-limit forced the model to invent bridge.py; confirm was consumed so plain re-`run` failed. |
+| **Check** | `pytest tests/skills/test_drama_produce_rate_limit.py` |
+
 ### Packaged adapter argv resolve (B1) (2026-10-18)
 
 | Field | Value |

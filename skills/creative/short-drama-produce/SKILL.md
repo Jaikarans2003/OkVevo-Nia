@@ -180,6 +180,16 @@ OkVevo 只走 `production_tool.py` + 项目外的 adapter 配置（示例：[okv
 `collect` 不走确认闸门是有意的：闸门防的是意外花钱，而 collect 不花钱；
 如果它也要求重新确认，那么中断之后最省事的路径就变成再付一次，正好是闸门要防的事。
 
+### 限流（rate limit）暂停与续跑
+
+门户或供应商返回限流（HTTP 429 / `category: rate_limit`）时：
+
+1. `run` 写入 pause 记录（`next_attempt_at`），**不会**在工具进程里 sleep；
+2. 在 `next_attempt_at` 之前再次 `run` 会返回 `paused_until`，不调用供应商；
+3. 到期后同一确认可续跑，复用同一门户 `run_id`（UUID + `source_entry`）；**不要**写 bridge/launcher；
+4. 若已有 provider job id，走 `collect` 而不是重新 submit；
+5. 最多 5 次限流重试；暂停超过 24 小时，或续跑时报价高于已同意额度，需要新的确认。
+
 ## 结果与复核
 
 成功后回报实际输出路径、媒体类型和运行状态；不要把“adapter 返回成功”写成质量结论。

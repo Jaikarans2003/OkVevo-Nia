@@ -15,6 +15,7 @@ import contextlib
 import hashlib
 import json
 import os
+import random
 import re
 import stat
 import subprocess
@@ -22,7 +23,7 @@ import sys
 import tempfile
 import uuid
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO
 
@@ -43,6 +44,8 @@ MAX_OUTPUT_BYTES = 512 * 1024 * 1024
 MAX_INPUT_BYTES = 50 * 1024 * 1024
 MAX_TOTAL_INPUT_BYTES = 200 * 1024 * 1024
 MAX_TIMEOUT_SECONDS = 3600
+RATE_LIMIT_MAX_ATTEMPTS = 5
+RATE_LIMIT_PAUSE_TTL = timedelta(hours=24)
 PUBLIC_ERROR_CATEGORIES = {
     "authentication",
     "configuration",
@@ -1440,6 +1443,49 @@ def _inputs_current(root: Path, job: Mapping[str, Any]) -> bool:
         return False
 
 
+_PYTHON_ARGV0 = frozenset({
+    "python",
+    "python3",
+    "py",
+    "python.exe",
+    "python3.exe",
+    "py.exe",
+})
+
+
+def _resolve_adapter_argv(command: list[str], config_path: Path) -> list[str]:
+    """Absolutize adapter argv for packaged runs (cwd is the drama project).
+
+    * argv[0] python / python3 / py (+ ``.exe``) → ``sys.executable``
+    * relative ``*.py`` → resolved against the adapter config file's directory
+    * absolute ``*.py`` that exists is kept
+    * missing script fails closed (no parents[4] / production_tool-dir fallback)
+    """
+    if not command:
+        raise ValueError("adapter command must be a non-empty argv list")
+    config_dir = config_path.expanduser().resolve().parent
+    out: list[str] = []
+    for index, part in enumerate(command):
+        token = str(part)
+        if index == 0 and Path(token).name.lower() in _PYTHON_ARGV0:
+            out.append(sys.executable)
+            continue
+        # Normalize Windows separators so ``..\\scripts\\foo.py`` resolves on POSIX too.
+        normalized = token.replace("\\", "/")
+        if normalized.lower().endswith(".py"):
+            script = Path(normalized)
+            if not script.is_absolute():
+                script = (config_dir / script).resolve()
+            else:
+                script = script.expanduser().resolve()
+            if not script.is_file():
+                raise ValueError(f"adapter script not found: {script}")
+            out.append(str(script))
+            continue
+        out.append(token)
+    return out
+
+
 def _load_adapter(config_path: Path, profile: str, root: Path) -> tuple[list[str], int, frozenset[str] | None]:
     resolved = config_path.expanduser().resolve()
     if resolved.is_relative_to(root):
@@ -1533,6 +1579,8 @@ def _parse_public_adapter_error(
         "http_status",
         "request_id",
         "retryable",
+        "message",
+        "retry_after_seconds",
     }:
         return fallback
     provider = error.get("provider")
@@ -1566,6 +1614,23 @@ def _parse_public_adapter_error(
         ):
             return fallback
         result["request_id"] = request_id
+    message = error.get("message")
+    if message is not None:
+        if not isinstance(message, str) or len(message) > 500:
+            return fallback
+        result["message"] = message
+    retry_after = error.get("retry_after_seconds")
+    if retry_after is not None:
+        if (
+            not isinstance(retry_after, (int, float))
+            or isinstance(retry_after, bool)
+            or retry_after < 0
+            or retry_after > 7 * 24 * 3600
+        ):
+            return fallback
+        result["retry_after_seconds"] = (
+            int(retry_after) if float(retry_after).is_integer() else float(retry_after)
+        )
     return result
 
 
@@ -1828,8 +1893,192 @@ def _write_run(root: Path, job_id: str, run: Mapping[str, Any]) -> None:
     )
 
 
+def _portal_run_id(run_uuid: str, source_entry: object) -> str:
+    segment = source_entry if isinstance(source_entry, str) else ""
+    return f"{run_uuid}:{segment}"
+
+
+def _rate_limit_backoff_seconds(attempt: int, retry_after_floor: float | None) -> float:
+    """Full-jitter backoff capped at 60s; Retry-After is a floor (may exceed 60)."""
+    exp_cap = min(60.0, 2.0 * (2 ** max(0, attempt)))
+    delay = random.uniform(0.0, exp_cap)
+    if retry_after_floor is not None and retry_after_floor > delay:
+        return float(retry_after_floor)
+    return delay
+
+
+def _parse_iso_utc(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _read_pause(root: Path, job_id: str, run_uuid: str) -> dict[str, Any] | None:
+    try:
+        document = _metadata_read_json(
+            root,
+            ("pauses", _job_key(job_id)),
+            f"{run_uuid}.json",
+            maximum=MAX_RUN_RECORD_BYTES,
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def _write_pause(root: Path, job_id: str, pause: Mapping[str, Any]) -> None:
+    _metadata_atomic_json(
+        root,
+        ("pauses", _job_key(job_id)),
+        f"{pause['run_uuid']}.json",
+        pause,
+    )
+
+
+def _clear_pause(root: Path, job_id: str, run_uuid: str) -> None:
+    path = root / PRODUCTION_ROOT / "pauses" / _job_key(job_id) / f"{run_uuid}.json"
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _find_active_pause(root: Path, job_id: str, fingerprint: object) -> dict[str, Any] | None:
+    directory = root / PRODUCTION_ROOT / "pauses" / _job_key(job_id)
+    if not directory.is_dir():
+        return None
+    latest: dict[str, Any] | None = None
+    latest_at: datetime | None = None
+    for path in directory.glob("*.json"):
+        if path.name.startswith("."):
+            continue
+        try:
+            document = _metadata_read_json(
+                root,
+                ("pauses", _job_key(job_id)),
+                path.name,
+                maximum=MAX_RUN_RECORD_BYTES,
+            )
+        except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(document, dict):
+            continue
+        if document.get("fingerprint") != fingerprint:
+            continue
+        paused_at = _parse_iso_utc(document.get("paused_at"))
+        if paused_at is None:
+            continue
+        if latest_at is None or paused_at > latest_at:
+            latest = document
+            latest_at = paused_at
+    return latest
+
+
 def run_job(root: Path, *, job_id: str, adapter_config: Path) -> dict[str, Any]:
     root = find_project(root)
+    # Preflight under lock (no network). Resume re-quote and adapter run happen after.
+    with _project_lock(root):
+        if _active_run(root, job_id) is not None:
+            raise RuntimeError("this job is already running")
+        job = _read_job(root, job_id)
+        command, timeout, roles = _load_adapter(adapter_config, str(job["adapter"]), root)
+        _require_adapter_roles(job, roles)
+        try:
+            receipt = _metadata_read_json(
+                root,
+                ("confirmations",),
+                f"{_job_key(job_id)}.json",
+                maximum=MAX_RUN_RECORD_BYTES,
+            )
+        except FileNotFoundError as exc:
+            raise ConfirmationRequiredError("job needs explicit confirmation") from exc
+        if not isinstance(receipt, dict) or receipt.get("fingerprint") != job.get(
+            "fingerprint"
+        ):
+            raise ConfirmationRequiredError("job needs a new explicit confirmation")
+        pause = _find_active_pause(root, job_id, job.get("fingerprint"))
+        now = datetime.now(timezone.utc)
+        if pause is not None:
+            paused_at = _parse_iso_utc(pause.get("paused_at")) or now
+            if now - paused_at > RATE_LIMIT_PAUSE_TTL:
+                _clear_pause(root, job_id, str(pause.get("run_uuid") or ""))
+                raise ConfirmationRequiredError(
+                    "rate-limit pause expired; job needs a new explicit confirmation"
+                )
+            next_at = _parse_iso_utc(pause.get("next_attempt_at"))
+            if next_at is not None and now < next_at:
+                return {
+                    "job_id": job_id,
+                    "run_id": pause.get("run_uuid"),
+                    "portal_run_id": pause.get("portal_run_id"),
+                    "state": "paused_until",
+                    "paused_until": pause.get("next_attempt_at"),
+                    "attempt": pause.get("attempt"),
+                }
+            attempt_so_far = pause.get("attempt")
+            if (
+                isinstance(attempt_so_far, int)
+                and not isinstance(attempt_so_far, bool)
+                and attempt_so_far >= RATE_LIMIT_MAX_ATTEMPTS
+            ):
+                return {
+                    "job_id": job_id,
+                    "run_id": pause.get("run_uuid"),
+                    "portal_run_id": pause.get("portal_run_id"),
+                    "state": "rate_limit_exhausted",
+                    "message": (
+                        "Still rate-limited after "
+                        f"{RATE_LIMIT_MAX_ATTEMPTS} attempts. Wait and try again later, "
+                        "or prepare a new confirmation."
+                    ),
+                    "attempt": attempt_so_far,
+                }
+            run_id = str(pause["run_uuid"])
+            if _read_provider_handle(root, job_id, run_id) is not None:
+                # Provider already accepted the job — collect, do not submit again.
+                pass  # handled below after lock
+            resume_mode = True
+        else:
+            resume_mode = False
+            if receipt.get("consumed_at") is not None:
+                raise ConfirmationRequiredError("job needs a new explicit confirmation")
+
+    if resume_mode:
+        run_id = str(pause["run_uuid"])
+        portal_run_id = str(
+            pause.get("portal_run_id")
+            or _portal_run_id(run_id, job.get("source_entry"))
+        )
+        if _read_provider_handle(root, job_id, run_id) is not None:
+            return collect_job(root, job_id=job_id, adapter_config=adapter_config)
+        # Re-quote outside the lock; a higher price needs a new confirm.
+        quote = _quote_for_job(root, job, adapter_config)
+        with _project_lock(root):
+            _metadata_atomic_json(
+                root,
+                ("quotes",),
+                f"{_job_key(job_id)}.json",
+                quote,
+            )
+        approved = receipt.get("approved_credits")
+        fresh_credits = quote.get("credits")
+        if (
+            isinstance(approved, int)
+            and not isinstance(approved, bool)
+            and isinstance(fresh_credits, int)
+            and not isinstance(fresh_credits, bool)
+            and fresh_credits > approved
+        ):
+            raise ConfirmationRequiredError(
+                "portal quote exceeds approved credits; job needs a new confirmation"
+            )
+
     with tempfile.TemporaryDirectory(prefix="short-drama-inputs-") as directory:
         attempt_root = Path(directory)
         snapshot_root = attempt_root / "inputs"
@@ -1851,46 +2100,75 @@ def run_job(root: Path, *, job_id: str, adapter_config: Path) -> dict[str, Any]:
                 )
             except FileNotFoundError as exc:
                 raise ConfirmationRequiredError("job needs explicit confirmation") from exc
-            if (
-                not isinstance(receipt, dict)
-                or receipt.get("fingerprint") != job.get("fingerprint")
-                or receipt.get("consumed_at") is not None
+            if not isinstance(receipt, dict) or receipt.get("fingerprint") != job.get(
+                "fingerprint"
             ):
                 raise ConfirmationRequiredError("job needs a new explicit confirmation")
-            for output in job["outputs"]:
-                target = _project_file(root, output)
-                if target.exists() and not job["overwrite"]:
-                    raise FileExistsError(f"output exists and overwrite is false: {output}")
-            # Pin every confirmed input into a private immutable snapshot before
-            # consuming confirmation. Provider adapters never reopen live project paths.
-            _snapshot_inputs(root, job, snapshot_root)
-            run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:8]}"
-            receipt["consumed_at"] = utc_now()
-            receipt["run_id"] = run_id
-            _metadata_atomic_json(
-                root,
-                ("confirmations",),
-                f"{_job_key(job_id)}.json",
-                receipt,
-            )
-            run = {
-                "schema_version": JOB_SCHEMA,
-                "run_id": run_id,
-                "job_id": job_id,
-                "fingerprint": job["fingerprint"],
-                "modality": job["modality"],
-                "adapter": job["adapter"],
-                "status": "running",
-                "started_at": utc_now(),
-                "finished_at": None,
-                "outputs": [],
-            }
-            _write_run(root, job_id, run)
+
+            if resume_mode:
+                run_id = str(pause["run_uuid"])
+                portal_run_id = str(
+                    pause.get("portal_run_id")
+                    or _portal_run_id(run_id, job.get("source_entry"))
+                )
+                _snapshot_inputs(root, job, snapshot_root)
+                run = {
+                    "schema_version": JOB_SCHEMA,
+                    "run_id": run_id,
+                    "portal_run_id": portal_run_id,
+                    "job_id": job_id,
+                    "fingerprint": job["fingerprint"],
+                    "modality": job["modality"],
+                    "adapter": job["adapter"],
+                    "status": "running",
+                    "started_at": utc_now(),
+                    "finished_at": None,
+                    "outputs": [],
+                }
+                _write_run(root, job_id, run)
+            else:
+                if receipt.get("consumed_at") is not None:
+                    raise ConfirmationRequiredError("job needs a new explicit confirmation")
+                for output in job["outputs"]:
+                    target = _project_file(root, output)
+                    if target.exists() and not job["overwrite"]:
+                        raise FileExistsError(
+                            f"output exists and overwrite is false: {output}"
+                        )
+                # Pin every confirmed input into a private immutable snapshot before
+                # consuming confirmation. Provider adapters never reopen live project paths.
+                _snapshot_inputs(root, job, snapshot_root)
+                run_id = str(uuid.uuid4())
+                portal_run_id = _portal_run_id(run_id, job.get("source_entry"))
+                receipt["consumed_at"] = utc_now()
+                receipt["run_id"] = run_id
+                receipt["portal_run_id"] = portal_run_id
+                _metadata_atomic_json(
+                    root,
+                    ("confirmations",),
+                    f"{_job_key(job_id)}.json",
+                    receipt,
+                )
+                run = {
+                    "schema_version": JOB_SCHEMA,
+                    "run_id": run_id,
+                    "portal_run_id": portal_run_id,
+                    "job_id": job_id,
+                    "fingerprint": job["fingerprint"],
+                    "modality": job["modality"],
+                    "adapter": job["adapter"],
+                    "status": "running",
+                    "started_at": utc_now(),
+                    "finished_at": None,
+                    "outputs": [],
+                }
+                _write_run(root, job_id, run)
 
         payload = {key: job[key] for key in ALLOWED_JOB_KEYS if key in job}
         payload.update(
             {
-                "run_id": run_id,
+                # Gateway dedupe key keeps the colon; on-disk names use UUID only.
+                "run_id": portal_run_id,
                 "project_root": str(snapshot_root),
                 "output_root": str(output_root),
                 # Where to record the provider job id the instant it exists, so
@@ -1936,12 +2214,22 @@ def run_job(root: Path, *, job_id: str, adapter_config: Path) -> dict[str, Any]:
                 if isinstance(provider_job_id, str) and 0 < len(provider_job_id) <= 200:
                     run["provider_job_id"] = provider_job_id
                 _write_run(root, job_id, run)
+                _clear_pause(root, job_id, run_id)
         except Exception as exc:
             with _project_lock(root):
+                public = (
+                    exc.public_error
+                    if isinstance(exc, AdapterError) and exc.public_error is not None
+                    else None
+                )
+                is_rate_limit = (
+                    isinstance(public, dict) and public.get("category") == "rate_limit"
+                )
+                # Keep status in the allowed set; durable pause lives in pauses/.
                 run["status"] = "failed"
                 run["finished_at"] = utc_now()
-                if isinstance(exc, AdapterError) and exc.public_error is not None:
-                    run["error"] = exc.public_error
+                if public is not None:
+                    run["error"] = public
                 # A timeout or a killed adapter does not cancel the provider's
                 # task. Carry the handle onto the failed record so `audit` can
                 # say "collect this" instead of the creator paying twice.
@@ -1949,10 +2237,51 @@ def run_job(root: Path, *, job_id: str, adapter_config: Path) -> dict[str, Any]:
                 if orphan is not None:
                     run["provider_job_id"] = orphan
                 _write_run(root, job_id, run)
+                if is_rate_limit:
+                    prior = _read_pause(root, job_id, run_id) or {}
+                    prior_attempt = prior.get("attempt")
+                    attempt = (
+                        prior_attempt + 1
+                        if isinstance(prior_attempt, int)
+                        and not isinstance(prior_attempt, bool)
+                        else 1
+                    )
+                    floor_raw = public.get("retry_after_seconds") if public else None
+                    floor = (
+                        float(floor_raw)
+                        if isinstance(floor_raw, (int, float))
+                        and not isinstance(floor_raw, bool)
+                        else None
+                    )
+                    delay = _rate_limit_backoff_seconds(attempt - 1, floor)
+                    next_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
+                    pause_doc = {
+                        "schema_version": JOB_SCHEMA,
+                        "job_id": job_id,
+                        "fingerprint": job["fingerprint"],
+                        "run_uuid": run_id,
+                        "portal_run_id": portal_run_id,
+                        "attempt": attempt,
+                        "paused_at": utc_now(),
+                        "next_attempt_at": next_at.isoformat().replace("+00:00", "Z"),
+                        "approved_credits": receipt.get("approved_credits"),
+                        "error": public,
+                    }
+                    _write_pause(root, job_id, pause_doc)
+                    return {
+                        "job_id": job_id,
+                        "run_id": run_id,
+                        "portal_run_id": portal_run_id,
+                        "state": "paused_for_rate_limit",
+                        "paused_until": pause_doc["next_attempt_at"],
+                        "attempt": attempt,
+                        "error": public,
+                    }
             raise
     return {
         "job_id": job_id,
         "run_id": run_id,
+        "portal_run_id": portal_run_id,
         "state": "succeeded",
         "outputs": run["outputs"],
     }
