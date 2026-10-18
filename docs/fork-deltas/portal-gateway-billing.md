@@ -120,6 +120,16 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Why** | G3 job 4 waited ~32 minutes in the OkVevo concurrency queue; the ID token expired; re-read still 401'd (`invalid_token`). |
 | **Check** | `pytest tests/agent/test_okvevo_id_token_refresh.py` |
 
+### Token value redaction (not safeStorage) (2026-10-18)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[desktop]` |
+| **Files** | `agent/redact.py`; `plugins/nia-public-guard/`; `backend-env.ts` (`NIA_USER_DATA_DIR`) |
+| **What** | Refresh token stays in `~/.hermes/okvevo-firebase-refresh-token` for Python rotation on long Fal polls. Tool/log output masks current id+refresh file values (whitespace-stripped, min 20 chars) as `[REDACTED]`. Guard blocks token basenames, env forms, `~/.h*` globs, and Electron userData. |
+| **Why** | Moving refresh into Electron safeStorage would break Python poll refresh; path globs bypassed the old literal `/.hermes` check. |
+| **Check** | `pytest tests/agent/test_redact.py -k OkvevoToken`; `pytest tests/plugins/test_nia_public_guard.py -k TokenAndGlob` |
+
 ### Fal request contract (2026-10-12)
 
 | Field | Value |

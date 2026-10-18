@@ -122,12 +122,25 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
   assert.equal(env.PYTHONPATH, '/repo/hermes-agent:/existing/pythonpath')
   assert.equal(env.OKVEVO_FIREBASE_ID_TOKEN_FILE, '/Users/test/.hermes/okvevo-firebase-id-token')
   assert.equal(env.OKVEVO_WEB_ORIGIN, '')
+  assert.equal(env.NIA_USER_DATA_DIR, undefined)
   assert.ok(
     env.PATH.startsWith(
       '/Users/test/.hermes/node/bin:/Users/test/.hermes/node:/Users/test/.hermes/hermes-agent/venv/bin:'
     )
   )
   assert.ok(env.PATH.includes('/opt/homebrew/bin'))
+})
+
+test('buildDesktopBackendEnv exports NIA_USER_DATA_DIR from userDataDir', () => {
+  const env = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.hermes',
+    currentEnv: { PATH: '/usr/bin' },
+    platform: 'darwin',
+    pathModule: path.posix,
+    userDataDir: '/Users/test/Library/Application Support/Nia'
+  })
+
+  assert.equal(env.NIA_USER_DATA_DIR, '/Users/test/Library/Application Support/Nia')
 })
 
 test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly', () => {
