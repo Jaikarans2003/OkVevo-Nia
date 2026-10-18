@@ -129,11 +129,11 @@ def model_param_description(kind: str) -> str:
     grew past the cap and the selfcheck is failing somewhere."""
     rows = shipped_rows(kind)
     header = (
-        "Optional model override; omit for the configured default. When the "
-        "request (or a skill) clearly points at a model, pass its exact id "
-        "from the shipped catalog below; if vibe/budget is genuinely "
-        "ambiguous and no model was named, call clarify instead of guessing. "
-        "Unknown or unshipped ids are rejected with the valid list."
+        "Optional model override; omit for the configured default only when "
+        "neither the user nor a loaded skill named a model. When the user or "
+        "any loaded skill names a photo/video model, pass that exact shipped "
+        "catalog id — never omit it after a refusal, and never redraw with the "
+        "default. Unknown or unshipped ids are rejected with the valid list."
     )
     if not rows:
         return header

@@ -144,6 +144,92 @@ class TestPreToolCallPolicy:
         assert out is None
 
 
+class TestTokenAndGlobPolicy:
+    """Glob / env / relative / token basename — best-effort denylist."""
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "ls ~/.h*",
+            "cat ~/.h*/okvevo-firebase-id-token",
+            "ls -d $HOME/.h*",
+        ],
+    )
+    def test_blocks_hermes_home_globs(self, plugin, command):
+        out = plugin._on_pre_tool_call(tool_name="terminal", args={"command": command})
+        assert out is not None
+        assert out["action"] == "block"
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "cat $OKVEVO_FIREBASE_ID_TOKEN_FILE",
+            "echo $HERMES_HOME/okvevo-firebase-id-token",
+        ],
+    )
+    def test_blocks_token_env_forms(self, plugin, command):
+        out = plugin._on_pre_tool_call(tool_name="terminal", args={"command": command})
+        assert out is not None
+        assert out["action"] == "block"
+
+    def test_blocks_relative_token_path_with_cwd(self, plugin, public_env, tmp_path):
+        project = tmp_path / "project" / "nested"
+        project.mkdir(parents=True)
+        # ../../.hermes from project/nested → tmp_path/.hermes
+        rel = "../../.hermes/okvevo-firebase-id-token"
+        out = plugin._on_pre_tool_call(
+            tool_name="read_file",
+            args={"path": rel, "cwd": str(project)},
+        )
+        assert out is not None
+        assert out["action"] == "block"
+
+    def test_blocks_token_basename_anywhere(self, plugin, tmp_path):
+        leak = tmp_path / "Desktop" / "okvevo-firebase-id-token"
+        leak.parent.mkdir(parents=True)
+        leak.write_text("x" * 40)
+        out = plugin._on_pre_tool_call(
+            tool_name="read_file", args={"path": str(leak)}
+        )
+        assert out is not None
+        assert out["action"] == "block"
+
+    def test_blocks_user_data_dir(self, plugin, tmp_path, monkeypatch):
+        user_data = tmp_path / "NiaUserData"
+        user_data.mkdir()
+        leveldb = user_data / "IndexedDB" / "000017.log"
+        leveldb.parent.mkdir(parents=True)
+        leveldb.write_text("secret")
+        monkeypatch.setenv("NIA_USER_DATA_DIR", str(user_data))
+        out = plugin._on_pre_tool_call(
+            tool_name="read_file", args={"path": str(leveldb)}
+        )
+        assert out is not None
+        assert out["action"] == "block"
+
+    def test_allows_project_config_yaml(self, plugin, tmp_path):
+        cfg = tmp_path / "my-drama" / "config.yaml"
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text("title: demo\n")
+        assert (
+            plugin._on_pre_tool_call(
+                tool_name="read_file", args={"path": str(cfg)}
+            )
+            is None
+        )
+
+    def test_allows_generated_deliverable_path(self, plugin, public_env):
+        image = public_env / "cache" / "generated" / "images" / "shot.png"
+        image.parent.mkdir(parents=True)
+        image.write_bytes(b"png")
+        assert (
+            plugin._on_pre_tool_call(
+                tool_name="read_file", args={"path": str(image)}
+            )
+            is None
+        )
+
+
 class TestBoundaryRedaction:
     def test_collapses_home_and_redacts_secrets(self, plugin, tmp_path, monkeypatch):
         monkeypatch.setattr(Path, "home", lambda: tmp_path)

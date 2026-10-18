@@ -4,6 +4,8 @@ description: 将已生成的短剧镜头剪成成片，记录入出点、镜序�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧剪辑与成片
 
 把 `剧集/<EP>/制作成果/` 里的逐镜素材装配成一条成片，取舍写进 `剧集/<EP>/剪辑单.md`。

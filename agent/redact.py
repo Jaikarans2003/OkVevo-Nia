@@ -76,6 +76,63 @@ _SENSITIVE_BODY_KEYS = frozenset({
 # downgrade — see `_log_redaction_status()` in gateway/run.py and cli.py.
 _REDACT_ENABLED = os.getenv("HERMES_REDACT_SECRETS", "true").lower() in {"1", "true", "yes", "on"}
 
+# OkVevo Firebase token files — exact-value mask (re-read every call; tokens rotate).
+# Skip missing / empty / whitespace-only / shorter than this floor after strip.
+_OKVEVO_TOKEN_MIN_LEN = 20
+_OKVEVO_TOKEN_REDACT = "[REDACTED]"
+
+
+def _okvevo_token_file_paths() -> list:
+    """Paths for id + refresh token files (env or sibling of id file)."""
+    paths = []
+    id_file = (os.environ.get("OKVEVO_FIREBASE_ID_TOKEN_FILE") or "").strip()
+    refresh_file = (os.environ.get("OKVEVO_FIREBASE_REFRESH_TOKEN_FILE") or "").strip()
+    if id_file:
+        paths.append(id_file)
+        if not refresh_file:
+            # Sibling of okvevo-firebase-id-token → okvevo-firebase-refresh-token
+            parent, name = os.path.split(id_file)
+            if name:
+                paths.append(os.path.join(parent, "okvevo-firebase-refresh-token"))
+    if refresh_file:
+        paths.append(refresh_file)
+    # Dedup while preserving order.
+    seen = set()
+    out = []
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        out.append(path)
+    return out
+
+
+def _load_okvevo_token_values() -> list:
+    """Current token bytes, whitespace-stripped; skip empty / short values."""
+    values = []
+    for path in _okvevo_token_file_paths():
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                raw = handle.read()
+        except (OSError, UnicodeError):
+            continue
+        value = raw.strip()
+        if not value or len(value) < _OKVEVO_TOKEN_MIN_LEN:
+            continue
+        values.append(value)
+    return values
+
+
+def _redact_okvevo_token_values(text: str) -> str:
+    """Replace exact current token values with ``[REDACTED]`` (longest first)."""
+    values = _load_okvevo_token_values()
+    if not values:
+        return text
+    for value in sorted(values, key=len, reverse=True):
+        if value in text:
+            text = text.replace(value, _OKVEVO_TOKEN_REDACT)
+    return text
+
 # Known API key prefixes -- match the prefix + contiguous token chars
 _PREFIX_PATTERNS = [
     r"sk-[A-Za-z0-9_-]{10,}",           # OpenAI / OpenRouter / Anthropic (sk-ant-*)
@@ -829,6 +886,11 @@ def redact_sensitive_text(
     # paths either (it's config/data, not log lines).
     if file_read:
         code_file = True
+
+    # OkVevo Firebase ID/refresh tokens — exact value from disk (rotating).
+    # Strip file whitespace before match so a trailing newline in the file
+    # still masks the token when printed without that newline.
+    text = _redact_okvevo_token_values(text)
 
     # Known prefixes (sk-, ghp_, etc.) — gate on substring presence
     if _has_known_prefix_substring(text):

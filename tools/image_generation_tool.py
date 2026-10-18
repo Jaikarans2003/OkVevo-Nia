@@ -1260,8 +1260,10 @@ def image_generate_tool(
                 "success": False,
                 "image": None,
                 "error": (
-                    f"Unknown or unshipped image model '{explicit_model}'. "
-                    f"Valid shipped model ids: {valid}"
+                    f"Named image model '{explicit_model}' was refused "
+                    f"(unknown or unshipped). Do not retry with model omitted — "
+                    f"that would redraw with the default. Pass the exact shipped "
+                    f"catalog id, or ask the user. Valid shipped model ids: {valid}"
                 ),
                 "error_type": "unknown_model",
             }, indent=2, ensure_ascii=False)

@@ -4,6 +4,8 @@ description: 把中文短剧剧本和视觉设定写成有戏剧职责、连续�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧分镜与冻结关键帧
 
 把剧本和视觉事实转成有镜头职责、空间连续性和可冻结起点的 `剧集/<EP>/分镜.md`。

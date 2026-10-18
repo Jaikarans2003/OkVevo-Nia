@@ -4,6 +4,8 @@ description: 把长篇小说、连载网文或多集散稿拆成可追溯的原�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 长篇原著分析
 
 把一部长材料变成**能被引用、能被反驳、能被接着用**的分析层。目标不是复述剧情，而是找出

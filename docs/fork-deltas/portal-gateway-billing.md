@@ -120,6 +120,36 @@ Credits SoT is OkVevo-Web Firestore two-bucket (`allocationBalance` / `topUpBala
 | **Why** | G3 job 4 waited ~32 minutes in the OkVevo concurrency queue; the ID token expired; re-read still 401'd (`invalid_token`). |
 | **Check** | `pytest tests/agent/test_okvevo_id_token_refresh.py` |
 
+### Rate-limit pause → resume (B3) (2026-10-18)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` |
+| **Files** | `production_tool.py` (pause under `pauses/`, UUID `run_id`, portal `"uuid:source_entry"`); `provider_adapters.py` (portal 429 → `rate_limit`); `tests/skills/test_drama_produce_rate_limit.py`; `SKILL.md` |
+| **What** | On 429, persist pause with backoff (`next_attempt_at`); early `run` returns `paused_until` without sleeping; resume reuses portal `run_id`; re-quote; 24h / higher quote → new confirm; handle present → `collect`. Public error allows `message` + `retry_after_seconds`. |
+| **Why** | Resume after rate-limit forced the model to invent bridge.py; confirm was consumed so plain re-`run` failed. |
+| **Check** | `pytest tests/skills/test_drama_produce_rate_limit.py` |
+
+### Packaged adapter argv resolve (B1) (2026-10-18)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` |
+| **Files** | `skills/creative/short-drama-produce/scripts/production_tool.py` (`_resolve_adapter_argv`); `references/okvevo-adapter.example.json`; `SKILL.md`; `tests/skills/test_drama_adapter_argv.py` |
+| **What** | `_load_adapter` replaces `python3`/`python`/`py` with `sys.executable` and resolves relative `*.py` against the adapter config directory (supports `..\\scripts\\...`). Missing script fails closed. Example JSON uses `../scripts/provider_adapters.py`. Auth stays env-only. |
+| **Why** | Packaged `run` used project cwd; repo-relative script paths failed and the model invented `bridge.py`. |
+| **Check** | `pytest tests/skills/test_drama_adapter_argv.py` |
+
+### Token value redaction (not safeStorage) (2026-10-18)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[agent]` + `[desktop]` |
+| **Files** | `agent/redact.py`; `plugins/nia-public-guard/`; `backend-env.ts` (`NIA_USER_DATA_DIR`) |
+| **What** | Refresh token stays in `~/.hermes/okvevo-firebase-refresh-token` for Python rotation on long Fal polls. Tool/log output masks current id+refresh file values (whitespace-stripped, min 20 chars) as `[REDACTED]`. Guard blocks token basenames, env forms, `~/.h*` globs, and Electron userData. |
+| **Why** | Moving refresh into Electron safeStorage would break Python poll refresh; path globs bypassed the old literal `/.hermes` check. |
+| **Check** | `pytest tests/agent/test_redact.py -k OkvevoToken`; `pytest tests/plugins/test_nia_public_guard.py -k TokenAndGlob` |
+
 ### Fal request contract (2026-10-12)
 
 | Field | Value |

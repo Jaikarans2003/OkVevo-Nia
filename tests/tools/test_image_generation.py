@@ -654,3 +654,32 @@ class TestUpscaleDispatchForwarding:
 
         image_tool._dispatch_to_plugin_provider("a cat", "square")
         assert "upscale" not in fake_provider.generate.call_args.kwargs
+
+
+class TestNamedCatalogModel:
+    """RC6: named GPT Image 2 must not fall back to Klein; omit still defaults."""
+
+    def test_gpt_image_2_catalog_ids_resolve(self, image_tool):
+        from tools import media_catalog
+
+        for named in ("openai/gpt-image-2", "fal-ai/gpt-image-2", "openai/gpt-image-2/edit"):
+            row = media_catalog.find_shipped("photos", named)
+            assert row is not None, named
+            resolved = media_catalog.resolve_image_model(row)
+            assert resolved == "fal-ai/gpt-image-2"
+            assert resolved != image_tool.DEFAULT_MODEL
+
+    def test_omitted_model_still_defaults_to_klein(self, image_tool):
+        mid, _ = image_tool._resolve_fal_model()
+        assert mid == image_tool.DEFAULT_MODEL
+
+    def test_unknown_id_says_do_not_retry_without_model(self, image_tool, monkeypatch):
+        import json as _json
+
+        monkeypatch.setattr(image_tool, "_maybe_route_managed_krea", lambda *a, **k: None)
+        out = _json.loads(
+            image_tool.image_generate_tool("x", model="fal-ai/not-a-real-model-xyz")
+        )
+        assert out["success"] is False
+        assert out["error_type"] == "unknown_model"
+        assert "Do not retry with model omitted" in out["error"]

@@ -555,7 +555,7 @@ function ToolEntry({ part }: ToolEntryProps) {
           >
             <ToolGlyph
               copy={copy}
-              filePath={isFileEdit ? view.subtitle : undefined}
+              filePath={isFileEdit ? subtitlePaint.prose || view.subtitle : undefined}
               icon={view.icon}
               legendary={memoryLegendary}
               status={leadingStatus(isPending, view.status)}
@@ -619,7 +619,11 @@ function ToolEntry({ part }: ToolEntryProps) {
             </div>
           )}
           {view.inlineDiff && (
-            <FileDiffPanel className="-mt-1.5" diff={view.inlineDiff} path={isFileEdit ? view.subtitle : undefined} />
+            <FileDiffPanel
+              className="-mt-1.5"
+              diff={view.inlineDiff}
+              path={isFileEdit ? subtitlePaint.prose || undefined : undefined}
+            />
           )}
           {rowMediaPaths.length > 0 && <MediaPlayers paths={rowMediaPaths} />}
           {friendlyErrorLine && (

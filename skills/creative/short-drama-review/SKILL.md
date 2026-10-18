@@ -4,6 +4,8 @@ description: 审查短剧项目中的原著分析、故事、剧本、视觉设�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧审查
 
 优先由未参与当前版本创作的 reviewer 执行；条件不允许时可以自检并如实说明。审查与修改是两个工作

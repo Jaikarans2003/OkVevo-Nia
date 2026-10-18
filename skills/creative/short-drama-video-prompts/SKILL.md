@@ -4,6 +4,8 @@ description: 把短剧分镜和冻结关键帧写成可直接复制的视频提�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧视频与时间线音乐提示词
 
 把已确认镜头和起始帧写成有边界、可生成、可直接复制的 `剧集/<EP>/视频提示词.md`。

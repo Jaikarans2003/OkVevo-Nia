@@ -4,6 +4,8 @@ description: 将中文小说、短剧或漫剧想法、梗概、改编材料、�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧开发
 
 把创作者的意图变成能持续制造**选择、代价与状态变化**的故事系统。保留创作者的题材、结局和尺度选择；不要把流行套路当成剧情答案。

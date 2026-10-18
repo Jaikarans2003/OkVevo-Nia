@@ -2378,7 +2378,12 @@ function unwrapWindowsVenvHermesCommand(command, backendArgs) {
     canImportHermesCli,
     getVenvPython,
     getVenvSitePackagesEntries,
-    buildDesktopBackendEnv: opts => buildDesktopBackendEnv({ ...opts, devServer: Boolean(DEV_SERVER) }),
+    buildDesktopBackendEnv: opts =>
+      buildDesktopBackendEnv({
+        ...opts,
+        devServer: Boolean(DEV_SERVER),
+        userDataDir: app.getPath('userData')
+      }),
     hermesHome: HERMES_HOME,
     resolvePath: (...segments) => path.resolve(...segments),
     dirname: p => path.dirname(p),
@@ -4725,7 +4730,8 @@ function createPythonBackend(root, label, backendArgs, options: any = {}) {
       hermesHome: HERMES_HOME,
       pythonPathEntries: [root, ...getVenvSitePackagesEntries(venvRoot)],
       venvRoot,
-      devServer: Boolean(DEV_SERVER)
+      devServer: Boolean(DEV_SERVER),
+      userDataDir: app.getPath('userData')
     }),
     root,
     bootstrap: Boolean(options.bootstrap),
@@ -4750,7 +4756,8 @@ function createActiveBackend(backendArgs) {
       hermesHome: HERMES_HOME,
       pythonPathEntries: [ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
       venvRoot: VENV_ROOT,
-      devServer: Boolean(DEV_SERVER)
+      devServer: Boolean(DEV_SERVER),
+      userDataDir: app.getPath('userData')
     }),
     root: ACTIVE_HERMES_ROOT,
     bootstrap: true,

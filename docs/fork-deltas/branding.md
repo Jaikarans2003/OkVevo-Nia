@@ -28,6 +28,16 @@ Keep root `LICENSE` (MIT, Copyright Nous Research). Never strip NOTICE/copyright
 | **Re-apply** | Port modules + golden; keep TS table in sync with Python |
 | **Check** | `pytest tests/agent/test_brand_scrub.py tests/agent/test_user_facing_brand.py` |
 
+### Chat file-edit/diff paint (2026-10-18)
+
+| Field | Value |
+|-------|-------|
+| **Tags** | `[desktop]` |
+| **Files** | `apps/desktop/src/components/assistant-ui/tool/fallback.tsx`; `apps/desktop/src/components/chat/diff-lines.tsx`; `display-path.test.ts`; `diff-lines.test.tsx` |
+| **What** | Painted path into file-edit tool chrome; `sanitizePublicText` on FileDiffPanel diff/fullText before parse (display-only). Fenced `/Users/…/.hermes/…` regression in display-path tests. MEDIA lift unchanged. |
+| **Why** | Agent bridge diffs showed `~/.hermes` in chat tool cards. |
+| **Check** | Desktop vitest: `display-path.test.ts`, `diff-lines.test.tsx` |
+
 ### Desktop shell identity
 
 | Field | Value |

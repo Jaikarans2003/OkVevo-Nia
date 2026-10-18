@@ -113,6 +113,7 @@ class AdapterFailure(RuntimeError):
         http_status: int | None = None,
         request_id: str | None = None,
         retryable: bool = False,
+        retry_after_seconds: float | int | None = None,
     ) -> None:
         super().__init__(message)
         self.category = category
@@ -120,6 +121,18 @@ class AdapterFailure(RuntimeError):
         self.http_status = http_status
         self.request_id = _safe_token(request_id)
         self.retryable = retryable
+        if (
+            isinstance(retry_after_seconds, (int, float))
+            and not isinstance(retry_after_seconds, bool)
+            and retry_after_seconds >= 0
+        ):
+            self.retry_after_seconds: float | int | None = (
+                int(retry_after_seconds)
+                if float(retry_after_seconds).is_integer()
+                else float(retry_after_seconds)
+            )
+        else:
+            self.retry_after_seconds = None
 
     def public(self, provider: str) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -132,6 +145,8 @@ class AdapterFailure(RuntimeError):
             result["http_status"] = self.http_status
         if self.request_id is not None:
             result["request_id"] = self.request_id
+        if self.retry_after_seconds is not None:
+            result["retry_after_seconds"] = self.retry_after_seconds
         result["message"] = str(self)
         return result
 
@@ -190,15 +205,23 @@ def _http_failure(provider: str, error: urllib.error.HTTPError) -> AdapterFailur
         category = "invalid_request"
     else:
         category = "provider_response"
+    headers = dict(error.headers.items()) if error.headers is not None else {}
+    retry_after = None
+    if status == 429:
+        try:
+            from agent.retry_utils import parse_retry_after_seconds
+
+            retry_after = parse_retry_after_seconds(headers)
+        except Exception:
+            retry_after = None
     return AdapterFailure(
         f"{provider} HTTP request failed",
         category=category,
         code=_provider_code(document) or f"http_{status}",
         http_status=status,
-        request_id=_request_id(
-            dict(error.headers.items()) if error.headers is not None else {}
-        ),
+        request_id=_request_id(headers),
         retryable=status == 429 or 500 <= status <= 599,
+        retry_after_seconds=retry_after,
     )
 
 
@@ -3149,6 +3172,25 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
                 submitted = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             raw = exc.read().decode("utf-8", "replace")
+            if exc.code == 429:
+                retry_after = None
+                try:
+                    from agent.retry_utils import parse_retry_after_seconds
+
+                    retry_after = parse_retry_after_seconds(exc.headers)
+                except Exception:
+                    retry_after = None
+                raise AdapterFailure(
+                    portal_failure_message(
+                        raw,
+                        "OkVevo rate-limited this submit. Hold kept; retry later.",
+                    ),
+                    category="rate_limit",
+                    code="rate_limited",
+                    http_status=429,
+                    retryable=True,
+                    retry_after_seconds=retry_after,
+                ) from exc
             raise AdapterFailure(
                 portal_failure_message(
                     raw,
@@ -3201,6 +3243,22 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
                     ) from exc
                 continue
             raw = exc.read().decode("utf-8", "replace")
+            if exc.code == 429:
+                retry_after = None
+                try:
+                    from agent.retry_utils import parse_retry_after_seconds
+
+                    retry_after = parse_retry_after_seconds(exc.headers)
+                except Exception:
+                    retry_after = None
+                raise AdapterFailure(
+                    portal_failure_message(raw, "status poll rate-limited"),
+                    category="rate_limit",
+                    code="rate_limited",
+                    http_status=429,
+                    retryable=True,
+                    retry_after_seconds=retry_after,
+                ) from exc
             raise AdapterFailure(
                 portal_failure_message(raw, "status poll failed"),
                 http_status=exc.code,

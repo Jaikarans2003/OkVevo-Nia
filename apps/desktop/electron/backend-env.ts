@@ -153,7 +153,8 @@ function buildDesktopBackendEnv({
   platform = process.platform,
   pathModule = pathModuleForPlatform(platform),
   devServer = false,
-  bundledToolsDir
+  bundledToolsDir,
+  userDataDir
 }: any = {}) {
   const toolsDir =
     bundledToolsDir === undefined ? bundledFfmpegDir({ platform, pathModule }) : bundledToolsDir
@@ -193,6 +194,15 @@ function buildDesktopBackendEnv({
     (typeof __NIA_BUILD_CHANNEL__ !== 'undefined' && __NIA_BUILD_CHANNEL__ === 'internal'
       ? 'internal'
       : 'public')
+
+  // Electron userData for nia-public-guard protected roots — never hard-code.
+  const resolvedUserData =
+    (typeof userDataDir === 'string' && userDataDir.trim()) ||
+    (typeof currentEnv?.NIA_USER_DATA_DIR === 'string' && currentEnv.NIA_USER_DATA_DIR.trim()) ||
+    ''
+  if (resolvedUserData) {
+    env.NIA_USER_DATA_DIR = resolvedUserData
+  }
 
   return env
 }

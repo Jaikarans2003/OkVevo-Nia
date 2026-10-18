@@ -1098,3 +1098,46 @@ class TestMaskSecretControlStripping:
     def test_all_control_value_returns_empty_fallback(self):
         assert mask_secret("\n\x85\u200b") == ""
         assert mask_secret("\n\x85\u200b", empty="(not set)") == "(not set)"
+
+
+class TestOkvevoTokenValueRedaction:
+    """Exact-value mask from OKVEVO_FIREBASE_*_TOKEN_FILE (B2)."""
+
+    def test_empty_token_file_leaves_output_unchanged(self, tmp_path, monkeypatch):
+        id_path = tmp_path / "okvevo-firebase-id-token"
+        id_path.write_text("")
+        monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(id_path))
+        text = "grep found nothing secret here abcdefghijklmnopqrst"
+        assert redact_sensitive_text(text, force=True) == text
+
+    def test_trailing_newline_still_masks_token_without_newline(
+        self, tmp_path, monkeypatch
+    ):
+        # Obviously fake — not a real JWT shape (gitleaks / public repo).
+        token = "FAKE_TEST_OKVEVO_ID_TOKEN_" + ("a" * 40)
+        id_path = tmp_path / "okvevo-firebase-id-token"
+        id_path.write_text(token + "\n")
+        monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(id_path))
+        out = redact_sensitive_text(f"strings dump: {token}", force=True)
+        assert token not in out
+        assert "[REDACTED]" in out
+
+    def test_short_token_skipped(self, tmp_path, monkeypatch):
+        id_path = tmp_path / "okvevo-firebase-id-token"
+        id_path.write_text("short-token")
+        monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(id_path))
+        text = "contains short-token still"
+        assert redact_sensitive_text(text, force=True) == text
+
+    def test_refresh_sibling_and_leveldb_shaped_blob(self, tmp_path, monkeypatch):
+        token = "refresh-" + ("Z" * 40)
+        id_path = tmp_path / "okvevo-firebase-id-token"
+        rt_path = tmp_path / "okvevo-firebase-refresh-token"
+        id_path.write_text("id-" + ("Y" * 40))
+        rt_path.write_text(token)
+        monkeypatch.setenv("OKVEVO_FIREBASE_ID_TOKEN_FILE", str(id_path))
+        # Fake leveldb log line containing the refresh token value.
+        blob = f"prefix\x00{token}\x00suffix"
+        out = redact_sensitive_text(blob, force=True)
+        assert token not in out
+        assert "[REDACTED]" in out

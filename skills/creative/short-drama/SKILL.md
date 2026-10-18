@@ -4,6 +4,8 @@ description: 基于文件系统初始化和继续短剧或漫剧项目，提供 
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧创作路由
 
 本技能负责项目初始化、跨阶段路由、制作形态与 Dashboard。各阶段正文由对应 owner 完成。
