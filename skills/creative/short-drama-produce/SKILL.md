@@ -4,6 +4,8 @@ description: 在创作者明确确认后，执行短剧项目的图片、视频�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 确认后生产
 
 本技能只负责把已经写好的生产规格安全送到运行环境配置的 adapter。图片提示词仍归

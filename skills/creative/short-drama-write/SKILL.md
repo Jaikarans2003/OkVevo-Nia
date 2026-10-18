@@ -4,6 +4,8 @@ description: 编写或修订可拍摄的中文短剧、漫剧单集 Markdown 剧
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧写作
 
 把单集意图写成可表演、可拍摄、会改变故事状态的 `剧集/<EP>/剧本.md`。

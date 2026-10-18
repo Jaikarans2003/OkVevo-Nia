@@ -4,6 +4,8 @@ description: 从短剧剧本拆出人物/造型、地点/视图、道具/状态�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧资产拆解
 
 把剧本文字变成可复用、可持续的视觉事实，统一写入 `剧集/<EP>/视觉设定.md`。不要把每次出场都

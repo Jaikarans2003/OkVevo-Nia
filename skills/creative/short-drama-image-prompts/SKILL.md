@@ -4,6 +4,8 @@ description: 为短剧人物、造型、地点、道具和状态编写或修改�
 license: MIT
 ---
 
+<!-- Reply language: creator-facing replies follow the user (or an explicit language instruction). Chinese skill text is procedure only — not the reply language. / 对创作者的回复跟随用户语言；下文中文仅作流程说明，不是回复语言。 -->
+
 # 短剧资产图片提示词
 
 把视觉事实写成可复用、可修改、可直接复制的角色板、场景板、道具板或状态图提示词，统一保存到
