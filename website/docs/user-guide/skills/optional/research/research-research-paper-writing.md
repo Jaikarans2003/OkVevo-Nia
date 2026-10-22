@@ -22,7 +22,7 @@ Write ML papers for NeurIPS/ICML/ICLR: design→submit.
 | Dependencies | `semanticscholar`, `arxiv`, `habanero`, `requests`, `scipy`, `numpy`, `matplotlib`, `SciencePlots` |
 | Platforms | linux, macos |
 | Tags | `Research`, `Paper Writing`, `Experiments`, `ML`, `AI`, `NeurIPS`, `ICML`, `ICLR`, `ACL`, `AAAI`, `COLM`, `LaTeX`, `Citations`, `Statistical Analysis` |
-| Related skills | [`arxiv`](/docs/user-guide/skills/bundled/research/research-arxiv), [`subagent-driven-development`](/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development) |
+| Related skills | [`arxiv`](../../bundled/research/research-arxiv.md), [`subagent-driven-development`](../../optional/software-development/software-development-subagent-driven-development.md) |
 
 ## Reference: full SKILL.md
 
@@ -1382,9 +1382,9 @@ The main pipeline above targets empirical ML papers. Other paper types require d
 
 ---
 
-## Nia Integration
+## Hermes Agent Integration
 
-This skill is designed for Nia. It uses Nia tools, delegation, scheduling, and memory for the full research lifecycle.
+This skill is designed for the Hermes agent. It uses Hermes tools, delegation, scheduling, and memory for the full research lifecycle.
 
 ### Related Skills
 

@@ -4,54 +4,36 @@ session can't call (Blank Slate audit, Aug 2026).
 Covers:
   * HERMES_AGENT_HELP_GUIDANCE degrades to the docs-only variant when the
     skill tools aren't loaded.
-  * execution_guidance_text() drops web_search lines when web tools are off.
+  * execution_guidance_text() never names a web tool, and drops the
+    terminal/execute_code/read_file/search_files lines the session's toolset
+    can't back (#106506).
   * The coding operating brief drops the `todo` sentence when the todo tool
     isn't loaded.
-  * ESSENTIAL_SKILLS (empty on Nia) are stripped from disabled lists; the
-    shipped-excluded hermes-agent skill is not pinned.
+  * ESSENTIAL_SKILLS can't be disabled via config, and the CLI writer strips
+    them from persisted disabled lists.
 """
 
 from pathlib import Path
 
 
-class TestHermesAgentHelpGuidance:
-    def test_skill_variant_scoped_to_nia_troubleshooting(self):
-        from agent.prompt_builder import HERMES_AGENT_HELP_GUIDANCE
-        assert "Nia (by OkVevo)" in HERMES_AGENT_HELP_GUIDANCE
-        assert "troubleshooting Nia itself" in HERMES_AGENT_HELP_GUIDANCE
-        assert "capability" not in HERMES_AGENT_HELP_GUIDANCE.lower()
-
-    def test_no_skills_variant_has_no_skill_view_reference(self):
-        from agent.prompt_builder import HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS
-        assert "skill_view" not in HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS
-        assert "troubleshooting Nia itself" in HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS
-
-
 class TestExecutionGuidanceText:
-    def test_full_text_when_web_search_available(self):
-        from agent.prompt_builder import (
-            OPENAI_MODEL_EXECUTION_GUIDANCE,
-            execution_guidance_text,
-        )
-        assert execution_guidance_text({"web_search", "terminal"}) == (
-            OPENAI_MODEL_EXECUTION_GUIDANCE
-        )
-
-    def test_full_text_when_toolset_unknown(self):
-        from agent.prompt_builder import (
-            OPENAI_MODEL_EXECUTION_GUIDANCE,
-            execution_guidance_text,
-        )
+    def test_full_text_when_toolset_has_every_named_tool_or_is_unknown(self):
+        from agent.prompt_builder import OPENAI_MODEL_EXECUTION_GUIDANCE, execution_guidance_text
         assert execution_guidance_text(None) == OPENAI_MODEL_EXECUTION_GUIDANCE
+        assert execution_guidance_text(
+            {"terminal", "execute_code", "read_file", "search_files"}
+        ) == OPENAI_MODEL_EXECUTION_GUIDANCE
 
-    def test_web_search_dropped_without_web_tools(self):
+    def test_lean_toolset_is_not_told_to_use_absent_tools(self):
+        # #106506: a toolset with none of terminal/execute_code/read_file/search_files must not be told to
+        # reach for them (GPT models then refused plain arithmetic as "prohibited mental computation").
         from agent.prompt_builder import execution_guidance_text
-        text = execution_guidance_text({"terminal", "read_file"})
-        assert "web_search" not in text
-        # The surrounding structure survives.
-        assert "<mandatory_tool_use>" in text
-        assert "<missing_context>" in text
-        assert "(search_files, read_file, etc.)" in text
+        text = execution_guidance_text({"memory"})
+        mandatory = text.split("<mandatory_tool_use>")[1].split("</mandatory_tool_use>")[0]
+        for tool in ("terminal", "execute_code", "read_file", "search_files", "Arithmetic"):
+            assert tool not in mandatory
+        assert "an appropriate permitted retrieval/search tool" in mandatory
+        assert "run `date`" not in text.split("<act_dont_ask>")[1].split("</act_dont_ask>")[0]
 
 
 class TestCodingBriefTodoGating:
@@ -67,22 +49,20 @@ class TestCodingBriefTodoGating:
         return prefix[0]
 
     def test_todo_kept_when_tool_available(self):
-        brief = self._brief({"todo", "terminal", "read_file"})
-        assert "Track multi-step work with `todo`" in brief
+        brief = self._brief({"todo_list", "terminal", "read_file"})
+        assert "todo_list" in brief
 
     def test_todo_dropped_when_tool_missing(self):
         brief = self._brief({"terminal", "read_file"})
-        assert "`todo`" not in brief
-        # The path:line half of the merged bullet survives.
-        assert "path:line" in brief
+        assert "todo_list" not in brief
 
     def test_unknown_toolset_keeps_full_brief(self):
         brief = self._brief(None)
-        assert "Track multi-step work with `todo`" in brief
+        assert "todo_list" in brief
 
 
 class TestEssentialSkillsUndisableable:
-    def test_agent_side_reader_does_not_pin_hermes_agent(self, monkeypatch, tmp_path):
+    def test_agent_side_reader_strips_essential(self, monkeypatch, tmp_path):
         import agent.skill_utils as su
         cfg = tmp_path / "config.yaml"
         cfg.write_text(
@@ -92,32 +72,33 @@ class TestEssentialSkillsUndisableable:
         monkeypatch.setattr(su, "get_config_path", lambda: cfg)
         su._RAW_CONFIG_CACHE.clear()
         disabled = su.get_disabled_skill_names(platform="cli")
-        assert "hermes-agent" in disabled
+        assert "hermes-agent" not in disabled
         assert "some-other-skill" in disabled
 
-    def test_cli_side_reader_does_not_pin_hermes_agent(self):
+    def test_cli_side_reader_strips_essential(self):
         from hermes_cli.skills_config import get_disabled_skills
         cfg = {"skills": {"disabled": ["hermes-agent", "other"]}}
         disabled = get_disabled_skills(cfg)
-        assert "hermes-agent" in disabled
+        assert "hermes-agent" not in disabled
         assert "other" in disabled
 
-    def test_cli_side_writer_does_not_strip_hermes_agent(self, monkeypatch):
+    def test_cli_side_writer_strips_essential(self, monkeypatch):
         import hermes_cli.skills_config as sc
         saved = {}
         monkeypatch.setattr(sc, "save_config", lambda cfg: saved.update(cfg))
         cfg = {}
         sc.save_disabled_skills(cfg, {"hermes-agent", "other"})
-        assert set(cfg["skills"]["disabled"]) == {"hermes-agent", "other"}
+        assert cfg["skills"]["disabled"] == ["other"]
 
-    def test_skill_manage_delete_allows_non_essential(self):
-        from tools.skill_manager_tool import _pinned_guard
-        assert _pinned_guard("hermes-agent") is None
+    def test_skill_manage_delete_refused(self):
+        from tools.skill_manager_guards import _pinned_guard
+        msg = _pinned_guard("hermes-agent")
+        assert msg is not None
 
 
 class TestEssentialOnlySync:
-    def test_opted_out_sync_seeds_nothing_when_none_essential(self, monkeypatch, tmp_path):
-        """Nia has no essential skills; opt-out copies nothing, including hermes-agent."""
+    def test_opted_out_sync_seeds_only_essential(self, monkeypatch, tmp_path):
+        """A profile with .no-bundled-skills still gets the hermes-agent skill."""
         import tools.skills_sync as ss
 
         home = tmp_path / ".hermes"
@@ -143,6 +124,6 @@ class TestEssentialOnlySync:
         result = ss.sync_skills(quiet=True)
 
         assert result["skipped_opt_out"] is True
-        assert result["copied"] == []
-        assert not (home / "skills" / "autonomous-ai-agents" / "hermes-agent" / "SKILL.md").exists()
+        assert result["copied"] == ["hermes-agent"]
+        assert (home / "skills" / "autonomous-ai-agents" / "hermes-agent" / "SKILL.md").exists()
         assert not (home / "skills" / "media").exists()

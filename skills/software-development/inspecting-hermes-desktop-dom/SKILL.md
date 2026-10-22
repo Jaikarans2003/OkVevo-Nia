@@ -1,6 +1,6 @@
 ---
 name: inspecting-hermes-desktop-dom
-description: "Read the live Nia desktop DOM/CSS over CDP."
+description: "Read the live Hermes desktop DOM/CSS over CDP."
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -11,7 +11,7 @@ metadata:
     related_skills: [node-inspect-debugger, systematic-debugging, dogfood]
 ---
 
-# Inspecting the live Nia desktop DOM
+# Inspecting the live Hermes desktop DOM
 
 ## Overview
 
@@ -122,10 +122,10 @@ When there is no port, or you must not disturb the user's window:
 
 ```bash
 cd apps/desktop
-HERMES_HOME=/tmp/cdp-probe-home \
+HERMES_HOME=$HOME/.hermes/cache/scratch/cdp-probe-home \
 HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 \
 HERMES_DESKTOP_CDP_PORT=9333 \
-  npx electron . --user-data-dir=/tmp/cdp-probe-userdata
+  npx electron . --user-data-dir=$HOME/.hermes/cache/scratch/cdp-probe-userdata
 ```
 
 The separate `--user-data-dir` dodges Electron's single-instance lock, so it

@@ -15,14 +15,13 @@ import type {
   DesktopBootstrapState
 } from '@/global'
 import { useI18n } from '@/i18n'
-import { isByokChromeVisible } from '@/lib/build-channel'
-import { displayInstallPath } from '@/lib/display-path'
-import { AlertCircle, ChevronDown, ChevronRight, Globe, iconSize, Loader2, Monitor } from '@/lib/icons'
 import { LOCAL_ONLY_V1 } from '@/lib/product'
+import { AlertCircle, ChevronDown, ChevronRight, Globe, iconSize, Loader2, Monitor } from '@/lib/icons'
 import { capitalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 
-import { FirstRunRemoteForm } from './first-run-remote-form'
+import { localCardPresentation } from './desktop-install-local-card'
+import { FirstRunRemoteSetup } from './remote-setup/first-run'
 
 /**
  * DesktopInstallOverlay
@@ -164,6 +163,25 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err || 'Unknown error')
 }
 
+/** Split "lead sentence\nDetails: raw" into [lead, raw]; no marker → [text, null]. */
+export function splitFailureDetails(text: string | null): [string, string | null] {
+  const value = (text ?? '').trim()
+  const marker = value.search(/\n?\s*Details:\s*/)
+
+  if (marker < 0) {
+    return [value, null]
+  }
+
+  const lead = value.slice(0, marker).trim()
+
+  const detail = value
+    .slice(marker)
+    .replace(/^\s*Details:\s*/, '')
+    .trim()
+
+  return [lead || value, detail || null]
+}
+
 const EMPTY_STATE: DesktopBootstrapState = {
   active: false,
   manifest: null,
@@ -173,7 +191,8 @@ const EMPTY_STATE: DesktopBootstrapState = {
   startedAt: null,
   completedAt: null,
   setupChoice: null,
-  unsupportedPlatform: null
+  unsupportedPlatform: null,
+  bundled: false
 }
 
 function applyEvent(state: DesktopBootstrapState, ev: DesktopBootstrapEvent): DesktopBootstrapState {
@@ -191,10 +210,13 @@ function applyEvent(state: DesktopBootstrapState, ev: DesktopBootstrapEvent): De
       setupChoice: ev.active
         ? {
             platform: ev.platform || state.setupChoice?.platform || 'unknown',
-            activeRoot: ev.activeRoot || state.setupChoice?.activeRoot || ''
+            activeRoot: ev.activeRoot || state.setupChoice?.activeRoot || '',
+            local: ev.local || state.setupChoice?.local || 'none',
+            bundled: Boolean(ev.bundled)
           }
         : null,
-      unsupportedPlatform: null
+      unsupportedPlatform: null,
+      bundled: Boolean(ev.bundled)
     }
   }
 
@@ -346,6 +368,26 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
     }
   }, [state.error])
 
+  // Escape dismisses a failed install the same way the footer's Close button
+  // does -- local-only, no resetBootstrap + reload. Scoped to the failed
+  // state so a running install is still only cancellable via its own button.
+  useEffect(() => {
+    if (!state.error) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setState(EMPTY_STATE)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the failed/not-failed transition matters, not error text changes
+  }, [Boolean(state.error)])
+
   // The choice remains mounted while main hands off to local bootstrap. Once
   // a manifest/failure takes ownership (or a later repair presents a fresh
   // choice), this transient button state must not leak across phases — so it
@@ -363,23 +405,6 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
   const forActiveRoot = localStart.root === activeRoot
   const localStarting = forActiveRoot && localStart.starting
   const localStartError = forActiveRoot ? localStart.error : null
-  const publicChrome = !isByokChromeVisible()
-
-  const continueLocalInstall = async () => {
-    setLocalStart({ root: activeRoot, starting: true, error: null })
-
-    try {
-      const desktop = window.hermesDesktop
-
-      if (!desktop || typeof desktop.continueBootstrapLocal !== 'function') {
-        throw new Error(copy.localStartUnavailable)
-      }
-
-      await desktop.continueBootstrapLocal()
-    } catch (err) {
-      setLocalStart({ root: activeRoot, starting: false, error: errorMessage(err) })
-    }
-  }
 
   // Mount logic: show whenever a bootstrap is in flight, completed-with-error,
   // or actively running with a manifest. Hide entirely after a successful
@@ -413,32 +438,12 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
   }
 
   if (remoteOpen && !LOCAL_ONLY_V1) {
-    return <FirstRunRemoteForm onBack={() => setRemoteOpen(false)} />
+    return <FirstRunRemoteSetup onBack={() => setRemoteOpen(false)} />
   }
 
   if (state.setupChoice) {
-    if (publicChrome) {
-      return (
-        <div
-          className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 p-4 backdrop-blur-md"
-          data-glass-opaque=""
-        >
-          <div className="flex flex-col items-center gap-6">
-            <BrandMark className="size-11 shrink-0" />
-            <Button disabled={localStarting} onClick={() => void continueLocalInstall()} size="lg" type="button">
-              {localStarting ? <Loader2 className="size-4 animate-spin" /> : null}
-              {copy.installNia}
-            </Button>
-            {localStartError ? (
-              <div className="flex items-start gap-2 text-sm text-destructive">
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                <span>{localStartError}</span>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )
-    }
+    const localState = state.setupChoice.local
+    const localPres = localCardPresentation(localState)
 
     return (
       <div className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 p-4 backdrop-blur-md">
@@ -447,7 +452,9 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             <BrandMark className="size-11 shrink-0" />
             <div className="min-w-0">
               <h2 className="text-xl font-semibold tracking-tight">{copy.setupChoiceTitle}</h2>
-              <p className="mt-1.5 text-sm text-muted-foreground">{copy.setupChoiceDesc}</p>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {localState === 'none' ? copy.setupChoiceDesc : copy.setupChoiceDescLocal}
+              </p>
             </div>
           </div>
 
@@ -467,9 +474,23 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             )}
 
             <button
-              className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 text-left transition hover:bg-(--chrome-action-hover) disabled:cursor-wait disabled:opacity-60"
+              className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 text-left transition hover:bg-(--chrome-action-hover) disabled:cursor-not-allowed disabled:opacity-60"
               disabled={localStarting}
-              onClick={() => void continueLocalInstall()}
+              onClick={async () => {
+                setLocalStart({ root: activeRoot, starting: true, error: null })
+
+                try {
+                  const desktop = window.hermesDesktop
+
+                  if (!desktop || typeof desktop.continueBootstrapLocal !== 'function') {
+                    throw new Error(copy.localStartUnavailable)
+                  }
+
+                  await desktop.continueBootstrapLocal()
+                } catch (err) {
+                  setLocalStart({ root: activeRoot, starting: false, error: errorMessage(err) })
+                }
+              }}
               type="button"
             >
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -478,9 +499,9 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
                 ) : (
                   <Monitor className="size-4 text-muted-foreground" />
                 )}
-                <span>{copy.installLocalTitle}</span>
+                <span>{copy[localPres.title]}</span>
               </div>
-              <p className="mt-2 text-sm leading-5 text-muted-foreground">{copy.installLocalDesc}</p>
+              <p className="mt-2 text-sm leading-5 text-muted-foreground">{copy[localPres.desc]}</p>
             </button>
           </div>
 
@@ -491,12 +512,12 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </div>
           ) : null}
 
-          <div className="mt-6 text-xs text-muted-foreground">
-            {copy.installTo}{' '}
-            <code className="font-mono text-(--ui-text-secondary)">
-              {displayInstallPath(state.setupChoice.activeRoot)}
-            </code>
-          </div>
+          {localPres.showInstallTo ? (
+            <div className="mt-6 text-xs text-muted-foreground">
+              {copy.installTo}{' '}
+              <code className="font-mono text-(--ui-text-secondary)">{state.setupChoice.activeRoot}</code>
+            </div>
+          ) : null}
         </div>
       </div>
     )
@@ -545,8 +566,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
 
           <div className="mt-6 flex items-center justify-between pt-2">
             <span className="text-xs text-muted-foreground">
-              {copy.installTo}{' '}
-              <code className="font-mono text-(--ui-text-secondary)">{displayInstallPath(ups.activeRoot)}</code>
+              {copy.installTo} <code className="font-mono text-(--ui-text-secondary)">{ups.activeRoot}</code>
             </span>
             <div className="flex items-center gap-2">
               {LOCAL_ONLY_V1 ? null : (
@@ -574,6 +594,9 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
 
   const totalCount = stages.length
   const failed = Boolean(state.error)
+  // Main writes a plain lead sentence and keeps the raw installer error after
+  // "Details:" (electron/bootstrap-failure-copy.ts); show them as two lines.
+  const [failureLead, failureDetail] = splitFailureDetails(state.error)
   // Count the running stage as half-done so the bar advances *during* a long
   // stage instead of sitting frozen at the last completed step while its logs
   // stream (e.g. "0 of 2" pinned at 0% for the whole first stage).
@@ -581,29 +604,18 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
   const progressPct = totalCount > 0 ? Math.round((progressUnits / totalCount) * 100) : 0
   const currentStartedAt = currentStage ? state.stages[currentStage]?.startedAt : null
   const currentElapsed = typeof currentStartedAt === 'number' ? formatElapsed(now - currentStartedAt) : ''
-  const publicHappy = publicChrome && !failed
-  const setupTitle = failed
-    ? copy.failedTitle
-    : state.active
-      ? publicChrome
-        ? copy.settingUpNiaTitle
-        : copy.settingUpTitle
-      : copy.finishingTitle
 
   return (
-    <div
-      className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 backdrop-blur-md p-4"
-      data-glass-opaque={publicChrome ? '' : undefined}
-    >
+    <div className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-background/90 backdrop-blur-md p-4">
       <div className="flex w-full max-w-2xl max-h-[90vh] flex-col rounded-xl border border-(--stroke-nous) bg-card shadow-nous">
         {/* Header -- always visible, never scrolls */}
         <div className="flex flex-shrink-0 items-start gap-4 p-8 pb-4">
           {!failed && <BrandMark className="size-11 shrink-0" />}
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight">{setupTitle}</h2>
-            {!publicHappy && (
-              <p className="mt-1.5 text-sm text-muted-foreground">{failed ? copy.failedDesc : copy.activeDesc}</p>
-            )}
+            <h2 className="text-xl font-semibold tracking-tight">
+              {failed ? copy.failedTitle : state.active ? copy.settingUpTitle : copy.finishingTitle}
+            </h2>
+            <p className="mt-1.5 text-sm text-muted-foreground">{failed ? copy.failedDesc : copy.activeDesc}</p>
           </div>
         </div>
 
@@ -614,8 +626,8 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {copy.progress(completedCount, totalCount)}
-                  {!publicHappy && currentStage && copy.currentStage(formatStageName(currentStage))}
-                  {!publicHappy && currentElapsed && ` (${currentElapsed})`}
+                  {currentStage && copy.currentStage(formatStageName(currentStage))}
+                  {currentElapsed && ` (${currentElapsed})`}
                 </span>
                 <span className="tabular-nums">{progressPct}%</span>
               </div>
@@ -628,7 +640,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </div>
           )}
 
-          {totalCount === 0 && state.active && !publicHappy && (
+          {totalCount === 0 && state.active && (
             <div className="mb-4 flex items-center gap-2.5 text-sm text-muted-foreground">
               <Loader className="size-5" type="fourier-flow" />
               <span>{copy.fetchingManifest}</span>
@@ -640,12 +652,17 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               <ErrorIcon className="mt-0.5 shrink-0" size="1rem" />
               <div className="min-w-0">
                 <div className="font-medium text-destructive">{copy.error}</div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground/90">{state.error}</p>
+                <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground/90">{failureLead}</p>
+                {failureDetail ? (
+                  <p className="mt-1 whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">
+                    {failureDetail}
+                  </p>
+                ) : null}
               </div>
             </div>
           )}
 
-          {!publicHappy && stages.length > 0 && (
+          {stages.length > 0 && (
             <ol className="mb-4 space-y-0.5">
               {stages.map(stage => (
                 <StageRow descriptor={stage} key={stage.name} now={now} result={state.stages[stage.name]} />
@@ -653,7 +670,6 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </ol>
           )}
 
-          {!publicHappy && (
           <div className="pt-3">
             <Button
               className="-ml-2 text-muted-foreground hover:text-foreground"
@@ -685,7 +701,6 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               </LogView>
             )}
           </div>
-          )}
         </div>
 
         {/* Active footer: let the user actually cancel a running install. */}
@@ -722,6 +737,16 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
                 <code className="font-mono text-(--ui-text-secondary)">%LOCALAPPDATA%\hermes\logs\</code>
               </span>
               <div className="flex gap-2">
+                <Button onClick={() => setState(EMPTY_STATE)} size="sm" variant="ghost">
+                  {t.common.close}
+                </Button>
+                <Button
+                  onClick={() => void window.hermesDesktop?.revealLogs?.().catch(() => undefined)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {copy.openLogs}
+                </Button>
                 <Button
                   onClick={async () => {
                     const text = state.log

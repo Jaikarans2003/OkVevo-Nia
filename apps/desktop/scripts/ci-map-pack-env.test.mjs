@@ -16,8 +16,8 @@ test('staging maps STAGING_ prefix and defaults channel latest', () => {
     PROD_OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com'
   })
   assert.equal(mapped.OKVEVO_WEB_ORIGIN, 'https://test.example/')
-  assert.equal(mapped.NIA_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
-  assert.equal(mapped.NIA_UPDATE_CHANNEL, 'latest')
+  assert.equal(mapped.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
+  assert.equal(mapped.OKVEVO_UPDATE_CHANNEL, 'latest')
   assert.equal(mapped.VITE_OKVEVO_FIREBASE_PROJECT_ID, 'okvevo-testing')
 })
 
@@ -28,7 +28,7 @@ test('production maps PROD_ and ignores staging', () => {
     PROD_UPDATE_FEED_URL: 'https://releases.okvevo.com'
   })
   assert.equal(mapped.OKVEVO_WEB_ORIGIN, 'https://www.okvevo.com')
-  assert.equal(mapped.NIA_UPDATE_FEED_URL, 'https://releases.okvevo.com')
+  assert.equal(mapped.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com')
 })
 
 test('rejects unknown target', () => {

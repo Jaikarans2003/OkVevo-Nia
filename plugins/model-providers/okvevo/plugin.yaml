@@ -1,0 +1,5 @@
+name: model-provider-okvevo
+version: 1.0.0
+description: "OkVevo LLM provider — portal gateway (OpenRouter-backed), Auto model aliases, rotating session token."
+author: OkVevo
+kind: model-provider

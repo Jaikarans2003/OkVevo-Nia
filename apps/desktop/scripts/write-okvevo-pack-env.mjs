@@ -1,5 +1,5 @@
 /**
- * Pack-time OkVevo env for packaged Nia (Dock / Start Menu has no shell).
+ * Pack-time OkVevo env for packaged OkVevo (Dock / Start Menu has no shell).
  *
  * Writes apps/desktop/build/okvevo-pack-env.json. Electron loads it after
  * dotenv and a non-empty pack value always overwrites process.env (home
@@ -23,7 +23,7 @@ export const PACK_ENV_FILE = join(OUT_DIR, 'okvevo-pack-env.json')
 
 export const REQUIRED_PACK_SECRETS = [
   'OKVEVO_WEB_ORIGIN',
-  'NIA_UPDATE_FEED_URL',
+  'OKVEVO_UPDATE_FEED_URL',
   'VITE_OKVEVO_FIREBASE_API_KEY',
   'VITE_OKVEVO_FIREBASE_AUTH_DOMAIN',
   'VITE_OKVEVO_FIREBASE_PROJECT_ID',
@@ -32,7 +32,7 @@ export const REQUIRED_PACK_SECRETS = [
   'VITE_OKVEVO_FIREBASE_APP_ID'
 ]
 
-export const PACK_ENV_RUNTIME_KEYS = ['OKVEVO_WEB_ORIGIN', 'NIA_UPDATE_FEED_URL', 'NIA_UPDATE_CHANNEL']
+export const PACK_ENV_RUNTIME_KEYS = ['OKVEVO_WEB_ORIGIN', 'OKVEVO_UPDATE_FEED_URL', 'OKVEVO_UPDATE_CHANNEL']
 
 export function missingPackSecrets(env = process.env) {
   return REQUIRED_PACK_SECRETS.filter(name => !String(env[name] ?? '').trim())
@@ -40,7 +40,7 @@ export function missingPackSecrets(env = process.env) {
 
 export function formatMissingPackSecrets(missing) {
   return [
-    'Packaged Nia builds are fail-closed: missing portal origin, update feed, or Vite Firebase keys.',
+    'Packaged OkVevo builds are fail-closed: missing portal origin, update feed, or Vite Firebase keys.',
     `Unset: ${missing.join(', ')}`,
     'Set STAGING_* or PROD_* repository secrets (mapped in the desktop workflow). Do not hardcode www.okvevo.com.'
   ].join('\n')
@@ -84,9 +84,9 @@ export function invalidPackSecretShapes(env = process.env) {
   if (originRaw && !isAbsoluteHttpsOrigin(stripSlash(originRaw))) {
     invalid.push('OKVEVO_WEB_ORIGIN')
   }
-  const feedRaw = String(env.NIA_UPDATE_FEED_URL ?? '').trim()
+  const feedRaw = String(env.OKVEVO_UPDATE_FEED_URL ?? '').trim()
   if (feedRaw && !isAbsoluteHttpsUrl(stripSlash(feedRaw))) {
-    invalid.push('NIA_UPDATE_FEED_URL')
+    invalid.push('OKVEVO_UPDATE_FEED_URL')
   }
   const authDomain = String(env.VITE_OKVEVO_FIREBASE_AUTH_DOMAIN ?? '').trim()
   if (authDomain && !isBareHostname(authDomain)) {
@@ -97,10 +97,10 @@ export function invalidPackSecretShapes(env = process.env) {
 
 export function formatInvalidPackSecrets(invalid) {
   return [
-    'Packaged Nia builds are fail-closed: portal origin, update feed, or Firebase auth domain is not well-formed.',
+    'Packaged OkVevo builds are fail-closed: portal origin, update feed, or Firebase auth domain is not well-formed.',
     `Invalid: ${invalid.join(', ')}`,
     'OKVEVO_WEB_ORIGIN must be an absolute https URL with no path, query, or hash.',
-    'NIA_UPDATE_FEED_URL must be an absolute https URL. A path is allowed.',
+    'OKVEVO_UPDATE_FEED_URL must be an absolute https URL. A path is allowed.',
     'VITE_OKVEVO_FIREBASE_AUTH_DOMAIN must be a bare hostname with no scheme.'
   ].join('\n')
 }
@@ -110,11 +110,11 @@ function stripSlash(value) {
 }
 
 export function buildPackEnvPayload(env = process.env) {
-  const channel = String(env.NIA_UPDATE_CHANNEL ?? '').trim() || 'latest'
+  const channel = String(env.OKVEVO_UPDATE_CHANNEL ?? '').trim() || 'latest'
   return {
     OKVEVO_WEB_ORIGIN: stripSlash(env.OKVEVO_WEB_ORIGIN),
-    NIA_UPDATE_FEED_URL: stripSlash(env.NIA_UPDATE_FEED_URL),
-    NIA_UPDATE_CHANNEL: channel
+    OKVEVO_UPDATE_FEED_URL: stripSlash(env.OKVEVO_UPDATE_FEED_URL),
+    OKVEVO_UPDATE_CHANNEL: channel
   }
 }
 

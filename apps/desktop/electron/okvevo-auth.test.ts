@@ -12,9 +12,7 @@ import {
   OKVEVO_ORIGIN_MISSING_TITLE,
   OKVEVO_PORTAL_URL_INVALID_ERROR,
   OKVEVO_PORTAL_URL_INVALID_TITLE,
-  OKVEVO_SIGN_IN_FAILED_ERROR,
   OKVEVO_SIGN_IN_FAILED_TITLE,
-  OKVEVO_SIGN_IN_TIMEOUT_ERROR,
   OKVEVO_SIGN_IN_TIMEOUT_TITLE,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
@@ -79,18 +77,15 @@ test('login URL returns null for a host with no scheme and still parses localhos
   assert.equal(new URL(url).origin, 'http://localhost:3000')
 })
 
-test('sign-in dialog copy names Nia and OkVevo', () => {
+test('sign-in dialog copy names OkVevo', () => {
   for (const text of [
     OKVEVO_ORIGIN_MISSING_TITLE,
     OKVEVO_ORIGIN_MISSING_ERROR,
     OKVEVO_PORTAL_URL_INVALID_TITLE,
     OKVEVO_PORTAL_URL_INVALID_ERROR,
     OKVEVO_SIGN_IN_TIMEOUT_TITLE,
-    OKVEVO_SIGN_IN_TIMEOUT_ERROR,
-    OKVEVO_SIGN_IN_FAILED_TITLE,
-    OKVEVO_SIGN_IN_FAILED_ERROR
+    OKVEVO_SIGN_IN_FAILED_TITLE
   ]) {
-    assert.match(text, /Nia/)
     assert.match(text, /OkVevo/)
   }
 })

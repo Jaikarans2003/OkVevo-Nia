@@ -1,9 +1,9 @@
 /**
- * Publish Nia artifacts to the generic electron-updater feed (S3/R2).
+ * Publish OkVevo artifacts to the generic electron-updater feed (S3/R2).
  *
  * Staging: prefix `staging/`, keep electron-builder latest*.yml names,
  *   and copy versioned DMG/EXE → stable names under the prefix.
- * Production archive: versioned Nia-* + blockmaps at bucket root and
+ * Production archive: versioned OkVevo-* + blockmaps at bucket root and
  *   versions/{ver}/latest*.yml. Never writes live pointers.
  * Production publish: stable names → releases.json → root latest*.yml last.
  */
@@ -13,8 +13,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-export const STABLE_MAC_NAME = 'Nia-mac-arm64.dmg'
-export const STABLE_WIN_NAME = 'Nia-win-x64.exe'
+export const STABLE_MAC_NAME = 'OkVevo-mac-arm64.dmg'
+export const STABLE_WIN_NAME = 'OkVevo-win-x64.exe'
 export const RELEASES_JSON_KEY = 'releases.json'
 export const CATALOG_KEEP_N = 10
 export const PUBLIC_FEED_ORIGIN = 'https://releases.okvevo.com'
@@ -73,9 +73,9 @@ export function parseElectronBuilderYml(text) {
 }
 
 export function artifactNameFor(version, kind) {
-  if (kind === 'mac-dmg') return `Nia-${version}-mac-arm64.dmg`
-  if (kind === 'mac-zip') return `Nia-${version}-mac-arm64.zip`
-  if (kind === 'win-nsis') return `Nia-${version}-win-x64.exe`
+  if (kind === 'mac-dmg') return `OkVevo-${version}-mac-arm64.dmg`
+  if (kind === 'mac-zip') return `OkVevo-${version}-mac-arm64.zip`
+  if (kind === 'win-nsis') return `OkVevo-${version}-win-x64.exe`
   throw new Error(`unknown artifact kind ${kind}`)
 }
 
@@ -217,7 +217,7 @@ export function archiveFileSet(version, platform) {
         artifactNameFor(version, 'mac-zip'),
         `${artifactNameFor(version, 'mac-zip')}.blockmap`
       ],
-      globPrefix: `Nia-${version}-mac-`
+      globPrefix: `OkVevo-${version}-mac-`
     }
   }
   if (platform === 'win') {
@@ -227,7 +227,7 @@ export function archiveFileSet(version, platform) {
         artifactNameFor(version, 'win-nsis'),
         `${artifactNameFor(version, 'win-nsis')}.blockmap`
       ],
-      globPrefix: `Nia-${version}-win-`
+      globPrefix: `OkVevo-${version}-win-`
     }
   }
   throw new Error(`platform must be mac or win, got ${JSON.stringify(platform)}`)
@@ -534,7 +534,7 @@ export function syncFeed({
       '--exclude',
       '*',
       '--include',
-      'Nia-*',
+      'OkVevo-*',
       '--include',
       'latest*.yml'
     ],

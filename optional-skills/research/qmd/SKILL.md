@@ -220,7 +220,7 @@ qmd multi-get "journals/*.md" --json  # Batch retrieve by glob
 ## MCP Integration (Recommended)
 
 qmd exposes an MCP server that provides search tools directly to
-Nia via the native MCP client. This is the preferred
+Hermes Agent via the native MCP client. This is the preferred
 integration — once configured, the agent gets qmd tools automatically
 without needing to load this skill.
 
@@ -291,9 +291,9 @@ cat > ~/Library/LaunchAgents/com.qmd.daemon.plist << 'EOF'
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>/tmp/qmd-daemon.log</string>
+  <string>/Users/YOU/.hermes/cache/scratch/qmd-daemon.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/qmd-daemon.log</string>
+  <string>/Users/YOU/.hermes/cache/scratch/qmd-daemon.log</string>
 </dict>
 </plist>
 EOF

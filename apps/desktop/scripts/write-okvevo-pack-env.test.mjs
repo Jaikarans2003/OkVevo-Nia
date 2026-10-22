@@ -32,11 +32,11 @@ test('complete env is empty missing list', () => {
 test('payload defaults channel to latest and strips trailing slashes', () => {
   const payload = buildPackEnvPayload({
     OKVEVO_WEB_ORIGIN: 'https://portal.example/',
-    NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging/'
+    OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging/'
   })
   assert.equal(payload.OKVEVO_WEB_ORIGIN, 'https://portal.example')
-  assert.equal(payload.NIA_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
-  assert.equal(payload.NIA_UPDATE_CHANNEL, 'latest')
+  assert.equal(payload.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
+  assert.equal(payload.OKVEVO_UPDATE_CHANNEL, 'latest')
 })
 
 test('--require exits 1 with no secrets', () => {
@@ -53,7 +53,7 @@ test('--require exits 1 with no secrets', () => {
 function shapedPackEnv(overrides = {}) {
   return {
     OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com',
-    NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com',
+    OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com',
     VITE_OKVEVO_FIREBASE_API_KEY: 'k',
     VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: 'auth.okvevo.com',
     VITE_OKVEVO_FIREBASE_PROJECT_ID: 'p',
@@ -70,7 +70,7 @@ test('pack secret shapes accept https origin, feed path, and bare auth domain', 
   assert.deepEqual(
     invalidPackSecretShapes(shapedPackEnv({
       OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com/',
-      NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging/'
+      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging/'
     })),
     []
   )
@@ -98,12 +98,12 @@ test('pack secret shapes reject a host without a scheme, a path on the origin, a
     ['OKVEVO_WEB_ORIGIN']
   )
   assert.deepEqual(
-    invalidPackSecretShapes(shapedPackEnv({ NIA_UPDATE_FEED_URL: 'releases.okvevo.com' })),
-    ['NIA_UPDATE_FEED_URL']
+    invalidPackSecretShapes(shapedPackEnv({ OKVEVO_UPDATE_FEED_URL: 'releases.okvevo.com' })),
+    ['OKVEVO_UPDATE_FEED_URL']
   )
   assert.deepEqual(
-    invalidPackSecretShapes(shapedPackEnv({ NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging?x=1' })),
-    ['NIA_UPDATE_FEED_URL']
+    invalidPackSecretShapes(shapedPackEnv({ OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging?x=1' })),
+    ['OKVEVO_UPDATE_FEED_URL']
   )
   assert.deepEqual(
     invalidPackSecretShapes(shapedPackEnv({ VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: 'https://auth.okvevo.com' })),
@@ -128,7 +128,7 @@ test('writePackEnvFile emits JSON', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pack-env-'))
   const out = path.join(dir, 'okvevo-pack-env.json')
   writePackEnvFile(
-    { OKVEVO_WEB_ORIGIN: 'https://a.example', NIA_UPDATE_FEED_URL: 'https://b.example', NIA_UPDATE_CHANNEL: 'latest' },
+    { OKVEVO_WEB_ORIGIN: 'https://a.example', OKVEVO_UPDATE_FEED_URL: 'https://b.example', OKVEVO_UPDATE_CHANNEL: 'latest' },
     out
   )
   const parsed = JSON.parse(fs.readFileSync(out, 'utf8'))

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bake ~80% safe-area padding into the Nia app icon master, then regenerate
+ * Bake ~80% safe-area padding into the OkVevo app icon master, then regenerate
  * platform bundles (PNG, ICNS, ICO) used by electron-builder and the runtime.
  *
  * macOS: 1024×1024 PNG with transparent padding; iconutil builds .icns.
@@ -21,8 +21,8 @@ const MASTER = 1024
 const ARTWORK = 820 // ~80% of 1024 — HIG safe area for Dock/Taskbar parity
 
 const INPUT_CANDIDATES = [
-  path.join(assetsDir, 'Nia.png'),
-  path.join(desktopRoot, '..', '..', '..', 'Nia.png'),
+  path.join(assetsDir, 'OkVevo.png'),
+  path.join(desktopRoot, '..', '..', '..', 'OkVevo.png'),
   path.join(assetsDir, 'icon.png')
 ]
 

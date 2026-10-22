@@ -1,5 +1,5 @@
 /**
- * Empty bot chat Wordmark follows displayName — untitled default reads Nia.
+ * Empty bot chat Wordmark follows displayName — untitled default reads OkVevo.
  */
 
 import { render } from '@testing-library/react'
@@ -48,8 +48,8 @@ import { BotChatEmpty } from './chat-empty'
 import { displayName } from './labels'
 
 describe('BotChatEmpty wordmark', () => {
-  it('paints untitled default as Nia, not Hermes', () => {
-    expect(displayName({ name: 'default' }, null)).toBe('Nia')
+  it('paints untitled default as OkVevo agent, not Hermes', () => {
+    expect(displayName({ name: 'default' }, null)).toBe('OkVevo agent')
 
     useValueMock.mockImplementation(store => {
       if (store === $lastRoster) {
@@ -65,7 +65,7 @@ describe('BotChatEmpty wordmark', () => {
 
     const { getByTestId, getByText } = render(<BotChatEmpty sessionId="s1" />)
 
-    expect(getByTestId('wordmark').textContent).toBe('Nia')
+    expect(getByTestId('wordmark').textContent).toBe('OkVevo agent')
     expect(getByText('Say something to get started.')).toBeTruthy()
   })
 })

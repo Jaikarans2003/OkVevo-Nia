@@ -1,3 +1,5 @@
+import type { MediaImageDimensions } from '@/lib/media'
+
 type ToolLike = {
   result?: unknown
   toolName?: unknown
@@ -14,9 +16,6 @@ type TextLike = {
 // sandbox path the model restated doesn't slip through as a duplicate image.
 const DISPLAY_KEYS = ['host_image', 'image'] as const
 const ECHO_KEYS = ['host_image', 'image', 'agent_visible_image'] as const
-// video_generate results carry a single `video` field (local path after the
-// Python-side download; a CDN URL only if that download failed).
-const VIDEO_KEYS = ['video'] as const
 
 function recordFromUnknown(value: unknown): Record<string, unknown> | null {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -69,117 +68,87 @@ export function generatedImageFromResult(result: unknown): string | null {
   return stringFields(record, DISPLAY_KEYS)[0] ?? null
 }
 
+/** Image backends can report decoded PNG geometry (`pixel_size`) separately from the requested `size`.
+ * Never use requested_size/size or aspect_ratio as intrinsic metadata. */
+export function generatedImageDimensionsFromResult(result: unknown): MediaImageDimensions | undefined {
+  const record = recordFromUnknown(result)
+  const match = typeof record?.pixel_size === 'string' ? /^(\d+)x(\d+)$/.exec(record.pixel_size) : null
+
+  return match &&
+    Number.isSafeInteger(Number(match[1])) &&
+    Number.isSafeInteger(Number(match[2])) &&
+    Number(match[1]) > 0 &&
+    Number(match[2]) > 0
+    ? { width: Number(match[1]), height: Number(match[2]) }
+    : undefined
+}
+
 /** Every path/URL a generated image might appear as in prose, for de-duping. */
 export function generatedImageEchoSources(parts: readonly ToolLike[]): string[] {
-  return unique(parts.flatMap(part => stringFields(imageResult(part) ?? {}, ECHO_KEYS)))
-}
+  // Runs on every streamed tool event over the whole timeline; skip the
+  // per-part array allocations for the (usual) rows that are not image results.
+  const sources: string[] = []
 
-function videoResult(part: ToolLike): Record<string, unknown> | null {
-  if (part.type !== 'tool-call' || part.toolName !== 'video_generate') {
-    return null
+  for (const part of parts) {
+    const result = imageResult(part)
+
+    if (result) {
+      sources.push(...stringFields(result, ECHO_KEYS))
+    }
   }
 
-  const record = recordFromUnknown(part.result)
-
-  return record && record.success !== false ? record : null
-}
-
-/** Display source for a completed `video_generate` result. */
-export function generatedVideoFromResult(result: unknown): string | null {
-  const record = recordFromUnknown(result)
-
-  if (!record || record.success === false) {
-    return null
-  }
-
-  return stringFields(record, VIDEO_KEYS)[0] ?? null
-}
-
-/** Every path/URL a generated image OR video might appear as in prose. */
-export function generatedMediaEchoSources(parts: readonly ToolLike[]): string[] {
-  return unique([
-    ...generatedImageEchoSources(parts),
-    ...parts.flatMap(part => stringFields(videoResult(part) ?? {}, VIDEO_KEYS))
-  ])
-}
-
-function linkDestination(raw: string): string {
-  return raw.trim().replace(/^<|>$/g, '')
-}
-
-function decodedMediaPath(destination: string): string | null {
-  const target = linkDestination(destination)
-
-  if (!target.startsWith('#media:')) {
-    return null
-  }
-
-  try {
-    return decodeURIComponent(target.slice('#media:'.length))
-  } catch {
-    return target.slice('#media:'.length)
-  }
-}
-
-function isRemoteImageUrl(destination: string): boolean {
-  return /^https?:\/\//i.test(linkDestination(destination))
-}
-
-function isToolCardSource(destination: string, sources: readonly string[]): boolean {
-  const target = linkDestination(destination)
-  const decoded = decodedMediaPath(target) ?? target
-
-  return sources.some(source => source === target || source === decoded)
+  return unique(sources)
 }
 
 /** Strip a generated image out of prose so it only ever shows in the tool slot.
- *  Drop a `#media:` / `![]()` link when its decoded path is one of the tool-card
- *  sources, or when it is a remote image URL (the CDN restatement). A different
- *  local file, such as a Desktop copy, stays. Bare occurrences of the known
- *  paths/URLs are removed too. Surrounding prose is preserved. */
+ *  Once a generation succeeded (`sources` is non-empty) we drop embedded images
+ *  and media links whose src/path matches one of the known generated sources —
+ *  the model frequently restates the image in prose. Bare occurrences of the
+ *  known paths/URLs are removed too. Surrounding prose is preserved, and
+ *  references to files OTHER than the generated source (e.g. a separate
+ *  `MEDIA:` delivery directive) are never touched (#80621). */
 export function stripGeneratedImageEchoes(text: string, sources: readonly string[]): string {
   if (!text || sources.length === 0) {
     return text
   }
 
-  let next = text.replace(/!\[[^\]\n]*\]\(([^)\n]*)\)/g, (full, dest: string) => {
-    const target = linkDestination(dest)
-
-    if (isRemoteImageUrl(target) || isToolCardSource(target, sources)) {
-      return ''
-    }
-
-    return full
-  })
-
-  next = next.replace(/\[[^\]\n]*\]\(\s*(#media:[^)\n]*)\)/g, (full, dest: string) => {
-    const decoded = decodedMediaPath(dest) ?? linkDestination(dest)
-
-    if (isRemoteImageUrl(decoded) || isToolCardSource(dest, sources)) {
-      return ''
-    }
-
-    return full
-  })
+  let next = text
 
   for (const source of unique([...sources])) {
-    next = next.replace(new RegExp(String.raw`(^|[\s([{])<?${regexEscape(source)}>?(?=$|[\s)\]},.!?])`, 'g'), '$1')
+    const escaped = regexEscape(source)
+    // Markdown image whose src is this generated source: ![alt](<src> [title]).
+    // The lookahead after the escaped source stops a prefix over-match — a
+    // link to `/tmp/a.png.bak` must not be eaten by source `/tmp/a.png`.
+    next = next.replace(new RegExp(String.raw`!\[[^\]\n]*\]\(\s*<?${escaped}>?(?=$|[\s)\\])[^)\n]*\)`, 'g'), '')
+    // Media link whose path is this generated source: [label](#media:<encoded>).
+    // Anchored to the closing paren so a link to a path that merely STARTS with
+    // the encoded source (e.g. `#media:%2Ftmp%2Fa.png.bak` vs `/tmp/a.png`)
+    // survives; case-insensitive so lowercase hex (`%2f`) is caught too. Only
+    // whitespace is allowed before the closing paren — a raw space can never be
+    // part of the href (encodeURIComponent turns it into %20), so this cannot
+    // over-match a longer path.
+    next = next.replace(
+      new RegExp(String.raw`\[[^\]\n]*\]\(\s*#media:${regexEscape(encodeURIComponent(source))}\s*\)`, 'gi'),
+      ''
+    )
+    // Bare occurrence of the source path/URL. `(`/`)` are excluded from the
+    // boundary classes so a path inside a markdown link destination
+    // (`[label](/tmp/a.png)`) is not corrupted into `[label]()`.
+    next = next.replace(new RegExp(String.raw`(^|[\s[{])<?${escaped}>?(?=$|[\s\]}.,!?])`, 'g'), '$1')
   }
 
   return next
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim()
 }
 
-/** Strip generated-media echoes from text parts, dropping any part left empty.
- *  The image/video lives in the tool slot; prose keeps the agent's actual words. */
-export function dedupeGeneratedImageEchoesInParts<T extends TextLike & ToolLike>(parts: readonly T[]): T[] {
-  const sources = generatedMediaEchoSources(parts)
+/** Strip generated-image echoes from text parts, dropping any part left empty.
+ *  The image lives in the tool slot; prose keeps the agent's actual words. */
+export function dedupeGeneratedImageEchoesInParts<T extends TextLike & ToolLike>(parts: T[]): T[] {
+  const sources = generatedImageEchoSources(parts)
 
+  // No echoes to strip: hand back the same array so React and the streaming
+  // reducer see a no-op instead of a fresh identity on every tool event.
   if (!sources.length) {
-    return [...parts]
+    return parts
   }
 
   return parts

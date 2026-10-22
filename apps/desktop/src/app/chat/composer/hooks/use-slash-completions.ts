@@ -1,15 +1,19 @@
 import type { Unstable_TriggerAdapter, Unstable_TriggerItem } from '@assistant-ui/core'
 import { useStore } from '@nanostores/react'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import type { HermesGateway } from '@/hermes'
+import { useI18n } from '@/i18n'
 import { sessionTitle } from '@/lib/chat-runtime'
 import {
   type CommandsCatalogLike,
+  desktopSkinSlashCompletions,
   desktopSlashDescription,
+  type DesktopThemeCommandOption,
   filterDesktopCommandsCatalog,
+  filterDesktopSubcommandCompletions,
   isDesktopSlashExtensionCommand,
-  isDesktopSlashSuggestion,
+  isDesktopSlashSuggestionWithOptions,
   rankSkillCommands,
   slashCompletionGroup
 } from '@/lib/desktop-slash-commands'
@@ -17,6 +21,7 @@ import { $slashCompletionsEpoch, cachedSlashCompletion, hasCachedSlashCompletion
 import { normalize } from '@/lib/text'
 import { $sessions } from '@/store/session'
 
+import { completionOwner, completionOwnerKey, requestCompletion } from './completion-route'
 import type { CompletionEntry, CompletionPayload } from './use-live-completion-adapter'
 import { useLiveCompletionAdapter } from './use-live-completion-adapter'
 
@@ -55,13 +60,39 @@ const SESSION_INLINE_LIMIT = 7
 /** Live `/` completions backed by the gateway's `complete.slash` RPC. */
 export function useSlashCompletions(options: {
   gateway: HermesGateway | null
+  /** Skill completions are per session: project-local skills follow the
+   *  session's repo, so the catalog and each query are fetched and cached per
+   *  session. */
+  sessionId?: string | null
+  /** The tile's routed profile: scopes the palette while a draft has no session yet (#124651). */
+  profile?: string | null
+  /** Desktop theme list — `/skin` is owned client-side, so its arg completions
+   *  come from here, not the backend (whose skin list is CLI/TUI-only). */
+  skinThemes?: DesktopThemeCommandOption[]
+  activeSkin?: string
 }): {
   adapter: Unstable_TriggerAdapter
   loading: boolean
 } {
-  const { gateway } = options
+  const { gateway, sessionId, profile, skinThemes, activeSkin } = options
+  const { locale } = useI18n()
   const enabled = Boolean(gateway)
   const epoch = useStore($slashCompletionsEpoch)
+
+  const sessionParams = useMemo(
+    () => (sessionId ? { session_id: sessionId } : profile ? { profile } : {}),
+    [sessionId, profile]
+  )
+
+  // Session-scoped lookups go to the session's owner (#141583); the owner is
+  // resolved per call and folded into every cache key, so an answer from one
+  // backend is never replayed for another.
+  const keysFor = useCallback(() => {
+    const owner = completionOwner(sessionId)
+    const scopeKey = sessionId ? `${completionOwnerKey(owner)}:${sessionId}` : profile ? `profile:${profile}` : ''
+
+    return { catalogKey: scopeKey ? `catalog:${scopeKey}` : 'catalog', owner, scopeKey }
+  }, [sessionId, profile])
 
   // Warm argument_mode before the first `/` so Space treats /review as text.
   useEffect(() => {
@@ -69,14 +100,18 @@ export function useSlashCompletions(options: {
       return
     }
 
-    void cachedSlashCompletion('catalog', () => gateway.request<CommandsCatalogLike>('commands.catalog'))
+    const { catalogKey, owner } = keysFor()
+
+    void cachedSlashCompletion(catalogKey, () =>
+      requestCompletion<CommandsCatalogLike>(gateway, owner, 'commands.catalog', sessionParams)
+    )
       .then(catalog => {
         filterDesktopCommandsCatalog(catalog)
       })
       .catch(() => {
         // Next keystroke retries; don't block the composer on a warm-up miss.
       })
-  }, [gateway, epoch])
+  }, [gateway, epoch, keysFor, sessionParams])
 
   const fetcher = useCallback(
     async (query: string): Promise<CompletionPayload> => {
@@ -85,6 +120,23 @@ export function useSlashCompletions(options: {
       }
 
       const text = `/${query}`
+
+      // The desktop owns /skin entirely (client-side theme context). Surface its
+      // theme list inside this single popover instead of a bespoke one, and skip
+      // the backend skin completions (which describe CLI/TUI skins that don't
+      // apply here). Matches once we're past `/skin ` into the arg stage.
+      const skinArg = /^\/skin\s+(.*)$/is.exec(text)
+
+      if (skinArg && skinThemes) {
+        const items = desktopSkinSlashCompletions(skinThemes, activeSkin ?? '', skinArg[1] ?? '').map(entry => ({
+          text: entry.text,
+          display: entry.display,
+          meta: entry.meta,
+          group: 'Themes'
+        }))
+
+        return { items, query }
+      }
 
       // /resume (and its aliases) completes recent sessions inline — the same
       // client-side list the picker overlay shows — instead of the backend
@@ -128,10 +180,14 @@ export function useSlashCompletions(options: {
         return { items, query }
       }
 
+      const { catalogKey, owner, scopeKey } = keysFor()
+
       try {
         if (!query) {
           const catalog = filterDesktopCommandsCatalog(
-            await cachedSlashCompletion('catalog', () => gateway.request<CommandsCatalogLike>('commands.catalog'))
+            await cachedSlashCompletion(catalogKey, () =>
+              requestCompletion<CommandsCatalogLike>(gateway, owner, 'commands.catalog', sessionParams)
+            )
           )
 
           // Prefer the categorized layout so the popover renders section headers
@@ -171,8 +227,11 @@ export function useSlashCompletions(options: {
           return { items, query }
         }
 
-        const result = await cachedSlashCompletion(`slash:${text.toLowerCase()}`, () =>
-          gateway.request<{ items?: CompletionEntry[]; replace_from?: number }>('complete.slash', { text })
+        const result = await cachedSlashCompletion(`slash:${scopeKey}:${text.toLowerCase()}`, () =>
+          requestCompletion<{ items?: CompletionEntry[]; replace_from?: number }>(gateway, owner, 'complete.slash', {
+            text,
+            ...sessionParams
+          })
         )
 
         // Arg-completion items (replace_from > 1) carry just the arg stub —
@@ -183,7 +242,19 @@ export function useSlashCompletions(options: {
         const isArgCompletion = replaceFrom > 1
         const prefix = isArgCompletion ? text.slice(0, replaceFrom) : ''
 
-        const decorated = (result.items ?? [])
+        // Commands narrowed by `desktop_subcommands` (e.g. /skills exposes
+        // only its review slice here) must not suggest the subcommands the
+        // exec gate would refuse — filter before the arg-stub rewrite so the
+        // token under test is the bare subcommand word.
+        const scopedItems = filterDesktopSubcommandCompletions(text, result.items ?? [], { isArgCompletion })
+
+        // An alias the user typed to completion (`/reset`) must surface even
+        // though aliases are hidden while browsing — otherwise the popover
+        // says "no matches" for a command Enter happily executes (#57641).
+        // Only an EXACT match unlocks it; a partial prefix keeps hiding.
+        const exactAliasQuery = isArgCompletion ? undefined : commandText(query).toLowerCase()
+
+        const decorated = scopedItems
           .map(item => {
             if (!isArgCompletion) {
               return item
@@ -193,7 +264,9 @@ export function useSlashCompletions(options: {
 
             return { ...item, text: `${prefix}${argText}` }
           })
-          .filter(item => isArgCompletion || isDesktopSlashSuggestion(item.text))
+          .filter(
+            item => isArgCompletion || isDesktopSlashSuggestionWithOptions(item.text, { exactAlias: exactAliasQuery })
+          )
           .map(item => ({
             ...item,
             // Arg suggestions (e.g. `/handoff <platform>`) live under one
@@ -228,7 +301,7 @@ export function useSlashCompletions(options: {
         return { items: [], query }
       }
     },
-    [gateway]
+    [gateway, skinThemes, activeSkin, keysFor, sessionParams]
   )
 
   const toItem = useCallback((entry: CompletionEntry, index: number): Unstable_TriggerItem => {
@@ -259,21 +332,23 @@ export function useSlashCompletions(options: {
     }
   }, [])
 
-  // Mirrors the fetcher's branching: the `/resume` arg stage is answered
-  // from client-side state, so it never waits on the network; every
+  // Mirrors the fetcher's branching: the `/skin` and `/resume` arg stages are
+  // answered from client-side state, so they never wait on the network; every
   // other query is served from the completion cache when it's still warm.
   const isCached = useCallback(
     (query: string) => {
       const text = `/${query}`
 
-      if (/^\/(?:resume|sessions|switch)\s+/is.test(text)) {
+      if ((skinThemes && /^\/skin\s+/is.test(text)) || /^\/(?:resume|sessions|switch)\s+/is.test(text)) {
         return true
       }
 
-      return hasCachedSlashCompletion(query ? `slash:${text.toLowerCase()}` : 'catalog')
+      const { catalogKey, scopeKey } = keysFor()
+
+      return hasCachedSlashCompletion(query ? `slash:${scopeKey}:${text.toLowerCase()}` : catalogKey)
     },
-    []
+    [skinThemes, keysFor]
   )
 
-  return useLiveCompletionAdapter({ enabled, epoch, fetcher, isCached, toItem })
+  return useLiveCompletionAdapter({ enabled, epoch: `${epoch}:${locale}`, fetcher, isCached, toItem })
 }

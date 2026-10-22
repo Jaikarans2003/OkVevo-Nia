@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 
-import { MediaAttachment } from '@/components/assistant-ui/markdown-text'
 import { useResizeObserver } from '@/hooks/use-resize-observer'
-import { paintToolSurface } from '@/lib/display-path'
 import { cn } from '@/lib/utils'
 
 interface TerminalOutputProps {
@@ -23,7 +21,6 @@ const NEAR_BOTTOM_PX = 24
  * in a stdout/stderr box without re-implementing the scroll logic.
  */
 export function TerminalOutput({ className, text }: TerminalOutputProps) {
-  const painted = paintToolSurface(text)
   const ref = useRef<HTMLDivElement>(null)
 
   // On open: jump straight to the latest output. Rides the ResizeObserver's
@@ -55,12 +52,13 @@ export function TerminalOutput({ className, text }: TerminalOutputProps) {
   }, [text])
 
   return (
-    <div className={cn('max-h-16 overflow-auto overscroll-contain', className)} data-selectable-text="true" ref={ref}>
-      {painted.mediaPaths.map(path => (
-        <MediaAttachment key={path} path={path} />
-      ))}
+    <div
+      className={cn('max-h-16 overflow-auto overscroll-x-contain overscroll-y-auto', className)}
+      data-selectable-text="true"
+      ref={ref}
+    >
       <pre className="w-max min-w-full font-mono text-[0.5625rem] leading-[0.85rem] whitespace-pre text-muted-foreground/70">
-        {painted.prose}
+        {text}
       </pre>
     </div>
   )

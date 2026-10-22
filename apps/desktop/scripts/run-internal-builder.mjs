@@ -2,10 +2,10 @@
 // Internal pack identity. Args are an array so ${version} is electron-builder's
 // template, not a shell expansion. Always --publish never — never the public feed.
 //
-// Filesystem names must be one token (NiaInternal). package.json mac.extendInfo
-// hardcodes CFBundleExecutable/Name to "Nia"; leaving those while productName
-// is "Nia Internal" makes Electron Helper.app names miss the main binary and
-// abort at ElectronMain (SIGTRAP, ~50ms). Override the three plist keys here.
+// Filesystem names must be one token (OkVevoInternal). product-identity.cjs
+// displayName is "OkVevo Internal" (space); leaving that as CFBundleExecutable
+// makes Electron Helper.app names miss the main binary and abort at
+// ElectronMain (SIGTRAP, ~50ms). Override the three plist keys here.
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,18 +15,18 @@ import { isMain } from './utils.mjs'
 export const INTERNAL_ELECTRON_BUILDER_ARGS = [
   '--publish',
   'never',
-  '-c.appId=com.okvevo.nia.internal',
-  '-c.productName=NiaInternal',
-  '-c.executableName=NiaInternal',
-  '-c.artifactName=NiaInternal-${version}-${os}-${arch}.${ext}',
-  // Windows: package.json hardcodes nsis shortcutName/uninstallDisplayName to
-  // "Nia" — without these overrides the internal installer overwrites the
-  // public build's shortcut and both show as "Nia" in Add/Remove Programs.
-  '-c.nsis.shortcutName=NiaInternal',
-  '-c.nsis.uninstallDisplayName=Nia Internal',
-  '-c.mac.extendInfo.CFBundleExecutable=NiaInternal',
-  '-c.mac.extendInfo.CFBundleName=NiaInternal',
-  '-c.mac.extendInfo.CFBundleDisplayName=Nia Internal'
+  '-c.appId=com.okvevo.app-internal',
+  '-c.productName=OkVevoInternal',
+  '-c.executableName=OkVevoInternal',
+  '-c.artifactName=OkVevoInternal-${version}-${os}-${arch}.${ext}',
+  // Windows: public builds use "OkVevo" shortcuts — without these overrides
+  // the internal installer overwrites the public build's shortcut and both
+  // show as "OkVevo" in Add/Remove Programs.
+  '-c.nsis.shortcutName=OkVevoInternal',
+  '-c.nsis.uninstallDisplayName=OkVevo Internal',
+  '-c.mac.extendInfo.CFBundleExecutable=OkVevoInternal',
+  '-c.mac.extendInfo.CFBundleName=OkVevoInternal',
+  '-c.mac.extendInfo.CFBundleDisplayName=OkVevo Internal'
 ]
 
 const here = dirname(fileURLToPath(import.meta.url))

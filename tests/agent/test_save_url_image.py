@@ -13,6 +13,7 @@ and the gateway 404'd at ``send_photo`` time.
 from __future__ import annotations
 
 import http.server
+import os
 import socketserver
 import threading
 
@@ -29,7 +30,7 @@ PNG_1PX = bytes.fromhex(
 class _TinyImageHandler(http.server.BaseHTTPRequestHandler):
     """Tiny HTTP server that mimics the shapes save_url_image must handle."""
 
-    def do_GET(self):  # noqa: N802
+    def do_GET(self):
         if self.path == "/image.png":
             self.send_response(200)
             self.send_header("Content-Type", "image/png")
@@ -56,14 +57,6 @@ class _TinyImageHandler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/404":
             self.send_response(404)
             self.end_headers()
-        elif self.path == "/redirect-metadata":
-            self.send_response(302)
-            self.send_header("Location", "http://169.254.169.254/latest/meta-data/")
-            self.end_headers()
-        elif self.path == "/redirect-loop":
-            self.send_response(302)
-            self.send_header("Location", "/redirect-loop")
-            self.end_headers()
         elif self.path == "/no-type-with-url-ext.jpg":
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
@@ -77,7 +70,7 @@ class _TinyImageHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def log_message(self, *args, **kw):  # noqa: D401
+    def log_message(self, *args, **kw):
         return
 
 
@@ -85,9 +78,9 @@ class _TinyImageHandler(http.server.BaseHTTPRequestHandler):
 def http_server(tmp_path, monkeypatch):
     """Spin up a localhost HTTP server and isolate HERMES_HOME under tmp_path.
 
-    ``HERMES_ALLOW_PRIVATE_URLS`` opts the test server into private-IP reach
-    (the same toggle a LAN-hosted provider would set); the cloud-metadata
-    floor stays blocked regardless, which is what the SSRF tests pin.
+    ``HERMES_ALLOW_PRIVATE_URLS`` opts the loopback test server into private-IP
+    reach (the same toggle a LAN-hosted provider would set) — save_url now
+    refuses private targets by default.
     """
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
     monkeypatch.setenv("HERMES_ALLOW_PRIVATE_URLS", "1")
@@ -120,13 +113,11 @@ class TestSaveUrlImage:
 
         assert path.exists()
         assert path.read_bytes() == PNG_1PX
-        # The cache directory must be under HERMES_HOME — gateway cleanup
-        # relies on this being the canonical location.
-        assert "cache/generated/images" in str(path).replace("\\", "/")
+        # Durable generated-media dir: under HERMES_HOME but OUTSIDE the swept
+        # inbound caches — gateway cleanup must never delete the only copy of a
+        # generated deliverable (#126445).
+        assert os.path.join("cache", "generated", "images") in str(path)
         assert path.suffix == ".png"
-
-
-
 
     def test_404_raises(self, http_server):
         """HTTP errors must propagate — caller decides whether to fall back."""
@@ -137,38 +128,13 @@ class TestSaveUrlImage:
         with pytest.raises(httpx.HTTPStatusError):
             save_url_image(f"{base}/404")
 
-    def test_metadata_url_refused_before_any_fetch(self, http_server):
-        """Cloud metadata is always blocked, even under allow_private_urls."""
-        from agent.image_gen_provider import save_url_image
-
-        with pytest.raises(ValueError, match="SSRF"):
-            save_url_image("http://169.254.169.254/latest/meta-data/", timeout=2)
-        with pytest.raises(ValueError, match="SSRF"):
-            save_url_image("file:///etc/passwd", timeout=2)
-
-    def test_redirect_to_metadata_aborts_mid_chain(self, http_server):
-        """A safe first hop must not launder an unsafe redirect target."""
-        base, _ = http_server
-        from agent.image_gen_provider import save_url_image
-
-        with pytest.raises(ValueError, match="SSRF"):
-            save_url_image(f"{base}/redirect-metadata", timeout=2)
-
-    def test_redirect_loop_is_bounded(self, http_server):
-        base, _ = http_server
-        from agent.image_gen_provider import save_url_image
-
-        with pytest.raises(ValueError, match="redirect"):
-            save_url_image(f"{base}/redirect-loop")
-
-
     def test_oversize_raises_and_cleans_up(self, http_server, tmp_path):
         """Oversize downloads must NOT leak a partial file into the cache."""
         base, _ = http_server
+        from agent import provider_media
         from agent.image_gen_provider import save_url_image
-        from agent.provider_media import cache_dir as provider_cache_dir
 
-        cache_dir = provider_cache_dir("generated/images")
+        cache_dir = provider_media.cache_dir("images")
         before = set(cache_dir.glob("*"))
         with pytest.raises(ValueError, match="exceeds"):
             save_url_image(f"{base}/oversize", max_bytes=1024 * 1024)

@@ -33,7 +33,7 @@ const FALLBACK_COPY: IntroCopy[] = [
     body: "Bring the code, question, or stuck part. I'll read the room before making changes."
   },
   {
-    headline: 'What should Nia look at?',
+    headline: 'What should OkVevo look at?',
     body: "Send the task, failing path, or half-formed plan. I'll help turn it into action."
   },
   {
@@ -125,7 +125,7 @@ function fallbackCopyForPersonality(personalityKey: string): IntroCopy[] {
       body: "Send the task, file, or rough idea. I'll use your configured voice and keep the work grounded in this repo."
     },
     {
-      headline: `What does ${label} Nia need to see?`,
+      headline: `What does ${label} OkVevo need to see?`,
       body: "Bring the context or the stuck part. I'll adapt to your configured personality."
     },
     {
@@ -133,7 +133,7 @@ function fallbackCopyForPersonality(personalityKey: string): IntroCopy[] {
       body: "Send the problem, file, or idea. I'll follow the personality you've configured."
     },
     {
-      headline: `What should ${label} Nia tackle?`,
+      headline: `What should ${label} OkVevo tackle?`,
       body: "Drop the task here. I'll keep the work grounded in the repo."
     },
     {
@@ -216,13 +216,13 @@ export function Intro(_props: IntroProps = {}) {
       const before = 'Hi '
       const mid = ", I'm "
       const after = '.'
-      const hi = `${before}${userName}${mid}Nia${after}`
+      const hi = `${before}${userName}${mid}OkVevo${after}`
 
       return { hi, before, name: userName, mid, after }
     }
 
     const before = "Hi, I'm "
-    const hi = `${before}Nia.`
+    const hi = `${before}OkVevo.`
 
     return { hi, before, name: '', mid: '', after: '.' }
   }, [userName])
@@ -243,7 +243,7 @@ export function Intro(_props: IntroProps = {}) {
   const shownBefore = take(script.before)
   const shownName = take(script.name)
   const shownMid = take(script.mid)
-  const shownNia = take('Nia')
+  const shownProduct = take('OkVevo')
   const shownAfter = take(script.after)
 
   return (
@@ -254,7 +254,7 @@ export function Intro(_props: IntroProps = {}) {
       <img
         alt=""
         className="size-20 rounded-[1.75rem] object-cover sm:size-24 sm:rounded-[2rem] [image-rendering:pixelated]"
-        src={assetPath('nia-intro.gif')}
+        src={assetPath('okvevo-intro.gif')}
       />
 
       <p
@@ -264,7 +264,7 @@ export function Intro(_props: IntroProps = {}) {
         {shownBefore ? <span className="intro-splash-rest">{shownBefore}</span> : null}
         {shownName ? <span className="intro-splash-name">{shownName}</span> : null}
         {shownMid ? <span className="intro-splash-rest">{shownMid}</span> : null}
-        {shownNia ? <span className="intro-splash-name">{shownNia}</span> : null}
+        {shownProduct ? <span className="intro-splash-name">{shownProduct}</span> : null}
         {shownAfter ? <span className="intro-splash-rest">{shownAfter}</span> : null}
         {visible < script.hi.length ? (
           <span

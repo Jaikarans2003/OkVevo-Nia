@@ -5,7 +5,7 @@ import path from 'node:path'
 
 import { test } from 'vitest'
 
-import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile } from './okvevo-env'
+import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, upsertHermesEnvKey } from './okvevo-env'
 
 test('shell wins; hermes home fills; unpackaged repo fills remaining', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-env-'))
@@ -51,8 +51,8 @@ test('pack origin overwrites wrong home .env after dotenv', () => {
     file,
     JSON.stringify({
       OKVEVO_WEB_ORIGIN: 'https://from-pack.example',
-      NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging',
-      NIA_UPDATE_CHANNEL: 'latest'
+      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging',
+      OKVEVO_UPDATE_CHANNEL: 'latest'
     })
   )
 
@@ -61,9 +61,9 @@ test('pack origin overwrites wrong home .env after dotenv', () => {
   const applied = applyPackEnv(loadPackEnvFile(file), env)
 
   assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://from-pack.example')
-  assert.equal(env.NIA_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
-  assert.equal(env.NIA_UPDATE_CHANNEL, 'latest')
-  assert.deepEqual(applied.sort(), ['NIA_UPDATE_CHANNEL', 'NIA_UPDATE_FEED_URL', 'OKVEVO_WEB_ORIGIN'])
+  assert.equal(env.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
+  assert.equal(env.OKVEVO_UPDATE_CHANNEL, 'latest')
+  assert.deepEqual(applied.sort(), ['OKVEVO_UPDATE_CHANNEL', 'OKVEVO_UPDATE_FEED_URL', 'OKVEVO_WEB_ORIGIN'])
 
   fs.rmSync(root, { recursive: true, force: true })
 })
@@ -118,7 +118,7 @@ test('empty pack origin does not clobber a home value', () => {
     file,
     JSON.stringify({
       OKVEVO_WEB_ORIGIN: '',
-      NIA_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging'
+      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging'
     })
   )
 
@@ -127,8 +127,23 @@ test('empty pack origin does not clobber a home value', () => {
   const applied = applyPackEnv(loadPackEnvFile(file), env)
 
   assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://from-home.example')
-  assert.equal(env.NIA_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
-  assert.deepEqual(applied, ['NIA_UPDATE_FEED_URL'])
+  assert.equal(env.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
+  assert.deepEqual(applied, ['OKVEVO_UPDATE_FEED_URL'])
+
+  fs.rmSync(root, { recursive: true, force: true })
+})
+
+test('upsertHermesEnvKey writes, replaces, and removes without clobbering neighbors', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-dotenv-'))
+  const file = path.join(root, '.env')
+
+  fs.writeFileSync(file, 'KEEP=1\nOTHER=two\n')
+  upsertHermesEnvKey(file, 'OKVEVO_API_KEY', 'tok-1')
+  assert.equal(fs.readFileSync(file, 'utf8'), 'KEEP=1\nOTHER=two\nOKVEVO_API_KEY=tok-1\n')
+  upsertHermesEnvKey(file, 'OKVEVO_API_KEY', 'tok-2')
+  assert.equal(fs.readFileSync(file, 'utf8'), 'KEEP=1\nOTHER=two\nOKVEVO_API_KEY=tok-2\n')
+  upsertHermesEnvKey(file, 'OKVEVO_API_KEY', '')
+  assert.equal(fs.readFileSync(file, 'utf8'), 'KEEP=1\nOTHER=two\n')
 
   fs.rmSync(root, { recursive: true, force: true })
 })

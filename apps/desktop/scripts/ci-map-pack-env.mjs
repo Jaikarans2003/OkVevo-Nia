@@ -15,7 +15,7 @@ export const TARGET_PREFIX = {
 /** dest process env → secret suffix after STAGING_ / PROD_ */
 export const MAPPED_KEYS = [
   ['OKVEVO_WEB_ORIGIN', 'OKVEVO_WEB_ORIGIN'],
-  ['NIA_UPDATE_FEED_URL', 'UPDATE_FEED_URL'],
+  ['OKVEVO_UPDATE_FEED_URL', 'UPDATE_FEED_URL'],
   ['VITE_OKVEVO_FIREBASE_API_KEY', 'VITE_OKVEVO_FIREBASE_API_KEY'],
   ['VITE_OKVEVO_FIREBASE_AUTH_DOMAIN', 'VITE_OKVEVO_FIREBASE_AUTH_DOMAIN'],
   ['VITE_OKVEVO_FIREBASE_PROJECT_ID', 'VITE_OKVEVO_FIREBASE_PROJECT_ID'],
@@ -30,7 +30,7 @@ export function mappedPackEnv(packTarget, env = process.env) {
     throw new Error(`pack_target must be staging or production, got ${JSON.stringify(packTarget)}`)
   }
 
-  const out = { NIA_UPDATE_CHANNEL: 'latest' }
+  const out = { OKVEVO_UPDATE_CHANNEL: 'latest' }
   for (const [dest, suffix] of MAPPED_KEYS) {
     out[dest] = String(env[`${prefix}_${suffix}`] ?? '').trim()
   }

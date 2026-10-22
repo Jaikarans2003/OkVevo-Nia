@@ -24,6 +24,7 @@ function bootstrapState(overrides: Partial<DesktopBootstrapState> = {}): Desktop
     completedAt: null,
     setupChoice: null,
     unsupportedPlatform: null,
+    bundled: false,
     ...overrides
   }
 }
@@ -39,6 +40,7 @@ function installDesktopMock(state: DesktopBootstrapState) {
       return () => bootstrapListeners.delete(listener)
     }),
     continueBootstrapLocal: vi.fn().mockResolvedValue({ ok: true }),
+    resetBootstrap: vi.fn().mockResolvedValue({ ok: true }),
     probeConnectionConfig: vi.fn(),
     testConnectionConfig: vi.fn(),
     applyConnectionConfig: vi.fn(),
@@ -102,57 +104,72 @@ describe('DesktopInstallOverlay first-run setup', () => {
   it('shows the remote/local choice without installer progress', async () => {
     installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'win32', activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent' }
+        setupChoice: {
+          platform: 'win32',
+          activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent',
+          local: 'none',
+          bundled: false
+        }
       })
     )
 
     render(<DesktopInstallOverlay />)
 
-    expect(await screen.findByText('Set up Nia Desktop')).toBeTruthy()
-    expect(screen.queryByText('Connect to existing Nia')).toBeNull()
-    expect(screen.getByText('Install Nia locally')).toBeTruthy()
-    expect(screen.getByText(/nia-agent/)).toBeTruthy()
+    expect(await screen.findByText('Set up Hermes Desktop')).toBeTruthy()
+    expect(screen.queryByText('Connect to existing Hermes')).toBeNull()
+    expect(screen.getByText('Install Hermes locally')).toBeTruthy()
+    expect(screen.getByText(/Will install to/i)).toBeTruthy()
     expect(screen.queryByText(/steps complete/i)).toBeNull()
     expect(screen.queryByText(/Fetching installer manifest/i)).toBeNull()
   })
 
-  it('continues local bootstrap only when Install Nia locally is selected', async () => {
+  it('continues local bootstrap only when Install OkVevo locally is selected', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'win32', activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent' }
+        setupChoice: {
+          platform: 'win32',
+          activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent',
+          local: 'none',
+          bundled: false
+        }
       })
     )
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Install Nia locally'))
+    fireEvent.click(await screen.findByText('Install OkVevo locally'))
 
     expect(desktop.continueBootstrapLocal).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('Set up Nia Desktop')).toBeTruthy()
+    expect(screen.getByText('Set up OkVevo Desktop')).toBeTruthy()
 
     act(() => {
       desktop.emitBootstrapEvent({ type: 'manifest', protocolVersion: 1, stages: [] })
     })
 
-    await waitFor(() => expect(screen.queryByText('Set up Nia Desktop')).toBeNull())
+    await waitFor(() => expect(screen.queryByText('Set up OkVevo Desktop')).toBeNull())
     expect(screen.getByText(/Fetching installer manifest/i)).toBeTruthy()
   })
 
   it('surfaces a recoverable error when the local-bootstrap bridge is unavailable', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'win32', activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent' }
+        setupChoice: {
+          platform: 'win32',
+          activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent',
+          local: 'none',
+          bundled: false
+        }
       })
     )
 
     desktop.continueBootstrapLocal = undefined as never
     render(<DesktopInstallOverlay />)
 
-    const install = (await screen.findByText('Install Nia locally')).closest('button') as HTMLButtonElement
+    const install = (await screen.findByText('Install OkVevo locally')).closest('button') as HTMLButtonElement
     fireEvent.click(install)
 
     expect(
-      await screen.findByText('Local installation could not start. Restart Nia Desktop and try again.')
+      await screen.findByText('Local installation could not start. Restart OkVevo Desktop and try again.')
     ).toBeTruthy()
     expect(install.disabled).toBe(false)
   })
@@ -160,7 +177,12 @@ describe('DesktopInstallOverlay first-run setup', () => {
   it('keeps the local-start error when the first snapshot commits under the click', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'win32', activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent' }
+        setupChoice: {
+          platform: 'win32',
+          activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent',
+          local: 'none',
+          bundled: false
+        }
       })
     )
 
@@ -170,29 +192,34 @@ describe('DesktopInstallOverlay first-run setup', () => {
     // Click the instant the choice paints, before React drains the passive
     // effect that reacts to the first snapshot. A loaded runner hits this
     // window by accident; observing the DOM directly hits it every time.
-    const install = (await whenPresent('Install Nia locally')).closest('button') as HTMLButtonElement
+    const install = (await whenPresent('Install OkVevo locally')).closest('button') as HTMLButtonElement
     fireEvent.click(install)
 
     await act(async () => {
       await Promise.resolve()
     })
 
-    expect(screen.queryByText('Local installation could not start. Restart Nia Desktop and try again.')).toBeTruthy()
+    expect(screen.queryByText('Local installation could not start. Restart OkVevo Desktop and try again.')).toBeTruthy()
   })
 
   it('clears a stale local-start error when a repair presents a different root', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'win32', activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent' }
+        setupChoice: {
+          platform: 'win32',
+          activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent',
+          local: 'none',
+          bundled: false
+        }
       })
     )
 
     desktop.continueBootstrapLocal = undefined as never
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click((await screen.findByText('Install Nia locally')).closest('button') as HTMLButtonElement)
+    fireEvent.click((await screen.findByText('Install OkVevo locally')).closest('button') as HTMLButtonElement)
     expect(
-      await screen.findByText('Local installation could not start. Restart Nia Desktop and try again.')
+      await screen.findByText('Local installation could not start. Restart OkVevo Desktop and try again.')
     ).toBeTruthy()
 
     act(() => {
@@ -204,19 +231,19 @@ describe('DesktopInstallOverlay first-run setup', () => {
       })
     })
 
-    expect(screen.queryByText('Local installation could not start. Restart Nia Desktop and try again.')).toBeNull()
+    expect(screen.queryByText('Local installation could not start. Restart OkVevo Desktop and try again.')).toBeNull()
   })
 
   it.skipIf(LOCAL_ONLY_V1)('opens the remote connection form from the first-run choice', async () => {
     installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
+        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
       })
     )
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Nia'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
 
     expect(await screen.findByText('Gateway URL')).toBeTruthy()
     expect(screen.getByText('Test connection')).toBeTruthy()
@@ -226,25 +253,25 @@ describe('DesktopInstallOverlay first-run setup', () => {
   it.skipIf(LOCAL_ONLY_V1)('returns from the remote connection form to the first-run choice', async () => {
     installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
+        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
       })
     )
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Nia'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     expect(await screen.findByText('Gateway URL')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Back'))
 
-    expect(await screen.findByText('Set up Nia Desktop')).toBeTruthy()
-    expect(screen.getByText('Install Nia locally')).toBeTruthy()
+    expect(await screen.findByText('Set up OkVevo Desktop')).toBeTruthy()
+    expect(screen.getByText('Install OkVevo locally')).toBeTruthy()
   })
 
   it.skipIf(LOCAL_ONLY_V1)('requires a successful token connection test before applying remote config', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
+        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
       })
     )
 
@@ -269,7 +296,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Nia'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
       target: { value: 'https://gateway.example.com/hermes' }
     })
@@ -328,7 +355,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Nia'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     const urlInput = await screen.findByPlaceholderText('https://gateway.example.com/hermes')
     fireEvent.change(urlInput, { target: { value: 'https://gateway.example.com/hermes' } })
 
@@ -381,7 +408,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Nia'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
       target: { value: 'https://gateway.example.com/hermes' }
     })
@@ -411,7 +438,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
   it.skipIf(LOCAL_ONLY_V1)('restores remote apply controls when applying the tested connection fails', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
+        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
       })
     )
 
@@ -432,7 +459,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Nia'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
       target: { value: 'https://gateway.example.com/hermes' }
     })
@@ -458,7 +485,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
   it.skipIf(LOCAL_ONLY_V1)('signs in, tests, and applies a password-style remote gateway', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
-        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
+        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
       })
     )
 
@@ -484,7 +511,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Nia'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
       target: { value: 'https://gateway.example.com/hermes' }
     })
@@ -526,6 +553,48 @@ describe('DesktopInstallOverlay first-run setup', () => {
     })
   })
 
+  it.skipIf(LOCAL_ONLY_V1)('does not authorize a new URL with an old login result or save before Apply', async () => {
+    const desktop = installDesktopMock(
+      bootstrapState({
+        setupChoice: { platform: 'linux', activeRoot: '/tmp/hermes', local: 'none', bundled: false }
+      })
+    )
+
+    const saveConnectionConfig = vi.fn()
+    Object.assign(desktop, { saveConnectionConfig })
+    desktop.probeConnectionConfig.mockResolvedValue({
+      authMode: 'oauth',
+      baseUrl: 'https://a.example',
+      reachable: true,
+      providers: [],
+      error: null,
+      version: null
+    })
+    let finishLogin!: (value: { connected: boolean }) => void
+    desktop.oauthLoginConnectionConfig.mockReturnValueOnce(
+      new Promise<{ connected: boolean }>(resolve => {
+        finishLogin = resolve
+      })
+    )
+    render(<DesktopInstallOverlay />)
+    fireEvent.click(await screen.findByText('Connect to existing Hermes'))
+    const url = screen.getByPlaceholderText('https://gateway.example.com/hermes')
+    fireEvent.change(url, { target: { value: 'https://a.example' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Sign in with/ }))
+    await waitFor(() => expect(desktop.oauthLoginConnectionConfig).toHaveBeenCalledWith('https://a.example'))
+    fireEvent.change(url, { target: { value: 'https://b.example' } })
+    await waitFor(() => expect(desktop.probeConnectionConfig).toHaveBeenCalledWith('https://b.example'))
+    await act(async () => finishLogin({ connected: true }))
+    fireEvent.click(screen.getByText('Test connection'))
+    expect(desktop.testConnectionConfig).not.toHaveBeenCalled()
+    expect(saveConnectionConfig).not.toHaveBeenCalled()
+    expect(desktop.applyConnectionConfig).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Back'))
+    fireEvent.click(await screen.findByText('Install Hermes locally'))
+    expect(desktop.continueBootstrapLocal).toHaveBeenCalledTimes(1)
+    expect(saveConnectionConfig).not.toHaveBeenCalled()
+  })
+
   it.skipIf(LOCAL_ONLY_V1)('offers remote connection from the unsupported packaged install screen', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
@@ -540,7 +609,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    expect(await screen.findByText('Nia needs a one-time install')).toBeTruthy()
+    expect(await screen.findByText('OkVevo needs a one-time install')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Connect existing'))
 
@@ -581,7 +650,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     fireEvent.click(screen.getByText('Apply and reconnect'))
 
     await waitFor(() => expect(screen.queryByText('Gateway URL')).toBeNull())
-    expect(screen.queryByText('Nia needs a one-time install')).toBeNull()
+    expect(screen.queryByText('OkVevo needs a one-time install')).toBeNull()
   })
 })
 
@@ -614,92 +683,36 @@ function runningProgressState(): DesktopBootstrapState {
     }
   })
 }
+it.each([
+  ['installed', false, 'Use Hermes on this computer', /already installed here/i, false],
+  ['bundled', true, 'Use Hermes on this computer', /included with this app/i, false],
+  [undefined, false, 'Install Hermes locally', /Will install to/i, true]
+] as const)(
+  'local presentation for %s (including old backends)',
+  async (
+    local: 'installed' | 'bundled' | undefined,
+    bundled: boolean,
+    title: string,
+    description: RegExp,
+    footer: boolean
+  ): Promise<void> => {
+    const state: DesktopBootstrapState = bootstrapState({
+      setupChoice: { platform: 'win32', activeRoot: 'C:\\Hermes', local: local ?? 'none', bundled }
+    })
 
-describe('DesktopInstallOverlay public chrome', () => {
-  it('shows icon + Install Nia without title, path, or local-card copy', async () => {
-    byokChromeVisible = false
-    installDesktopMock(
-      bootstrapState({
-        setupChoice: { platform: 'win32', activeRoot: 'C:\\Users\\me\\AppData\\Local\\hermes\\hermes-agent' }
-      })
-    )
+    if (local === undefined && state.setupChoice) {
+      Reflect.deleteProperty(state.setupChoice, 'local')
+    }
 
+    installDesktopMock(state)
     render(<DesktopInstallOverlay />)
+    expect(await screen.findByText(title)).toBeTruthy()
+    expect(screen.getByText(description)).toBeTruthy()
+    expect(screen.queryByText(/Will install to/i) !== null).toBe(footer)
 
-    expect(await screen.findByRole('button', { name: 'Install Nia' })).toBeTruthy()
-    expect(screen.queryByText('Set up Nia Desktop')).toBeNull()
-    expect(screen.queryByText('Install Nia locally')).toBeNull()
-    expect(screen.queryByText(/Will install to/i)).toBeNull()
-    expect(screen.queryByText(/nia-agent/)).toBeNull()
-    expect(document.querySelector('[data-glass-opaque]')).toBeTruthy()
-  })
+    if (!footer) {
+      expect(screen.queryByText('Install Hermes locally')).toBeNull()
+    }
+  }
+)
 
-  it('starts local bootstrap from the public Install Nia button', async () => {
-    byokChromeVisible = false
-    const desktop = installDesktopMock(
-      bootstrapState({
-        setupChoice: { platform: 'darwin', activeRoot: '/Users/me/.hermes/hermes-agent' }
-      })
-    )
-
-    render(<DesktopInstallOverlay />)
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Install Nia' }))
-    expect(desktop.continueBootstrapLocal).toHaveBeenCalledTimes(1)
-  })
-
-  it('keeps count, percent, and bar on public progress and hides the stage list', async () => {
-    byokChromeVisible = false
-    installDesktopMock(runningProgressState())
-
-    render(<DesktopInstallOverlay />)
-
-    expect(await screen.findByText('Setting Up Nia')).toBeTruthy()
-    expect(screen.getByText('1 of 10 steps complete')).toBeTruthy()
-    expect(screen.getByText('15%')).toBeTruthy()
-    expect(screen.getByRole('progressbar')).toBeTruthy()
-    expect(screen.getByText('Cancel install')).toBeTruthy()
-    expect(screen.queryByText(/one-time setup/i)).toBeNull()
-    expect(screen.queryByText(/now:/i)).toBeNull()
-    expect(screen.queryByText('Prerequisites')).toBeNull()
-    expect(screen.queryByText('Show installer output')).toBeNull()
-    expect(document.querySelector('[data-glass-opaque]')).toBeTruthy()
-  })
-
-  it('keeps the full internal progress screen', async () => {
-    installDesktopMock(runningProgressState())
-
-    render(<DesktopInstallOverlay />)
-
-    expect(await screen.findByText('Setting up Nia Agent')).toBeTruthy()
-    expect(screen.getByText(/one-time setup/i)).toBeTruthy()
-    expect(screen.getByText('Prerequisites')).toBeTruthy()
-    expect(screen.getByText('Show installer output')).toBeTruthy()
-    expect(document.querySelector('[data-glass-opaque]')).toBeNull()
-  })
-
-  it('keeps error, log, and retry on public failure', async () => {
-    byokChromeVisible = false
-    installDesktopMock(
-      bootstrapState({
-        error: 'clone failed',
-        log: [{ ts: 1, stage: 'clone', line: 'fatal: could not clone', stream: 'stderr' }],
-        manifest: { type: 'manifest', protocolVersion: 1, stages: [{ name: 'clone' }] },
-        stages: {
-          clone: { state: 'failed', durationMs: 12, startedAt: 1, json: null, error: 'clone failed' }
-        }
-      })
-    )
-
-    render(<DesktopInstallOverlay />)
-
-    expect(await screen.findByText('Installation failed')).toBeTruthy()
-    expect(screen.getByText('Error')).toBeTruthy()
-    expect(screen.getAllByText('clone failed').length).toBeGreaterThan(0)
-    // The log auto-opens in an effect off `state.error`; await it rather than
-    // assuming the effect flushed in the same frame as the failure title.
-    expect(await screen.findByText('Hide installer output')).toBeTruthy()
-    expect(screen.getByText('fatal: could not clone')).toBeTruthy()
-    expect(screen.getByText('Reload and retry')).toBeTruthy()
-  })
-})

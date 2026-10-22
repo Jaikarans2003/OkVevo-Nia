@@ -124,7 +124,7 @@ describe('BillingSettings', () => {
     expect(screen.getByText('Visa •••• 3206')).toBeTruthy()
     expect(
       screen.getByText(
-        "Remote spending is off for this account — a billing admin can turn it on from the portal's Nia page."
+        "Remote spending is off for this account — a billing admin can turn it on from the portal's OkVevo page."
       )
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: '$100' })).toBeNull()

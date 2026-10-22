@@ -1,25 +1,22 @@
 /**
- * Public-build error privacy net (Nia).
+ * Friendly error copy for public builds (OkVevo).
  *
- * The display-side half of agent/user_facing_errors.py — keep the two copy
- * decks in sync. Every error surface (chat error bubble, toast, native
- * notification, tool row) routes through here on public builds:
- * recognized categories get the friendly OkVevo copy, anything unrecognized
- * gets the generic fallback. Default-deny is the point: a tool or provider
- * added tomorrow is automatically covered.
- *
- * Internal builds (BYOK chrome visible) keep raw text everywhere.
+ * Maps recognized error categories (credits, rate limit, subscription, auth,
+ * server, network, content filter) to actionable OkVevo copy on every error
+ * surface (chat error bubble, toast, native notification, tool row).
+ * Unrecognized errors get the generic fallback so raw stack traces never
+ * paint in public chrome. Internal builds (BYOK chrome visible) keep raw
+ * text everywhere.
  */
 
 import { isByokChromeVisible } from '@/lib/build-channel'
-import { paintToolSurface } from '@/lib/display-path'
 
 export const PUBLIC_ERROR_COPY = {
   credits:
     "You're out of OkVevo credits — top up at okvevo.com and I'll pick up right where we left off.",
   rateLimit: 'Whoa, slow down — too many requests at once. Give it a few seconds and try again.',
   server: "Something broke on our side. The OkVevo team is on it — try again in a bit.",
-  auth: 'Your session hit a snag — restart Nia and we should be good.',
+  auth: 'Your session hit a snag — restart OkVevo and we should be good.',
   subscription:
     "Your OkVevo subscription isn't active — visit okvevo.com to get back on a plan.",
   network: "Can't reach OkVevo right now — check your internet and try again.",
@@ -38,7 +35,7 @@ const KNOWN_FRIENDLY: ReadonlySet<string> = new Set(Object.values(PUBLIC_ERROR_C
  * the most actionable errors we have.
  * ponytail: allowlist of exact patterns; new friendly copy belongs here.
  */
-const FRIENDLY_PATTERNS: RegExp[] = [/^sign in to nia\b/i, /contact okvevo support\.?$/i]
+const FRIENDLY_PATTERNS: RegExp[] = [/^sign in to okvevo\b/i, /contact okvevo support\.?$/i]
 
 const HTTP_STATUS_RE = /\bHTTP\s{0,2}(\d{3})\b/i
 
@@ -163,19 +160,5 @@ export function publicErrorText(raw: string): string {
     return raw
   }
 
-  return friendlyErrorText(paintToolSurface(raw).prose)
-}
-
-/**
- * Brand scrub WITHOUT the default-deny fallback, for surfaces whose text is
- * curated copy rather than raw exceptions (agent notices, approval
- * descriptions): rewrite leftover vendor names, keep the message. Public
- * builds only; internal returns the input unchanged.
- */
-export function scrubUserFacingText(raw: string): string {
-  if (isByokChromeVisible()) {
-    return raw
-  }
-
-  return paintToolSurface(raw).prose
+  return friendlyErrorText(raw)
 }

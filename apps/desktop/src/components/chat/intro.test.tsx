@@ -38,7 +38,7 @@ describe('Intro splash mark', () => {
     const img = container.querySelector('img')
     const root = container.querySelector('[data-slot="aui_intro"]')
 
-    expect(img?.getAttribute('src')).toMatch(/nia-intro\.gif$/)
+    expect(img?.getAttribute('src')).toMatch(/okvevo-intro\.gif$/)
     expect(root?.className).toMatch(/flex-col/)
     expect(container.querySelector('[data-slot="aui_intro"]')).toBeTruthy()
 
@@ -47,9 +47,9 @@ describe('Intro splash mark', () => {
     })
 
     expect(container.textContent).toContain('Karan')
-    expect(container.textContent).toContain("I'm Nia.")
+    expect(container.textContent).toContain("I'm OkVevo.")
     expect(container.textContent).not.toMatch(/creating/i)
     const orange = [...container.querySelectorAll('.intro-splash-name')].map(n => n.textContent)
-    expect(orange).toEqual(['Karan', 'Nia'])
+    expect(orange).toEqual(['Karan', 'OkVevo'])
   })
 })

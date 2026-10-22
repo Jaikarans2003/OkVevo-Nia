@@ -34,7 +34,7 @@ import { $composerPopoutGesturesEnabled } from '@/store/composer-popout'
 import { $disableF12, setDisableF12 } from '@/store/disable-f12'
 import { $embedMode, setEmbedMode } from '@/store/embed-consent'
 import { $introSplash } from '@/store/intro-splash'
-import { $keepAwake, setKeepAwake } from '@/store/keep-awake'
+import { $keepAwakeMode, setKeepAwakeMode } from '@/store/keep-awake'
 import { $bindings, setBinding } from '@/store/keybinds'
 import { $fileBrowserOpen, setFileBrowserOpen } from '@/store/layout'
 import { $petInfo, setPetInfo } from '@/store/pet'
@@ -177,7 +177,7 @@ describe('settings UI policy filters', () => {
   })
 
   it('shows BYOK chrome only on the internal baked channel', () => {
-    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+    expect(isByokChromeVisible()).toBe(__OKVEVO_BUILD_CHANNEL__ === 'internal')
   })
 
   it('hides FAL/Nous image-video rows and Tavily on public', () => {
@@ -200,17 +200,17 @@ describe('settings UI policy filters', () => {
     expect(isPublicHiddenToolProvider('tts', 'ElevenLabs')).toBe(false)
   })
 
-  it('does not read process.env.NIA_BUILD_CHANNEL at runtime', () => {
-    const prev = process.env.NIA_BUILD_CHANNEL
-    process.env.NIA_BUILD_CHANNEL = 'internal'
-    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
-    process.env.NIA_BUILD_CHANNEL = 'public'
-    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+  it('does not read process.env.OKVEVO_BUILD_CHANNEL at runtime', () => {
+    const prev = process.env.OKVEVO_BUILD_CHANNEL
+    process.env.OKVEVO_BUILD_CHANNEL = 'internal'
+    expect(isByokChromeVisible()).toBe(__OKVEVO_BUILD_CHANNEL__ === 'internal')
+    process.env.OKVEVO_BUILD_CHANNEL = 'public'
+    expect(isByokChromeVisible()).toBe(__OKVEVO_BUILD_CHANNEL__ === 'internal')
 
     if (prev === undefined) {
-      delete process.env.NIA_BUILD_CHANNEL
+      delete process.env.OKVEVO_BUILD_CHANNEL
     } else {
-      process.env.NIA_BUILD_CHANNEL = prev
+      process.env.OKVEVO_BUILD_CHANNEL = prev
     }
   })
 })
@@ -219,7 +219,7 @@ const alreadyLockedPublicYaml = {
   tts: { provider: 'edge' },
   stt: { enabled: true, echo_transcripts: true },
   voice: { record_key: IS_MAC ? 'ctrl+b' : 'ctrl+space' },
-  wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+  wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
 }
 
 describe('applyLockedDesktopPrefs', () => {
@@ -288,11 +288,11 @@ describe('applyLockedDesktopPrefs', () => {
   })
 
   it('does not re-force Keep Computer Awake on boot, so Off stays Off', () => {
-    setKeepAwake(false)
+    setKeepAwakeMode('off')
 
     applyLockedDesktopPrefs()
 
-    expect($keepAwake.get()).toBe(false)
+    expect($keepAwakeMode.get()).toBe('off')
   })
 
   it('persists display.language=en on public when the file is not English', async () => {
@@ -340,7 +340,7 @@ describe('applyLockedDesktopPrefs', () => {
       tts: { provider: 'elevenlabs' },
       stt: { enabled: false, echo_transcripts: false },
       voice: { record_key: 'alt+v', client_direct: false },
-      wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+      wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
     })
 
     applyLockedDesktopPrefs()
@@ -351,7 +351,7 @@ describe('applyLockedDesktopPrefs', () => {
         tts: { provider: 'edge' },
         stt: { enabled: true, echo_transcripts: true },
         voice: { record_key: IS_MAC ? 'ctrl+b' : 'ctrl+space', client_direct: false },
-        wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+        wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
       })
     )
   })
@@ -363,7 +363,7 @@ describe('applyLockedDesktopPrefs', () => {
       tts: { provider: 'elevenlabs' },
       stt: { enabled: false, echo_transcripts: false },
       voice: { record_key: 'alt+v' },
-      wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+      wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
     })
 
     applyLockedDesktopPrefs()
@@ -427,8 +427,8 @@ describe('toggleStatusbarVisible channel lock', () => {
 })
 
 describe('leftover wake phrase lock', () => {
-  it.each(['hey hermes', 'hey nia', '', '  '])(
-    'rewrites leftover phrase %j to sherpa + ok nia on both channels',
+  it.each(['hey hermes', 'hey nia', 'ok nia', '', '  '])(
+    'rewrites leftover phrase %j to sherpa + ok okvevo on both channels',
     async phrase => {
       getHermesConfigRecord.mockResolvedValue({
         wake_word: { provider: 'openwakeword', phrase }
@@ -438,7 +438,7 @@ describe('leftover wake phrase lock', () => {
 
       await vi.waitFor(() =>
         expect(saveHermesConfig).toHaveBeenCalledWith({
-          wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+          wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
         })
       )
     }

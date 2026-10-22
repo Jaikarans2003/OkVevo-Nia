@@ -68,7 +68,7 @@ describe('settings search index', () => {
     expect(entries.some(entry => entry.id === 'config-field:tts.openai.voice')).toBe(false)
   })
 
-  it('omits Nia-hidden config keys from the search index', () => {
+  it('omits OkVevo-hidden config keys from the search index', () => {
     const schema: Record<string, ConfigFieldSchema> = {
       'terminal.cwd': { type: 'string' },
       'desktop.repo_scan_roots': { type: 'array' },

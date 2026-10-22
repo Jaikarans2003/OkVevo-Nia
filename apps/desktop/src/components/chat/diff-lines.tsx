@@ -6,7 +6,6 @@ import type { BundledLanguage, ShikiTransformer, ThemedToken } from 'shiki'
 import { chunkLines, type LineChunk, useFixedRowWindow } from '@/components/chat/fixed-row-window'
 import { exceedsHighlightBudget, SHIKI_THEME } from '@/components/chat/shiki-highlighter'
 import { ErrorBoundary } from '@/components/error-boundary'
-import { sanitizePublicText } from '@/lib/display-path'
 import { shikiLanguageForFilename } from '@/lib/markdown-code'
 import { cn } from '@/lib/utils'
 
@@ -589,18 +588,9 @@ export function FileDiffPanel({
   showLineNumbers = false,
   virtualized = false
 }: FileDiffPanelProps) {
-  // Display-only scrub of home-dotfile / hermes paths in chat diffs (public channel).
-  const paintedDiff = React.useMemo(() => sanitizePublicText(diff), [diff])
-  const paintedFullText = React.useMemo(
-    () => (fullText != null ? sanitizePublicText(fullText) : undefined),
-    [fullText]
-  )
   const lines = React.useMemo(
-    () =>
-      paintedFullText != null
-        ? parseFullFileDiff(paintedDiff, paintedFullText)
-        : parseDiff(paintedDiff),
-    [paintedDiff, paintedFullText]
+    () => (fullText != null ? parseFullFileDiff(diff, fullText) : parseDiff(diff)),
+    [diff, fullText]
   )
 
   const lineChunks = React.useMemo(() => chunkLines(lines, PREVIEW_CHUNK_LINES), [lines])
@@ -615,8 +605,7 @@ export function FileDiffPanel({
   const visibleLineChunks = lineChunks.slice(startChunk, endChunk + 1)
 
   const language = shikiLanguageForFilename(path)
-  const canHighlight =
-    Boolean(language) && !exceedsHighlightBudget(paintedFullText ?? paintedDiff)
+  const canHighlight = Boolean(language) && !exceedsHighlightBudget(fullText ?? diff)
   const windowed = showLineNumbers || virtualized
 
   // Windowed: we own fixed-height rows and render only the visible chunks, so a

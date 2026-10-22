@@ -58,8 +58,8 @@ export function loadHermesDotenvIntoProcess({
 
 export type PackEnvFile = {
   OKVEVO_WEB_ORIGIN?: string
-  NIA_UPDATE_FEED_URL?: string
-  NIA_UPDATE_CHANNEL?: string
+  OKVEVO_UPDATE_FEED_URL?: string
+  OKVEVO_UPDATE_CHANNEL?: string
   [key: string]: string | undefined
 }
 
@@ -107,4 +107,39 @@ export function applyPackEnv(packEnv: PackEnvFile | null | undefined, env: NodeJ
   }
 
   return applied
+}
+
+/** Write or replace a KEY=value line in ~/.hermes/.env without clobbering other keys. */
+export function upsertHermesEnvKey(
+  filePath: string,
+  key: string,
+  value: string,
+  io: { readFileSync: typeof fs.readFileSync; writeFileSync: typeof fs.writeFileSync; mkdirSync: typeof fs.mkdirSync } = fs
+): void {
+  if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
+    throw new Error(`refusing to write env key ${JSON.stringify(key)}`)
+  }
+
+  let text = ''
+
+  try {
+    text = io.readFileSync(filePath, 'utf8')
+  } catch {
+    text = ''
+  }
+
+  const pattern = new RegExp(`^${key}=.*(?:\\n|$)`, 'm')
+  let next: string
+
+  if (!value) {
+    next = text.replace(pattern, '')
+  } else {
+    const line = `${key}=${value}`
+    next = pattern.test(text)
+      ? text.replace(pattern, `${line}\n`)
+      : `${text.replace(/\s*$/, '')}${text.trim() ? '\n' : ''}${line}\n`
+  }
+
+  io.mkdirSync(path.dirname(filePath), { recursive: true })
+  io.writeFileSync(filePath, next.replace(/\n+$/, '\n'), { encoding: 'utf8', mode: 0o600 })
 }

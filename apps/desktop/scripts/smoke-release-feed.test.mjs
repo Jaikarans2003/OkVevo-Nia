@@ -21,12 +21,12 @@ function mockFetch(map) {
 
 test('feedFileUrl resolves filenames against origin root', () => {
   assert.equal(
-    feedFileUrl('https://releases.okvevo.com', 'Nia-0.17.15-mac-arm64.zip'),
-    'https://releases.okvevo.com/Nia-0.17.15-mac-arm64.zip'
+    feedFileUrl('https://releases.okvevo.com', 'OkVevo-0.17.15-mac-arm64.zip'),
+    'https://releases.okvevo.com/OkVevo-0.17.15-mac-arm64.zip'
   )
   assert.equal(
-    feedFileUrl('https://releases.okvevo.com/', 'https://releases.okvevo.com/Nia.exe'),
-    'https://releases.okvevo.com/Nia.exe'
+    feedFileUrl('https://releases.okvevo.com/', 'https://releases.okvevo.com/OkVevo.exe'),
+    'https://releases.okvevo.com/OkVevo.exe'
   )
 })
 
@@ -39,26 +39,26 @@ test('smokeReleaseFeed checks latest yml, files sha512, and sibling blockmaps', 
   const macYml = [
     'version: 0.17.15',
     'files:',
-    '  - url: Nia-0.17.15-mac-arm64.zip',
+    '  - url: OkVevo-0.17.15-mac-arm64.zip',
     `    sha512: ${zipHash}`,
     `    size: ${zip.length}`,
-    'path: Nia-0.17.15-mac-arm64.zip'
+    'path: OkVevo-0.17.15-mac-arm64.zip'
   ].join('\n')
   const winYml = [
     'version: 0.17.15',
     'files:',
-    '  - url: Nia-0.17.15-win-x64.exe',
+    '  - url: OkVevo-0.17.15-win-x64.exe',
     `    sha512: ${exeHash}`,
     `    size: ${exe.length}`,
-    'path: Nia-0.17.15-win-x64.exe'
+    'path: OkVevo-0.17.15-win-x64.exe'
   ].join('\n')
   const map = {
     [`${origin}/latest-mac.yml`]: { body: macYml },
     [`${origin}/latest.yml`]: { body: winYml },
-    [`${origin}/Nia-0.17.15-mac-arm64.zip`]: { body: zip },
-    [`${origin}/Nia-0.17.15-mac-arm64.zip.blockmap`]: { body: 'bm' },
-    [`${origin}/Nia-0.17.15-win-x64.exe`]: { body: exe },
-    [`${origin}/Nia-0.17.15-win-x64.exe.blockmap`]: { body: 'bm' }
+    [`${origin}/OkVevo-0.17.15-mac-arm64.zip`]: { body: zip },
+    [`${origin}/OkVevo-0.17.15-mac-arm64.zip.blockmap`]: { body: 'bm' },
+    [`${origin}/OkVevo-0.17.15-win-x64.exe`]: { body: exe },
+    [`${origin}/OkVevo-0.17.15-win-x64.exe.blockmap`]: { body: 'bm' }
   }
   const result = await smokeReleaseFeed({ origin, fetchImpl: mockFetch(map) })
   assert.deepEqual(result.versions, ['0.17.15', '0.17.15'])
@@ -70,17 +70,17 @@ test('smokeReleaseFeed fails on sha512 mismatch', async () => {
   const macYml = [
     'version: 0.17.15',
     'files:',
-    '  - url: Nia-0.17.15-mac-arm64.zip',
+    '  - url: OkVevo-0.17.15-mac-arm64.zip',
     '    sha512: not-the-hash',
-    'path: Nia-0.17.15-mac-arm64.zip'
+    'path: OkVevo-0.17.15-mac-arm64.zip'
   ].join('\n')
   const map = {
     [`${origin}/latest-mac.yml`]: { body: macYml },
-    [`${origin}/latest.yml`]: { body: 'version: 0.17.15\nfiles:\n  - url: Nia-0.17.15-win-x64.exe\n    sha512: x\npath: Nia-0.17.15-win-x64.exe' },
-    [`${origin}/Nia-0.17.15-mac-arm64.zip`]: { body: zip },
-    [`${origin}/Nia-0.17.15-mac-arm64.zip.blockmap`]: { body: 'bm' },
-    [`${origin}/Nia-0.17.15-win-x64.exe`]: { body: 'e' },
-    [`${origin}/Nia-0.17.15-win-x64.exe.blockmap`]: { body: 'bm' }
+    [`${origin}/latest.yml`]: { body: 'version: 0.17.15\nfiles:\n  - url: OkVevo-0.17.15-win-x64.exe\n    sha512: x\npath: OkVevo-0.17.15-win-x64.exe' },
+    [`${origin}/OkVevo-0.17.15-mac-arm64.zip`]: { body: zip },
+    [`${origin}/OkVevo-0.17.15-mac-arm64.zip.blockmap`]: { body: 'bm' },
+    [`${origin}/OkVevo-0.17.15-win-x64.exe`]: { body: 'e' },
+    [`${origin}/OkVevo-0.17.15-win-x64.exe.blockmap`]: { body: 'bm' }
   }
   await assert.rejects(() => smokeReleaseFeed({ origin, fetchImpl: mockFetch(map) }), /sha512 mismatch/)
 })
@@ -92,19 +92,19 @@ test('smokeReleaseFeed fails when a sibling blockmap is missing', async () => {
   const macYml = [
     'version: 0.17.15',
     'files:',
-    '  - url: Nia-0.17.15-mac-arm64.zip',
+    '  - url: OkVevo-0.17.15-mac-arm64.zip',
     `    sha512: ${zipHash}`,
-    'path: Nia-0.17.15-mac-arm64.zip'
+    'path: OkVevo-0.17.15-mac-arm64.zip'
   ].join('\n')
   const exe = Buffer.from('exe')
   const map = {
     [`${origin}/latest-mac.yml`]: { body: macYml },
     [`${origin}/latest.yml`]: {
-      body: `version: 0.17.15\nfiles:\n  - url: Nia-0.17.15-win-x64.exe\n    sha512: ${sha512Base64(exe)}\npath: Nia-0.17.15-win-x64.exe`
+      body: `version: 0.17.15\nfiles:\n  - url: OkVevo-0.17.15-win-x64.exe\n    sha512: ${sha512Base64(exe)}\npath: OkVevo-0.17.15-win-x64.exe`
     },
-    [`${origin}/Nia-0.17.15-mac-arm64.zip`]: { body: zip },
-    [`${origin}/Nia-0.17.15-win-x64.exe`]: { body: exe },
-    [`${origin}/Nia-0.17.15-win-x64.exe.blockmap`]: { body: 'bm' }
+    [`${origin}/OkVevo-0.17.15-mac-arm64.zip`]: { body: zip },
+    [`${origin}/OkVevo-0.17.15-win-x64.exe`]: { body: exe },
+    [`${origin}/OkVevo-0.17.15-win-x64.exe.blockmap`]: { body: 'bm' }
   }
   await assert.rejects(() => smokeReleaseFeed({ origin, fetchImpl: mockFetch(map) }), /missing blockmap/)
 })

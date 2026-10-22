@@ -1,5 +1,5 @@
 /**
- * Nia desktop settings lockdown — which controls stay visible, and the
+ * OkVevo desktop settings lockdown — which controls stay visible, and the
  * values forced on every launch so a leftover localStorage/config.yaml
  * cannot keep a hidden pref off-default.
  */
@@ -106,6 +106,7 @@ const LOCKED_VOICE_SHORTCUT = IS_MAC ? 'ctrl+b' : 'ctrl+space'
 export const PUBLIC_HIDDEN_CONFIG_KEYS = new Set([
   'command_allowlist',
   'security.redact_secrets',
+  'voice.record_key',
   ...PUBLIC_HIDDEN_ADVANCED_KEYS,
   ...PUBLIC_HIDDEN_VOICE_KEYS
 ])
@@ -242,14 +243,20 @@ function persistLockedYamlPrefs(): void {
         .trim()
         .toLowerCase()
 
-      if (!wakePhrase || wakePhrase === 'hey hermes' || wakePhrase === 'hey nia') {
+      if (
+        !wakePhrase ||
+        wakePhrase === 'hey hermes' ||
+        wakePhrase === 'hey nia' ||
+        wakePhrase === 'ok nia' ||
+        wakePhrase === 'ok okvevo'
+      ) {
         if (getNested(config, 'wake_word.provider') !== 'sherpa') {
           config = setNested(config, 'wake_word.provider', 'sherpa')
           changed = true
         }
 
-        if (String(getNested(config, 'wake_word.phrase') ?? '') !== 'ok nia') {
-          config = setNested(config, 'wake_word.phrase', 'ok nia')
+        if (String(getNested(config, 'wake_word.phrase') ?? '') !== 'ok okvevo') {
+          config = setNested(config, 'wake_word.phrase', 'ok okvevo')
           changed = true
         }
       }

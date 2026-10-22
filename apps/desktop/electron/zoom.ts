@@ -4,8 +4,6 @@
  * through this one clamped scale. Percent is the user-facing unit (100 = the
  * Chromium actual-size baseline); Chromium's internal unit is the zoom level,
  * where factor = 1.2 ^ level.
- *
- * Our shipped default is 110%. Zoom is not user-adjustable.
  */
 
 export const ZOOM_STORAGE_KEY = 'hermes:desktop:zoomLevel'
@@ -19,6 +17,8 @@ export const ZOOM_STEP = 0.1
 
 /** Locked UI scale (110%). Fresh installs and every restore. */
 export const LOCKED_ZOOM_PERCENT = 110
+
+/** 100%: Chromium actual size, so View → Actual Size (Ctrl/Cmd+0) means it. */
 export const DEFAULT_ZOOM_LEVEL = Math.log(LOCKED_ZOOM_PERCENT / 100) / Math.log(ZOOM_FACTOR_BASE)
 
 export function clampZoomLevel(value) {
@@ -78,9 +78,15 @@ export const ZOOM_REASSERT_SETTLE_DELAY_MS = 300
 export const ZOOM_REASSERT_MAX_SETTLE_CHECKS = 3
 
 export function zoomReassertWindowEvents(platform = process.platform) {
-  return platform === 'linux'
-    ? ['show', 'restore', 'focus', 'resize', 'move']
-    : ['show', 'restore', 'focus', 'resized', 'moved']
+  if (platform === 'linux') {
+    return ['show', 'restore', 'focus', 'resize', 'move']
+  }
+
+  if (platform === 'win32') {
+    return ['show', 'restore', 'focus', 'maximize', 'unmaximize', 'resized', 'moved']
+  }
+
+  return ['show', 'restore', 'focus', 'resized', 'moved']
 }
 
 // Linux/Wayland fires `focus` on intra-app focus shifts (sidebar clicks,

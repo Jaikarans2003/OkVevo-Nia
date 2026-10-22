@@ -127,29 +127,29 @@ test('parse yml version, path, and files', () => {
     [
       'version: 0.17.42',
       'files:',
-      '  - url: Nia-0.17.42-mac-arm64.zip',
+      '  - url: OkVevo-0.17.42-mac-arm64.zip',
       '    sha512: abc',
       '    size: 9',
-      'path: Nia-0.17.42-mac-arm64.zip'
+      'path: OkVevo-0.17.42-mac-arm64.zip'
     ].join('\n')
   )
   assert.equal(parsed.version, '0.17.42')
-  assert.equal(parsed.path, 'Nia-0.17.42-mac-arm64.zip')
+  assert.equal(parsed.path, 'OkVevo-0.17.42-mac-arm64.zip')
   assert.equal(parsed.files[0].sha512, 'abc')
   assert.equal(parsed.files[0].size, 9)
-  assert.deepEqual(artifactNameFor('0.17.42', 'mac-dmg'), 'Nia-0.17.42-mac-arm64.dmg')
-  assert.deepEqual(artifactNameFor('0.17.42', 'win-nsis'), 'Nia-0.17.42-win-x64.exe')
+  assert.deepEqual(artifactNameFor('0.17.42', 'mac-dmg'), 'OkVevo-0.17.42-mac-arm64.dmg')
+  assert.deepEqual(artifactNameFor('0.17.42', 'win-nsis'), 'OkVevo-0.17.42-win-x64.exe')
   assert.equal(s3Uri('bucket', 'staging/latest.yml'), 's3://bucket/staging/latest.yml')
-  assert.equal(siblingBlockmapName('Nia-0.17.42-mac-arm64.zip'), 'Nia-0.17.42-mac-arm64.zip.blockmap')
+  assert.equal(siblingBlockmapName('OkVevo-0.17.42-mac-arm64.zip'), 'OkVevo-0.17.42-mac-arm64.zip.blockmap')
   assert.equal(siblingBlockmapName('a.zip.blockmap'), '')
 })
 
 test('staging sync keeps latest yml names under prefix and copies stable names', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nia-feed-'))
-  fs.writeFileSync(path.join(dir, 'latest-mac.yml'), 'version: 0.17.8\npath: Nia-0.17.8-mac-arm64.zip\n')
-  fs.writeFileSync(path.join(dir, 'latest.yml'), 'version: 0.17.8\npath: Nia-0.17.8-win-x64.exe\n')
-  fs.writeFileSync(path.join(dir, 'Nia-0.17.8-mac-arm64.dmg'), 'x')
-  fs.writeFileSync(path.join(dir, 'Nia-0.17.8-win-x64.exe'), 'x')
+  fs.writeFileSync(path.join(dir, 'latest-mac.yml'), 'version: 0.17.8\npath: OkVevo-0.17.8-mac-arm64.zip\n')
+  fs.writeFileSync(path.join(dir, 'latest.yml'), 'version: 0.17.8\npath: OkVevo-0.17.8-win-x64.exe\n')
+  fs.writeFileSync(path.join(dir, 'OkVevo-0.17.8-mac-arm64.dmg'), 'x')
+  fs.writeFileSync(path.join(dir, 'OkVevo-0.17.8-win-x64.exe'), 'x')
   const calls = []
   syncFeed({
     feedDir: dir,
@@ -167,7 +167,7 @@ test('staging sync keeps latest yml names under prefix and copies stable names',
   assert.ok(
     calls.some(
       a =>
-        a.includes(path.join(dir, 'Nia-0.17.8-mac-arm64.dmg')) &&
+        a.includes(path.join(dir, 'OkVevo-0.17.8-mac-arm64.dmg')) &&
         a.includes(`s3://releases/staging/${STABLE_MAC_NAME}`)
     )
   )
@@ -197,14 +197,14 @@ test('archiveFeed uploads binaries/blockmaps immutable and yml under versions/{v
     return createMemoryAws(store)(args)
   }
   archiveFeed({ feedDir: dir, bucket: 'releases', platform: 'mac', version, aws })
-  assert.ok(store[`Nia-${version}-mac-arm64.dmg`])
-  assert.ok(store[`Nia-${version}-mac-arm64.zip`])
-  assert.ok(store[`Nia-${version}-mac-arm64.zip.blockmap`])
+  assert.ok(store[`OkVevo-${version}-mac-arm64.dmg`])
+  assert.ok(store[`OkVevo-${version}-mac-arm64.zip`])
+  assert.ok(store[`OkVevo-${version}-mac-arm64.zip.blockmap`])
   assert.ok(store[`versions/${version}/latest-mac.yml`])
   assert.equal(store['latest-mac.yml'], undefined)
   assert.equal(store['latest.yml'], undefined)
   assert.equal(store[RELEASES_JSON_KEY], undefined)
-  const dmgCall = calls.find(a => destArg(a) === `Nia-${version}-mac-arm64.dmg`)
+  const dmgCall = calls.find(a => destArg(a) === `OkVevo-${version}-mac-arm64.dmg`)
   assert.equal(cacheControlOf(dmgCall), CACHE_CONTROL_IMMUTABLE)
   const ymlCall = calls.find(a => destArg(a) === `versions/${version}/latest-mac.yml`)
   assert.equal(cacheControlOf(ymlCall), CACHE_CONTROL_NO_STORE)
@@ -215,7 +215,7 @@ test('archiveFeed uploads binaries/blockmaps immutable and yml under versions/{v
 test('archiveFeed unpublished retry re-uploads the platform full set', () => {
   const version = '0.17.16'
   const dir = writePlatformDir(version, 'win')
-  const store = { [`Nia-${version}-win-x64.exe`]: Buffer.from('stale') }
+  const store = { [`OkVevo-${version}-win-x64.exe`]: Buffer.from('stale') }
   archiveFeed({
     feedDir: dir,
     bucket: 'releases',
@@ -223,8 +223,8 @@ test('archiveFeed unpublished retry re-uploads the platform full set', () => {
     version,
     aws: createMemoryAws(store)
   })
-  assert.equal(Buffer.from(store[`Nia-${version}-win-x64.exe`]).toString(), 'exe-0.17.16')
-  assert.ok(store[`Nia-${version}-win-x64.exe.blockmap`])
+  assert.equal(Buffer.from(store[`OkVevo-${version}-win-x64.exe`]).toString(), 'exe-0.17.16')
+  assert.ok(store[`OkVevo-${version}-win-x64.exe.blockmap`])
   assert.ok(store[`versions/${version}/latest.yml`])
   fs.rmSync(dir, { recursive: true, force: true })
 })
@@ -294,8 +294,8 @@ test('isPublishedVersion is true for catalog or root yml', () => {
 
 test('upsertReleasesJson missing catalog is empty then current; mark_stable waits until superseded', () => {
   const files = {
-    mac: { url: 'https://releases.okvevo.com/Nia-0.17.15-mac-arm64.dmg', sha512: 'a', size: 1 },
-    win: { url: 'https://releases.okvevo.com/Nia-0.17.15-win-x64.exe', sha512: 'b', size: 2 }
+    mac: { url: 'https://releases.okvevo.com/OkVevo-0.17.15-mac-arm64.dmg', sha512: 'a', size: 1 },
+    win: { url: 'https://releases.okvevo.com/OkVevo-0.17.15-win-x64.exe', sha512: 'b', size: 2 }
   }
   const first = upsertReleasesJson(null, {
     version: '0.17.15',
@@ -311,8 +311,8 @@ test('upsertReleasesJson missing catalog is empty then current; mark_stable wait
     version: '0.17.16',
     date: '2026-09-22T00:00:00.000Z',
     files: {
-      mac: { url: 'https://releases.okvevo.com/Nia-0.17.16-mac-arm64.dmg', sha512: 'c', size: 3 },
-      win: { url: 'https://releases.okvevo.com/Nia-0.17.16-win-x64.exe', sha512: 'd', size: 4 }
+      mac: { url: 'https://releases.okvevo.com/OkVevo-0.17.16-mac-arm64.dmg', sha512: 'c', size: 3 },
+      win: { url: 'https://releases.okvevo.com/OkVevo-0.17.16-win-x64.exe', sha512: 'd', size: 4 }
     },
     markStable: false
   })
@@ -442,7 +442,7 @@ test('verifyArchivedVersion checks sha512 and requires sibling blockmaps', () =>
   const ok = verifyArchivedVersion({ bucket: 'releases', version, aws })
   assert.equal(ok.version, version)
 
-  delete store[`Nia-${version}-mac-arm64.zip.blockmap`]
+  delete store[`OkVevo-${version}-mac-arm64.zip.blockmap`]
   assert.throws(() => verifyArchivedVersion({ bucket: 'releases', version, aws }), /missing blockmap/)
   fs.rmSync(dir, { recursive: true, force: true })
 })
