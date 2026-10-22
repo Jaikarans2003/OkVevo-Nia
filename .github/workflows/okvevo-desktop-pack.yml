@@ -200,6 +200,7 @@ jobs:
           npm run build
           npm run builder -- --mac dmg zip --publish never \
             -c.extraMetadata.version="$VERSION"
+          node scripts/publish-release-feed.mjs write-yml --dir release --platform mac --version "$VERSION"
       - name: List bundled OSS notice
         run: |
           set -euo pipefail
@@ -311,6 +312,7 @@ jobs:
           npm run build
           npm run builder -- --win nsis --publish never \
             -c.extraMetadata.version="$VERSION"
+          node scripts/publish-release-feed.mjs write-yml --dir release --platform win --version "$VERSION"
       - name: List bundled OSS notice
         shell: bash
         run: |

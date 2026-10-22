@@ -79,6 +79,29 @@ export function artifactNameFor(version, kind) {
   throw new Error(`unknown artifact kind ${kind}`)
 }
 
+/** electron-builder --publish never does not write latest*.yml. Build them from packed files. */
+export function writeUpdaterYml({ dir, platform, version, now = new Date() }) {
+  const kinds = platform === 'mac' ? ['mac-zip', 'mac-dmg'] : platform === 'win' ? ['win-nsis'] : null
+  if (!kinds) throw new Error(`writeUpdaterYml platform must be mac or win, got ${platform}`)
+  const files = kinds.map(kind => {
+    const url = artifactNameFor(version, kind)
+    const buf = fs.readFileSync(path.join(dir, url))
+    return { url, sha512: sha512Base64(buf), size: buf.length }
+  })
+  const primary = files[0]
+  const body = [
+    `version: ${version}`,
+    'files:',
+    ...files.flatMap(file => [`  - url: ${file.url}`, `    sha512: ${file.sha512}`, `    size: ${file.size}`]),
+    `path: ${primary.url}`,
+    `sha512: ${primary.sha512}`,
+    `releaseDate: ${now.toISOString()}`
+  ].join('\n') + '\n'
+  const name = platform === 'mac' ? 'latest-mac.yml' : 'latest.yml'
+  fs.writeFileSync(path.join(dir, name), body)
+  return name
+}
+
 export function siblingBlockmapName(fileUrl) {
   const name = String(fileUrl || '')
   if (!name || name.endsWith('.blockmap')) return ''
@@ -578,6 +601,15 @@ const isMain = process.argv[1] && process.argv[1].endsWith('publish-release-feed
 
 if (isMain) {
   const cmd = process.argv[2]
+  if (cmd === 'write-yml') {
+    const name = writeUpdaterYml({
+      dir: flag('--dir', process.argv) || '.',
+      platform: flag('--platform', process.argv),
+      version: flag('--version', process.argv)
+    })
+    console.log(name)
+    process.exit(0)
+  }
   const bucket = process.env.RELEASES_S3_BUCKET
   if (!bucket) {
     console.error('RELEASES_S3_BUCKET is required')
@@ -611,7 +643,8 @@ if (isMain) {
     })
     console.log(JSON.stringify({ version: result.version, stableMac: result.stableMac, stableWin: result.stableWin }))
   } else {
-    console.error('Usage: publish-release-feed.mjs sync --dir DIR --mode staging [--prefix staging]')
+    console.error('Usage: publish-release-feed.mjs write-yml --dir DIR --platform mac|win --version X.Y.Z')
+    console.error('       publish-release-feed.mjs sync --dir DIR --mode staging [--prefix staging]')
     console.error('       publish-release-feed.mjs archive --dir DIR --platform mac|win --version X.Y.Z')
     console.error('       publish-release-feed.mjs verify --version X.Y.Z')
     console.error('       publish-release-feed.mjs publish --version X.Y.Z [--mark-stable]')

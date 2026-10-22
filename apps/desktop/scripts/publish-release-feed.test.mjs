@@ -15,6 +15,7 @@ import {
   STABLE_WIN_NAME,
   archiveFeed,
   artifactNameFor,
+  writeUpdaterYml,
   isPublishedVersion,
   loadCatalog,
   parseElectronBuilderYml,
@@ -142,6 +143,28 @@ test('parse yml version, path, and files', () => {
   assert.equal(s3Uri('bucket', 'staging/latest.yml'), 's3://bucket/staging/latest.yml')
   assert.equal(siblingBlockmapName('OkVevo-0.17.42-mac-arm64.zip'), 'OkVevo-0.17.42-mac-arm64.zip.blockmap')
   assert.equal(siblingBlockmapName('a.zip.blockmap'), '')
+})
+
+test('writeUpdaterYml builds electron-updater files from packed artifacts', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-yml-'))
+  const version = '0.0.7'
+  const zip = Buffer.from('zip-bytes')
+  const dmg = Buffer.from('dmg-bytes')
+  const exe = Buffer.from('exe-bytes')
+  fs.writeFileSync(path.join(dir, artifactNameFor(version, 'mac-zip')), zip)
+  fs.writeFileSync(path.join(dir, artifactNameFor(version, 'mac-dmg')), dmg)
+  fs.writeFileSync(path.join(dir, artifactNameFor(version, 'win-nsis')), exe)
+  const now = new Date('2026-10-22T20:00:00.000Z')
+  assert.equal(writeUpdaterYml({ dir, platform: 'mac', version, now }), 'latest-mac.yml')
+  assert.equal(writeUpdaterYml({ dir, platform: 'win', version, now }), 'latest.yml')
+  const mac = parseElectronBuilderYml(fs.readFileSync(path.join(dir, 'latest-mac.yml'), 'utf8'))
+  const win = parseElectronBuilderYml(fs.readFileSync(path.join(dir, 'latest.yml'), 'utf8'))
+  assert.equal(mac.version, version)
+  assert.equal(mac.path, artifactNameFor(version, 'mac-zip'))
+  assert.equal(mac.files[0].sha512, sha512Base64(zip))
+  assert.equal(mac.files[1].url, artifactNameFor(version, 'mac-dmg'))
+  assert.equal(win.path, artifactNameFor(version, 'win-nsis'))
+  assert.equal(win.files[0].size, exe.length)
 })
 
 test('staging sync keeps latest yml names under prefix and copies stable names', () => {
