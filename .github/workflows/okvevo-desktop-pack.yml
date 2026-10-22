@@ -138,6 +138,7 @@ jobs:
       APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
       CSC_IDENTITY_AUTO_DISCOVERY: ${{ needs.require-secrets.outputs.mac_signing == 'true' && 'true' || 'false' }}
       OKVEVO_REQUIRE_NOTARIZE: ${{ needs.require-secrets.outputs.mac_signing == 'true' && '1' || '0' }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-pm
@@ -245,6 +246,7 @@ jobs:
       WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
       WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       OKVEVO_REQUIRE_WIN_SIGN: ${{ needs.require-secrets.outputs.win_signing == 'true' && '1' || '0' }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-pm
