@@ -198,8 +198,7 @@ jobs:
           node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --mac dmg zip --publish never \
-            -c.extraMetadata.version="$VERSION" \
-            -c.publish.url="$OKVEVO_UPDATE_FEED_URL"
+            -c.extraMetadata.version="$VERSION"
       - name: List bundled OSS notice
         run: |
           set -euo pipefail
@@ -309,8 +308,7 @@ jobs:
           node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --win nsis --publish never \
-            -c.extraMetadata.version="$VERSION" \
-            -c.publish.url="$OKVEVO_UPDATE_FEED_URL"
+            -c.extraMetadata.version="$VERSION"
       - name: List bundled OSS notice
         shell: bash
         run: |
