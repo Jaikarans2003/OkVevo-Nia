@@ -35,7 +35,10 @@ jobs:
       - name: SOUL identity canary
         run: python3 scripts/okvevo/make_soul.py >/dev/null
       - name: Plugin tests
-        run: bash scripts/run-in-hermes-env python3 -m pytest plugins/okvevo/tests/ -q --tb=line
+        # run_tests.sh uses __HERMES_TEST_PYTHON (venv with pytest). Bare
+        # `python3 -m pytest` after run-in-hermes-env hits ~/.hermes/tools/python
+        # which has no pytest.
+        run: scripts/run_tests.sh plugins/okvevo/tests/ -q --tb=line
 
   gitleaks:
     name: Gitleaks (new findings only)

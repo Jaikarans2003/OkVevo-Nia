@@ -35,6 +35,15 @@ git diff --name-only --diff-filter=A <old-tag> <new-tag> -- .github/workflows
 Disable Nous-only publish/release workflows with `gh workflow disable <name>`
 (`--repo Jaikarans2003/OkVevo-Nia`). Do not edit those YAML files.
 
+Also disable every remaining workflow that `runs-on: blacksmith-*` (CI, Tests,
+Lint, Nix, JS Tests, …). OkVevo-Nia has no Blacksmith runners; those jobs
+queue forever. Do not KEEP-PATCH the runner labels. Required checks stay the
+OkVevo jobs on `ubuntu-latest` / `macos-latest` / `windows-latest`.
+
+R2: do not mkdir prefixes or upload `.keep`. `okvevo/staging/` and
+`okvevo/stable/` appear on the first installer upload from our pack/publish
+workflows (`RELEASES_S3_*`). Leave existing `nia/` objects alone.
+
 Do **not** `git revert` an upstream merge. Redeploy the previous R2 build and
 fix forward.
 

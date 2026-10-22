@@ -36,18 +36,28 @@ The fork tool `manage_bot` (create / list / update a bot from **chat**; it never
 
 Those go through the desktop gateway profile RPCs, not `manage_bot`.
 
-**Fails — chat on a public (lockdown) build**
+**Fails — chat (every channel)**
 
 - "Make me a bot that…" / create a bot from chat
 - "List my bots" via the agent
 - "Change that bot's personality / role / description" from chat
 
-Public builds block file and shell access to `~/.hermes`, so the model cannot write `SOUL.md` by hand either. There is no tool left for those three actions.
+There is no `manage_bot` tool. A determined agent can still edit profile files with file/shell tools. That is not a supported create/list/update path.
 
-**Chat on an internal build**
-
-File tools stay visible, so a determined agent could still edit profile files. That is not a supported create/list/update path. There is still no `manage_bot` tool.
+The old whole-home block (`plugins/nia-public-guard`, `pre_tool_call` on `terminal` / `read_file` / `write_file` / … targeting all of `~/.hermes`) is **gone** on this branch. Remaining blocks are credential files only: upstream `agent/file_safety.py` (`.env`, `auth.json`, token dirs) plus `plugins/okvevo/secrets_guard.py` (same files plus `okvevo-firebase-id-token` / `okvevo-firebase-refresh-token`, including via the terminal).
 
 **Delete from chat**
 
 The old tool never had delete. Delete remains UI-only on every channel.
+
+## Upstream workflows on this PR
+
+Nous CI (CI, Tests, Lint, Nix flake check, JS Tests, …) uses **Blacksmith** runners (`blacksmith-*-ubuntu-2404`). OkVevo-Nia has no Blacksmith org. Those jobs queue forever here and succeed on Nous `v0.22.4` (`4d04303818b`) because Nous has the runners.
+
+**Action:** `gh workflow disable` on those workflows (same as other Nous-only jobs). Treat their PR runs as **cancelled by disable**. Do not KEEP-PATCH runner labels.
+
+Required merge checks are only the OkVevo jobs: Drift + branding + OkVevo plugins, Gitleaks, Desktop OkVevo suites, Assert repository is OkVevo-Nia.
+
+## R2 prefixes
+
+Do not create `okvevo/staging/` or `okvevo/stable/` by hand or with `.keep` objects. Object storage has no folders; the first upload from `okvevo-desktop-staging.yml` / publish (using existing `RELEASES_S3_*` secrets) creates those key prefixes. Do not delete or move any `nia/` objects.

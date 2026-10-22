@@ -49,6 +49,7 @@ def _classify_okvevo_api_error(
 def register(ctx) -> None:
     """Plugin entry point."""
     from plugins.okvevo.media import _build_image_provider, _build_video_provider
+    from plugins.okvevo.secrets_guard import on_pre_tool_call as _okvevo_secrets_guard
     from plugins.okvevo.web import OkvevoWebSearchProvider
 
     ctx.register_web_search_provider(OkvevoWebSearchProvider())
@@ -56,3 +57,4 @@ def register(ctx) -> None:
     ctx.register_video_gen_provider(_build_video_provider())
     ctx.register_redaction_patterns([_JWT_PATTERN])
     ctx.register_hook("transform_api_error_classification", _classify_okvevo_api_error)
+    ctx.register_hook("pre_tool_call", _okvevo_secrets_guard)

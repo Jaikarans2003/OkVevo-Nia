@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-10-22 (upstream reset to Hermes v0.22.4; OkVevo plugins + desktop rename; CI on `okvevo-*.yml`. Branch protection on a **private** repo needs a paid GitHub plan.)
+**Last reviewed:** 2026-10-23 (upstream reset to Hermes v0.22.4; OkVevo plugins + desktop rename; CI on `okvevo-*.yml`. Branch protection on a **private** repo needs a paid GitHub plan. `manage_bot` is a RELEASE BLOCKER for `main`.)
 
 ---
 
@@ -32,6 +32,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 ---
 
 ## Hard gates (block go-live)
+
+### [ ] RELEASE BLOCKER for main: manage_bot (create/list/update bots from chat) via plugins/okvevo
+
+| Field | Value |
+|-------|-------|
+| **Gate** | RELEASE BLOCKER for `main` (Hard gate). Do not merge this capability gap into `main` / customer ship. Staging testers can use the Bots UI. |
+| **Risk if skipped** | Chat-driven bot create / list / update ("make me a bot that…") has no tool. Upstream v0.22.4 has no replacement. File-tool workarounds are not a product path. |
+| **Scope** | `plugins/okvevo/` (new `manage_bot.py` + `ctx.register_tool` in `__init__.py`); fork source at `pre-upstream-reset:tools/manage_bot_tool.py` (254 lines) |
+| **Fix** | Port the fork tool as a plugin-registered tool via `PluginContext.register_tool()`. Chat create/list/update only — no delete (delete stays UI-only). Re-check the v0.22.4 bot layout (`tools/bot_desktop/`, bot profiles under `~/.hermes`) before copying 2026.8 write paths. |
+| **Verify** | `scripts/run_tests.sh plugins/okvevo/tests/` includes a manage_bot registration + slug/compose test; create-bot round-trip from chat on a packed public build. |
+| **Notes** | Logged 2026-10-22 during the upstream-reset `plugins` todo; promoted to RELEASE BLOCKER for main 2026-10-23. Exact UI vs chat failures: `docs/okvevo/TESTING.md` Known gaps. |
 
 ### [ ] First tagged release must be signed (Mac notarize + Windows Authenticode)
 
@@ -71,17 +82,6 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Require only checks that actually run on PRs to those branches (`OkVevo checks` jobs). Do not require Nous-only workflows. |
 | **Verify** | A PR to `staging` cannot merge while OkVevo checks are red. |
 | **Notes** | **Branch protection that requires status checks on a private repo needs a paid GitHub plan.** Free private repos cannot require checks. Public `OkVevo-Nia` can set protection now. Do not privatize until a paid plan exists, or accept unprotected private branches. |
-
-### [ ] Port manage_bot tool into plugins/okvevo (upstream reset dropped it)
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Required before live (public lockdown builds only) |
-| **Risk if skipped** | Public builds block raw file/shell access to the agent data folder, and upstream v0.22.4 has no bot-create tool. Without the port, chat-driven bot creation ("make me a bot that…") fails on public builds. Internal builds unaffected (file tools open). |
-| **Scope** | `plugins/okvevo/` (new `manage_bot.py` + `ctx.register_tool` in `__init__.py`); fork source at `pre-upstream-reset:tools/manage_bot_tool.py` (254 lines) |
-| **Fix** | Port the fork tool as a plugin-registered tool via `PluginContext.register_tool()`. Before porting, re-check the v0.22.4 bot layout (`tools/bot_desktop/`, bot profiles under `~/.hermes`) — the fork wrote bot `SOUL.md` files against the 2026.8 layout and the write paths may have moved. |
-| **Verify** | `.venv/bin/pytest plugins/okvevo/tests/` includes a manage_bot registration + slug/compose test; create-bot round-trip on a packed public build. |
-| **Notes** | Logged 2026-10-22 during the upstream-reset `plugins` todo (commit 2). Deferred because the upstream bot layout changed between the fork base (v2026.8.31) and v0.22.4 and blind porting could write stale paths. Exact UI vs chat failures: `docs/okvevo/TESTING.md` Known gaps. |
 
 ### [ ] Phase C: staging pack must upload installers directly to R2
 
@@ -345,7 +345,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | `skills/**/SKILL.md` (bundled library synced into `~/.hermes/skills`) |
 | **Fix** | Rewrite user-facing skill copy to Nia product language; keep internal identifiers only where a skill must name a real on-disk path for the tool layer. Do not treat `agent/brand_scrub.py` / `sanitizeUserFacingBrand` as sufficient. |
 | **Verify** | `rg -n -i 'hermes profile|openrouter|~/.hermes|config\\.yaml|auth\\.json' skills --glob '**/SKILL.md'` — triage every hit; none should instruct the model to edit internals or name vendors to the user. |
-| **Notes** | Logged 2026-09-14 with nia-public-guard (OWASP LLM02). Public builds already block file/shell access to the agent home and scrub leftovers; this audit removes the teaching source. |
+| **Notes** | Logged 2026-09-14 with nia-public-guard (OWASP LLM02). That plugin is gone; only `.env` / `auth.json` / token files stay blocked (`agent/file_safety.py` + `plugins/okvevo/secrets_guard.py`). This audit still removes the teaching source in skill copy. |
 
 ### [x] Drama portal adapter sends Fal-invalid bodies (G3 job 1 failed)
 
