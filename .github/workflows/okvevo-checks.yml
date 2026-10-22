@@ -1,0 +1,77 @@
+# OkVevo required checks on PRs to staging/main. Does not edit upstream workflows.
+name: OkVevo checks
+
+on:
+  pull_request:
+    branches: [staging, main]
+  push:
+    branches: [staging, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: okvevo-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift-branding-plugins:
+    name: Drift + branding + OkVevo plugins
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+      - name: Fetch upstream tag for drift
+        run: git fetch --tags origin 'v0.22.4' || git fetch --tags https://github.com/NousResearch/hermes-agent.git 'refs/tags/v0.22.4:refs/tags/v0.22.4'
+      - name: Upstream drift
+        run: bash scripts/okvevo/check_upstream_delta.sh v0.22.4
+      - name: Branding
+        run: python3 scripts/okvevo/check_branding.py
+      - name: SOUL identity canary
+        run: python3 scripts/okvevo/make_soul.py >/dev/null
+      - name: Plugin tests
+        run: bash scripts/run-in-hermes-env .venv/bin/pytest plugins/okvevo/tests/ -q --tb=line
+
+  gitleaks:
+    name: Gitleaks (new findings only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
+      - name: Detect (baseline = existing history; fail on new findings)
+        run: ./gitleaks detect --source . --log-opts="v0.22.4..HEAD" --baseline-path docs/okvevo/gitleaks-baseline.json --redact --exit-code 1 --verbose
+
+  desktop-okvevo:
+    name: Desktop OkVevo suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+      - run: npm ci
+      - name: Electron + UI OkVevo tests
+        working-directory: apps/desktop
+        run: |
+          npx vitest run --project electron \
+            electron/okvevo-config-migration.test.ts \
+            electron/okvevo-env.test.ts \
+            electron/backend-env.test.ts \
+            electron/okvevo-auth.test.ts
+          npx vitest run --project ui \
+            src/plugins/hermes-bots/data.identity.test.ts \
+            src/plugins/hermes-bots/group-chat.test.ts \
+            src/plugins/hermes-bots/routing.test.ts \
+            src/app/settings/settings-ui-policy.test.ts

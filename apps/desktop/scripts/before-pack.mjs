@@ -55,7 +55,7 @@ import { fileURLToPath } from 'node:url'
 import { Arch } from 'electron-builder'
 import { copyNativeInputs } from './prepared-native-deps.mjs'
 import { removeDirSync } from './stage-native-deps.mjs'
-import { overlayBrandAssets } from '../../../scripts/overlay-brand-assets.mjs'
+import { overlayBrandAssets } from './overlay-brand-assets.mjs'
 
 /** @param {string | null | undefined} appOutDir @returns {boolean} */
 export function cleanStaleAppOutDir(appOutDir) {

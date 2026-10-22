@@ -3,7 +3,7 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-09-21 (Phase B tag pack + Publish release; staging unsigned pack allowed until Apple/Windows certs; signed-release still a hard gate)
+**Last reviewed:** 2026-10-22 (upstream reset to Hermes v0.22.4; OkVevo plugins + desktop rename; CI on `okvevo-*.yml`. Branch protection on a **private** repo needs a paid GitHub plan.)
 
 ---
 
@@ -39,9 +39,9 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 |-------|-------|
 | **Gate** | Hard gate |
 | **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
-| **Scope** | `.github/workflows/desktop-staging.yml`, `desktop-production.yml`, `desktop-pack.yml`, `desktop-publish.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/publish-release-feed.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
+| **Scope** | `.github/workflows/okvevo-desktop-staging.yml`, `okvevo-desktop-production.yml`, `okvevo-desktop-pack.yml`, `okvevo-desktop-publish.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/publish-release-feed.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
 | **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Tag `vX.Y.Z` packs versioned R2 objects only; Karan runs **Publish release** to point `latest*.yml`. Unset `PROD_ALLOW_UNSIGNED` before the first signed customer ship — missing certs then fail the job on purpose. |
-| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `NIA_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + tag pack green with **root `latest.yml` unchanged**; after Publish release, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
+| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `OKVEVO_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + tag pack green with **root `latest.yml` unchanged**; after Publish release, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
 | **Notes** | Pack/publish path landed 2026-09-21 (Phase B). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). Staging may pack **unsigned**; production uses `vars.PROD_ALLOW_UNSIGNED` until certs exist. Do not check this box until a **signed** Publish release exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
 
 ### [ ] Private repo breaks DMG first-install bootstrap
@@ -61,6 +61,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Required before live
 
+### [ ] Branch protection on staging and main
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Direct pushes to `staging`/`main` can skip OkVevo checks. |
+| **Scope** | GitHub repo Settings → Branches (or `gh api` branch protection). No GitHub Environments (Free-plan). |
+| **Fix** | Require only checks that actually run on PRs to those branches (`OkVevo checks` jobs). Do not require Nous-only workflows. |
+| **Verify** | A PR to `staging` cannot merge while OkVevo checks are red. |
+| **Notes** | **Branch protection that requires status checks on a private repo needs a paid GitHub plan.** Free private repos cannot require checks. Public `OkVevo-Nia` can set protection now. Do not privatize until a paid plan exists, or accept unprotected private branches. |
+
 ### [ ] Port manage_bot tool into plugins/okvevo (upstream reset dropped it)
 
 | Field | Value |
@@ -70,7 +81,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | `plugins/okvevo/` (new `manage_bot.py` + `ctx.register_tool` in `__init__.py`); fork source at `pre-upstream-reset:tools/manage_bot_tool.py` (254 lines) |
 | **Fix** | Port the fork tool as a plugin-registered tool via `PluginContext.register_tool()`. Before porting, re-check the v0.22.4 bot layout (`tools/bot_desktop/`, bot profiles under `~/.hermes`) — the fork wrote bot `SOUL.md` files against the 2026.8 layout and the write paths may have moved. |
 | **Verify** | `.venv/bin/pytest plugins/okvevo/tests/` includes a manage_bot registration + slug/compose test; create-bot round-trip on a packed public build. |
-| **Notes** | Logged 2026-10-22 during the upstream-reset `plugins` todo (commit 2). Deferred because the upstream bot layout changed between the fork base (v2026.8.31) and v0.22.4 and blind porting could write stale paths. |
+| **Notes** | Logged 2026-10-22 during the upstream-reset `plugins` todo (commit 2). Deferred because the upstream bot layout changed between the fork base (v2026.8.31) and v0.22.4 and blind porting could write stale paths. Exact UI vs chat failures: `docs/okvevo/TESTING.md` Known gaps. |
 
 ### [ ] Phase C: staging pack must upload installers directly to R2
 
@@ -78,7 +89,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 |-------|-------|
 | **Gate** | Required before live (blocks privatize on GitHub Free) |
 | **Risk if skipped** | Private Free artifact storage is **500 MB** shared with Packages. Staging still `upload-artifact`s DMG+zip+NSIS; after privatize the job fails or evicts other artifacts. |
-| **Scope** | `.github/workflows/desktop-pack.yml` staging `yml_mode`, `publish-release-feed.mjs` |
+| **Scope** | `.github/workflows/okvevo-desktop-pack.yml` staging `yml_mode`, `publish-release-feed.mjs` |
 | **Fix** | Staging pack uploads installers **directly to R2** (same as production `versioned` archive under prefix `staging/`). No GitHub `upload-artifact` for installers. |
 | **Verify** | Staging pack green with no `nia-mac`/`nia-win` artifacts; `https://releases.okvevo.com/staging/latest-mac.yml` updates. |
 | **Notes** | Logged 2026-09-21 with Phase B. Do **not** privatize until this is closed. Production tag pack already skips installer artifacts. |
@@ -89,7 +100,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 |-------|-------|
 | **Gate** | Required before live (blocks privatize on GitHub Free) |
 | **Risk if skipped** | Private Free included minutes are **2,000 / month**. One busy staging day (`ci.yaml` + macos/windows pack) can exhaust the quota; further Actions stop with no payment method. |
-| **Scope** | `.github/workflows/desktop-staging.yml`, `.github/workflows/ci.yaml` |
+| **Scope** | `.github/workflows/okvevo-desktop-staging.yml`, `.github/workflows/ci.yaml` |
 | **Fix** | Staging pack `workflow_dispatch` and/or `paths` filters so docs-only commits skip pack. Do not run full `ci.yaml` on every `staging` push once private; keep it on PRs. Optional $0 Actions budget. |
 | **Verify** | A docs-only push to `staging` does not start macos/windows pack; `ci.yaml` still runs on PRs. Settings → Billing after the first private week. |
 | **Notes** | Logged 2026-09-21 with Phase B (report-only in `docs/CI-CD.md`). Multipliers 2×/10× are **not** in current GitHub billing docs — confirm in the Billing UI. |
@@ -138,7 +149,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Taskbar screenshot shows transparent corners vs square neighbors; ICO is not a full-bleed opaque square. |
 | **Notes** | Deferred 2026-09-01 from Nia UI polish: this environment is macOS only. Mac Dock shot can be taken here. Do not close `app-icon` / ship as done on Dock-only evidence. |
 
-### [ ] Desktop/Electron shell rebrand not yet committed
+### [x] Desktop/Electron shell rebrand not yet committed
 
 | Field | Value |
 |-------|-------|
@@ -147,7 +158,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | ~50 unstaged files under `apps/desktop/**`, `apps/bootstrap-installer/**` (icons, `brand-mark.tsx`, i18n, `product.ts`, etc.). Local-only as of 2026-08-31; not on `okvevo/main`. |
 | **Fix** | Review unstaged desktop work, complete rebrand, commit as dedicated desktop identity pass. Include `install.ps1` shortcut names (`Hermes.lnk` → `Nia.lnk`) if desktop product name is Nia. |
 | **Verify** | Build DMG/installer; spot-check window title, icon, onboarding, uninstall strings. `rg -i 'hermes' apps/desktop/src --glob '!**/*.test.*'` — user-facing hits triaged. |
-| **Notes** | DMG-baked assets do not affect `git clone` bootstrap; separate from clone-shipped backend commit `e23f5d5c05`. **Progress 2026-09-09 (public-build privacy layer):** desktop i18n public-reachable values swept to Nia across all 5 locales (boot errors, `gatewayDisconnected`, update/backend-out-of-date, config loading, projects/worktree `staleBackend`, pet `staleBackend`, preview restart); hardcoded `'Hermes reported an error'` / `'Hermes error'` toast titles → Nia; `sanitizeUserFacingBrand` now rewrites standalone Hermes/Nous/OpenRouter/fal.ai in error+notice paths; Send-diagnostics error action is internal-only (uploads to Nous storage). Remaining Hermes strings in `apps/desktop/src` are hidden cloud/SSH/connections/providers/plugins UI (not reachable on public builds) or protocol identifiers — triage before checking this box. |
+| **Notes** | **Closed 2026-10-22** on `feat/okvevo-upstream-reset` commit 3 (`282f8da75c2`): productName OkVevo, appId `com.okvevo.app`, About attribution, Bots default "OkVevo agent". Honest Hermes strings in hidden/internal chrome are allowed. |
 
 ### [ ] OkVevo desktop sign-in verified on Mac and Windows
 
@@ -600,4 +611,5 @@ _(Move items here when done.)_
 | Installer SOUL.md seed + legacy Hermes upgrade | 2026-08-31 | `07567979f4` |
 | Clone-shipped backend identity (Python, SOUL, locales, tests) | 2026-08-31 | `e23f5d5c05` |
 | LOCAL_ONLY_V1 gates Settings → gateway Cloud/remote/SSH cards, cloud sign-in, connections registry, boot-failure cloud re-auth, and first-run “connect existing” | 2026-08-31 | pending commit (desktop visual rebrand; verify: Settings → gateway on a fresh profile — only the Local card) |
+| Desktop/Electron shell rebrand (Nia → OkVevo) | 2026-10-22 | `282f8da75c2` on `feat/okvevo-upstream-reset`. productName OkVevo, appId `com.okvevo.app`. |
 | `apps/desktop/package.json` author / repository.url / linux maintainer → OkVevo / OkVevo-Nia | 2026-08-31 | pending commit (desktop visual rebrand) |
