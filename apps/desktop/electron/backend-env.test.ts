@@ -274,3 +274,51 @@ test('Windows matches profile homes and dotenv names case-insensitively', () => 
   assert.deepEqual(scoped('default'), currentEnv)
   assert.deepEqual(scoped('urbot'), { HERMES_HOME: currentEnv.HERMES_HOME, Path: 'C:\\Windows' })
 })
+
+// ── OkVevo additions (see backend-env.ts okvevoEnv block) ──────────────────
+
+test('backend env carries the OkVevo portal origin, channel, and token file path', () => {
+  const env = buildDesktopBackendEnv({
+    currentEnv: { PATH: '/usr/bin:/bin', HOME: '/home/u' },
+    platform: 'darwin',
+    homedir: '/home/u',
+    bundledToolsDir: null
+  })
+
+  assert.equal(env.OKVEVO_WEB_ORIGIN, '')
+  assert.equal(env.OKVEVO_BUILD_CHANNEL, 'public')
+  assert.equal(env.OKVEVO_FIREBASE_ID_TOKEN_FILE, path.posix.join('/home/u/.hermes', 'okvevo-firebase-id-token'))
+})
+
+test('backend env OKVEVO_WEB_ORIGIN env override wins and trailing slash is trimmed', () => {
+  const env = buildDesktopBackendEnv({
+    currentEnv: { PATH: '/usr/bin', HOME: '/home/u', OKVEVO_WEB_ORIGIN: 'https://okvevo-testing.web.app/' },
+    platform: 'darwin',
+    homedir: '/home/u',
+    bundledToolsDir: null
+  })
+
+  assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://okvevo-testing.web.app')
+})
+
+test('backend env OKVEVO_BUILD_CHANNEL env override wins', () => {
+  const env = buildDesktopBackendEnv({
+    currentEnv: { PATH: '/usr/bin', HOME: '/home/u', OKVEVO_BUILD_CHANNEL: 'internal' },
+    platform: 'darwin',
+    homedir: '/home/u',
+    bundledToolsDir: null
+  })
+
+  assert.equal(env.OKVEVO_BUILD_CHANNEL, 'internal')
+})
+
+test('bundled ffmpeg dir wins PATH resolution when provided', () => {
+  const env = buildDesktopBackendEnv({
+    currentEnv: { PATH: '/usr/bin:/bin', HOME: '/home/u' },
+    platform: 'darwin',
+    homedir: '/home/u',
+    bundledToolsDir: '/resources/ffmpeg'
+  })
+
+  assert.ok(env.PATH.startsWith('/resources/ffmpeg:'), env.PATH)
+})

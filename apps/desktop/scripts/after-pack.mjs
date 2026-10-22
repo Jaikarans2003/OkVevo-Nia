@@ -59,7 +59,26 @@ export async function restoreMacLocaleMarkers({ appOutDir, packager }) {
   }
 }
 
+function bundledNoticePath(context) {
+  const name = 'THIRD_PARTY_NOTICES.txt'
+  const product = context.packager?.appInfo?.productFilename || 'OkVevo'
+
+  if (context.electronPlatformName === 'darwin') {
+    return path.join(context.appOutDir, `${product}.app`, 'Contents', 'Resources', name)
+  }
+
+  return path.join(context.appOutDir, 'resources', name)
+}
+
 export default async function afterPack(context) {
+  // OkVevo attribution gate: the MIT notice must ship inside every pack.
+  const notice = bundledNoticePath(context)
+
+  if (!fs.existsSync(notice)) {
+    throw new Error(`[after-pack] MIT notice missing from the packed app: ${notice}`)
+  }
+
+  console.log(`[after-pack] bundled OSS notice: ${notice}`)
   const platform = context.electronPlatformName
   // Artifact-skew guard (#60772): before any platform work, prove the packed
   // bundle's readiness parser still accepts both ready tokens. This runs for

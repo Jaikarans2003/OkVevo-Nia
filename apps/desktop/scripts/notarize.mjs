@@ -149,6 +149,13 @@ export default async function notarize(context, {
     const issuer = String(env.APPLE_API_ISSUER || '').trim()
     const rawApiKey = env.APPLE_API_KEY
     if (!rawApiKey || !keyId || !issuer) {
+      // OkVevo release gate: tagged releases must never ship un-notarized.
+      if (env.OKVEVO_REQUIRE_NOTARIZE === '1') {
+        throw new Error(
+          'Tagged releases require notarization. Set APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER (see docs/okvevo/FINISH-SIGNED-RELEASE notes).'
+        )
+      }
+
       log(
         'Skipping notarization: APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER are not fully configured.'
       )

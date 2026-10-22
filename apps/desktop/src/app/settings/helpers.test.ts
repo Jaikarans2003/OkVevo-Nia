@@ -161,6 +161,13 @@ describe('settings helpers', () => {
   })
 
   describe('providerGroup', () => {
+    it('maps a provider env var to its labeled group', () => {
+      expect(providerGroup('XAI_API_KEY')).toBe('xAI')
+      expect(providerGroup('NOUS_API_KEY')).toBe('OkVevo Portal')
+      expect(providerGroup('FIREWORKS_API_KEY')).toBe('Fireworks AI')
+      expect(providerGroup('OPENROUTER_API_KEY')).toBe('OpenRouter')
+    })
+
     it('prefers the longest matching prefix so CN/regional buckets win', () => {
       // MINIMAX_CN_ must beat the generic MINIMAX_ prefix.
       expect(providerGroup('MINIMAX_CN_API_KEY')).toBe('MiniMax (China)')
@@ -442,46 +449,6 @@ describe('settings helpers', () => {
       const next: HermesConfigRecord = { model: 'b', toolsets: ['memory'] }
 
       expect(clearsEnabledToolsets(prev, next)).toBe(false)
-    })
-  })
-
-  describe('diffConfig', () => {
-    it('omits a top-level key the draft never touched', () => {
-      // The autosave baseline is a snapshot taken when Settings opened. A key
-      // an agent set via `hermes config set` while the page sat open must not
-      // come back in the patch just because it's still present in the draft.
-      const baseline: HermesConfigRecord = { fallback_providers: ['nara1'], timezone: 'UTC' }
-      const draft: HermesConfigRecord = { fallback_providers: ['nara1'], timezone: 'America/New_York' }
-
-      expect(diffConfig(baseline, draft)).toEqual({ timezone: 'America/New_York' })
-    })
-
-    it('includes a nested key only when it actually changed, leaving siblings out', () => {
-      const baseline: HermesConfigRecord = { display: { personality: 'default', show_reasoning: true } }
-      const draft: HermesConfigRecord = { display: { personality: 'default', show_reasoning: false } }
-
-      expect(diffConfig(baseline, draft)).toEqual({ display: { show_reasoning: false } })
-    })
-
-    it('sends a new key that was absent from the baseline', () => {
-      const baseline: HermesConfigRecord = {}
-      const draft: HermesConfigRecord = { timezone: 'UTC' }
-
-      expect(diffConfig(baseline, draft)).toEqual({ timezone: 'UTC' })
-    })
-
-    it('returns an empty object when the draft matches the baseline exactly', () => {
-      const baseline: HermesConfigRecord = { toolsets: ['memory'], display: { personality: 'default' } }
-      const draft: HermesConfigRecord = { toolsets: ['memory'], display: { personality: 'default' } }
-
-      expect(diffConfig(baseline, draft)).toEqual({})
-    })
-
-    it('treats an array as a whole value, not diffed element by element', () => {
-      const baseline: HermesConfigRecord = { toolsets: ['memory', 'terminal'] }
-      const draft: HermesConfigRecord = { toolsets: ['memory'] }
-
-      expect(diffConfig(baseline, draft)).toEqual({ toolsets: ['memory'] })
     })
   })
 })

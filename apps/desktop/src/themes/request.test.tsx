@@ -5,14 +5,17 @@ import { registry } from '@/contrib/registry'
 
 import { __resetBackendSkinSync } from './backend-sync'
 import { modePref, skinPref, ThemeProvider, useTheme } from './context'
-import { midnightTheme } from './presets'
+import { midnightTheme, okvevoTheme } from './presets'
 import { requestMode, requestTheme } from './request'
 import type { DesktopTheme } from './types'
 import { THEMES_AREA } from './user-themes'
 
 const cssVar = (name: string) => window.document.documentElement.style.getPropertyValue(name)
 
-describe('requestTheme', () => {
+// OkVevo ships ONE locked dark theme. The imperative door still answers
+// (resolvable names return true) but every drain re-asserts the lock, so no
+// backend `/skin`, plugin event, or stored pref can repaint the app.
+describe('requestTheme under the OkVevo theme lock', () => {
   let ctx: ReturnType<typeof useTheme>
 
   function Probe() {
@@ -35,42 +38,34 @@ describe('requestTheme', () => {
 
   afterEach(cleanup)
 
-  it('switches the painted theme from outside React', () => {
+  it('leaves the OkVevo theme painted when a built-in switch is requested', () => {
     renderProbe()
 
-    let accepted = false
-    act(() => {
-      accepted = requestTheme('mono')
-    })
+    act(() => void requestTheme('mono'))
 
-    expect(accepted).toBe(true)
-    expect(ctx.themeName).toBe('mono')
+    expect(ctx.themeName).toBe('okvevo')
+    expect(cssVar('--theme-foreground')).toBe(okvevoTheme.colors.foreground)
   })
 
-  // The imperative door must land in the same place the React one does, or a
-  // plugin-driven switch would evaporate on the next profile read.
-  it('persists per profile like a manual pick', () => {
+  it('persisted picks still resolve to the locked skin', () => {
     renderProbe()
 
     act(() => void requestTheme('midnight'))
 
-    expect(skinPref.resolve('default')).toBe('midnight')
+    expect(skinPref.resolve('default')).toBe('okvevo')
   })
 
-  it('switches and persists light/dark from outside React', () => {
+  it('every requested mode resolves to dark', () => {
     renderProbe()
 
-    act(() => requestMode('dark'))
+    act(() => requestMode('light'))
 
     expect(ctx.mode).toBe('dark')
     expect(modePref.resolve('default')).toBe('dark')
   })
 
-  it('refuses a name that does not resolve, leaving the appearance untouched', () => {
+  it('refuses a name that does not resolve', () => {
     renderProbe()
-
-    act(() => void requestTheme('mono'))
-    const painted = cssVar('--theme-foreground')
 
     let accepted = true
     act(() => {
@@ -78,25 +73,19 @@ describe('requestTheme', () => {
     })
 
     expect(accepted).toBe(false)
-    expect(ctx.themeName).toBe('mono')
-    expect(cssVar('--theme-foreground')).toBe(painted)
+    expect(ctx.themeName).toBe('okvevo')
   })
 
-  // The whole plugin loop: contribute a palette through THEMES_AREA, then
-  // activate it on an event with no component in scope.
-  it('activates a theme contributed through the registry', () => {
+  it('does not activate a registry-contributed theme', () => {
     const zeus: DesktopTheme = { ...midnightTheme, description: 'Zeus', label: 'Zeus', name: 'zeus' }
     const dispose = registry.register({ area: THEMES_AREA, data: zeus, id: 'zeus' })
 
     renderProbe()
 
-    let accepted = false
-    act(() => {
-      accepted = requestTheme('zeus')
-    })
+    act(() => void requestTheme('zeus'))
 
-    expect(accepted).toBe(true)
-    expect(ctx.themeName).toBe('zeus')
+    expect(ctx.themeName).toBe('okvevo')
+    expect(cssVar('--theme-foreground')).toBe(okvevoTheme.colors.foreground)
 
     dispose()
   })

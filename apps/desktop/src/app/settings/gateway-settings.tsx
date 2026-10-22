@@ -31,6 +31,7 @@ import {
   RefreshCw,
   Terminal
 } from '@/lib/icons'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 import { coerceRemoteUrlScheme } from '@/lib/remote-url'
 import { selectableCardClass } from '@/lib/selectable-card'
 import { cn } from '@/lib/utils'
@@ -344,7 +345,7 @@ function GatewayConnectionSettings({ embedded, standalone }: { embedded: boolean
   // so confirm resumes the right one.
   const [plainTextConfirm, setPlainTextConfirm] = useState<null | { apply: boolean }>(null)
 
-  // --- Hermes Cloud (cloud mode) state ---
+  // --- OkVevo Cloud (cloud mode) state ---
   // One portal session powers discovery + the silent per-agent cascade. These
   // track the cloud panel: whether we're signed in, the discovered agent list,
   // and which agent is mid-connect.
@@ -1083,7 +1084,7 @@ function GatewayConnectionSettings({ embedded, standalone }: { embedded: boolean
         <div className="text-[length:var(--conversation-caption-font-size)] font-medium text-(--ui-text-secondary)">
           {g.modeTitle}
         </div>
-        <div className="grid auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2 min-[72rem]:grid-cols-4">
+        <div className={`grid auto-rows-fr grid-cols-1 gap-2 ${LOCAL_ONLY_V1 ? '' : 'sm:grid-cols-2 min-[72rem]:grid-cols-4'}`}>
           <ModeCard
             active={state.mode === 'local'}
             description={g.localDesc}
@@ -1092,6 +1093,8 @@ function GatewayConnectionSettings({ embedded, standalone }: { embedded: boolean
             onSelect={() => setState(current => ({ ...current, mode: 'local' }))}
             title={g.localTitle}
           />
+          {LOCAL_ONLY_V1 ? null : (
+            <>
           <ModeCard
             active={state.mode === 'cloud'}
             description={g.cloudDesc}
@@ -1118,13 +1121,15 @@ function GatewayConnectionSettings({ embedded, standalone }: { embedded: boolean
             onSelect={() => setState(current => ({ ...current, mode: 'ssh' }))}
             title={g.sshTitle}
           />
+            </>
+          )}
         </div>
       </div>
 
       {/* Hermes Cloud panel: one portal sign-in, then a discovered-agent picker
           whose selection drives the silent per-agent cascade + a cloud
           connection. Replaces the URL/token form while in cloud mode. */}
-      {state.mode === 'cloud' && !state.envOverride ? (
+      {!LOCAL_ONLY_V1 && state.mode === 'cloud' && !state.envOverride ? (
         <div className="mt-5 grid gap-1">
           {savedCloudConnections.length > 0 ? (
             <div className="mb-4 grid gap-1">
@@ -1248,7 +1253,7 @@ function GatewayConnectionSettings({ embedded, standalone }: { embedded: boolean
                     <AlertCircle className="mt-0.5 size-4 shrink-0" />
                     <span>
                       {g.cloudNoAgents.before}
-                      <ExternalLink href="https://portal.nousresearch.com/agents" showExternalIcon={false}>
+                      <ExternalLink href="https://www.okvevo.com/agents" showExternalIcon={false}>
                         {g.cloudNoAgents.linkText}
                       </ExternalLink>
                       {g.cloudNoAgents.after}
@@ -1505,8 +1510,9 @@ function GatewayConnectionSettings({ embedded, standalone }: { embedded: boolean
       )}
 
       {/* Preserve the full legacy page outside subpage navigation, without
-          mounting registry editors in connection-only or recovery views. */}
-      {embedded || standalone ? null : (
+          mounting registry editors in connection-only or recovery views.
+          LOCAL_ONLY_V1: the connections registry is hidden entirely. */}
+      {embedded || standalone || LOCAL_ONLY_V1 ? null : (
         <>
           <ConnectionsRegistrySection />
           {/* Per-connection driver for the transactional managed SSH update

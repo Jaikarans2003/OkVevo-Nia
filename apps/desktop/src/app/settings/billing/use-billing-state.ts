@@ -12,8 +12,8 @@ import { resolveRefusal } from './errors'
 import type { BillingStateResponse, SubscriptionStateResponse, SubscriptionTierOption, UsageModelData } from './types'
 
 export const EMPTY_BILLING_VALUE = '—'
-export const FALLBACK_PORTAL_BILLING_URL = 'https://portal.nousresearch.com/billing'
-export const FALLBACK_PORTAL_URL = 'https://portal.nousresearch.com'
+export const FALLBACK_PORTAL_BILLING_URL = 'https://www.okvevo.com/billing'
+export const FALLBACK_PORTAL_URL = 'https://www.okvevo.com'
 
 // The billing endpoint is the authoritative source of truth for balance / cap /
 // plan — the inference `x-nous-credits-*` headers are best-effort and can drift
@@ -227,9 +227,9 @@ export function deriveBillingView(
   if (!billing.logged_in || subscription?.logged_in === false) {
     return {
       notice: {
-        action: { label: b.state.notice.loggedOut.action, onSelect: openFreeTierSignIn },
-        message: b.state.notice.loggedOut.message,
-        title: b.state.notice.loggedOut.title
+        action: { label: 'Open portal ↗', url: billing.portal_url ?? subscription?.portal_url ?? FALLBACK_PORTAL_URL },
+        message: 'Run /portal in the TUI or open the OkVevo portal to connect your account.',
+        title: 'Connect your OkVevo account'
       },
       status: 'logged_out',
       summary: emptySummary(b),

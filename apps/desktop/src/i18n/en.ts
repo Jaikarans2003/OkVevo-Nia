@@ -529,7 +529,10 @@ export const en: Translations = {
     exitHud: 'Exit HUD mode',
     resetHudLayout: 'Reset HUD size and position',
     layoutEditor: 'Layout editor',
-    layoutEditorTitle: mod => `Layout editor — ${mod}-click resets the layout`
+    layoutEditorTitle: mod => `Layout editor — ${mod}-click resets the layout`,
+    signIn: 'Sign in',
+    signOut: 'Sign out',
+    signedInAs: (email: string) => `Signed in as ${email}`
   },
 
   keybinds: {
@@ -4641,6 +4644,7 @@ export const en: Translations = {
       errorOpenDesktopLogs: 'Open Desktop logs',
       errorCopyDiagnostics: 'Copy error details',
       errorSendDiagnostics: 'Send diagnostics',
+      errorHelpEmail: 'Email help@okvevo.com',
       filesChanged: count => (count === 1 ? '1 file changed' : `${count} files changed`),
       reviewChanges: 'Review',
       readAloudFailed: 'Read aloud failed',

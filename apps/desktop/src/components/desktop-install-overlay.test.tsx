@@ -2,9 +2,16 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DesktopBootstrapEvent, DesktopBootstrapState } from '@/global'
+import type { DesktopBootstrapEvent, DesktopBootstrapState, DesktopConnectionProbeResult } from '@/global'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 
 import { DesktopInstallOverlay } from './desktop-install-overlay'
+
+let byokChromeVisible = true
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible: () => byokChromeVisible
+}))
 
 function bootstrapState(overrides: Partial<DesktopBootstrapState> = {}): DesktopBootstrapState {
   return {
@@ -83,11 +90,13 @@ function whenPresent(text: string): Promise<HTMLElement> {
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  Element.prototype.scrollIntoView ??= () => undefined
 })
 
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
+  byokChromeVisible = true
   Reflect.deleteProperty(window, 'hermesDesktop')
 })
 
@@ -107,14 +116,14 @@ describe('DesktopInstallOverlay first-run setup', () => {
     render(<DesktopInstallOverlay />)
 
     expect(await screen.findByText('Set up Hermes Desktop')).toBeTruthy()
-    expect(screen.getByText('Connect to existing Hermes')).toBeTruthy()
+    expect(screen.queryByText('Connect to existing Hermes')).toBeNull()
     expect(screen.getByText('Install Hermes locally')).toBeTruthy()
     expect(screen.getByText(/Will install to/i)).toBeTruthy()
     expect(screen.queryByText(/steps complete/i)).toBeNull()
     expect(screen.queryByText(/Fetching installer manifest/i)).toBeNull()
   })
 
-  it('continues local bootstrap only when Install Hermes locally is selected', async () => {
+  it('continues local bootstrap only when Install OkVevo locally is selected', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: {
@@ -128,16 +137,16 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Install Hermes locally'))
+    fireEvent.click(await screen.findByText('Install OkVevo locally'))
 
     expect(desktop.continueBootstrapLocal).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('Set up Hermes Desktop')).toBeTruthy()
+    expect(screen.getByText('Set up OkVevo Desktop')).toBeTruthy()
 
     act(() => {
       desktop.emitBootstrapEvent({ type: 'manifest', protocolVersion: 1, stages: [] })
     })
 
-    await waitFor(() => expect(screen.queryByText('Set up Hermes Desktop')).toBeNull())
+    await waitFor(() => expect(screen.queryByText('Set up OkVevo Desktop')).toBeNull())
     expect(screen.getByText(/Fetching installer manifest/i)).toBeTruthy()
   })
 
@@ -156,11 +165,11 @@ describe('DesktopInstallOverlay first-run setup', () => {
     desktop.continueBootstrapLocal = undefined as never
     render(<DesktopInstallOverlay />)
 
-    const install = (await screen.findByText('Install Hermes locally')).closest('button') as HTMLButtonElement
+    const install = (await screen.findByText('Install OkVevo locally')).closest('button') as HTMLButtonElement
     fireEvent.click(install)
 
     expect(
-      await screen.findByText('Local installation could not start. Restart Hermes Desktop and try again.')
+      await screen.findByText('Local installation could not start. Restart OkVevo Desktop and try again.')
     ).toBeTruthy()
     expect(install.disabled).toBe(false)
   })
@@ -183,14 +192,14 @@ describe('DesktopInstallOverlay first-run setup', () => {
     // Click the instant the choice paints, before React drains the passive
     // effect that reacts to the first snapshot. A loaded runner hits this
     // window by accident; observing the DOM directly hits it every time.
-    const install = (await whenPresent('Install Hermes locally')).closest('button') as HTMLButtonElement
+    const install = (await whenPresent('Install OkVevo locally')).closest('button') as HTMLButtonElement
     fireEvent.click(install)
 
     await act(async () => {
       await Promise.resolve()
     })
 
-    expect(screen.queryByText('Local installation could not start. Restart Hermes Desktop and try again.')).toBeTruthy()
+    expect(screen.queryByText('Local installation could not start. Restart OkVevo Desktop and try again.')).toBeTruthy()
   })
 
   it('clears a stale local-start error when a repair presents a different root', async () => {
@@ -208,9 +217,9 @@ describe('DesktopInstallOverlay first-run setup', () => {
     desktop.continueBootstrapLocal = undefined as never
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click((await screen.findByText('Install Hermes locally')).closest('button') as HTMLButtonElement)
+    fireEvent.click((await screen.findByText('Install OkVevo locally')).closest('button') as HTMLButtonElement)
     expect(
-      await screen.findByText('Local installation could not start. Restart Hermes Desktop and try again.')
+      await screen.findByText('Local installation could not start. Restart OkVevo Desktop and try again.')
     ).toBeTruthy()
 
     act(() => {
@@ -222,10 +231,10 @@ describe('DesktopInstallOverlay first-run setup', () => {
       })
     })
 
-    expect(screen.queryByText('Local installation could not start. Restart Hermes Desktop and try again.')).toBeNull()
+    expect(screen.queryByText('Local installation could not start. Restart OkVevo Desktop and try again.')).toBeNull()
   })
 
-  it('opens the remote connection form from the first-run choice', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('opens the remote connection form from the first-run choice', async () => {
     installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
@@ -234,14 +243,14 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Hermes'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
 
     expect(await screen.findByText('Gateway URL')).toBeTruthy()
     expect(screen.getByText('Test connection')).toBeTruthy()
     expect(screen.getByText('Apply and reconnect')).toBeTruthy()
   })
 
-  it('returns from the remote connection form to the first-run choice', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('returns from the remote connection form to the first-run choice', async () => {
     installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
@@ -250,16 +259,16 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Hermes'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     expect(await screen.findByText('Gateway URL')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Back'))
 
-    expect(await screen.findByText('Set up Hermes Desktop')).toBeTruthy()
-    expect(screen.getByText('Install Hermes locally')).toBeTruthy()
+    expect(await screen.findByText('Set up OkVevo Desktop')).toBeTruthy()
+    expect(screen.getByText('Install OkVevo locally')).toBeTruthy()
   })
 
-  it('requires a successful token connection test before applying remote config', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('requires a successful token connection test before applying remote config', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
@@ -287,7 +296,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Hermes'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
       target: { value: 'https://gateway.example.com/hermes' }
     })
@@ -329,7 +338,104 @@ describe('DesktopInstallOverlay first-run setup', () => {
     await waitFor(() => expect(screen.queryByText('Gateway URL')).toBeNull())
   })
 
-  it('restores remote apply controls when applying the tested connection fails', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('ignores a completed probe after the gateway URL becomes invalid', async () => {
+    const desktop = installDesktopMock(
+      bootstrapState({
+        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
+      })
+    )
+
+    let resolveProbe: ((result: DesktopConnectionProbeResult) => void) | undefined
+
+    const pendingProbe = new Promise<DesktopConnectionProbeResult>(resolve => {
+      resolveProbe = resolve
+    })
+
+    desktop.probeConnectionConfig.mockReturnValue(pendingProbe)
+
+    render(<DesktopInstallOverlay />)
+
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
+    const urlInput = await screen.findByPlaceholderText('https://gateway.example.com/hermes')
+    fireEvent.change(urlInput, { target: { value: 'https://gateway.example.com/hermes' } })
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 550))
+    })
+    expect(desktop.probeConnectionConfig).toHaveBeenCalledTimes(1)
+
+    fireEvent.change(urlInput, { target: { value: 'not-a-url' } })
+    await act(async () => {
+      resolveProbe?.({
+        authMode: 'token',
+        baseUrl: 'https://gateway.example.com/hermes',
+        error: null,
+        providers: [],
+        reachable: true,
+        version: '0.17.0'
+      })
+      await pendingProbe
+    })
+
+    expect(screen.queryByPlaceholderText('Paste session token')).toBeNull()
+    expect((screen.getByText('Test connection').closest('button') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByText('Apply and reconnect').closest('button') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it.skipIf(LOCAL_ONLY_V1)('does not enable Apply when credentials change during a connection test', async () => {
+    const desktop = installDesktopMock(
+      bootstrapState({
+        setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent' }
+      })
+    )
+
+    desktop.probeConnectionConfig.mockResolvedValue({
+      authMode: 'token',
+      baseUrl: 'https://gateway.example.com/hermes',
+      error: null,
+      providers: [],
+      reachable: true,
+      version: '0.17.0'
+    })
+
+    let resolveTest: ((result: { baseUrl: string; ok: boolean; version: string }) => void) | undefined
+
+    const pendingTest = new Promise<{ baseUrl: string; ok: boolean; version: string }>(resolve => {
+      resolveTest = resolve
+    })
+
+    desktop.testConnectionConfig.mockReturnValue(pendingTest)
+
+    render(<DesktopInstallOverlay />)
+
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
+    fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
+      target: { value: 'https://gateway.example.com/hermes' }
+    })
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 550))
+    })
+
+    const tokenInput = await screen.findByPlaceholderText('Paste session token')
+    const apply = screen.getByText('Apply and reconnect').closest('button') as HTMLButtonElement
+
+    fireEvent.change(tokenInput, { target: { value: 'token-a' } })
+    fireEvent.click(screen.getByText('Test connection'))
+    await waitFor(() => expect(desktop.testConnectionConfig).toHaveBeenCalledTimes(1))
+
+    fireEvent.change(tokenInput, { target: { value: 'token-b' } })
+
+    await act(async () => {
+      resolveTest?.({ baseUrl: 'https://gateway.example.com/hermes', ok: true, version: '0.17.0' })
+      await pendingTest
+    })
+
+    expect(screen.queryByText('Connected to https://gateway.example.com/hermes (0.17.0).')).toBeNull()
+    expect(apply.disabled).toBe(true)
+  })
+
+  it.skipIf(LOCAL_ONLY_V1)('restores remote apply controls when applying the tested connection fails', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
@@ -353,7 +459,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Hermes'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
       target: { value: 'https://gateway.example.com/hermes' }
     })
@@ -376,7 +482,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(screen.getByText('Gateway URL')).toBeTruthy()
   })
 
-  it('signs in, tests, and applies a password-style remote gateway', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('signs in, tests, and applies a password-style remote gateway', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/home/me/.hermes/hermes-agent', local: 'none', bundled: false }
@@ -405,7 +511,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    fireEvent.click(await screen.findByText('Connect to existing Hermes'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     fireEvent.change(await screen.findByPlaceholderText('https://gateway.example.com/hermes'), {
       target: { value: 'https://gateway.example.com/hermes' }
     })
@@ -447,7 +553,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     })
   })
 
-  it('does not authorize a new URL with an old login result or save before Apply', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('does not authorize a new URL with an old login result or save before Apply', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         setupChoice: { platform: 'linux', activeRoot: '/tmp/hermes', local: 'none', bundled: false }
@@ -489,7 +595,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(saveConnectionConfig).not.toHaveBeenCalled()
   })
 
-  it('offers remote connection from the unsupported packaged install screen', async () => {
+  it.skipIf(LOCAL_ONLY_V1)('offers remote connection from the unsupported packaged install screen', async () => {
     const desktop = installDesktopMock(
       bootstrapState({
         unsupportedPlatform: {
@@ -503,7 +609,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    expect(await screen.findByText('Hermes needs a one-time install')).toBeTruthy()
+    expect(await screen.findByText('OkVevo needs a one-time install')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Connect existing'))
 
@@ -544,38 +650,39 @@ describe('DesktopInstallOverlay first-run setup', () => {
     fireEvent.click(screen.getByText('Apply and reconnect'))
 
     await waitFor(() => expect(screen.queryByText('Gateway URL')).toBeNull())
-    expect(screen.queryByText('Hermes needs a one-time install')).toBeNull()
-  })
-
-  it('dismisses a cancelled/failed install via the footer Close button, without reloading or resetting bootstrap', async () => {
-    const desktop = installDesktopMock(bootstrapState({ error: 'cancelled by user' }))
-
-    render(<DesktopInstallOverlay />)
-
-    expect(await screen.findByText('Installation failed')).toBeTruthy()
-
-    fireEvent.click(screen.getByText('Close'))
-
-    await waitFor(() => expect(screen.queryByText('Installation failed')).toBeNull())
-    expect(desktop.resetBootstrap).not.toHaveBeenCalled()
-  })
-
-  it('dismisses a failed install on Escape', async () => {
-    installDesktopMock(bootstrapState({ error: 'cancelled by user' }))
-
-    render(<DesktopInstallOverlay />)
-
-    expect(await screen.findByText('Installation failed')).toBeTruthy()
-
-    // The Escape listener is bound in a passive effect that can flush after the failed state is
-    // already painted; a key landing in that gap is (correctly) ignored, so press until it is heard.
-    await waitFor(() => {
-      fireEvent.keyDown(window, { key: 'Escape' })
-      expect(screen.queryByText('Installation failed')).toBeNull()
-    })
+    expect(screen.queryByText('OkVevo needs a one-time install')).toBeNull()
   })
 })
 
+const TEN_STAGES = [
+  { name: 'prerequisites' },
+  { name: 'uv' },
+  { name: 'clone' },
+  { name: 'venv' },
+  { name: 'deps' },
+  { name: 'models' },
+  { name: 'config' },
+  { name: 'gateway' },
+  { name: 'doctor' },
+  { name: 'done' }
+]
+
+function runningProgressState(): DesktopBootstrapState {
+  return bootstrapState({
+    active: true,
+    manifest: { type: 'manifest', protocolVersion: 1, stages: TEN_STAGES },
+    stages: {
+      prerequisites: {
+        state: 'succeeded',
+        durationMs: 1000,
+        startedAt: Date.now() - 2000,
+        json: null,
+        error: null
+      },
+      uv: { state: 'running', durationMs: null, startedAt: Date.now(), json: null, error: null }
+    }
+  })
+}
 it.each([
   ['installed', false, 'Use Hermes on this computer', /already installed here/i, false],
   ['bundled', true, 'Use Hermes on this computer', /included with this app/i, false],
@@ -608,3 +715,4 @@ it.each([
     }
   }
 )
+

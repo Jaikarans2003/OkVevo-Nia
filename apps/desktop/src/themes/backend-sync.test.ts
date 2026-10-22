@@ -89,10 +89,10 @@ describe('ingestBackendSkin', () => {
   })
 
   it('does not shadow a built-in name but can still apply it', () => {
-    ingestBackendSkin(skin('mono'), { apply: true })
+    ingestBackendSkin(skin('okvevo'), { apply: true })
 
-    expect($backendThemes.get().mono).toBeUndefined()
-    expect($pendingSkinApply.get()).toBe('mono')
+    expect($backendThemes.get().okvevo).toBeUndefined()
+    expect($pendingSkinApply.get()).toBe('okvevo')
   })
 
   it('carries customCSS for a built-in-named user skin without shadowing the palette', () => {
@@ -107,9 +107,9 @@ describe('ingestBackendSkin', () => {
     ingestBackendSkin(skinWithCSS('default', 'body { background: red; }'), { apply: true })
 
     expect($backendThemes.get().default).toBeUndefined()
-    // setTheme normalizes `default` → DEFAULT_SKIN_NAME ('nous'), so the CSS
+    // setTheme normalizes `default` → DEFAULT_SKIN_NAME ('okvevo'), so the CSS
     // must be findable under that name when the theme is derived.
-    expect($backendCustomCSS.get().nous).toBe('body { background: red; }')
+    expect($backendCustomCSS.get().okvevo).toBe('body { background: red; }')
   })
 
   it('clears customCSS when a built-in-named skin drops the field', () => {

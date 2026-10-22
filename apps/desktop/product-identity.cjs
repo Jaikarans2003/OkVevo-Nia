@@ -9,16 +9,16 @@
 'use strict'
 
 const variants = {
-  '': { display: 'Hermes', kebab: 'hermes', pascal: 'Hermes' },
+  '': { display: 'OkVevo', kebab: 'app', pascal: 'OkVevo' },
   light: {
-    display: 'Hermes Light',
-    kebab: 'hermes-light',
-    pascal: 'HermesLight'
+    display: 'OkVevo Light',
+    kebab: 'app-light',
+    pascal: 'OkVevoLight'
   },
   bundled: {
-    display: 'Hermes Agent',
-    kebab: 'hermes-bundled',
-    pascal: 'HermesBundled'
+    display: 'OkVevo',
+    kebab: 'app',
+    pascal: 'OkVevoBundled'
   }
 }
 
@@ -42,18 +42,23 @@ const name = variants[store ? 'bundled' : (variant || '')]
 // never overwrite the stable feed file, and vice versa.
 const canary = /\+canary\.20\d{6}T\d{6}Z$/.test(process.env.HERMES_PAYLOAD_TAG || '')
 
+// OkVevo team builds: a separate install identity and release feed channel.
+const internal = (process.env.OKVEVO_BUILD_CHANNEL || '') === 'internal'
+
 // Nonstable installs own their package family and local desktop state. The
 // seven-character commit suffix also names the CLI and fits MSIX's name cap.
 const buildCommitEnv = process.env.HERMES_BUILD_COMMIT || ''
 const buildCommit = /^[a-f0-9]{40}$/.test(buildCommitEnv) ? buildCommitEnv.slice(0, 7) : null
 const displayName = buildCommit
   ? `${name.display} ${buildCommit}`
-  : canary
-    ? `${name.display} Canary`
-    : name.display
+  : internal
+    ? `${name.display} Internal`
+    : canary
+      ? `${name.display} Canary`
+      : name.display
 
-const kebabSuffix = buildCommit ? `-${buildCommit}` : canary ? '-canary' : ''
-const pascalSuffix = buildCommit ? `Commit${buildCommit}` : canary ? 'Canary' : ''
+const kebabSuffix = buildCommit ? `-${buildCommit}` : internal ? '-internal' : canary ? '-canary' : ''
+const pascalSuffix = buildCommit ? `Commit${buildCommit}` : internal ? 'Internal' : canary ? 'Canary' : ''
 const cliName = `${light ? 'hermes-light' : 'hermes'}${kebabSuffix}`
 if (store && (canary || buildCommit)) {
   throw new Error('Store packaging is only eligible for stable releases')
@@ -66,14 +71,23 @@ const identity = {
   store,
   light,
   displayName,
-  appId: `com.nousresearch.${name.kebab}${kebabSuffix}`,
+  appId: `com.okvevo.${name.kebab}${kebabSuffix}`,
   // Store and commit builds do not publish a release feed.
-  channel: store || buildCommit ? null : light ? (canary ? 'light-canary' : 'light') : (canary ? 'canary' : 'latest'),
+  channel:
+    store || buildCommit
+      ? null
+      : light
+        ? (canary ? 'light-canary' : 'light')
+        : internal
+          ? 'internal'
+          : canary
+            ? 'canary'
+            : 'latest',
   appNamePascal: `${name.pascal}${pascalSuffix}`,
   artifactNamePascal: name.pascal,
   windowsExecutableName: kebabSuffix ? cliName : displayName,
   cliName,
-  msixAppIdWithOrg: `NousResearch.${name.pascal}${pascalSuffix}`,
+  msixAppIdWithOrg: `OkVevo.${name.pascal}${pascalSuffix}`,
   ...(store
     ? {
         storeMsix: {

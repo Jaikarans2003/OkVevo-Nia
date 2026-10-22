@@ -589,6 +589,32 @@ declare global {
       onDeepLink?: (
         callback: (payload: { kind: string; name: string; params: Record<string, string> }) => void
       ) => () => void
+      startOkvevoSignIn?: () => Promise<{ ok: boolean; error?: string }>
+      openOkvevoPortal?: (portalPath: string) => Promise<{ ok: boolean; error?: string }>
+      getOkvevoCustomToken?: () => Promise<
+        | { ok: true; customToken: string; uid: string }
+        | { ok: false; error?: string }
+      >
+      signOutOkvevo?: () => Promise<{
+        signedIn: boolean
+        uid: string | null
+        email: string | null
+        displayName: string | null
+      }>
+      getOkvevoAuth?: () => Promise<{
+        signedIn: boolean
+        uid: string | null
+        email: string | null
+        displayName: string | null
+      }>
+      onOkvevoAuth?: (
+        callback: (snapshot: {
+          signedIn: boolean
+          uid: string | null
+          email: string | null
+          displayName: string | null
+        }) => void
+      ) => () => void
       signalDeepLinkReady?: () => Promise<{ ok: boolean }>
       probePluginRepo?: (payload: { identifier?: string; repo?: string }) => Promise<{
         ok: boolean

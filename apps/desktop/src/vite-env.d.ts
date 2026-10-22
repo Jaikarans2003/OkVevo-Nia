@@ -25,3 +25,5 @@ declare module '@novnc/novnc' {
     clipboardPasteFrom(text: string): void
   }
 }
+
+declare const __OKVEVO_BUILD_CHANNEL__: 'internal' | 'public' | undefined

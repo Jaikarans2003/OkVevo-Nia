@@ -64,7 +64,7 @@ vi.mock('@hermes/plugin-sdk', async () => {
 })
 
 vi.mock('./data', () => ({
-  botHandle: (name: string) => (name === 'default' ? 'hermes' : name),
+  botHandle: (name: string) => (name === 'default' ? 'okvevo' : name),
   clearBotAttention: clearBotAttentionMock,
   noteBotAttention: noteBotAttentionMock
 }))
@@ -696,7 +696,7 @@ describe('the roster loop pushes the OTHER connections’ agents', () => {
     ])
     // The primary profile is published by its callable alias, never "default".
     expect(syncs[1].params.agents).toEqual([
-      expect.objectContaining({ connection_id: 'a', handle: 'hermes', profile: 'default' })
+      expect.objectContaining({ connection_id: 'a', handle: 'okvevo', profile: 'default' })
     ])
 
     stopBotRelay()

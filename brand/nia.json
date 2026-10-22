@@ -1,8 +1,8 @@
 {
-  "productName": "Nia",
+  "productName": "OkVevo",
   "company": "OkVevo",
   "copyright": "© 2026 Azonova Technologies Pvt Ltd",
-  "bundleId": "com.okvevo.nia",
+  "bundleId": "com.okvevo.app",
   "updateHost": "https://releases.okvevo.com",
   "portalOrigin": "https://www.okvevo.com",
   "palette": {

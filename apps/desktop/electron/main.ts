@@ -392,6 +392,7 @@ import {
 } from './native-access-token'
 import { oauthSessionIsLive, resolveJsonBody, resolveReadinessProbeAuth } from './native-auth-decisions'
 import {
+  generateState,
   nativeRefreshUrl,
   type NativeTokenSet,
   parseTokenResponse,
@@ -407,6 +408,43 @@ import { startOauthLoginWindow } from './oauth-login-window'
 import { isExpectedOauthNavigationAbort } from './oauth-navigation'
 import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
 import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition'
+import {
+  buildOkvevoPortalUrl,
+  hermesProtocolForDev,
+  OKVEVO_INVALID_PORTAL_URL,
+  OKVEVO_ORIGIN_MISSING_ERROR,
+  OKVEVO_ORIGIN_MISSING_TITLE,
+  OKVEVO_PORTAL_URL_INVALID_ERROR,
+  OKVEVO_PORTAL_URL_INVALID_TITLE,
+  OKVEVO_SIGN_IN_FAILED_ERROR,
+  OKVEVO_SIGN_IN_FAILED_TITLE,
+  OKVEVO_SIGN_IN_TIMEOUT_ERROR,
+  OKVEVO_SIGN_IN_TIMEOUT_TITLE,
+  okvevoIdTokenFilePath,
+  okvevoRefreshTokenFilePath,
+  parseHermesAuthCallback,
+  publicOkvevoAuthSnapshot,
+  refreshDelayMs,
+  resolveOkvevoWebOrigin,
+  shouldDeliverDeepLinkToRenderer
+} from './okvevo-auth'
+import {
+  completeOkvevoAuthCallback,
+  type OkvevoAuthFlowDeps,
+  refreshOkvevoAuth,
+  signOutOkvevo,
+  startOkvevoSignIn
+} from './okvevo-auth-flow'
+import {
+  loadOkvevoAuthPending,
+  loadOkvevoAuthSession,
+  type OkvevoAuthStoreIo,
+  persistOkvevoAuthPending,
+  persistOkvevoAuthSession,
+  rewriteOkvevoAuthSecret
+} from './okvevo-auth-store'
+import { migrateOkvevoHermesHome } from './okvevo-config-migration'
+import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, upsertHermesEnvKey } from './okvevo-env'
 import {
   canShowInteractiveOauthLogin,
   mintGatewayWsTicket as mintOauthGatewayWsTicket,
@@ -1288,6 +1326,61 @@ const HERMES_HOME: string = resolveDesktopHermesHome({
   readWindowsHome: (): string | null => readWindowsUserEnvVar('HERMES_HOME')
 })
 
+// OkVevo: ~/.hermes/.env (and the repo .env in dev) feeds provider keys into
+// the desktop-spawned backend; packaged builds then layer the baked pack env
+// (portal origin, Firebase client config) from resources.
+loadHermesDotenvIntoProcess({
+  hermesHome: HERMES_HOME,
+  unpackagedRepoEnv: IS_PACKAGED ? null : path.join(APP_ROOT, '..', '..', '.env')
+})
+
+if (IS_PACKAGED) {
+  const packEnvPath = process.resourcesPath ? path.join(process.resourcesPath, 'okvevo-pack-env.json') : null
+  const applied = applyPackEnv(loadPackEnvFile(packEnvPath))
+
+  if (applied.length) {
+    console.log(`[hermes] pack-env applied ${applied.join(', ')}`)
+  }
+}
+
+{
+  let upstreamSoul = ''
+
+  try {
+    upstreamSoul = fs.readFileSync(path.join(SOURCE_REPO_ROOT, 'SOUL.md'), 'utf8')
+  } catch {
+    try {
+      const payloadSoul = process.resourcesPath
+        ? path.join(process.resourcesPath, 'agent-payload', 'SOUL.md')
+        : ''
+      if (payloadSoul) {
+        upstreamSoul = fs.readFileSync(payloadSoul, 'utf8')
+      }
+    } catch {
+      upstreamSoul = ''
+    }
+  }
+
+  const skillsCandidates = [
+    path.join(SOURCE_REPO_ROOT, 'okvevo', 'skills'),
+    process.resourcesPath ? path.join(process.resourcesPath, 'agent-payload', 'okvevo', 'skills') : ''
+  ]
+  const skillsDir = skillsCandidates.find(candidate => candidate && fs.existsSync(candidate)) || null
+
+  if (upstreamSoul) {
+    try {
+      migrateOkvevoHermesHome({
+        hermesHome: HERMES_HOME,
+        upstreamSoul,
+        skillsDir,
+        log: message => console.log(message)
+      })
+    } catch (error) {
+      console.error(`[okvevo-migrate] ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+}
+
 // #77311: `desktop.electron_flags` and the renderer heap ceiling
 // (`desktop.renderer_max_old_space_mb`) used to reach Chromium only through
 // the `hermes desktop` launcher's argv, so a packaged app opened from its
@@ -1427,7 +1520,7 @@ const BOOT_FAKE_STEP_MS = (() => {
   return Math.max(120, raw)
 })()
 
-const APP_NAME: string = IDENTITY_APP_NAME || process.env.HERMES_DESKTOP_APP_NAME || 'Hermes'
+const APP_NAME: string = IDENTITY_APP_NAME || process.env.HERMES_DESKTOP_APP_NAME || PRODUCT_IDENTITY.displayName
 const HUD_WINDOW_TITLE = `${APP_NAME} HUD`
 const TITLEBAR_HEIGHT = 34
 const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
@@ -1471,17 +1564,9 @@ const NATIVE_THEME_CONFIG_PATH = path.join(app.getPath('userData'), 'native-them
 const THEME_SOURCES = new Set(['dark', 'light', 'system'])
 
 function readPersistedThemeSource() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(NATIVE_THEME_CONFIG_PATH, 'utf8'))
-
-    if (parsed && THEME_SOURCES.has(parsed.themeSource)) {
-      return parsed.themeSource
-    }
-  } catch {
-    // Missing / malformed → follow the OS like a fresh install.
-  }
-
-  return 'system'
+  // OkVevo ships one fixed dark theme; the native window appearance is pinned
+  // so no OS appearance or stale persisted value can flash a light titlebar.
+  return 'dark'
 }
 
 function writePersistedThemeSource(mode) {
@@ -1658,7 +1743,8 @@ function getWindowBackgroundColor() {
     return rendererTitleBarTheme.background
   }
 
-  return nativeTheme.shouldUseDarkColors ? '#111111' : '#f7f7f7'
+  // OkVevo locked palette: charcoal window, sand symbols.
+  return '#2b2b2b'
 }
 
 // Transparent WCO — renderer chrome shows through. rgba(0,0,0,0) can fall back
@@ -1834,7 +1920,7 @@ Menu.setApplicationMenu(null)
 // need this, so gate it on Windows. (Fixes: desktop approval/turn notifications
 // never firing on Windows.)
 if (IS_WINDOWS) {
-  app.setAppUserModelId(IDENTITY_APP_NAME ? PRODUCT_IDENTITY.appId : 'com.nousresearch.hermes')
+  app.setAppUserModelId(PRODUCT_IDENTITY.appId)
 }
 
 // Seed the native About panel with the best-known Hermes version. This is
@@ -1846,7 +1932,8 @@ if (IS_WINDOWS) {
 app.setAboutPanelOptions({
   applicationName: APP_NAME,
   applicationVersion: nativeAboutVersion(appVersionInfo(INSTALL_STAMP, '', app.getVersion())),
-  copyright: 'Copyright © 2026 Nous Research'
+  copyright: '© 2026 Azonova Technologies Pvt Ltd',
+  credits: 'Built on Hermes Agent by Nous Research.'
 })
 
 // Custom scheme for streaming audio/video into the renderer. Local paths read
@@ -6590,24 +6677,6 @@ function buildApplicationMenu() {
           setAndPersistZoomLevel(mainWindow, DEFAULT_ZOOM_LEVEL)
         }
       },
-      {
-        label: 'Zoom In',
-        accelerator: 'CommandOrControl+Plus',
-        click: () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            setAndPersistZoomLevel(mainWindow, mainWindow.webContents.getZoomLevel() + ZOOM_STEP)
-          }
-        }
-      },
-      {
-        label: 'Zoom Out',
-        accelerator: 'CommandOrControl+-',
-        click: () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            setAndPersistZoomLevel(mainWindow, mainWindow.webContents.getZoomLevel() - ZOOM_STEP)
-          }
-        }
-      },
       { type: 'separator' },
       { role: 'togglefullscreen' }
     ]
@@ -6748,8 +6817,6 @@ import {
   DEFAULT_ZOOM_LEVEL,
   installZoomReassertOnNavigation,
   installZoomReassertOnWindowEvents,
-  percentToZoomLevel,
-  ZOOM_STEP,
   ZOOM_STORAGE_KEY,
   zoomLevelToPercent,
   zoomWiringForWindowKind
@@ -6835,27 +6902,15 @@ function restorePersistedZoomLevel(window) {
 }
 
 function installZoomShortcuts(window) {
-  // Override Ctrl/Cmd + +/-/0 with half Chromium's default zoom step (ZOOM_STEP
-  // is 0.1 vs Chromium's 0.2). The menu items handle this on macOS (where the
-  // menu is always present), but on Linux/Windows the menu is null and
-  // Chromium's default handler would use the full 0.2 step, so we intercept
-  // here for consistency. Ctrl/Cmd+0 resets to DEFAULT_ZOOM_LEVEL, not Chromium 0.
+
+  // OkVevo locks UI scale at 110%: zoom shortcuts reset to the locked level
+  // instead of stepping, so no gesture can drift the scale.
   window.webContents.on('before-input-event', (event, input) => {
     const action = windowAcceleratorAction(input, IS_MAC)
 
-    if (action === 'zoom-reset') {
+    if (action === 'zoom-reset' || action === 'zoom-in' || action === 'zoom-out') {
       event.preventDefault()
       setAndPersistZoomLevel(window, DEFAULT_ZOOM_LEVEL)
-    } else if (action === 'zoom-in') {
-      // Zoom-in must accept the shift modifier: on US layouts Plus is
-      // physically Shift+=, so Cmd+Plus arrives as Cmd+Shift+'+' (or '='
-      // depending on platform). The old blanket shift guard silently
-      // dropped keyboard zoom-in on macOS (#43517).
-      event.preventDefault()
-      setAndPersistZoomLevel(window, window.webContents.getZoomLevel() + ZOOM_STEP)
-    } else if (action === 'zoom-out') {
-      event.preventDefault()
-      setAndPersistZoomLevel(window, window.webContents.getZoomLevel() - ZOOM_STEP)
     }
   })
 
@@ -6865,10 +6920,9 @@ function installZoomShortcuts(window) {
   // Route through the same persist+notify funnel as the keyboard shortcuts
   // so wheel zoom survives restarts and the settings Scale control stays in
   // sync, and use the same half step for consistency.
-  window.webContents.on('zoom-changed', (event, zoomDirection) => {
+  window.webContents.on('zoom-changed', event => {
     event.preventDefault()
-    const delta = zoomDirection === 'in' ? ZOOM_STEP : -ZOOM_STEP
-    setAndPersistZoomLevel(window, window.webContents.getZoomLevel() + delta)
+    setAndPersistZoomLevel(window, DEFAULT_ZOOM_LEVEL)
   })
 }
 
@@ -7573,6 +7627,186 @@ function _clearNativeTokens(baseUrl: string) {
   _persistNativeTokens(baseUrl, null)
 }
 
+// ---------------------------------------------------------------------------
+// OkVevo portal sign-in (hermes://auth-callback). Tokens stay in main;
+// renderer sees uid/email/signedIn only.
+// ---------------------------------------------------------------------------
+
+function _okvevoAuthStorePath() {
+  return path.join(app.getPath('userData'), 'okvevo-auth.json')
+}
+
+function _okvevoAuthStoreIo(): OkvevoAuthStoreIo {
+  return {
+    encrypt: encryptDesktopSecret,
+    decrypt: decryptDesktopSecret,
+    readStoreText: () => fs.readFileSync(_okvevoAuthStorePath(), 'utf8'),
+    writeStoreText: text => writeSecretFileAtomic(_okvevoAuthStorePath(), text, { encoding: 'utf8' }),
+    rememberLog
+  }
+}
+
+function _okvevoIdTokenPath() {
+  return okvevoIdTokenFilePath(HERMES_HOME, (...parts) => path.join(...parts))
+}
+
+function _okvevoRefreshTokenPath() {
+  return okvevoRefreshTokenFilePath(HERMES_HOME, (...parts) => path.join(...parts))
+}
+
+function _writeOkvevoIdTokenFile(idToken: string) {
+  const target = _okvevoIdTokenPath()
+
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  writeSecretFileAtomic(target, idToken, { encoding: 'utf8' })
+  upsertHermesEnvKey(path.join(HERMES_HOME, '.env'), 'OKVEVO_API_KEY', idToken)
+}
+
+function _writeOkvevoRefreshTokenFile(refreshToken: string) {
+  const target = _okvevoRefreshTokenPath()
+
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  writeSecretFileAtomic(target, refreshToken, { encoding: 'utf8' })
+}
+
+function _clearOkvevoIdTokenFile() {
+  try {
+    fs.rmSync(_okvevoIdTokenPath(), { force: true })
+  } catch (error) {
+    rememberLog(`[okvevo-auth] clear token file failed: ${error.message}`)
+  }
+
+  try {
+    upsertHermesEnvKey(path.join(HERMES_HOME, '.env'), 'OKVEVO_API_KEY', '')
+  } catch (error) {
+    rememberLog(`[okvevo-auth] clear OKVEVO_API_KEY failed: ${error.message}`)
+  }
+}
+
+function _clearOkvevoRefreshTokenFile() {
+  try {
+    fs.rmSync(_okvevoRefreshTokenPath(), { force: true })
+  } catch (error) {
+    rememberLog(`[okvevo-auth] clear refresh token file failed: ${error.message}`)
+  }
+}
+
+function _notifyOkvevoAuth(snapshot) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('hermes:okvevo-auth', snapshot)
+  }
+}
+
+function _okvevoAuthFlowDeps(): OkvevoAuthFlowDeps {
+  const io = _okvevoAuthStoreIo()
+
+  return {
+    now: () => Date.now(),
+    generateState,
+    protocol: hermesProtocolForDev(Boolean(DEV_SERVER)),
+    webOrigin: resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) }),
+    postJson: (url, body) => postJsonNoAuth(url, body, { timeoutMs: 15_000 }),
+    openExternal: async url => {
+      const result = await openExternalUrl(url)
+
+      if (result.ok === false) {
+        throw new Error('Invalid external URL')
+      }
+    },
+    persistSession: session => persistOkvevoAuthSession(session, io),
+    loadSession: () => loadOkvevoAuthSession(io),
+    setPending: pending => persistOkvevoAuthPending(pending, io),
+    getPending: () => loadOkvevoAuthPending(io),
+    writeIdTokenFile: _writeOkvevoIdTokenFile,
+    clearIdTokenFile: _clearOkvevoIdTokenFile,
+    writeRefreshTokenFile: _writeOkvevoRefreshTokenFile,
+    clearRefreshTokenFile: _clearOkvevoRefreshTokenFile,
+    rememberLog,
+    onChange: _notifyOkvevoAuth,
+    onSignInExpired: () => {
+      dialog.showErrorBox(OKVEVO_SIGN_IN_TIMEOUT_TITLE, OKVEVO_SIGN_IN_TIMEOUT_ERROR)
+    }
+  }
+}
+
+let _okvevoRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let _pendingAuthCallback: { code: string; state: string } | null = null
+
+function _scheduleOkvevoRefresh() {
+  if (_okvevoRefreshTimer) {
+    clearTimeout(_okvevoRefreshTimer)
+    _okvevoRefreshTimer = null
+  }
+
+  const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+  if (!session) {
+    return
+  }
+
+  _okvevoRefreshTimer = setTimeout(() => {
+    void refreshOkvevoAuth(_okvevoAuthFlowDeps())
+      .then(() => _scheduleOkvevoRefresh())
+      .catch(error =>
+        rememberLog(`[okvevo-auth] refresh failed: ${error instanceof Error ? error.message : String(error)}`)
+      )
+  }, refreshDelayMs(session.expiresAt))
+}
+
+function _hydrateOkvevoAuthFromDisk() {
+  const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+  if (!session?.idToken) {
+    return
+  }
+
+  try {
+    _writeOkvevoIdTokenFile(session.idToken)
+
+    if (session.refreshToken) {
+      _writeOkvevoRefreshTokenFile(session.refreshToken)
+    }
+  } catch (error) {
+    rememberLog(`[okvevo-auth] write id token file failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  _notifyOkvevoAuth(publicOkvevoAuthSnapshot(session))
+  _scheduleOkvevoRefresh()
+}
+
+async function _finishOkvevoAuthCallback(code: string, state: string) {
+  try {
+    await completeOkvevoAuthCallback(code, state, _okvevoAuthFlowDeps())
+    _scheduleOkvevoRefresh()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    rememberLog(`[okvevo-auth] callback failed: ${message}`)
+
+    if (message === 'invalid_state') {
+      return
+    }
+
+    dialog.showErrorBox(OKVEVO_SIGN_IN_FAILED_TITLE, OKVEVO_SIGN_IN_FAILED_ERROR)
+  }
+}
+
+function _focusMainWindow() {
+  try {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return
+    }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+
+    mainWindow.focus()
+  } catch (err) {
+    rememberLog(`[okvevo-auth] focus failed: ${err.message}`)
+  }
+}
+
 // True when we hold native bearer tokens for this gateway (the native-flow
 // analogue of hasLiveOauthSession's cookie check).
 function hasNativeSession(baseUrl: string): boolean {
@@ -8115,6 +8349,14 @@ function rewriteAllStoredSecrets(shouldRewrite: (secret: any) => boolean, reenco
     }
   } catch {
     // Missing/corrupt native token store: nothing to rewrite.
+  }
+
+  try {
+    if (rewriteOkvevoAuthSecret(shouldRewrite, reencode, _okvevoAuthStoreIo())) {
+      touched = true
+    }
+  } catch {
+    // Missing/corrupt OkVevo auth store: nothing to rewrite.
   }
 
   return touched
@@ -14536,14 +14778,15 @@ ipcMain.handle('hermes:zoom:get', event => {
 
   return { level, percent: zoomLevelToPercent(level) }
 })
-ipcMain.on('hermes:zoom:set-percent', (event, percent) => {
+ipcMain.on('hermes:zoom:set-percent', event => {
+  // UI scale is locked at 110%; any renderer request re-asserts the lock.
   const window = BrowserWindow.fromWebContents(event.sender)
 
   if (!window || window.isDestroyed()) {
     return
   }
 
-  setAndPersistZoomLevel(window, percentToZoomLevel(Number(percent)))
+  setAndPersistZoomLevel(window, DEFAULT_ZOOM_LEVEL)
 })
 
 // --- Pet overlay (pop-out mascot) — see pet-overlay-ipc.ts. ---------------
@@ -16841,14 +17084,11 @@ ipcMain.on('hermes:titlebar-theme', (_event, payload) => {
 })
 
 // Pin the native appearance to the app theme (see NATIVE_THEME_CONFIG_PATH).
-ipcMain.on('hermes:native-theme', (_event, mode) => {
-  if (!THEME_SOURCES.has(mode)) {
-    return
-  }
-
-  if (nativeTheme.themeSource !== mode) {
-    nativeTheme.themeSource = mode
-    writePersistedThemeSource(mode)
+ipcMain.on('hermes:native-theme', () => {
+  // OkVevo ships one fixed dark theme — the native appearance never follows
+  // renderer-reported modes.
+  if (nativeTheme.themeSource !== 'dark') {
+    nativeTheme.themeSource = 'dark'
   }
 })
 
@@ -17146,6 +17386,98 @@ ipcMain.handle('hermes:openExternal', async (_event, url) => {
   }
 })
 
+ipcMain.handle('hermes:okvevo-auth:start', async () => {
+  const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
+
+  if (!origin) {
+    dialog.showErrorBox(OKVEVO_ORIGIN_MISSING_TITLE, OKVEVO_ORIGIN_MISSING_ERROR)
+
+    return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
+  }
+
+  try {
+    await startOkvevoSignIn(_okvevoAuthFlowDeps())
+  } catch (error) {
+    if (error instanceof Error && error.message === OKVEVO_INVALID_PORTAL_URL) {
+      dialog.showErrorBox(OKVEVO_PORTAL_URL_INVALID_TITLE, OKVEVO_PORTAL_URL_INVALID_ERROR)
+
+      return { ok: false, error: OKVEVO_PORTAL_URL_INVALID_ERROR }
+    }
+
+    throw error
+  }
+
+  return { ok: true }
+})
+
+ipcMain.handle('hermes:okvevo-auth:open-portal', async (_event, portalPath) => {
+  const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
+
+  if (!origin) {
+    dialog.showErrorBox(OKVEVO_ORIGIN_MISSING_TITLE, OKVEVO_ORIGIN_MISSING_ERROR)
+
+    return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
+  }
+
+  const url = buildOkvevoPortalUrl(origin, typeof portalPath === 'string' ? portalPath : '')
+
+  if (!url) {
+    return { ok: false, error: 'invalid_path' }
+  }
+
+  const result = await openExternalUrl(url)
+
+  if (result.ok === false) {
+    return { ok: false, error: 'invalid_path' }
+  }
+
+  return { ok: true }
+})
+
+ipcMain.handle('hermes:okvevo-auth:sign-out', () => {
+  if (_okvevoRefreshTimer) {
+    clearTimeout(_okvevoRefreshTimer)
+    _okvevoRefreshTimer = null
+  }
+
+  return signOutOkvevo(_okvevoAuthFlowDeps())
+})
+
+ipcMain.handle('hermes:okvevo-auth:get', () => publicOkvevoAuthSnapshot(loadOkvevoAuthSession(_okvevoAuthStoreIo())))
+
+ipcMain.handle('hermes:okvevo-auth:custom-token', async () => {
+  const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+  if (!session?.refreshToken) {
+    return { ok: false }
+  }
+
+  const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
+
+  if (!origin) {
+    return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
+  }
+
+  try {
+    const body = (await postJsonNoAuth(
+      `${origin.replace(/\/$/, '')}/api/auth/desktop/custom-token`,
+      { refreshToken: session.refreshToken },
+      { timeoutMs: 15_000 }
+    )) as { customToken?: string; uid?: string }
+
+    const customToken = typeof body.customToken === 'string' ? body.customToken : ''
+    const uid = typeof body.uid === 'string' ? body.uid : ''
+
+    if (!customToken || !uid || uid !== session.uid) {
+      return { ok: false }
+    }
+
+    return { ok: true, customToken, uid }
+  } catch {
+    return { ok: false }
+  }
+})
+
 // ── Find-in-page (Ctrl/Cmd+F) ─────────────────────────────────────────────
 // The desktop supports multiple BrowserWindows (one primary plus any
 // per-session secondary windows spawned via `hermes:window:openSession`).
@@ -17408,7 +17740,8 @@ function showAboutPanelFresh(): void {
     app.setAboutPanelOptions({
       applicationName: APP_NAME,
       applicationVersion: skew.outOfSync ? `${display} — app build out of date, update the desktop app` : display,
-      copyright: 'Copyright © 2026 Nous Research'
+      copyright: '© 2026 Azonova Technologies Pvt Ltd',
+      credits: 'Built on Hermes Agent by Nous Research.'
     })
     app.showAboutPanel()
   })
@@ -17839,6 +18172,30 @@ function handleDeepLink(url) {
   })
   const payload = { kind, name, params }
 
+  // One-time login code never leaves main — do not queue or IPC it.
+  if (!shouldDeliverDeepLinkToRenderer(kind)) {
+    const cb = parseHermesAuthCallback(url)
+
+    if (!cb) {
+      rememberLog('[deeplink] auth-callback missing code/state')
+
+      return
+    }
+
+    rememberLog('[deeplink] auth-callback intercepted (not forwarded)')
+
+    if (!app.isReady()) {
+      _pendingAuthCallback = cb
+
+      return
+    }
+
+    void _finishOkvevoAuthCallback(cb.code, cb.state)
+    _focusMainWindow()
+
+    return
+  }
+
   // Route the Windows Copilot hardware key (registered by the MSIX
   // copilotkeyprovider fragment). quick-entry is the eventual summon; for
   // now it falls through to the renderer's deep-link listener. stop and
@@ -18041,6 +18398,7 @@ app.whenReady().then(() => {
   // Settings → Gateway. Must run before createWindow() and the first
   // connection resolution.
   migrateLegacyEncryptedSecretsOnce()
+  _hydrateOkvevoAuthFromDisk()
 
   // Expose the renderer's accessibility tree to the OS (#118271, Windows
   // twin #92607): dictation tools that insert text through the accessibility
@@ -18124,6 +18482,12 @@ app.whenReady().then(() => {
     setApplicationMenu: menu => Menu.setApplicationMenu(menu),
     createWindow
   })
+
+  if (_pendingAuthCallback) {
+    const cb = _pendingAuthCallback
+    _pendingAuthCallback = null
+    void _finishOkvevoAuthCallback(cb.code, cb.state)
+  }
 
   // Win/Linux cold start: the launching hermes:// URL is in our own argv.
   const _coldStartLink = _extractDeepLink(process.argv)

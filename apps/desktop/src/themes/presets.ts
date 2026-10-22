@@ -43,7 +43,10 @@ const SYSTEM_MONO =
   '"Noto Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace, ' +
   EMOJI_FALLBACK
 
-export const DEFAULT_TYPOGRAPHY: DesktopThemeTypography = { fontSans: SYSTEM_SANS, fontMono: SYSTEM_MONO }
+export const DEFAULT_TYPOGRAPHY: DesktopThemeTypography = {
+  fontSans: `"Ubuntu", ${SYSTEM_SANS}`,
+  fontMono: SYSTEM_MONO
+}
 
 /**
  * Nous — the canonical Hermes desktop identity, forked from the GitHub VS Code
@@ -441,7 +444,74 @@ export const slateTheme: DesktopTheme = {
   }
 }
 
+const OKVEVO_COLORS = {
+  background: '#2b2b2b',
+  foreground: '#e3dcd6',
+  card: '#242424',
+  cardForeground: '#e3dcd6',
+  muted: '#323232',
+  mutedForeground: '#908c89',
+  popover: '#333333',
+  popoverForeground: '#e3dcd6',
+  primary: '#ff6d1f',
+  primaryForeground: '#161616',
+  secondary: '#513728',
+  secondaryForeground: '#e3dcd6',
+  accent: '#40322a',
+  accentForeground: '#e3dcd6',
+  border: '#41403f',
+  input: '#2b2b2b',
+  ring: '#ff6d1f',
+  midground: '#ff6d1f',
+  midgroundForeground: '#161616',
+  composerRing: '#ff6d1f',
+  destructive: '#f85149',
+  destructiveForeground: '#ffffff',
+  sidebarBackground: '#252525',
+  sidebarBorder: '#41403f',
+  userBubble: '#2f2f2f',
+  userBubbleBorder: '#41403f'
+} as const
+
+const OKVEVO_DARK_TERMINAL = {
+  foreground: '#e6edf3',
+  black: '#484f58',
+  red: '#ff7b72',
+  green: '#3fb950',
+  yellow: '#d29922',
+  blue: '#58a6ff',
+  magenta: '#bc8cff',
+  cyan: '#39c5cf',
+  white: '#b1bac4',
+  brightBlack: '#6e7681',
+  brightRed: '#ffa198',
+  brightGreen: '#56d364',
+  brightYellow: '#e3b341',
+  brightBlue: '#79c0ff',
+  brightMagenta: '#d2a8ff',
+  brightCyan: '#56d4dd',
+  brightWhite: '#ffffff'
+} as const
+
+/**
+ * OkVevo — charcoal / sand / orange. Dark-only; `colors` and `darkColors` are
+ * the same so a leaked light request still paints this look. This is the
+ * locked product theme: the store pins DEFAULT_SKIN_NAME and the appearance
+ * picker is hidden on public builds.
+ */
+export const okvevoTheme: DesktopTheme = {
+  name: 'okvevo',
+  label: 'OkVevo',
+  description: 'Charcoal, sand, and orange',
+  colors: OKVEVO_COLORS,
+  darkColors: OKVEVO_COLORS,
+  typography: DEFAULT_TYPOGRAPHY,
+  terminal: OKVEVO_DARK_TERMINAL,
+  darkTerminal: OKVEVO_DARK_TERMINAL
+}
+
 export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
+  okvevo: okvevoTheme,
   nous: nousTheme,
   github: githubTheme,
   catppuccin: catppuccinTheme,
@@ -459,10 +529,10 @@ export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
 export const BUILTIN_THEME_LIST = Object.values(BUILTIN_THEMES)
 
 /** Skin used when nothing is persisted or the persisted name is retired. */
-export const DEFAULT_SKIN_NAME = 'nous'
+export const DEFAULT_SKIN_NAME = 'okvevo'
 
 /** Names that no longer resolve to a skin of their own. A stored pick of one
  *  falls back to DEFAULT_SKIN_NAME, and a cached backend theme under one is
  *  dropped (the reverted #130015 build cached the CLI `default` skin as a
  *  second "Classic Hermes"). */
-export const RETIRED_SKINS = new Set(['nous-light', 'default', 'gold'])
+export const RETIRED_SKINS = new Set(['nous-light', 'default', 'gold', 'nia'])

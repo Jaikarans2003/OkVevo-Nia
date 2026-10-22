@@ -557,6 +557,17 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
 
     return () => ipcRenderer.removeListener('hermes:deep-link', listener)
   },
+  startOkvevoSignIn: () => ipcRenderer.invoke('hermes:okvevo-auth:start'),
+  openOkvevoPortal: (portalPath: string) => ipcRenderer.invoke('hermes:okvevo-auth:open-portal', portalPath),
+  getOkvevoCustomToken: () => ipcRenderer.invoke('hermes:okvevo-auth:custom-token'),
+  signOutOkvevo: () => ipcRenderer.invoke('hermes:okvevo-auth:sign-out'),
+  getOkvevoAuth: () => ipcRenderer.invoke('hermes:okvevo-auth:get'),
+  onOkvevoAuth: callback => {
+    const listener = (_event, snapshot) => callback(snapshot)
+    ipcRenderer.on('hermes:okvevo-auth', listener)
+
+    return () => ipcRenderer.removeListener('hermes:okvevo-auth', listener)
+  },
   signalDeepLinkReady: () => ipcRenderer.invoke('hermes:deep-link-ready'),
   probePluginRepo: payload => ipcRenderer.invoke('hermes:plugin:probe', payload),
   installDesktopPlugin: payload => ipcRenderer.invoke('hermes:plugin:installDesktop', payload),

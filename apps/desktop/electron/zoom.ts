@@ -15,8 +15,11 @@ const MAX_ZOOM_LEVEL = 9
 /** Half Chromium's default step; matching the shortcuts and View menu. */
 export const ZOOM_STEP = 0.1
 
+/** Locked UI scale (110%). Fresh installs and every restore. */
+export const LOCKED_ZOOM_PERCENT = 110
+
 /** 100%: Chromium actual size, so View → Actual Size (Ctrl/Cmd+0) means it. */
-export const DEFAULT_ZOOM_LEVEL = 0
+export const DEFAULT_ZOOM_LEVEL = Math.log(LOCKED_ZOOM_PERCENT / 100) / Math.log(ZOOM_FACTOR_BASE)
 
 export function clampZoomLevel(value) {
   if (!Number.isFinite(value)) {

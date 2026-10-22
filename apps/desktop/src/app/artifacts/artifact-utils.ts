@@ -88,7 +88,22 @@ function isPythonPackageDownload(value: string): boolean {
   )
 }
 
+/** Fal CDN hosts — never surface these as Artifacts pane rows (ephemeral provider URLs). */
+export function isFalCdnArtifact(value: string): boolean {
+  try {
+    const host = new URL(value).hostname.toLowerCase()
+
+    return host === 'fal.media' || host.endsWith('.fal.media') || host === 'fal.ai' || host.endsWith('.fal.ai')
+  } catch {
+    return false
+  }
+}
+
 function looksLikeArtifact(value: string, explicit = false): boolean {
+  if (isFalCdnArtifact(value)) {
+    return false
+  }
+
   if (!explicit && isPythonPackageDownload(value)) {
     return false
   }

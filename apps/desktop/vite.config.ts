@@ -1,6 +1,7 @@
 import babel from '@rolldown/plugin-babel'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { resolveBuildChannel } from './scripts/resolve-build-channel.mjs'
 
 /** React Compiler preset scoped to modules that can actually contain
  *  components/hooks (JSX syntax or a react-ish import). The preset's default
@@ -134,6 +135,9 @@ const emojibaseAssets = () => ({
 
 export default defineConfig(({ command }) => ({
   base: './',
+  define: {
+    __OKVEVO_BUILD_CHANNEL__: JSON.stringify(resolveBuildChannel({ isDev: command === 'serve' }))
+  },
   plugins: [react(), cachedCompilerPass(command), tailwindcss(), emojibaseAssets()],
   css: {
     // Pin an explicit (empty) PostCSS config. Tailwind is handled entirely by
@@ -173,20 +177,7 @@ export default defineConfig(({ command }) => ({
             // the heavy chunk, and the entry then statically imports 19 MB of
             // shiki just to reach react/hast utils — putting the heavy chunk
             // right back on the boot path.
-            //
-            // @tanstack/react-query is here for the same reason react-router
-            // is: it carries MODULE-LEVEL context (QueryClientContext) that
-            // the entry's QueryClientProvider and every lazy chunk's useQuery
-            // must share. Left to rolldown's merge heuristics, an unmatched
-            // shared module can be inlined into a lazy chunk — the packaged
-            // app then runs TWO react-query runtimes, the provider's context
-            // is invisible to the other copy, and useQuery throws "No
-            // QueryClient set, use QueryClientProvider to set one" on the
-            // launch path (#95560). Grouping it forces one shared instance.
-            {
-              name: 'vendor-react',
-              test: /node_modules[\\/](react|react-dom|scheduler|react-router|@tanstack[\\/]react-query)[\\/]/
-            },
+            { name: 'vendor-react', test: /node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/ },
             {
               name: 'vendor-md',
               test: /node_modules[\\/](property-information|hast-util-[^\\/]+|mdast-util-[^\\/]+|micromark[^\\/]*|unist-util-[^\\/]+|vfile[^\\/]*|unified|stringify-entities|space-separated-tokens|comma-separated-tokens|zwitch|html-void-elements|devlop|style-to-js|style-to-object|clsx)[\\/]/
@@ -233,6 +224,11 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       '@/debug/dev-only': debugEntry(command, process.env as Record<string, string>),
+      '@/i18n/en': path.resolve(__dirname, '../../brand/locales/desktop/en.ts'),
+      '@/i18n/ar': path.resolve(__dirname, '../../brand/locales/desktop/ar.ts'),
+      '@/i18n/ja': path.resolve(__dirname, '../../brand/locales/desktop/ja.ts'),
+      '@/i18n/zh': path.resolve(__dirname, '../../brand/locales/desktop/zh.ts'),
+      '@/i18n/zh-hant': path.resolve(__dirname, '../../brand/locales/desktop/zh-hant.ts'),
       '@': path.resolve(__dirname, './src'),
       '@hermes/plugin-sdk': path.resolve(__dirname, './src/sdk/index.ts'),
       '@hermes/shared/billing': path.resolve(__dirname, '../shared/src/billing-types.ts'),
@@ -257,7 +253,7 @@ export default defineConfig(({ command }) => ({
       'react/jsx-dev-runtime': path.join(reactDir, 'jsx-dev-runtime.js'),
       'react/jsx-runtime': path.join(reactDir, 'jsx-runtime.js')
     },
-    dedupe: ['react', 'react-dom', 'react-router', '@tanstack/react-query']
+    dedupe: ['react', 'react-dom', 'react-router']
   },
   server: {
     host: '127.0.0.1',

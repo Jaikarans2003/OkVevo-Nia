@@ -13,6 +13,7 @@ import {
   submitOAuthCode,
   validateProviderCredential
 } from '@/hermes'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { translateNow } from '@/i18n'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
@@ -306,7 +307,7 @@ function shouldPreserveConfiguredOnBootRace(runtime: RuntimeReadinessResult, sta
 }
 
 function notifyReady(provider: string) {
-  notify({ kind: 'success', title: 'Hermes is ready', message: `${provider} connected.` })
+  notify({ kind: 'success', title: 'OkVevo is ready', message: `${provider} connected.` })
 }
 
 // Human-friendly labels for tools auto-routed through the Nous Tool Gateway,
@@ -334,7 +335,7 @@ function notifyGatewayTools(tools: string[] | undefined) {
   notify({
     durationMs: 8000,
     kind: 'info',
-    message: `${list} now run through your Nous subscription — no separate API keys needed.`,
+    message: `${list} now run through your OkVevo subscription — no separate API keys needed.`,
     title: 'Tool Gateway enabled'
   })
 }
@@ -530,8 +531,8 @@ function providerResolutionFailure(reason: null | string) {
   const detail = reason?.trim()
 
   return detail
-    ? `Connected, but Hermes still cannot resolve a usable provider. ${detail}`
-    : 'Connected, but Hermes still cannot resolve a usable provider.'
+    ? `Connected, but OkVevo still cannot resolve a usable provider. ${detail}`
+    : 'Connected, but OkVevo still cannot resolve a usable provider.'
 }
 
 /** Re-read the OAuth provider list into the onboarding cache. Exported so a
@@ -627,6 +628,10 @@ export function startManualOnboarding(
   reason: null | string = DEFAULT_MANUAL_ONBOARDING_REASON,
   profile?: ProfileScope
 ) {
+  if (!isByokChromeVisible()) {
+    return
+  }
+
   cancelOnboardingFlow()
   providersRefreshPromise = null
   patch({
@@ -652,6 +657,10 @@ export function startManualOnboarding(
 // (`custom` is not an OAuth provider, so the generic manual flow would just
 // re-show the picker — the original "booted back to the first screen" loop).
 export function startManualLocalEndpoint(reason: null | string = null, profile?: ProfileScope) {
+  if (!isByokChromeVisible()) {
+    return
+  }
+
   cancelOnboardingFlow()
   pendingProviderOAuthId = null
   patch({
@@ -675,6 +684,10 @@ export function startManualLocalEndpoint(reason: null | string = null, profile?:
 let pendingProviderOAuthId: null | string = null
 
 export function startManualProviderOAuth(providerId: string, profile?: ProfileScope) {
+  if (!isByokChromeVisible()) {
+    return
+  }
+
   pendingProviderOAuthId = providerId
   startManualOnboarding(null, profile)
 }
@@ -1112,7 +1125,7 @@ export async function recheckExternalSignin(ctx: OnboardingContext) {
       provider,
       message:
         reason?.trim() ||
-        `Hermes still cannot reach ${provider.name}. Run \`${provider.cli_command}\` in a terminal first.`
+        `OkVevo still cannot reach ${provider.name}. Run \`${provider.cli_command}\` in a terminal first.`
     })
   )
 }

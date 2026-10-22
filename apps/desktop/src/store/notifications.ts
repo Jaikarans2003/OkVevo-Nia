@@ -5,6 +5,8 @@ import { isOutOfSyncRpcParams } from '@/lib/gateway-rpc'
 import { isTimeoutError } from '@/lib/with-timeout'
 import { type ErrorToastCategory, recordFriction } from '@/store/desktop-metrics'
 import { requestBackendRestart, requestRoute } from '@/store/recovery-requests'
+import { isByokChromeVisible } from '@/lib/build-channel'
+import { categorizePublicError, isKnownFriendlyError, PUBLIC_ERROR_COPY } from '@/lib/user-facing-error'
 
 export type NotificationKind = 'error' | 'warning' | 'info' | 'success'
 
@@ -219,6 +221,23 @@ function summarizeErrorMessage(message: string, fallback: string) {
 
   if (rule) {
     return { action: rule.action?.(message), category: rule.category, message: rule.summarize(message) }
+  }
+
+  // Public builds: an unrecognized raw error never reaches the toast —
+  // recognized categories get the OkVevo copy, our own friendly lines pass
+  // through, and everything else degrades to the caller's fallback.
+  if (!isByokChromeVisible()) {
+    const category = categorizePublicError(message)
+
+    if (category) {
+      return { action: undefined, category: 'unclassified' as const, message: PUBLIC_ERROR_COPY[category] }
+    }
+
+    return {
+      action: undefined,
+      category: 'unclassified' as const,
+      message: isKnownFriendlyError(message) ? message : fallback
+    }
   }
 
   return {

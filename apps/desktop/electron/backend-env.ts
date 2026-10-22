@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { resolveDesktopHermesHome } from './data-paths'
+import { resolveOkvevoWebOrigin } from './okvevo-auth'
 
 // macOS apps launched from Finder/Dock inherit only /usr/bin:/bin:/usr/sbin:/sbin,
 // which misses Homebrew and user-installed CLI tools (codex, git credential
@@ -213,6 +214,27 @@ function storeFirstPath(
 }
 
 /**
+ * Packaged LGPL ffmpeg directory (extraResources `ffmpeg/`): the binary that
+ * must win resolution over anything on the user's PATH. Null when unpackaged
+ * or the pack shipped no ffmpeg.
+ */
+function bundledFfmpegDir({
+  resourcesPath = process.resourcesPath,
+  platform = process.platform,
+  pathModule = pathModuleForPlatform(platform),
+  existsSync = fs.existsSync
+}: any = {}) {
+  if (!resourcesPath) {
+    return null
+  }
+
+  const dir = pathModule.join(resourcesPath, 'ffmpeg')
+  const binary = pathModule.join(dir, platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')
+
+  return existsSync(binary) ? dir : null
+}
+
+/**
  * The environment for the spawned Python backend. Electron knows ONE thing:
  * where the interpreter is (by convention). Everything else — managed tool
  * PATHs, browser paths, node — is composed in-process by pm when the backend
@@ -223,14 +245,39 @@ function storeFirstPath(
 function buildDesktopBackendEnv({
   currentEnv = process.env,
   platform = process.platform,
-  homedir = os.homedir()
+  homedir = os.homedir(),
+  bundledToolsDir
 }: any = {}) {
   const delimiter = delimiterForPlatform(platform)
+  const pathModule = pathModuleForPlatform(platform)
   const key = pathEnvKey(currentEnv, platform)
   const saneEntries = platform === 'win32' ? [] : POSIX_SANE_PATH_ENTRIES
   const inherited = storeFirstPath(currentEnv?.[key] || '', { currentEnv, platform, homedir })
+  // OkVevo: bundled ffmpeg must win resolution over anything on the user's PATH.
+  const toolsDir = bundledToolsDir === undefined ? bundledFfmpegDir({ platform, pathModule }) : bundledToolsDir
+  // OkVevo: the backend plugins (plugins/okvevo*) read the portal origin, the
+  // rotating Firebase id-token file, and the build channel from these env vars.
+  const hermesHomeRoot = normalizeHermesHomeRoot(
+    resolveDesktopHermesHome({ home: homedir, env: currentEnv, platform }),
+    { pathModule, homedir }
+  )
+  const okvevoEnv: Record<string, string> = {
+    OKVEVO_WEB_ORIGIN: resolveOkvevoWebOrigin(currentEnv, {
+      devServer: Boolean(currentEnv?.HERMES_DESKTOP_DEV_SERVER)
+    }),
+    OKVEVO_BUILD_CHANNEL:
+      (typeof currentEnv?.OKVEVO_BUILD_CHANNEL === 'string' && currentEnv.OKVEVO_BUILD_CHANNEL.trim()) ||
+      (typeof __OKVEVO_BUILD_CHANNEL__ !== 'undefined' && __OKVEVO_BUILD_CHANNEL__ === 'internal'
+        ? 'internal'
+        : 'public')
+  }
+
+  if (hermesHomeRoot) {
+    okvevoEnv.OKVEVO_FIREBASE_ID_TOKEN_FILE = pathModule.join(hermesHomeRoot, 'okvevo-firebase-id-token')
+  }
 
   return {
+    ...okvevoEnv,
     PYTHONPATH: '',
     PYTHONHOME: '',
     // Force PEP 540 UTF-8 mode in the spawned Python backend so its stdio and
@@ -240,13 +287,14 @@ function buildDesktopBackendEnv({
     // pre-bootstrap tracebacks) still decodes with the locale default without
     // this. User's explicit setting wins. Re-port of PR #56499 (echoriver89).
     PYTHONUTF8: currentEnv?.PYTHONUTF8 ?? '1',
-    [key]: appendUniquePathEntries([inherited, saneEntries], { delimiter })
+    [key]: appendUniquePathEntries([toolsDir, inherited, saneEntries], { delimiter })
   }
 }
 
 export {
   appendUniquePathEntries,
   buildDesktopBackendEnv,
+  bundledFfmpegDir,
   delimiterForPlatform,
   normalizeHermesHomeRoot,
   pathEnvKey,

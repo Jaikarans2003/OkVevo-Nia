@@ -86,10 +86,10 @@ async function stampExeIdentity(
   const options = {
     icon,
     'version-string': {
-      ProductName: 'Hermes',
-      FileDescription: 'Hermes',
-      CompanyName: 'Nous Research',
-      LegalCopyright: 'Copyright (c) 2026 Nous Research'
+      ProductName: 'OkVevo',
+      FileDescription: 'OkVevo',
+      CompanyName: 'OkVevo',
+      LegalCopyright: '© 2026 Azonova Technologies Pvt Ltd'
     }
   }
 
@@ -107,7 +107,7 @@ async function stampExeIdentity(
     }
   }
 
-  console.log('[set-exe-identity] done — Hermes icon + identity stamped')
+  console.log('[set-exe-identity] done — OkVevo icon + identity stamped')
 }
 
 export { RCEDIT_COMMIT_RETRY_DELAYS_MS, stampExeIdentity }

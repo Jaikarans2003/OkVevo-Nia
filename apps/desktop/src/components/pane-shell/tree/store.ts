@@ -1378,6 +1378,10 @@ function adoptMissingPanes(target: LayoutNode, source: LayoutNode): LayoutNode {
  * persisted customization; a persisted tree from an older default adopts any
  * panes it's missing.
  */
+export function hasDeclaredDefaultTree(): boolean {
+  return defaultTrees.advanced !== null
+}
+
 export function declareDefaultTree(tree: LayoutNode, simpleTree: LayoutNode = tree) {
   defaultTrees.advanced = tree
   defaultTrees.simple = simpleTree

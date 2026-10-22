@@ -68,6 +68,12 @@ vi.mock('@/store/notifications', () => ({
   notifyError: (...args: Parameters<typeof notifyError>) => notifyError(...args)
 }))
 
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
+
 type Controls = ReturnType<typeof useModelControls>
 
 function Harness({
@@ -91,6 +97,7 @@ describe('useModelControls', () => {
   beforeEach(() => {
     confirmMock.mockReset()
     notifyError.mockReset()
+    isByokChromeVisible.mockReturnValue(true)
     $activeGatewayProfile.set('default')
     $activeSessionId.set(null)
     setCurrentModel('')

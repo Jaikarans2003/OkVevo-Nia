@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { recordAction } from '@/store/desktop-metrics'
 import { toggleHud } from '@/store/hud'
 import { $interfaceMode, shownInMode, type Tiered } from '@/store/interface-mode'
+import { useOkvevoAuth } from '@/store/okvevo-auth'
 import {
   $fileBrowserOpen,
   $leftSideOpen,
@@ -144,6 +145,7 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
   const panesFlipped = useStore($panesFlipped)
   const unreadCount = useStore($unreadSessionCount)
   const appActionsSide = useStore($titlebarAppActionsSide)
+  const okvevoAuth = useOkvevoAuth()
   const interfaceMode = useStore($interfaceMode)
   const unreadBadge = unreadCount > 0 ? unreadCount : undefined
   const unreadHint = unreadBadge ? ` · ${t.titlebar.unreadSessions(unreadBadge)}` : ''
@@ -211,6 +213,24 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
   // Static system tools — always pinned to the screen's right edge so the
   // left titlebar stays free for tabs (#107351).
   const systemTools: TitlebarTool[] = [
+    {
+      icon: <TitlebarIcon name="account" />,
+      id: 'okvevo-auth',
+      label: okvevoAuth.signedIn ? t.titlebar.signOut : t.titlebar.signIn,
+      title: okvevoAuth.signedIn
+        ? okvevoAuth.email
+          ? t.titlebar.signedInAs(okvevoAuth.email)
+          : t.titlebar.signOut
+        : t.titlebar.signIn,
+      onSelect: () => {
+        triggerHaptic('tap')
+        if (okvevoAuth.signedIn) {
+          void window.hermesDesktop?.signOutOkvevo?.()
+        } else {
+          void window.hermesDesktop?.startOkvevoSignIn?.()
+        }
+      }
+    },
     {
       ...TITLEBAR_FIXED_TOOLS.settings,
       actionId: 'nav.settings',

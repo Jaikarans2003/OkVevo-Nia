@@ -2,6 +2,8 @@ import type { ModelOptionProvider } from '@hermes/shared'
 import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { isByokChromeVisible } from '@/app/settings/settings-ui-policy'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -119,7 +121,7 @@ const API_KEY_OPTIONS: ApiKeyOption[] = [
     id: 'local',
     name: 'Local / custom endpoint',
     envKey: 'OPENAI_BASE_URL',
-    docsUrl: 'https://github.com/NousResearch/hermes-agent#bring-your-own-endpoint',
+    docsUrl: 'https://github.com/Jaikarans2003/OkVevo-Nia#bring-your-own-endpoint',
     placeholder: 'http://127.0.0.1:8000/v1'
   }
 ]
@@ -188,7 +190,8 @@ function useApiKeyCatalog(scope: OnboardingContext['scope']): ApiKeyOption[] {
     // long tail is scannable.
     derived.sort((a, b) => a.name.localeCompare(b.name))
 
-    return [...API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)), ...derived]
+    const all = [...API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)), ...derived]
+    return isByokChromeVisible() ? all : []
   }, [rows])
 }
 
@@ -379,6 +382,10 @@ export function DesktopOnboardingOverlay({
   // that the skip is durable, without this a genuinely broken provider could
   // leave the user with a prompt that silently refuses to send and no picker.
   if (onboarding.firstRunSkipped && !onboarding.requested && !onboarding.manual && !onboarding.freeTierReady) {
+    return null
+  }
+
+  if (!isByokChromeVisible()) {
     return null
   }
 
@@ -622,6 +629,10 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
   const hasOauth = ordered.length > 0
   const apiKeyOptions = useApiKeyCatalog(ctx.scope)
 
+  if (!isByokChromeVisible()) {
+    return null
+  }
+
   // localEndpoint forces the key form regardless of `mode` (which a manual
   // provider refresh may flip back to 'oauth'); it preselects the local option
   // and hides the "back to sign in" link since the user came specifically to
@@ -654,7 +665,7 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
   const select = (p: OAuthProvider) => void startProviderOAuth(p, ctx)
   const featured = ordered.find(p => p.id === FEATURED_ID) ?? null
   const rest = featured ? ordered.filter(p => p.id !== FEATURED_ID) : ordered
-  // Collapse the secondary providers behind a disclosure whenever Nous Portal
+  // Collapse the secondary providers behind a disclosure whenever OkVevo Portal
   // is present to anchor the choice — otherwise show the full list. The
   // Fireworks/OpenRouter key rows always live behind the disclosure, so the
   // toggle is warranted even when there are no other OAuth providers.

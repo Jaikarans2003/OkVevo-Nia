@@ -15,6 +15,7 @@ import type {
   DesktopBootstrapState
 } from '@/global'
 import { useI18n } from '@/i18n'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 import { AlertCircle, ChevronDown, ChevronRight, Globe, iconSize, Loader2, Monitor } from '@/lib/icons'
 import { capitalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
@@ -436,7 +437,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
     return null
   }
 
-  if (remoteOpen) {
+  if (remoteOpen && !LOCAL_ONLY_V1) {
     return <FirstRunRemoteSetup onBack={() => setRemoteOpen(false)} />
   }
 
@@ -457,7 +458,8 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className={LOCAL_ONLY_V1 ? 'mt-6 grid gap-3' : 'mt-6 grid gap-3 sm:grid-cols-2'}>
+            {LOCAL_ONLY_V1 ? null : (
             <button
               className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 text-left transition hover:bg-(--chrome-action-hover)"
               onClick={() => setRemoteOpen(true)}
@@ -469,6 +471,7 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               </div>
               <p className="mt-2 text-sm leading-5 text-muted-foreground">{copy.connectExistingDesc}</p>
             </button>
+            )}
 
             <button
               className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 text-left transition hover:bg-(--chrome-action-hover) disabled:cursor-not-allowed disabled:opacity-60"
@@ -566,10 +569,12 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
               {copy.installTo} <code className="font-mono text-(--ui-text-secondary)">{ups.activeRoot}</code>
             </span>
             <div className="flex items-center gap-2">
+              {LOCAL_ONLY_V1 ? null : (
               <Button onClick={() => setRemoteOpen(true)} size="sm" variant="secondary">
                 <Globe className="size-4" />
                 {copy.connectExistingShort}
               </Button>
+              )}
               <Button onClick={() => window.location.reload()} size="sm" variant="default">
                 {copy.retryAfterRun}
               </Button>

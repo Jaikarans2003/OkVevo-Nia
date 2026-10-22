@@ -1165,14 +1165,14 @@ export function mergeMultiSourceRoster(
 /** The @handle users tag a bot with. Multi-source rosters precompute the
  *  handle (bare name, or name-device when the profile exists on several
  *  registered sources) — prefer it when present. The primary profile's
- *  callable alias is 'hermes' — the mention middleware resolves it back to
- *  'default' — so the word 'default' never surfaces in the UI. */
+ *  callable alias is 'okvevo' — leftover '@hermes' / '@nia' are reserved, not
+ *  callable — so the word 'default' never surfaces in the UI. */
 export function botHandle(name: string, bot?: Partial<RosterRow> | null): string {
   if (bot?.handle && bot.handle !== name) {
     return bot.handle
   }
 
-  return (name || '').trim().toLowerCase() === 'default' ? 'hermes' : name
+  return (name || '').trim().toLowerCase() === 'default' ? 'okvevo' : name
 }
 
 /** Taggable @-forms derived from a bot's friendly names — the core profile
@@ -1180,7 +1180,7 @@ export function botHandle(name: string, bot?: Partial<RosterRow> | null): string
  *  reduces to the mention charset two ways: slugified ("Research Buddy" →
  *  research-buddy, the form autocomplete inserts) and collapsed
  *  (researchbuddy). Reserved tokens are dropped so a bot renamed "Hermes"
- *  can never hijack the primary profile's @hermes alias. */
+ *  can never hijack the primary profile's @nia alias. */
 export function mentionNameForms(value: null | string | undefined): string[] {
   const name = String(value || '')
     .trim()
@@ -1194,7 +1194,9 @@ export function mentionNameForms(value: null | string | undefined): string[] {
   const collapsed = name.replace(/[^a-z0-9_-]+/g, '')
 
   return [...new Set([slug, collapsed])].filter(
-    form => /^[a-z0-9][a-z0-9_-]*$/.test(form) && !['all', 'everyone', 'user', 'default', 'hermes'].includes(form)
+    form =>
+      /^[a-z0-9][a-z0-9_-]*$/.test(form) &&
+      !['all', 'everyone', 'user', 'default', 'hermes', 'nia', 'okvevo'].includes(form)
   )
 }
 
@@ -1299,7 +1301,7 @@ export function newBotChat(bot: RosterRow) {
     host.notify?.({
       kind: 'error',
       message:
-        getPluginCtx()?.i18n?.t('bot.openAnotherChatUnsupported') ?? 'Update Hermes Desktop to open another Bot chat.'
+        getPluginCtx()?.i18n?.t('bot.openAnotherChatUnsupported') ?? 'Update OkVevo to open another Bot chat.'
     })
 
     return
@@ -1311,7 +1313,7 @@ export function newBotChat(bot: RosterRow) {
     host.notify?.({
       kind: 'error',
       message:
-        getPluginCtx()?.i18n?.t('bot.openAnotherChatUnsupported') ?? 'Update Hermes Desktop to open another Bot chat.'
+        getPluginCtx()?.i18n?.t('bot.openAnotherChatUnsupported') ?? 'Update OkVevo to open another Bot chat.'
     })
 
     return
@@ -1350,6 +1352,11 @@ export function resolveRosterMentions(
     const handle = String(botHandle(bot.name, bot) || '').toLowerCase()
     const name = String(bot.name || '').toLowerCase()
     const forms = new Set([handle, name])
+
+    if (name === 'default') {
+      forms.add('okvevo')
+      forms.add('nia')
+    }
 
     if (bot.handle) {
       forms.add(String(bot.handle).toLowerCase())
@@ -1636,6 +1643,7 @@ export function filterBots(roster: RosterRow[], metaByName: Record<string, BotMe
     const display = displayName(bot, meta).toLowerCase()
     const profile = (bot.name || '').toLowerCase()
     const handle = botHandle(bot.name, bot).toLowerCase()
+    const aliases = profile === 'default' ? ['okvevo', 'nia'] : []
     // Multi-source rows also match on their device name ("homelab" finds
     // every bot living on the Homelab connection).
     const sourceLabel = (bot.connectionLabel || '').toLowerCase()
@@ -1646,6 +1654,7 @@ export function filterBots(roster: RosterRow[], metaByName: Record<string, BotMe
       display.includes(needle) ||
       profile.includes(needle) ||
       handle.includes(needle) ||
+      aliases.some(alias => alias.includes(needle)) ||
       sourceLabel.includes(needle) ||
       role.includes(needle) ||
       preview.includes(needle)

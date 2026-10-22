@@ -66,6 +66,7 @@ export function parseGroupChatMentions(text: unknown, members: GroupMember[]) {
       member.name.toLowerCase(),
       member.name.toLowerCase().replace(/[\s_-]+/g, ''),
       ...(handle ? [handle.toLowerCase(), handle.toLowerCase().replace(/[\s_-]+/g, '')] : []),
+      ...(member.name.toLowerCase() === 'default' ? ['okvevo', 'nia'] : []),
       ...(title
         ? [title.toLowerCase(), title.toLowerCase().replace(/[\s_-]+/g, ''), title.split(/\s+/)[0].toLowerCase()]
         : [])

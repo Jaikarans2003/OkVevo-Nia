@@ -19,7 +19,10 @@ import {
   useI18n,
   useQuery
 } from '@hermes/plugin-sdk'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+import { isByokChromeVisible } from '@/lib/build-channel'
+import { brandProviderSlug } from '@/lib/provider-branding'
 
 import { labeled } from './dialog-parts'
 import { useBots } from './i18n'
@@ -129,6 +132,7 @@ export function ModelPicker({ bot = null, value, onChange, placeholderModel }: M
   // Declaring them after a return trips React error #310.
   const NONE = '__default__'
   const CUSTOM = '__custom__'
+  const publicLocked = !isByokChromeVisible()
   const providers = (data?.providers || []).filter(p => p && p.slug)
 
   const isKnown =
@@ -145,10 +149,63 @@ export function ModelPicker({ bot = null, value, onChange, placeholderModel }: M
   const [manualEntry, setManualEntry] = useState<boolean | null>(null)
   const useFreeText = manualEntry ?? !isKnown
 
+  // Public builds pin every bot to the OkVevo-managed provider.
+  useEffect(() => {
+    if (publicLocked && value.provider !== 'openrouter') {
+      onChange({ provider: 'openrouter' })
+    }
+  }, [publicLocked, value.provider, onChange])
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-2">
         <GlyphSpinner className="text-(--ui-text-tertiary)" spinner="breathe" />
+      </div>
+    )
+  }
+
+  if (publicLocked) {
+    const openrouter = providers.find(p => p.slug === 'openrouter') || null
+    const models = openrouter
+      ? (openrouter.models || []).map(m => (typeof m === 'string' ? m : m.id || m.name || ''))
+      : []
+    const catalogReady = !error && Boolean(openrouter)
+
+    return (
+      <div className="grid grid-cols-[1fr_1.4fr] gap-2.5">
+        {labeled(
+          t.settings.model.provider,
+          <Input
+            aria-disabled="true"
+            data-testid="bot-provider-locked"
+            disabled
+            readOnly
+            value={brandProviderSlug('openrouter')}
+          />
+        )}
+        {labeled(
+          t.settings.model.model,
+          catalogReady && models.length > 0 ? (
+            <Select onValueChange={v => onChange({ model: v })} value={value.model || (models[0] ?? '')}>
+              <SelectTrigger className="h-8 rounded-md">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map(m => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              onChange={event => onChange({ model: event.target.value })}
+              placeholder={placeholderModel || 'e.g. gemini-2.5-pro'}
+              value={value.model}
+            />
+          )
+        )}
       </div>
     )
   }

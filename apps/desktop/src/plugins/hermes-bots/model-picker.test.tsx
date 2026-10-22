@@ -28,12 +28,13 @@ import { translateBots } from './i18n-test-helper'
 import { ModelPicker } from './model-picker'
 import type { RosterRow } from './types'
 
-const { hostMock } = vi.hoisted(() => ({
+const { hostMock, isByokChromeVisible } = vi.hoisted(() => ({
   hostMock: {
     request: vi.fn(),
     requestProfile: vi.fn(),
     state: { connectionId: { get: () => 'local' }, gateway: { get: () => 'open' }, profile: { get: () => 'default' } }
-  }
+  },
+  isByokChromeVisible: vi.fn(() => true)
 }))
 
 vi.mock('@hermes/plugin-sdk', async () => {
@@ -44,7 +45,10 @@ vi.mock('@hermes/plugin-sdk', async () => {
     Button: (props: React.ComponentProps<'button'>) => <button {...props} />,
     catalogProviderMatches,
     GlyphSpinner: () => <span data-testid="spinner" />,
+    brandModelOptionsResponse: <T,>(options: T) => options,
+    brandProviderSlug: (slug: string) => (!isByokChromeVisible() && slug === 'openrouter' ? 'OkVevo' : slug),
     host: hostMock,
+    isByokChromeVisible,
     Input: (props: React.ComponentProps<'input'>) => <input {...props} />,
     Select: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -72,12 +76,12 @@ const remoteBot = {
  *  question about the cache rather than about a fresh store. */
 let client: QueryClient
 
-function mount(bot: null | RosterRow) {
+function mount(bot: null | RosterRow, onChange = vi.fn(), value = { model: '', provider: '' }) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
 
-  return render(<ModelPicker bot={bot} onChange={vi.fn()} value={{ model: '', provider: '' }} />, { wrapper })
+  return render(<ModelPicker bot={bot} onChange={onChange} value={value} />, { wrapper })
 }
 
 /** Mount with the selection a saved bot profile would carry into the editor. */
@@ -96,6 +100,7 @@ const isFreeText = (container: HTMLElement) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  isByokChromeVisible.mockReturnValue(true)
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 
@@ -226,5 +231,52 @@ describe('a saved custom provider', () => {
     await waitFor(() => expect(container.querySelector('[data-testid="spinner"]')).toBeNull())
     expect(isFreeText(container)).toBe(false)
     expect(screen.getByText('lab-small')).toBeTruthy()
+
+describe('internal channel keeps the Provider dropdown', () => {
+  it('still offers Inherit and Enter manually', async () => {
+    hostMock.request.mockResolvedValue({
+      providers: [{ models: ['m1'], name: 'OpenRouter', slug: 'openrouter' }]
+    })
+
+    const { container } = mount({ name: 'default' } as RosterRow)
+
+    await waitFor(() => expect(container.textContent).toContain('Inherit (launch profile)'))
+    expect(container.textContent).toContain('Enter manually')
+    expect(container.querySelector('[data-testid="bot-provider-locked"]')).toBeNull()
+  })
+})
+
+describe('public channel locks Provider to OkVevo', () => {
+  it('shows a disabled OkVevo control and forces openrouter, with Model still editable', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    hostMock.request.mockResolvedValue({
+      providers: [{ models: ['openrouter/auto'], name: 'OkVevo', slug: 'openrouter' }]
+    })
+
+    const onChange = vi.fn()
+    const { container, getByTestId } = mount({ name: 'default' } as RosterRow, onChange)
+
+    await waitFor(() => expect(getByTestId('bot-provider-locked')).toBeTruthy())
+
+    const locked = getByTestId('bot-provider-locked') as HTMLInputElement
+
+    expect(locked.disabled).toBe(true)
+    expect(locked.value).toBe('OkVevo')
+    expect(container.textContent).not.toContain('Inherit (launch profile)')
+    expect(container.textContent).not.toContain('Enter manually')
+    expect(container.querySelector('input[placeholder*="omnirouter"]')).toBeNull()
+    expect(onChange).toHaveBeenCalledWith({ provider: 'openrouter' })
+  })
+
+  it('keeps locked OkVevo plus a free-text Model when the catalog fails', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    hostMock.request.mockRejectedValue(new Error('offline'))
+
+    const { getByTestId, container } = mount({ name: 'default' } as RosterRow)
+
+    await waitFor(() => expect(getByTestId('bot-provider-locked')).toBeTruthy())
+    expect((getByTestId('bot-provider-locked') as HTMLInputElement).value).toBe('OkVevo')
+    expect(container.querySelector('input[placeholder*="omnirouter"]')).toBeNull()
+    expect(container.querySelector('input[placeholder*="gemini"]')).toBeTruthy()
   })
 })

@@ -12,6 +12,8 @@ import './store/chat-text-scale'
 // Side-effect: mirrors the keep-awake mode to main and listens for main's
 // one-time keep-awake offer. Settings loads lazily, too late for the offer.
 import './store/keep-awake'
+// Side-effect: force-applies OkVevo-locked desktop prefs before React mounts.
+import './app/settings/okvevo-locked-prefs'
 // Dev-only render/state churn counters. MUST precede the `react-dom` import
 // below: react-dom captures the devtools hook at module init, so bippy has to
 // install during THIS import's evaluation or every commit goes unseen
@@ -53,7 +55,7 @@ if (import.meta.env.MODE !== 'production' || import.meta.env.VITE_PERF_PROBE ===
 const winParam = new URLSearchParams(window.location.search).get('win')
 
 if (winParam === 'hud') {
-  document.title = 'Hermes HUD'
+  document.title = 'OkVevo HUD'
 }
 
 // The `?win=` kinds whose Electron window is `transparent: true` and so paints

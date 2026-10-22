@@ -104,6 +104,7 @@ export function ModelMenuPanel({ onFollowDefaultModel, ...props }: ModelMenuPane
       gateway={gateway}
       header={<LocalSetupMenuRow />}
       includeMoa
+      includeOkvevoAuto
       ownerConnectionId={ownerConnectionId}
       profile={profile}
       request={requestGateway}

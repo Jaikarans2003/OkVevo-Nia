@@ -39,7 +39,7 @@ export const PROVIDER_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   anthropic: 'Anthropic Account',
   'claude-code': 'Anthropic OAuth: Required Extra Usage Credits to Use Subscription',
   'minimax-oauth': 'MiniMax',
-  nous: 'Nous Portal',
+  nous: 'OkVevo Portal',
   'openai-codex': 'ChatGPT or Codex Subscription',
   'qwen-oauth': 'Qwen Code',
   xai: 'xAI',
@@ -58,6 +58,12 @@ export function modelBaseId(model: string): string {
   const slash = trimmed.lastIndexOf('/')
 
   return slash >= 0 ? trimmed.slice(slash + 1) : trimmed
+}
+
+/** OkVevo Auto virtual ids — pill must not read as "Auto Intelligence". */
+const OKVEVO_AUTO_DISPLAY: Readonly<Record<string, string>> = {
+  'okvevo/auto-cost': 'Cost Effective',
+  'okvevo/auto-intelligence': 'Intelligence'
 }
 
 // Trailing model-id variants that should render as a grayed tag beside the
@@ -179,6 +185,12 @@ function splitTrailingTags(base: string): { base: string; variant: string; quant
 /** Split a model id into a clean display name plus an optional grayed variant
  *  tag, so distinct ids (e.g. `…-4.8` vs `…-4.8-fast`) don't collapse. */
 export function modelDisplayParts(model: string): { name: string; tag: string } {
+  const autoName = OKVEVO_AUTO_DISPLAY[model.trim()]
+
+  if (autoName) {
+    return { name: autoName, tag: '' }
+  }
+
   let { base, variant, quant } = splitTrailingTags(modelBaseId(model))
 
   const tags = [variant, quant].filter(Boolean)

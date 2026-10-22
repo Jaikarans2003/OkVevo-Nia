@@ -48,6 +48,20 @@ describe('collectArtifactsForSession', () => {
     })
   })
 
+  it('filters fal CDN hosts from the artifacts index', () => {
+    const artifacts = collectArtifactsForSession(makeSession({ id: 'fal-session' }), [
+      {
+        content:
+          'Saved MEDIA:/tmp/okvevo/video.mp4 and also https://v3b.fal.media/files/abc/clip.mp4 plus https://fal.media/files/xyz/out.png',
+        role: 'assistant',
+        timestamp: 1000
+      }
+    ])
+
+    expect(artifacts.map(a => a.value)).toEqual(['/tmp/okvevo/video.mp4'])
+    expect(artifacts.every(a => !/fal\.(media|ai)/i.test(a.value))).toBe(true)
+  })
+
   it('strips Markdown code delimiters from discovered link artifacts', () => {
     const artifacts = collectArtifactsForSession(makeSession(), [
       {

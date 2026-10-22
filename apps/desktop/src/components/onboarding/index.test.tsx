@@ -1,9 +1,20 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { $okvevoAuth } from '@/store/okvevo-auth'
 import { $desktopOnboarding, type DesktopOnboardingState, type OnboardingContext } from '@/store/onboarding'
 import { makeOAuthProvider } from '@/test/oauth-provider'
 import type { OAuthProvider } from '@/types/hermes'
+
+let byokChromeVisible = true
+
+vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    isByokChromeVisible: () => byokChromeVisible
+  }
+})
 
 import { ApiKeyForm, Picker } from '.'
 
@@ -26,6 +37,7 @@ const ctx: OnboardingContext = { requestGateway: async () => undefined as never 
 
 afterEach(() => {
   cleanup()
+  byokChromeVisible = true
 
   try {
     window.localStorage.clear()
@@ -45,17 +57,18 @@ afterEach(() => {
     localEndpoint: false,
     freeTierReady: false
   })
+  $okvevoAuth.set({ signedIn: false, uid: null, email: null, displayName: null })
 })
 
 describe('onboarding Picker', () => {
-  it('features Nous Portal and hides other providers behind a disclosure', () => {
-    setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'Nous Portal')])
+  it('features OkVevo Portal and hides other providers behind a disclosure', () => {
+    setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'OkVevo Portal')])
     render(<Picker ctx={ctx} />)
 
-    expect(screen.getByText('Nous Portal')).toBeTruthy()
+    expect(screen.getByText('OkVevo Portal')).toBeTruthy()
     expect(screen.getByText('Recommended')).toBeTruthy()
     // Fireworks stays behind the disclosure with the other alternatives; only
-    // Nous Portal is visible before the user expands the list.
+    // OkVevo Portal is visible before the user expands the list.
     expect(screen.queryByText('Fireworks AI')).toBeNull()
     expect(screen.queryByText('Anthropic Account')).toBeNull()
 
@@ -81,7 +94,7 @@ describe('onboarding Picker', () => {
   })
 
   it('offers "choose later" on first run and persists the skip', () => {
-    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
     render(<Picker ctx={ctx} />)
 
     const skip = screen.getByRole('button', { name: "I'll choose a provider later" })
@@ -93,10 +106,32 @@ describe('onboarding Picker', () => {
   })
 
   it('hides "choose later" in manual (add-provider) mode', () => {
-    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
     $desktopOnboarding.set({ ...$desktopOnboarding.get(), manual: true })
     render(<Picker ctx={ctx} />)
 
+    expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
+  })
+
+  it('shows OpenRouter key paste when signed in on the internal channel', () => {
+    $okvevoAuth.set({ signedIn: true, uid: 'u1', email: 'a@b.c', displayName: null })
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
+    render(<Picker ctx={ctx} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
+
+    expect(screen.getByText('Fireworks AI')).toBeTruthy()
+    expect(screen.getByText('OpenRouter')).toBeTruthy()
+  })
+
+  it('hides OAuth, keys, local form, and Fireworks on the public channel', () => {
+    byokChromeVisible = false
+    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
+    render(<Picker ctx={ctx} />)
+
+    expect(screen.queryByText('OkVevo Portal')).toBeNull()
+    expect(screen.queryByText('Fireworks AI')).toBeNull()
+    expect(screen.queryByText('OpenRouter')).toBeNull()
+    expect(screen.queryByRole('button', { name: /API key/i })).toBeNull()
     expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
   })
 })

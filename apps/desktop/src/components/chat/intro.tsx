@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
-import { useI18n } from '@/i18n'
 import { capitalize, normalize } from '@/lib/text'
+import { type OkvevoAuthPublic, useOkvevoAuth } from '@/store/okvevo-auth'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
-import { Wordmark } from './wordmark'
+
+const assetPath = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
 
 type IntroCopy = {
   headline: string
@@ -32,7 +33,7 @@ const FALLBACK_COPY: IntroCopy[] = [
     body: "Bring the code, question, or stuck part. I'll read the room before making changes."
   },
   {
-    headline: 'What should Hermes look at?',
+    headline: 'What should OkVevo look at?',
     body: "Send the task, failing path, or half-formed plan. I'll help turn it into action."
   },
   {
@@ -124,7 +125,7 @@ function fallbackCopyForPersonality(personalityKey: string): IntroCopy[] {
       body: "Send the task, file, or rough idea. I'll use your configured voice and keep the work grounded in this repo."
     },
     {
-      headline: `What does ${label} Hermes need to see?`,
+      headline: `What does ${label} OkVevo need to see?`,
       body: "Bring the context or the stuck part. I'll adapt to your configured personality."
     },
     {
@@ -132,7 +133,7 @@ function fallbackCopyForPersonality(personalityKey: string): IntroCopy[] {
       body: "Send the problem, file, or idea. I'll follow the personality you've configured."
     },
     {
-      headline: `What should ${label} Hermes tackle?`,
+      headline: `What should ${label} OkVevo tackle?`,
       body: "Drop the task here. I'll keep the work grounded in the repo."
     },
     {
@@ -146,8 +147,6 @@ function pickCopy(copies: IntroCopy[], seed = 0): IntroCopy {
   return copies[Math.abs(seed) % copies.length] || FALLBACK_COPY[0]
 }
 
-const WORDMARK = 'HERMES AGENT'
-
 function resolveCopy(personality?: string, seed?: number): IntroCopy {
   const personalityKey = normalizeKey(personality)
 
@@ -158,28 +157,122 @@ function resolveCopy(personality?: string, seed?: number): IntroCopy {
   return pickCopy(copies, seed)
 }
 
-export function Intro({ personality, seed }: IntroProps) {
-  const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
-  const { t } = useI18n()
-  const rotationSeed = mountSeed + (seed ?? 0)
-  const copy = resolveCopy(personality, rotationSeed)
-  const key = normalizeKey(personality)
+/** Italic line under the composer on the empty splash. */
+export function resolveIntroSubtitle(personality?: string, seed?: number): string {
+  return resolveCopy(personality, seed).body
+}
 
-  const bodies =
-    t.intro.stock[key] ?? (NEUTRAL_PERSONALITIES.has(key) ? t.intro.stock.none : t.intro.custom(personality || ''))
+/**
+ * Splash name from OkVevo only — never a hardcoded person.
+ * displayName → email → empty (greeting omits the name clause).
+ */
+export function resolveSplashUserName(auth: Pick<OkvevoAuthPublic, 'displayName' | 'email'>): string {
+  const name = auth.displayName?.trim()
 
-  const body = bodies?.[Math.abs(rotationSeed) % bodies.length] ?? copy.body
+  if (name) {
+    return name
+  }
+
+  return auth.email?.trim() || ''
+}
+
+const TYPE_MS = 45
+
+function useTypewriter(fullText: string, resetKey: string): number {
+  const [visible, setVisible] = useState(0)
+
+  useEffect(() => {
+    setVisible(0)
+
+    if (!fullText) {
+      return
+    }
+
+    const id = window.setInterval(() => {
+      setVisible(n => {
+        if (n >= fullText.length) {
+          window.clearInterval(id)
+
+          return n
+        }
+
+        return n + 1
+      })
+    }, TYPE_MS)
+
+    return () => window.clearInterval(id)
+  }, [fullText, resetKey])
+
+  return visible
+}
+
+/** Empty-chat splash: GIF on top; brief typewriter greeting under it. */
+export function Intro(_props: IntroProps = {}) {
+  const auth = useOkvevoAuth()
+  const userName = resolveSplashUserName(auth)
+
+  const script = useMemo(() => {
+    if (userName) {
+      const before = 'Hi '
+      const mid = ", I'm "
+      const after = '.'
+      const hi = `${before}${userName}${mid}OkVevo${after}`
+
+      return { hi, before, name: userName, mid, after }
+    }
+
+    const before = "Hi, I'm "
+    const hi = `${before}OkVevo.`
+
+    return { hi, before, name: '', mid: '', after: '.' }
+  }, [userName])
+
+  const visible = useTypewriter(script.hi, script.hi)
+
+  let cursor = 0
+  const take = (chunk: string) => {
+    const start = cursor
+    cursor += chunk.length
+    if (visible <= start) {
+      return ''
+    }
+
+    return chunk.slice(0, Math.max(0, visible - start))
+  }
+
+  const shownBefore = take(script.before)
+  const shownName = take(script.name)
+  const shownMid = take(script.mid)
+  const shownProduct = take('OkVevo')
+  const shownAfter = take(script.after)
 
   return (
     <div
-      className="pointer-events-none flex w-full min-w-0 flex-col items-center justify-center px-0.5 py-6 text-center text-muted-foreground sm:px-6 lg:px-8"
+      className="pointer-events-none flex w-full min-w-0 flex-col items-center justify-center gap-2.5 px-0.5 py-6 text-center sm:px-6 lg:px-8"
       data-slot="aui_intro"
     >
-      <div className="w-full min-w-0">
-        <Wordmark className="mb-1" text={WORDMARK} />
+      <img
+        alt=""
+        className="size-20 rounded-[1.75rem] object-cover sm:size-24 sm:rounded-[2rem] [image-rendering:pixelated]"
+        src={assetPath('okvevo-intro.gif')}
+      />
 
-        <p className="m-0 text-center leading-normal tracking-tight">{body}</p>
-      </div>
+      <p
+        aria-label={script.hi}
+        className="intro-splash-line m-0 max-w-[24rem] text-[length:1.55rem] font-bold leading-[1.15] tracking-tight sm:max-w-[28rem] sm:text-[length:1.85rem]"
+      >
+        {shownBefore ? <span className="intro-splash-rest">{shownBefore}</span> : null}
+        {shownName ? <span className="intro-splash-name">{shownName}</span> : null}
+        {shownMid ? <span className="intro-splash-rest">{shownMid}</span> : null}
+        {shownProduct ? <span className="intro-splash-name">{shownProduct}</span> : null}
+        {shownAfter ? <span className="intro-splash-rest">{shownAfter}</span> : null}
+        {visible < script.hi.length ? (
+          <span
+            aria-hidden
+            className="intro-splash-caret ml-0.5 inline-block h-[1.05em] w-[0.18em] translate-y-[0.12em] align-baseline"
+          />
+        ) : null}
+      </p>
     </div>
   )
 }

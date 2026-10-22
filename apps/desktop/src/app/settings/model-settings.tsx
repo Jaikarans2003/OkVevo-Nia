@@ -31,6 +31,7 @@ import type {
 import { useI18n } from '@/i18n'
 import { isCodeSkewRestartRequired } from '@/lib/code-skew-error'
 import { AlertTriangle, Cpu, Loader2 } from '@/lib/icons'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { isSubmitEnter } from '@/lib/ime'
 import { catalogProviderMatches, findCatalogProvider } from '@/lib/model-options'
 import { composerServiceTier } from '@/lib/model-status-label'
@@ -1077,6 +1078,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
         <section>
           <p className="mb-3 text-xs text-muted-foreground">{m.appliesDesc}</p>
           <div className="grid gap-1">
+            {isByokChromeVisible() && (
             <ListRow
               action={
                 <Select onValueChange={switchProvider} value={selectedProviderRow?.slug ?? selectedProvider}>
@@ -1100,9 +1102,10 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
               }
               title={m.provider}
             />
+            )}
             <ListRow
               action={
-                needsSetup ? (
+                needsSetup && isByokChromeVisible() ? (
                   setupIsApiKey ? (
                     <div className="grid w-full min-w-0 max-w-full @2xl:w-72 justify-items-end gap-2">
                       <Input
@@ -1159,7 +1162,7 @@ export function ModelSettings({ onMainModelChanged, scopeProfile, subpage }: Mod
               </Button>
             </div>
           )}
-          {needsSetup && !setupIsApiKey && selectedProviderRow && (
+          {isByokChromeVisible() && needsSetup && !setupIsApiKey && selectedProviderRow && (
             <p className="mt-2 text-xs text-muted-foreground">
               {selectedProviderRow?.auth_type === 'api_key'
                 ? `${selectedProviderRow?.name} needs an API key — set it up to choose a model.`

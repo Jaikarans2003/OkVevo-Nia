@@ -39,6 +39,7 @@ import { PreviewAttachment } from '@/components/chat/preview-attachment'
 import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import {
   errorRecoveryPlan,
   type ErrorSurface,
@@ -1002,22 +1003,34 @@ const ErrorRecoveryActions: FC = () => {
         </span>
       )}
       {plan.retry && surface?.resetsAt !== undefined && <ScheduledRetryAction resetsAt={surface.resetsAt} />}
-      {plan.switchProvider && inRouter && <SwitchProviderAction label={copy.errorSwitchProvider} />}
-      {localFolders && (
+      {isByokChromeVisible() && plan.switchProvider && inRouter && (
+        <SwitchProviderAction label={copy.errorSwitchProvider} />
+      )}
+      {isByokChromeVisible() && localFolders && (
         <button className="aui-error-action" onClick={() => void openLogs()} type="button">
           {remoteConnection ? copy.errorOpenDesktopLogs : copy.errorOpenLogs}
         </button>
       )}
-      <button className="aui-error-action" onClick={() => requestSendDiagnostics(diagnosticsText())} type="button">
-        <Upload className="size-3" />
-        {copy.errorSendDiagnostics}
-      </button>
-      <CopyButton
-        appearance="inline"
-        className="aui-error-action"
-        label={copy.errorCopyDiagnostics}
-        text={diagnosticsText}
-      />
+      {/* Diagnostics upload goes to Nous-operated storage — internal-build
+          tooling only. Public (OkVevo) builds never offer it. */}
+      {isByokChromeVisible() && (
+        <button className="aui-error-action" onClick={() => requestSendDiagnostics(diagnosticsText())} type="button">
+          <Upload className="size-3" />
+          {copy.errorSendDiagnostics}
+        </button>
+      )}
+      {isByokChromeVisible() ? (
+        <CopyButton
+          appearance="inline"
+          className="aui-error-action"
+          label={copy.errorCopyDiagnostics}
+          text={diagnosticsText}
+        />
+      ) : (
+        <a className="aui-error-action" href="mailto:help@okvevo.com">
+          {copy.errorHelpEmail}
+        </a>
+      )}
     </div>
   )
 }

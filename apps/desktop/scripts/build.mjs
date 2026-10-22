@@ -14,6 +14,9 @@ export function buildSourceDesktop({ source = repoRoot, icons, run = execFileSyn
   // Stamp before the flavored icons land: they overwrite committed files, and
   // the stamp's git check would then call the checkout dirty.
   step('apps/desktop/scripts/write-build-stamp.mjs')
+  // OkVevo: portal origin, update feed, and Firebase web keys for packaged
+  // builds (Dock/Start Menu launches have no shell env). CI passes --require.
+  step('apps/desktop/scripts/write-okvevo-pack-env.mjs', process.env.OKVEVO_REQUIRE_PACK_ENV ? ['--require'] : [])
   // Default-brand icons are committed; only flavored release builds pass --icons.
   icons = resolve(icons ?? source)
   if (icons !== source) {

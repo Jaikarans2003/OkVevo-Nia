@@ -20,8 +20,9 @@ import type { RosterRow } from './types'
 // the origin, install via skills.manage, and bubble onInstalled so the
 // checklist above gains the row. Search-box fallback kept for offline use.
 
-const HUB_ORIGIN = 'https://hermes-agent.nousresearch.com'
-const FALLBACK_HUB_ORIGIN = 'https://nousresearch.github.io'
+// OkVevo hosts the Skills Hub picker; never load the Nous-hosted iframe.
+const HUB_ORIGIN = 'https://www.okvevo.com'
+const FALLBACK_HUB_ORIGIN = 'https://www.okvevo.com'
 const HUB_PICKER_URL = HUB_ORIGIN + '/docs/skills?embed=picker'
 const FALLBACK_HUB_PICKER_URL = FALLBACK_HUB_ORIGIN + '/hermes-agent/docs/skills?embed=picker'
 // A WAF-blocked or unreachable docs host must not delay the fallback longer

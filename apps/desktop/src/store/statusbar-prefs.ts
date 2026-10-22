@@ -1,3 +1,4 @@
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { Codecs, persistentAtom } from '@/lib/persisted'
 import { readKey } from '@/lib/storage'
 import { modeBound } from '@/store/interface-mode'
@@ -25,6 +26,10 @@ export const $statusbarVisible = modeBound('statusbarVisible', $statusbarVisible
 )
 
 export function toggleStatusbarVisible() {
+  if (!isByokChromeVisible()) {
+    return
+  }
+
   $statusbarVisible.set(!$statusbarVisible.get())
 }
 

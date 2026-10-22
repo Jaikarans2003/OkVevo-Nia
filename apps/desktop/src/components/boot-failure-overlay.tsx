@@ -14,6 +14,7 @@ import { reestablishCloudAgentSession } from '@/lib/cloud-agent-session'
 import { DESKTOP_DOCS_URL } from '@/lib/docs'
 import { openExternalLink } from '@/lib/external-link'
 import { ChevronLeft, ExternalLink, FileText, Loader2, LogIn, RefreshCw, SlidersHorizontal, Wrench } from '@/lib/icons'
+import { LOCAL_ONLY_V1 } from '@/lib/product'
 import { $desktopBoot } from '@/store/boot'
 import { notify, notifyError } from '@/store/notifications'
 import { $desktopOnboarding } from '@/store/onboarding'
@@ -287,7 +288,7 @@ export function BootFailureOverlay() {
       // reports an outcome, handled in its own branch.
       let error: string | undefined
 
-      if (connectionConfig?.mode === 'cloud' && desktop?.cloud) {
+      if (!LOCAL_ONLY_V1 && connectionConfig?.mode === 'cloud' && desktop?.cloud) {
         // The ladder drops this gateway's lapsed cookies itself — logging out
         // here as well would fire the IPC twice for the cloud path.
         const outcome = await reestablishCloudAgentSession(desktop, remoteReauth.url)
@@ -312,7 +313,7 @@ export function BootFailureOverlay() {
       }
 
       if (connected) {
-        if (connectionConfig?.mode === 'cloud') {
+        if (!LOCAL_ONLY_V1 && connectionConfig?.mode === 'cloud') {
           await desktop?.resetBootstrap().catch(() => undefined)
         }
 
@@ -397,7 +398,9 @@ export function BootFailureOverlay() {
   // the structured isCloudBackendDown/statusCode it carries through boot
   // progress. When set, the recovery screen leads with the cloud-specific
   // guidance instead of the generic remote-failure copy (#85335).
-  const cloudDown = Boolean(boot.isCloudBackendDown)
+  // LOCAL_ONLY_V1 hides Hermes Cloud. A leftover cloud connection must not
+  // open the Nous Cloud recovery screen.
+  const cloudDown = !LOCAL_ONLY_V1 && Boolean(boot.isCloudBackendDown)
 
   if (remoteReauth) {
     actions = [
@@ -423,17 +426,11 @@ export function BootFailureOverlay() {
       {
         key: 'portal',
         label: copy.cloudDownCheckPortal,
-        onClick: () => openExternalLink('https://portal.nousresearch.com'),
+        onClick: () => openExternalLink('https://www.okvevo.com'),
         icon: <ExternalLink />
       },
       localAction,
       { ...retryAction, variant: 'secondary' },
-      {
-        key: 'discord',
-        label: copy.cloudDownDiscord,
-        onClick: () => openExternalLink('https://discord.gg/NousResearch'),
-        variant: 'ghost'
-      },
       { ...settingsAction, variant: 'ghost' }
     ]
     hint = copy.cloudDownHint

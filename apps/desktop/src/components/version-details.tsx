@@ -81,6 +81,10 @@ export function VersionDetails({ version, channelAction }: { version: DesktopVer
   return (
     <dl className="grid gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-3 text-sm">
       <div className="flex justify-between gap-4">
+        <dt className="text-muted-foreground">Built on</dt>
+        <dd>Hermes Agent by Nous Research</dd>
+      </div>
+      <div className="flex justify-between gap-4">
         <dt className="text-muted-foreground">{u.versionDetailsVersion}</dt>
         <dd>
           {version.appVersion ? `v${shortVersion(version.appVersion)}` : u.versionUnavailable}
@@ -93,7 +97,7 @@ export function VersionDetails({ version, channelAction }: { version: DesktopVer
           <dd className="break-all text-right">
             <ExternalLink
               className="break-all font-mono text-xs"
-              href={`https://github.com/NousResearch/hermes-agent/commit/${version.commit}`}
+              href={`https://github.com/Jaikarans2003/OkVevo-Nia/commit/${version.commit}`}
               native
             >
               {version.commit.slice(0, 14)}

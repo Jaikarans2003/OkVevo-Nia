@@ -7,11 +7,12 @@
 import { AssistantRuntimeProvider, type ThreadMessage, useExternalStoreRuntime } from '@assistant-ui/react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { en } from '@/i18n/en'
 import type { ErrorCardCopy } from '@/i18n/types'
 import { $displayTimestamps } from '@/store/display-timestamps'
+import { $toolViewMode } from '@/store/tool-view'
 
 import { stubThreadEnvironment } from '../test-utils'
 
@@ -36,6 +37,12 @@ vi.mock('@/store/profile', async importOriginal => ({
 vi.mock('@/store/onboarding', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   startManualProviderOAuth: (...args: unknown[]) => startManualProviderOAuth(...args)
+
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 }))
 
 // Timeline timestamps render only when `display.timestamps` is enabled.
@@ -54,6 +61,15 @@ afterEach(() => {
   requestFreshSession.mockClear()
   startManualProviderOAuth.mockClear()
   requestModelMenuToggle.mockReset().mockReturnValue(true)
+})
+
+beforeEach(() => {
+  isByokChromeVisible.mockReturnValue(true)
+  $toolViewMode.set('product')
+  window.hermesDesktop = {
+    ...window.hermesDesktop,
+    logsRoot: async () => '/tmp/logs'
+  } as Window['hermesDesktop']
 })
 
 function userMessage(): ThreadMessage {
@@ -117,6 +133,25 @@ function ownershipRefusalMessage(): ThreadMessage {
       steps: [],
       // What submit.ts stamps on a 4090 / SESSION_NOT_OWNED refusal.
       custom: { errorSurface: { layer: 'gateway', code: 'SESSION_NOT_OWNED', retryable: false } }
+    }
+  } as unknown as ThreadMessage
+}
+
+function assistantErrorMessage(): ThreadMessage {
+  return {
+    id: 'assistant-error-1',
+    role: 'assistant',
+    content: [],
+    status: { type: 'incomplete', reason: 'error', error: 'Provider rejected the request.' },
+    createdAt,
+    metadata: {
+      unstable_state: null,
+      unstable_annotations: [],
+      unstable_data: [],
+      steps: [],
+      custom: {
+        errorSurface: { layer: 'provider', retryable: true }
+      }
     }
   } as unknown as ThreadMessage
 }
@@ -190,9 +225,11 @@ function Harness({
   })
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <Thread onBranchInNewChat={onBranchInNewChat} />
-    </AssistantRuntimeProvider>
+    <MemoryRouter>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <Thread onBranchInNewChat={onBranchInNewChat} />
+      </AssistantRuntimeProvider>
+    </MemoryRouter>
   )
 }
 
@@ -470,11 +507,37 @@ describe('expired OAuth grant recovery', () => {
 
     screen.getByRole('button', { name: 'Sign in to Nous Portal again' }).click()
     expect(startManualProviderOAuth).toHaveBeenCalledWith('nous', undefined)
+
+describe('ErrorRecoveryActions channel chrome', () => {
+  it('keeps Switch provider / Open logs / Copy error details on internal', async () => {
+    render(<Harness assistant={assistantErrorMessage()} />)
+
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Switch provider' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open logs' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy error details' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Send diagnostics' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /help@okvevo\.com/i })).toBeNull()
+  })
+
+  it('shows help email only on public (hides Switch provider / Open logs / Copy)', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    render(<Harness assistant={assistantErrorMessage()} />)
+
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open logs' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy error details' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Send diagnostics' })).toBeNull()
+
+    const help = screen.getByRole('link', { name: /help@okvevo\.com/i })
+    expect(help.getAttribute('href')).toBe('mailto:help@okvevo.com')
   })
 })
 
 describe('message timeline timestamps', () => {
   it('always renders precise user and assistant lifecycle times', async () => {
+    $toolViewMode.set('technical')
     const { container } = render(<Harness />)
 
     await screen.findByText('done')
@@ -509,4 +572,30 @@ describe('message timeline timestamps', () => {
 
     expect(stamps.filter(stamp => stamp === formatTimelineRange(startedAt, completedAt))).toHaveLength(1)
   })
+})
+
+describe('reasoning accordion channel', () => {
+  it('keeps the thinking header but hides the reasoning body in product mode', async () => {
+    $toolViewMode.set('product')
+    const { container } = render(<Harness />)
+
+    await screen.findByText('done')
+
+    // The header (with its live timer) is the only "still working" signal
+    // during a long reasoning phase — it must stay. The text must not.
+    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeTruthy()
+    expect(container.querySelector('[data-slot="aui_thinking-body"]')).toBeNull()
+    expect(container.textContent).not.toContain('checked carefully')
+  })
+
+  it('shows the thinking disclosure in technical mode', async () => {
+    $toolViewMode.set('technical')
+    const { container } = render(<Harness />)
+
+    await screen.findByText('done')
+
+    expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeTruthy()
+  })
+})
+
 })

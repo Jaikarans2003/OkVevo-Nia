@@ -180,6 +180,9 @@ interface ModelCatalogMenuProps {
   /** Render the virtual `moa` provider's presets as a selectable section.
    *  Off for override surfaces, where a MoA preset isn't a worker model. */
   includeMoa?: boolean
+  /** Composer-only OkVevo Auto rows (Intelligence / Cost Effective). Default
+   *  false so kanban/plugin pickers never see them. */
+  includeOkvevoAuto?: boolean
   /** Registry source owning this catalog. Profile/session names are not unique
    * across sources, so this participates in the React Query cache key. */
   ownerConnectionId?: string
@@ -190,6 +193,11 @@ interface ModelCatalogMenuProps {
    *  menu goes stale. Detached surfaces (per-task overrides) omit it. */
   sessionId?: null | string
 }
+
+const OKVEVO_AUTO_ROWS = [
+  { id: 'okvevo/auto-intelligence', label: 'Intelligence' },
+  { id: 'okvevo/auto-cost', label: 'Cost Effective' }
+] as const
 
 interface ProviderGroup {
   families: ModelFamily[]
@@ -238,6 +246,7 @@ export function ModelCatalogMenu({
   header,
   gateway,
   includeMoa = false,
+  includeOkvevoAuto = false,
   ownerConnectionId,
   profile = 'default',
   request,
@@ -331,6 +340,20 @@ export function ModelCatalogMenu({
 
   const q = normalize(search)
 
+  const shownOkvevoAuto = useMemo(() => {
+    if (!includeOkvevoAuto) {
+      return [] as Array<(typeof OKVEVO_AUTO_ROWS)[number]>
+    }
+
+    if (!q) {
+      return [...OKVEVO_AUTO_ROWS]
+    }
+
+    return OKVEVO_AUTO_ROWS.filter(
+      row => `okvevo auto ${row.label} ${row.id}`.toLowerCase().includes(q) || row.id.toLowerCase().includes(q)
+    )
+  }, [includeOkvevoAuto, q])
+
   // In-flight downloads render inside the Local provider group when it
   // exists, else as their own trailing 'Local' group (first download —
   // nothing staged yet, so the catalog has no local provider row).
@@ -394,7 +417,9 @@ export function ModelCatalogMenu({
   // section below it (MoA, custom slug) would sit under two separators.
   // Favorites count: a catalog whose every curated family is starred has
   // groups but no group rows, and the section must still paint.
-  const hasList = !hideCatalog && (groups.length > 0 || shownDownloads.length > 0 || favoriteRows.length > 0)
+  const hasList =
+    !hideCatalog &&
+    (groups.length > 0 || shownDownloads.length > 0 || favoriteRows.length > 0 || shownOkvevoAuto.length > 0)
 
   // A typed id no provider lists is still a model to the backend. Offer it as
   // a row per configured provider (the current one first) so a slug the
@@ -462,6 +487,14 @@ export function ModelCatalogMenu({
     closeMenu()
   }
 
+  const selectOkvevoAuto = async (id: string) => {
+    if ((await controller.select(id, 'openrouter')) === false) {
+      return
+    }
+
+    closeMenu()
+  }
+
   const selectCustom = async (slug: string, provider: ModelOptionProvider) => {
     if (!(await selectFamily({ fastId: null, id: slug }, provider))) {
       return
@@ -475,12 +508,16 @@ export function ModelCatalogMenu({
   // One flat list mirroring EXACTLY what's rendered (Favorites section,
   // collapse, filter, presets), so the selection can never sit on a hidden row.
   type KbRow =
+    | { id: string; key: string; kind: 'okvevo-auto'; label: string }
     | { key: string; kind: 'custom'; provider: ModelOptionProvider; slug: string }
     | { family: ModelFamily; key: string; kind: 'family'; provider: ModelOptionProvider }
     | { key: string; kind: 'moa'; preset: string }
 
   const kbRows = useMemo<KbRow[]>(
     () => [
+      ...shownOkvevoAuto.map(
+        (row): KbRow => ({ id: row.id, key: `okvevo-auto:${row.id}`, kind: 'okvevo-auto', label: row.label })
+      ),
       ...favoriteRows.map(({ family, provider }): KbRow => ({
         family,
         key: `${provider.slug}:${family.id}`,
@@ -507,7 +544,7 @@ export function ModelCatalogMenu({
           }))
         : [])
     ],
-    [favoriteRows, groups, collapsedProviders, search, shownMoaPresets, customSlug, customProviders]
+    [shownOkvevoAuto, favoriteRows, groups, collapsedProviders, search, shownMoaPresets, customSlug, customProviders]
   )
 
   // The row the arrows (or a Shift+Enter star) last put the highlight on,
@@ -521,7 +558,9 @@ export function ModelCatalogMenu({
   const rowIsCurrent = (row: KbRow) =>
     row.kind === 'moa'
       ? current.provider === 'moa' && row.preset === current.model
-      : row.kind === 'custom'
+      : row.kind === 'okvevo-auto'
+        ? current.provider === 'openrouter' && row.id === current.model
+        : row.kind === 'custom'
         ? false
         : catalogProviderMatches(row.provider, current.provider) &&
           (row.family.id === current.model || row.family.fastId === current.model)
@@ -551,6 +590,12 @@ export function ModelCatalogMenu({
 
     if (row.kind === 'moa') {
       void selectMoaPreset(row.preset)
+
+      return
+    }
+
+    if (row.kind === 'okvevo-auto') {
+      void selectOkvevoAuto(row.id)
 
       return
     }
@@ -739,12 +784,35 @@ export function ModelCatalogMenu({
         favoriteRows.length === 0 &&
         moaPresets.length === 0 &&
         shownDownloads.length === 0 &&
+        shownOkvevoAuto.length === 0 &&
         !customSlug ? (
         <DropdownMenuItem className={dropdownMenuRow} disabled>
           {copy.noModels}
         </DropdownMenuItem>
       ) : hasList ? (
         <div className="max-h-[max(150px,30dvh)] overflow-y-auto py-0.5" ref={listRef}>
+          {shownOkvevoAuto.length > 0 ? (
+            <DropdownMenuGroup className="py-0.5">
+              <DropdownMenuLabel className={dropdownMenuSectionLabel}>OkVevo Auto</DropdownMenuLabel>
+              {shownOkvevoAuto.map(row => (
+                <DropdownMenuItem
+                  key={`okvevo-auto:${row.id}`}
+                  onSelect={event => {
+                    event.preventDefault()
+                    void selectOkvevoAuto(row.id)
+                  }}
+                  {...kbRowProps(`okvevo-auto:${row.id}`)}
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    <HighlightMatches query={search} text={row.label} />
+                  </span>
+                  {current.provider === 'openrouter' && current.model === row.id ? (
+                    <Codicon className="ml-auto text-foreground" name="check" size="0.75rem" />
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          ) : null}
           {/* Favorites first — the shortcut the star exists for. The section
               paints nothing with no favorites, and nothing while searching,
               where every match is listed in its provider's place instead. */}

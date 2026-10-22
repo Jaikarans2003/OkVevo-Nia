@@ -15,6 +15,11 @@ describe('model-status-label', () => {
     expect(displayModelName('claude-fable-5-1')).toBe('Fable 5.1')
   })
 
+  it('names OkVevo Auto aliases for the pill', () => {
+    expect(displayModelName('okvevo/auto-intelligence')).toBe('Intelligence')
+    expect(displayModelName('okvevo/auto-cost')).toBe('Cost Effective')
+  })
+
   it('renders the Anthropic 1M-context route suffix as a tag, never raw brackets', () => {
     expect(modelDisplayParts('claude-sonnet-5[1m]')).toEqual({ name: 'Sonnet 5', tag: '1M' })
     expect(modelDisplayParts('claude-fable-5-1[1m]')).toEqual({ name: 'Fable 5.1', tag: '1M' })
