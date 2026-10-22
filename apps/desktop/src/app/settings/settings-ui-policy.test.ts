@@ -47,6 +47,7 @@ import { $toursEnabled, setToursEnabled } from '@/store/tours'
 import { $translucencyBook, GLASS_SUPPORTED } from '@/store/translucency'
 import { $vibeHeartsEnabled, setVibeHeartsEnabled } from '@/store/vibe-hearts-enabled'
 
+import { MODE_OPTIONS } from './constants'
 import {
   applyLockedDesktopPrefs,
   filterVisibleConfigKeys,
@@ -90,6 +91,7 @@ describe('settings UI policy filters', () => {
   })
 
   it('hides locked appearance deep-link ids', () => {
+    expect(MODE_OPTIONS.map(option => option.id)).toEqual(['light', 'dark', 'system'])
     expect(isAppearanceSettingVisible('appearance.language')).toBe(true)
     expect(isAppearanceSettingVisible('appearance.session-density')).toBe(true)
     expect(isAppearanceSettingVisible('appearance.tab-strip')).toBe(true)

@@ -4,11 +4,14 @@ import {
   Box,
   Brain,
   Globe,
+  type IconComponent,
   Lock,
   MessageCircle,
   Mic,
   Monitor,
+  Moon,
   Palette,
+  Sun,
   Wrench
 } from '@/lib/icons'
 import type { ThemeMode } from '@/themes/context'
@@ -864,4 +867,16 @@ export const SECTIONS: DesktopConfigSection[] = [
       'updates.non_interactive_local_changes'
     ]
   }
+]
+
+export interface ModeOption {
+  id: ThemeMode
+  label: string
+  icon: IconComponent
+}
+
+export const MODE_OPTIONS: ModeOption[] = [
+  { id: 'light', label: 'Light', icon: Sun },
+  { id: 'dark', label: 'Dark', icon: Moon },
+  { id: 'system', label: 'System', icon: Monitor }
 ]
