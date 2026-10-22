@@ -26,6 +26,7 @@ is_owned() {
     plugin-catalog|plugin-catalog/*) return 0 ;;
     PRE-LIVE-BACKLOG.md) return 0 ;;
     ENVIRONMENT.md) return 0 ;;
+    package-lock.json) return 0 ;;
     .github/workflows/okvevo-*.yml) return 0 ;;
     .cursor|.cursor/*) return 0 ;;
     *) return 1 ;;

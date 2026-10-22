@@ -35,7 +35,7 @@ jobs:
       - name: SOUL identity canary
         run: python3 scripts/okvevo/make_soul.py >/dev/null
       - name: Plugin tests
-        run: bash scripts/run-in-hermes-env .venv/bin/pytest plugins/okvevo/tests/ -q --tb=line
+        run: bash scripts/run-in-hermes-env python3 -m pytest plugins/okvevo/tests/ -q --tb=line
 
   gitleaks:
     name: Gitleaks (new findings only)
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
-      - run: npm ci
+      - run: npm ci --workspace apps/desktop --include-workspace-root
       - name: Electron + UI OkVevo tests
         working-directory: apps/desktop
         run: |

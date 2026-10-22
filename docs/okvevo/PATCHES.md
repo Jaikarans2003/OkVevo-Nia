@@ -17,6 +17,10 @@ Identity uses generated `SOUL.md` (`scripts/okvevo/make_soul.py`) plus
 a first-run clone. Unpackaged/dev `bootstrap-runner.ts` still swaps the GitHub
 URL to `Jaikarans2003/OkVevo-Nia`.
 
+Root `package-lock.json` is allowed to differ from the tag so the
+`apps/desktop` workspace can install `firebase` (billing listener). That is a
+packaging lockfile delta, not a Python KEEP-PATCH. Drift skips this one file.
+
 ## UI/packaging deltas
 
 `apps/desktop` and `apps/bootstrap-installer` differ from `v0.22.4`. They are
