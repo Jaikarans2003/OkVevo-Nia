@@ -169,7 +169,9 @@ export function runElectronBuilder(args, { spawn = spawnSync } = {}) {
 /** @param {string[]} args @returns {string[]} */
 function sourceFormats(args) {
   if (args.includes('--dir')) return ['dir']
-  const formats = args.filter(arg => ['dmg', 'zip', 'msix', 'AppImage', 'deb', 'rpm'].includes(arg))
+  // nsis: OkVevo unsigned staging still ships a double-click .exe. Upstream
+  // default is msix; keep both so `--win nsis` is a prepared format.
+  const formats = args.filter(arg => ['dmg', 'zip', 'msix', 'nsis', 'AppImage', 'deb', 'rpm'].includes(arg))
   const platform = selectedPlatform(args)
   return formats.length ? formats : platform === 'darwin' ? ['dmg', 'zip'] : platform === 'win32' ? ['msix'] : ['AppImage']
 }

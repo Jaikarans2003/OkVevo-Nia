@@ -91,12 +91,14 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/notarize.mjs`
 - `apps/desktop/scripts/overlay-brand-assets.mjs`
 - `apps/desktop/scripts/prepare-app-icon.mjs`
+- `apps/desktop/scripts/prepare-packaging-tools.mjs`
 - `apps/desktop/scripts/publish-release-feed.mjs`
 - `apps/desktop/scripts/publish-release-feed.test.mjs`
 - `apps/desktop/scripts/require-release-secrets.mjs`
 - `apps/desktop/scripts/require-release-secrets.test.mjs`
 - `apps/desktop/scripts/resolve-build-channel.mjs`
 - `apps/desktop/scripts/resolve-build-channel.test.mjs`
+- `apps/desktop/scripts/run-electron-builder.mjs`
 - `apps/desktop/scripts/run-internal-builder.mjs`
 - `apps/desktop/scripts/set-exe-identity.mjs`
 - `apps/desktop/scripts/sign-windows.mjs`

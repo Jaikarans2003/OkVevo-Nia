@@ -129,7 +129,7 @@ jobs:
     name: macOS arm64 zip+dmg
     needs: require-secrets
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       CSC_LINK: ${{ secrets.CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
@@ -140,6 +140,10 @@ jobs:
       OKVEVO_REQUIRE_NOTARIZE: ${{ needs.require-secrets.outputs.mac_signing == 'true' && '1' || '0' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: python
+          extras: '[]'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
@@ -237,13 +241,17 @@ jobs:
     name: Windows x64 NSIS
     needs: require-secrets
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
       WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       OKVEVO_REQUIRE_WIN_SIGN: ${{ needs.require-secrets.outputs.win_signing == 'true' && '1' || '0' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: python
+          extras: '[]'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
