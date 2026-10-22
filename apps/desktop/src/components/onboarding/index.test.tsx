@@ -1,22 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { $okvevoAuth } from '@/store/okvevo-auth'
 import { $desktopOnboarding, type DesktopOnboardingState, type OnboardingContext } from '@/store/onboarding'
 import { makeOAuthProvider } from '@/test/oauth-provider'
 import type { OAuthProvider } from '@/types/hermes'
 
-let byokChromeVisible = true
-
-vi.mock('@/app/settings/settings-ui-policy', async importOriginal => {
-  const actual = (await importOriginal()) as Record<string, unknown>
-  return {
-    ...actual,
-    isByokChromeVisible: () => byokChromeVisible
-  }
-})
-
-import { Picker } from '.'
+import { ApiKeyForm, Picker } from '.'
 
 function setProviders(providers: OAuthProvider[]) {
   $desktopOnboarding.set({
@@ -28,7 +17,8 @@ function setProviders(providers: OAuthProvider[]) {
     requested: false,
     firstRunSkipped: false,
     manual: false,
-    localEndpoint: false
+    localEndpoint: false,
+    freeTierReady: false
   } satisfies DesktopOnboardingState)
 }
 
@@ -36,7 +26,6 @@ const ctx: OnboardingContext = { requestGateway: async () => undefined as never 
 
 afterEach(() => {
   cleanup()
-  byokChromeVisible = true
 
   try {
     window.localStorage.clear()
@@ -53,52 +42,31 @@ afterEach(() => {
     requested: false,
     firstRunSkipped: false,
     manual: false,
-    localEndpoint: false
+    localEndpoint: false,
+    freeTierReady: false
   })
-  $okvevoAuth.set({ signedIn: false, uid: null, email: null, displayName: null })
 })
 
 describe('onboarding Picker', () => {
-  it('features OkVevo Portal and hides other providers behind a disclosure', () => {
-    setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'OkVevo Portal')])
+  it('features Nous Portal and hides other providers behind a disclosure', () => {
+    setProviders([makeOAuthProvider('anthropic', 'Anthropic Claude'), makeOAuthProvider('nous', 'Nous Portal')])
     render(<Picker ctx={ctx} />)
 
-    expect(screen.getByText('OkVevo Portal')).toBeTruthy()
+    expect(screen.getByText('Nous Portal')).toBeTruthy()
     expect(screen.getByText('Recommended')).toBeTruthy()
     // Fireworks stays behind the disclosure with the other alternatives; only
-    // OkVevo Portal is visible before the user expands the list.
+    // Nous Portal is visible before the user expands the list.
     expect(screen.queryByText('Fireworks AI')).toBeNull()
-    expect(screen.queryByText('Anthropic API Key')).toBeNull()
+    expect(screen.queryByText('Anthropic Account')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
 
     expect(screen.getByText('Fireworks AI')).toBeTruthy()
-    expect(screen.getByText('Anthropic API Key')).toBeTruthy()
+    expect(screen.getByText('Anthropic Account')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Collapse' })).toBeTruthy()
   })
 
-  it('shows Fireworks first in the expanded list, ahead of other OAuth providers', () => {
-    setProviders([
-      makeOAuthProvider('openai-codex', 'OpenAI Codex / ChatGPT'),
-      makeOAuthProvider('minimax-oauth', 'MiniMax'),
-      makeOAuthProvider('nous', 'OkVevo Portal')
-    ])
-    render(<Picker ctx={ctx} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
-
-    const labels = screen
-      .getAllByRole('button')
-      .map(el => el.textContent ?? '')
-      .filter(text => /OkVevo Portal|Fireworks AI|ChatGPT or Codex|MiniMax|OpenRouter/.test(text))
-
-    const indexOf = (needle: string) => labels.findIndex(text => text.includes(needle))
-    expect(indexOf('OkVevo Portal')).toBeGreaterThanOrEqual(0)
-    expect(indexOf('Fireworks AI')).toBeGreaterThan(indexOf('OkVevo Portal'))
-    expect(indexOf('ChatGPT or Codex')).toBeGreaterThan(indexOf('Fireworks AI'))
-    expect(indexOf('MiniMax')).toBeGreaterThan(indexOf('ChatGPT or Codex'))
-  })
-
-  it('shows every provider directly when OkVevo Portal is absent', () => {
+  it('shows every provider directly when Nous Portal is absent', () => {
     setProviders([
       makeOAuthProvider('anthropic', 'Anthropic Claude'),
       makeOAuthProvider('openai-codex', 'OpenAI Codex / ChatGPT')
@@ -106,14 +74,14 @@ describe('onboarding Picker', () => {
     render(<Picker ctx={ctx} />)
 
     expect(screen.getByText('Fireworks AI')).toBeTruthy()
-    expect(screen.getByText('Anthropic API Key')).toBeTruthy()
+    expect(screen.getByText('Anthropic Account')).toBeTruthy()
     expect(screen.getByText('ChatGPT or Codex Subscription')).toBeTruthy()
     expect(screen.queryByText('Other sign-in options')).toBeNull()
     expect(screen.queryByText('Recommended')).toBeNull()
   })
 
   it('offers "choose later" on first run and persists the skip', () => {
-    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
+    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
     render(<Picker ctx={ctx} />)
 
     const skip = screen.getByRole('button', { name: "I'll choose a provider later" })
@@ -125,32 +93,65 @@ describe('onboarding Picker', () => {
   })
 
   it('hides "choose later" in manual (add-provider) mode', () => {
-    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
+    setProviders([makeOAuthProvider('nous', 'Nous Portal')])
     $desktopOnboarding.set({ ...$desktopOnboarding.get(), manual: true })
     render(<Picker ctx={ctx} />)
 
     expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
   })
+})
 
-  it('shows OpenRouter key paste when signed in on the internal channel', () => {
-    $okvevoAuth.set({ signedIn: true, uid: 'u1', email: 'a@b.c', displayName: null })
-    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
-    render(<Picker ctx={ctx} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Other providers' }))
+describe('ApiKeyForm manual local-model fallback', () => {
+  it('reveals the model-name input only after the endpoint enumerates no models, then forwards the name', async () => {
+    // First Connect: reachable endpoint, empty /v1/models — the wizard must ask
+    // for a manual model name instead of dead-ending. Second Connect: the typed
+    // name is forwarded as the 5th onSave argument.
+    const onSave = vi
+      .fn<
+        (
+          envKey: string,
+          value: string,
+          name: string,
+          apiKey?: string,
+          modelName?: string
+        ) => Promise<{ message?: string; needsModelInput?: boolean; ok: boolean }>
+      >()
+      .mockResolvedValueOnce({
+        ok: false,
+        needsModelInput: true,
+        message: "Connected, but it didn't enumerate any models at /v1/models."
+      })
+      .mockResolvedValueOnce({ ok: true })
 
-    expect(screen.getByText('Fireworks AI')).toBeTruthy()
-    expect(screen.getByText('OpenRouter')).toBeTruthy()
-  })
+    render(<ApiKeyForm canGoBack={false} initialEnvKey="OPENAI_BASE_URL" onBack={() => undefined} onSave={onSave} />)
 
-  it('hides OAuth, keys, local form, and Fireworks on the public channel', () => {
-    byokChromeVisible = false
-    setProviders([makeOAuthProvider('nous', 'OkVevo Portal')])
-    render(<Picker ctx={ctx} />)
+    fireEvent.change(screen.getByPlaceholderText('http://127.0.0.1:8000/v1'), {
+      target: { value: 'https://api.cohere.ai/compatibility/v1' }
+    })
 
-    expect(screen.queryByText('OkVevo Portal')).toBeNull()
-    expect(screen.queryByText('Fireworks AI')).toBeNull()
-    expect(screen.queryByText('OpenRouter')).toBeNull()
-    expect(screen.queryByRole('button', { name: /API key/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: "I'll choose a provider later" })).toBeNull()
+    // Hidden on the happy path — discovery hasn't failed yet.
+    expect(screen.queryByPlaceholderText('Model name (e.g. command-a-plus-05-2026)')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Model name (e.g. command-a-plus-05-2026)')).toBeTruthy()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText('Model name (e.g. command-a-plus-05-2026)'), {
+      target: { value: 'command-a-plus-05-2026' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() => {
+      // apiKey is the (empty) local-key field, forwarded as-is for the local option.
+      expect(onSave).toHaveBeenLastCalledWith(
+        'OPENAI_BASE_URL',
+        'https://api.cohere.ai/compatibility/v1',
+        'Local / custom endpoint',
+        '',
+        'command-a-plus-05-2026'
+      )
+    })
   })
 })

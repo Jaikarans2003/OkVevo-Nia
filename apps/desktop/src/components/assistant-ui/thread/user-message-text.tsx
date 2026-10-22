@@ -4,6 +4,7 @@ import { Fragment, useMemo } from 'react'
 import { DirectiveContent } from '@/components/assistant-ui/directive-text'
 import { referenceRe } from '@/components/assistant-ui/reference-kinds'
 import { cn } from '@/lib/utils'
+import { useForcedTextDirection } from '@/store/text-direction'
 
 // User messages should render the bare-minimum of markdown: backtick `code`
 // spans and ``` fenced blocks. We deliberately don't pull in the full
@@ -122,16 +123,16 @@ export const UserMessageText: FC<UserMessageTextProps> = ({ className, text }) =
   const top = useMemo(() => splitFences(text), [text])
 
   return (
-    <span className={cn('block break-words', className)} data-slot="aui_user-message-text">
+    <span className={cn('block', className)} data-slot="aui_user-message-text">
       {top.map((segment, segmentIndex) => {
         if (segment.kind === 'fence') {
           return (
             <pre
-              className="my-1.5 max-w-full overflow-x-auto rounded-md border border-(--ui-stroke-tertiary) bg-[color-mix(in_srgb,currentColor_5%,transparent)] px-2.5 py-2 font-mono text-[0.86em] leading-snug"
+              className="my-1.5 max-w-full overflow-x-hidden whitespace-pre-wrap wrap-anywhere rounded-md border border-(--ui-stroke-tertiary) bg-[color-mix(in_srgb,currentColor_5%,transparent)] px-2.5 py-2 font-mono text-[0.86em] leading-snug"
               data-slot="aui_user-fence"
               key={`fence-${segmentIndex}`}
             >
-              <code className="block whitespace-pre">{segment.code}</code>
+              <code className="block whitespace-pre-wrap wrap-anywhere">{segment.code}</code>
             </pre>
           )
         }
@@ -148,11 +149,13 @@ export const UserMessageText: FC<UserMessageTextProps> = ({ className, text }) =
 
 const InlineSegmentView: FC<{ text: string }> = ({ text }) => {
   const nodes = useMemo(() => splitInlineCode(text), [text])
+  const textDirection = useForcedTextDirection()
 
   return (
-    // overflow-wrap: break-word (break-words); not wrap-anywhere — that plus
-    // flex stretched short pills to the max-width containing block.
-    <span className="block break-words" data-slot="aui_user-inline-text">
+    // styles.css bidi hook (#44150); whitespace-pre-line makes each line its own
+    // UAX#9 paragraph so it resolves direction independently — unless the
+    // reader picked an explicit Text direction, which every line then follows.
+    <span className="wrap-anywhere block whitespace-pre-line" data-slot="aui_user-inline-text" dir={textDirection}>
       {nodes.map((node, nodeIndex) =>
         node.kind === 'inline-code' ? (
           <code

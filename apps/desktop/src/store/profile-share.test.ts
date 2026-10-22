@@ -20,7 +20,7 @@ vi.mock('@/hermes', () => ({
   setApiRequestProfile: vi.fn()
 }))
 vi.mock('@/lib/query-client', () => ({ invalidateProfileScopedQueries: vi.fn() }))
-vi.mock('@/store/starmap', () => ({ resetStarmapGraph: vi.fn() }))
+vi.mock('@/store/starmap', () => ({ reloadOpenStarmapGraph: vi.fn(), resetStarmapGraph: vi.fn() }))
 
 const { applyDesktopOverlay, buildDesktopOverlay, exportProfileBundle } = await import('./profile-share')
 const { $profileColors, setProfileColor } = await import('./profile')
@@ -50,14 +50,14 @@ afterEach(() => {
 
 describe('buildDesktopOverlay', () => {
   it('snapshots skin, mode, rail color, and the layout tree for the profile', () => {
-    skinPref.assign('glam', 'nia')
+    skinPref.assign('glam', 'mono')
     modePref.assign('glam', 'dark')
     setProfileColor('glam', '#e91e63')
 
     const overlay = buildDesktopOverlay('glam')
 
     expect(overlay.version).toBe(1)
-    expect(overlay.skin).toBe('nia')
+    expect(overlay.skin).toBe('mono')
     expect(overlay.mode).toBe('dark')
     expect(overlay.profileColor).toBe('#e91e63')
     // Built-in skin → no bundled theme definitions.
@@ -112,7 +112,7 @@ describe('applyDesktopOverlay', () => {
 
 describe('exportProfileBundle', () => {
   it('stages desktop.json into the archive through extra_files', async () => {
-    skinPref.assign('glam', 'nia')
+    skinPref.assign('glam', 'mono')
 
     const archive = await exportProfileBundle('glam', '/tmp/glam.tar.gz')
 
@@ -120,7 +120,7 @@ describe('exportProfileBundle', () => {
     const call = vi.mocked(exportProfileArchive).mock.calls[0]
     expect(call[0]).toBe('glam')
     const overlay = JSON.parse(call[1]?.extraFiles?.['desktop.json'] ?? '{}') as ProfileDesktopOverlay
-    expect(overlay.skin).toBe('nia')
+    expect(overlay.skin).toBe('mono')
     expect(call[1]?.output).toBe('/tmp/glam.tar.gz')
   })
 })

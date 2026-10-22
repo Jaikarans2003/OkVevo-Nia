@@ -4,12 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ProfileRail } from './profile-switcher'
 
-let byokChromeVisible = true
-
-vi.mock('@/lib/build-channel', () => ({
-  isByokChromeVisible: () => byokChromeVisible
-}))
-
 // The rail's discoverability pills are navigation, not identity — assert the
 // multi-gateway entry point deep-links to Settings → Connections instead of
 // relying on someone finding the pane three levels into Settings (the exact
@@ -55,8 +49,12 @@ vi.mock('@/store/profile', () => ({
   $profileOrder: atom([]),
   $profiles: atom([{ is_default: true, name: 'default' }]),
   $profileScope: atom('default'),
+  // The rail's status summary (profile-dot-state) rides the real session
+  // stores, whose import graph reaches $showAllProfiles through layout state.
+  $showAllProfiles: atom(false),
   ALL_PROFILES: '*',
   normalizeProfileKey: (name: string) => name,
+  prewarmProfilePick: vi.fn(),
   profileLabel: (profile: { display_name?: string; name: string }) =>
     (profile.display_name ?? '').trim() || profile.name,
   refreshActiveProfile: vi.fn().mockResolvedValue(undefined),
@@ -80,7 +78,7 @@ vi.mock('@/store/profile-share', () => ({
 }))
 
 vi.mock('./use-profile-prewarm', () => ({
-  useProfilePrewarm: () => ({ cancelPrewarm: vi.fn(), startPrewarm: vi.fn() })
+  useProfilePrewarm: () => ({ cancelPrewarm: vi.fn(), notePointerMove: vi.fn(), startPrewarm: vi.fn() })
 }))
 
 vi.mock('@/hermes', () => ({
@@ -102,7 +100,6 @@ afterEach(() => {
   cleanup()
   hasMultipleConnections.set(false)
   profiles.set([{ is_default: true, name: 'default' }])
-  byokChromeVisible = true
 })
 
 describe('ProfileRail multi-gateway entry point', () => {
@@ -124,15 +121,6 @@ describe('ProfileRail multi-gateway entry point', () => {
     expect(screen.getByRole('button', { name: 'Manage profiles…' })).toBeTruthy()
   })
 
-  it('omits Manage Profiles and Manage Gateways on the public pack', () => {
-    byokChromeVisible = false
-    render(<ProfileRail />)
-
-    expect(screen.queryByRole('button', { name: 'Manage gateways…' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Manage profiles…' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'New profile' })).toBeTruthy()
-  })
-
   it('keeps the active profile explicit when gateway identity moves to the statusbar', () => {
     hasMultipleConnections.set(true)
     render(<ProfileRail />)
@@ -140,37 +128,5 @@ describe('ProfileRail multi-gateway entry point', () => {
     expect(screen.getByRole('button', { name: 'default' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Manage gateways…' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Manage profiles…' })).toBeTruthy()
-  })
-
-  it('keeps thirteen profiles direct and condenses the fourteenth', () => {
-    profiles.set([
-      { is_default: true, name: 'default' },
-      ...Array.from({ length: 12 }, (_, index) => ({ is_default: false, name: `Profile ${index + 1}` }))
-    ])
-    const { unmount } = render(<ProfileRail />)
-
-    expect(screen.queryByRole('button', { name: 'Profiles' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Profile 12' })).toBeTruthy()
-    unmount()
-
-    profiles.set([
-      { is_default: true, name: 'default' },
-      ...Array.from({ length: 13 }, (_, index) => ({ is_default: false, name: `Profile ${index + 1}` }))
-    ])
-    render(<ProfileRail />)
-
-    expect(screen.getByRole('button', { name: 'Profiles' })).toBeTruthy()
-  })
-
-  it('stays shrinkable with many profiles and multiple gateways', () => {
-    hasMultipleConnections.set(true)
-    profiles.set([
-      { is_default: true, name: 'default' },
-      ...Array.from({ length: 13 }, (_, index) => ({ is_default: false, name: `Profile ${index + 1}` }))
-    ])
-    render(<ProfileRail />)
-
-    expect(screen.getByRole('group', { name: 'Profiles' }).className).toContain('min-w-0')
-    expect(screen.getByRole('button', { name: 'Profiles' })).toBeTruthy()
   })
 })

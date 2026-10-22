@@ -18,39 +18,41 @@
  * dispatch at all for a row whose connection is gone.
  */
 
+import type * as HermesSdk from '@hermes/plugin-sdk'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { translateBots } from './i18n-test-helper'
 import { ModelPicker } from './model-picker'
 import type { RosterRow } from './types'
 
-const { hostMock, isByokChromeVisible } = vi.hoisted(() => ({
+const { hostMock } = vi.hoisted(() => ({
   hostMock: {
     request: vi.fn(),
     requestProfile: vi.fn(),
     state: { connectionId: { get: () => 'local' }, gateway: { get: () => 'open' }, profile: { get: () => 'default' } }
-  },
-  isByokChromeVisible: vi.fn(() => true)
+  }
 }))
 
 vi.mock('@hermes/plugin-sdk', async () => {
   const { useQuery } = await import('@tanstack/react-query')
+  const { catalogProviderMatches, useI18n } = await vi.importActual<typeof HermesSdk>('@hermes/plugin-sdk')
 
   return {
     Button: (props: React.ComponentProps<'button'>) => <button {...props} />,
+    catalogProviderMatches,
     GlyphSpinner: () => <span data-testid="spinner" />,
-    brandModelOptionsResponse: <T,>(options: T) => options,
-    brandProviderSlug: (slug: string) => (!isByokChromeVisible() && slug === 'openrouter' ? 'OkVevo' : slug),
     host: hostMock,
-    isByokChromeVisible,
     Input: (props: React.ComponentProps<'input'>) => <input {...props} />,
     Select: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     SelectTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     SelectValue: () => null,
+    useI18n,
+    usePluginI18n: () => translateBots,
     useQuery
   }
 })
@@ -70,12 +72,21 @@ const remoteBot = {
  *  question about the cache rather than about a fresh store. */
 let client: QueryClient
 
-function mount(bot: null | RosterRow, onChange = vi.fn(), value = { model: '', provider: '' }) {
+function mount(bot: null | RosterRow) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
 
-  return render(<ModelPicker bot={bot} onChange={onChange} value={value} />, { wrapper })
+  return render(<ModelPicker bot={bot} onChange={vi.fn()} value={{ model: '', provider: '' }} />, { wrapper })
+}
+
+/** Mount with the selection a saved bot profile would carry into the editor. */
+function mountWithSelection(bot: null | RosterRow, value: { model: string; provider: string }) {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  )
+
+  return render(<ModelPicker bot={bot} onChange={vi.fn()} value={value} />, { wrapper })
 }
 
 /** The fallback the picker paints when the catalog is unavailable. */
@@ -85,7 +96,6 @@ const isFreeText = (container: HTMLElement) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  isByokChromeVisible.mockReturnValue(true)
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 
@@ -163,51 +173,58 @@ describe('the catalog read', () => {
   })
 })
 
-describe('internal channel keeps the Provider dropdown', () => {
-  it('still offers Inherit and Enter manually', async () => {
-    hostMock.request.mockResolvedValue({
-      providers: [{ models: ['m1'], name: 'OpenRouter', slug: 'openrouter' }]
-    })
+describe('the manual-entry form vs the dropdowns (#121875)', () => {
+  it('shows the dropdowns on the FIRST open once the async catalog resolves', async () => {
+    // The saved provider is known to the catalog, but the read is still in
+    // flight at mount — exactly the first-open state of the Edit flow. The
+    // picker must not latch the manual-entry form from the empty inventory
+    // it paints before the data arrives.
+    let resolveCatalog!: (value: { providers: Array<{ models: string[]; name?: string; slug: string }> }) => void
+    hostMock.requestProfile.mockReturnValue(
+      new Promise(resolve => {
+        resolveCatalog = resolve
+      })
+    )
 
-    const { container } = mount({ name: 'default' } as RosterRow)
+    const { container } = mountWithSelection(remoteBot, { model: 'm1', provider: 'prov' })
 
-    await waitFor(() => expect(container.textContent).toContain('Inherit (launch profile)'))
-    expect(container.textContent).toContain('Enter manually')
-    expect(container.querySelector('[data-testid="bot-provider-locked"]')).toBeNull()
+    // Still loading: spinner, no form yet.
+    expect(container.querySelector('[data-testid="spinner"]')).toBeTruthy()
+
+    resolveCatalog({ providers: [{ models: ['m1'], name: 'Prov', slug: 'prov' }] })
+
+    await waitFor(() => expect(container.querySelector('[data-testid="spinner"]')).toBeNull())
+    expect(isFreeText(container)).toBe(false)
+  })
+
+  it('keeps the manual form for a provider the catalog does not know, and Back to dropdowns still returns', async () => {
+    hostMock.requestProfile.mockResolvedValue({ providers: [{ models: ['m1'], slug: 'prov' }] })
+
+    const { container } = mountWithSelection(remoteBot, { model: 'custom-model', provider: 'my-router' })
+
+    // Unknown even to the LOADED inventory: the manual form is the only way
+    // to keep editing the hand-typed provider/model pair.
+    await waitFor(() => expect(isFreeText(container)).toBe(true))
+
+    // The explicit "Back to dropdowns" gesture still wins over the derived
+    // form — it is the user's choice, not the catalog's.
+    fireEvent.click(screen.getByRole('button'))
+    await waitFor(() => expect(isFreeText(container)).toBe(false))
   })
 })
 
-describe('public channel locks Provider to OkVevo', () => {
-  it('shows a disabled OkVevo control and forces openrouter, with Model still editable', async () => {
-    isByokChromeVisible.mockReturnValue(false)
-    hostMock.request.mockResolvedValue({
-      providers: [{ models: ['openrouter/auto'], name: 'OkVevo', slug: 'openrouter' }]
+describe('a saved custom provider', () => {
+  it('matches its catalog row through the custom:<key> alias', async () => {
+    // model.options reports a user-defined provider as `custom:<key>`, while
+    // the catalog row carries the bare key as its slug plus the alias list.
+    hostMock.requestProfile.mockResolvedValue({
+      providers: [{ aliases: ['custom:lab', 'lab'], models: ['lab-small', 'lab-large'], name: 'Lab', slug: 'lab' }]
     })
 
-    const onChange = vi.fn()
-    const { container, getByTestId } = mount({ name: 'default' } as RosterRow, onChange)
+    const { container } = mountWithSelection(remoteBot, { model: 'lab-large', provider: 'custom:lab' })
 
-    await waitFor(() => expect(getByTestId('bot-provider-locked')).toBeTruthy())
-
-    const locked = getByTestId('bot-provider-locked') as HTMLInputElement
-
-    expect(locked.disabled).toBe(true)
-    expect(locked.value).toBe('OkVevo')
-    expect(container.textContent).not.toContain('Inherit (launch profile)')
-    expect(container.textContent).not.toContain('Enter manually')
-    expect(container.querySelector('input[placeholder*="omnirouter"]')).toBeNull()
-    expect(onChange).toHaveBeenCalledWith({ provider: 'openrouter' })
-  })
-
-  it('keeps locked OkVevo plus a free-text Model when the catalog fails', async () => {
-    isByokChromeVisible.mockReturnValue(false)
-    hostMock.request.mockRejectedValue(new Error('offline'))
-
-    const { getByTestId, container } = mount({ name: 'default' } as RosterRow)
-
-    await waitFor(() => expect(getByTestId('bot-provider-locked')).toBeTruthy())
-    expect((getByTestId('bot-provider-locked') as HTMLInputElement).value).toBe('OkVevo')
-    expect(container.querySelector('input[placeholder*="omnirouter"]')).toBeNull()
-    expect(container.querySelector('input[placeholder*="gemini"]')).toBeTruthy()
+    await waitFor(() => expect(container.querySelector('[data-testid="spinner"]')).toBeNull())
+    expect(isFreeText(container)).toBe(false)
+    expect(screen.getByText('lab-small')).toBeTruthy()
   })
 })

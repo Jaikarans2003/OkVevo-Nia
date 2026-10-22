@@ -7,12 +7,9 @@ import { Progress } from '@/components/ui/progress'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { isByokChromeVisible } from '@/lib/build-channel'
-import { BarChart3, CreditCard, ExternalLink, LogIn, Package, Wrench } from '@/lib/icons'
-import { formatPctLabel, type OkvevoBillingData, subscribeOkvevoUserBilling } from '@/lib/okvevo-billing-listener'
-import { fmtDate } from '@/lib/time'
+import { useI18n } from '@/i18n'
+import { BarChart3, CreditCard, ExternalLink, Package, Wrench } from '@/lib/icons'
 import { cn } from '@/lib/utils'
-import { useOkvevoAuth } from '@/store/okvevo-auth'
 
 import { useRouteEnumParam } from '../../hooks/use-route-enum-param'
 import {
@@ -48,8 +45,8 @@ import { useStepUpFlow } from './use-step-up'
 
 // `bview` mirrors the settings pview/kview sub-view pattern (deep-linkable, replace
 // navigation). `overview` is the default landing; `plans` is the in-app catalog.
-const BILLING_VIEWS = ['overview', 'plans'] as const
-type BillingSubView = (typeof BILLING_VIEWS)[number]
+export const BILLING_VIEWS = ['overview', 'plans'] as const
+export type BillingSubView = (typeof BILLING_VIEWS)[number]
 
 const FEATURE_BILLING_INVOICES = false
 
@@ -58,239 +55,6 @@ const BILLING_DEV_FIXTURE_NAMES = import.meta.env.DEV
   : []
 
 type BillingFixtureSelection = 'live' | BillingDevFixtureName
-
-function openOkvevoPortal(path: string) {
-  void window.hermesDesktop?.openOkvevoPortal?.(path)
-}
-
-function isLiveOkvevoPlan(status: string | null | undefined): boolean {
-  return status === 'active' || status === 'authenticated' || status === 'paused' || status === 'pending'
-}
-
-function okvevoPlanDescription(billing: OkvevoBillingData, livePlan: boolean): string {
-  if (!livePlan) {
-    return 'No active subscription'
-  }
-
-  const name = billing.planName || 'None'
-
-  if (!billing.currentPeriodEnd) {
-    return name
-  }
-
-  const when = billing.cancelAtPeriodEnd ? 'Access until' : 'Renews'
-
-  return `${name} · ${when} ${fmtDate.format(billing.currentPeriodEnd)}`
-}
-
-function OkvevoPortalActions({ canCancelPlan, livePlan }: { canCancelPlan: boolean; livePlan: boolean }) {
-  return (
-    <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 @2xl:justify-end">
-      {livePlan ? (
-        <Button
-          onClick={() => openOkvevoPortal('/billing/change-plan')}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Change Plan
-          <ExternalLink className="size-3.5" />
-        </Button>
-      ) : (
-        <Button onClick={() => openOkvevoPortal('/pricing')} size="sm" type="button" variant="outline">
-          See plans
-          <ExternalLink className="size-3.5" />
-        </Button>
-      )}
-      {canCancelPlan ? (
-        <Button onClick={() => openOkvevoPortal('/billing/cancel')} size="sm" type="button" variant="outline">
-          Cancel Plan
-          <ExternalLink className="size-3.5" />
-        </Button>
-      ) : null}
-      <Button onClick={() => openOkvevoPortal('/billing')} size="sm" type="button" variant="outline">
-        Add Credits
-        <ExternalLink className="size-3.5" />
-      </Button>
-    </div>
-  )
-}
-
-function OkvevoUsageRow({ label, pct }: { label: string; pct: number }) {
-  const clamped = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0
-  const shown = formatPctLabel(clamped)
-
-  return (
-    <div className="@container">
-      <div className="grid min-w-0 gap-2 py-3 @2xl:grid-cols-[minmax(0,180px)_minmax(0,1fr)_220px] @2xl:items-center @2xl:gap-4">
-        <div className="min-w-0 text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
-          {label}
-        </div>
-        <Progress
-          aria-label={label}
-          aria-valuenow={clamped}
-          fillClassName="bg-(--ui-green)"
-          fillStyle={{ width: `${clamped}%` }}
-          size="lg"
-          value={clamped / 100}
-        />
-        <div className="min-w-0 whitespace-nowrap text-[length:var(--conversation-text-font-size)] font-medium tabular-nums @2xl:w-[220px] @2xl:flex-none @2xl:text-right">
-          {shown}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function OkvevoAccountChrome() {
-  const auth = useOkvevoAuth()
-  const showNousBillingCopy = isByokChromeVisible()
-  const [billing, setBilling] = useState<OkvevoBillingData | null>(null)
-  const [billingState, setBillingState] = useState<'idle' | 'loading' | 'live' | 'error'>('idle')
-
-  useEffect(() => {
-    if (!auth.signedIn || !auth.uid) {
-      setBilling(null)
-      setBillingState('idle')
-
-      return
-    }
-
-    let cancelled = false
-    let unsubscribe: (() => void) | undefined
-
-    setBillingState('loading')
-
-    void (async () => {
-      const tokenResult = await window.hermesDesktop?.getOkvevoCustomToken?.()
-
-      if (cancelled) {
-        return
-      }
-
-      if (!tokenResult?.ok || !tokenResult.customToken || tokenResult.uid !== auth.uid) {
-        setBilling(null)
-        setBillingState('error')
-
-        return
-      }
-
-      try {
-        unsubscribe = await subscribeOkvevoUserBilling(
-          auth.uid!,
-          tokenResult.customToken,
-          data => {
-            if (!cancelled) {
-              setBilling(data)
-              setBillingState('live')
-            }
-          },
-          () => {
-            if (!cancelled) {
-              setBilling(null)
-              setBillingState('error')
-            }
-          }
-        )
-      } catch {
-        if (!cancelled) {
-          setBilling(null)
-          setBillingState('error')
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-      unsubscribe?.()
-    }
-  }, [auth.signedIn, auth.uid])
-
-  const liveSnapshot = billingState === 'live' ? billing : null
-  const livePlan = Boolean(liveSnapshot && isLiveOkvevoPlan(liveSnapshot.planStatus))
-  const canCancelPlan = liveSnapshot?.planStatus === 'active' && !liveSnapshot.cancelAtPeriodEnd
-
-  const accountDescription = (() => {
-    if (!auth.signedIn) {
-      return showNousBillingCopy
-        ? 'Sign in with your OkVevo account. OkVevo billing below is unchanged.'
-        : 'Sign in with your OkVevo account.'
-    }
-
-    if (billingState === 'loading') {
-      return 'Loading Nia credits…'
-    }
-
-    if (billingState === 'error') {
-      return 'Could not load Nia credits. Try again from the portal.'
-    }
-
-    if (showNousBillingCopy) {
-      return 'OkVevo credits below are unchanged.'
-    }
-
-    return undefined
-  })()
-
-  return (
-    <SettingsSection icon={LogIn} title="OkVevo">
-      <ListRow
-        action={
-          <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 @2xl:justify-end">
-            {auth.signedIn ? (
-              <Button
-                onClick={() => void window.hermesDesktop?.signOutOkvevo?.()}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Sign out
-              </Button>
-            ) : (
-              <Button
-                onClick={() => void window.hermesDesktop?.startOkvevoSignIn?.()}
-                size="sm"
-                type="button"
-                variant="secondary"
-              >
-                Sign in
-              </Button>
-            )}
-            {auth.signedIn ? null : (
-              <Button onClick={() => openOkvevoPortal('/billing')} size="sm" type="button" variant="outline">
-                Add Credits
-                <ExternalLink className="size-3.5" />
-              </Button>
-            )}
-          </div>
-        }
-        description={accountDescription}
-        title={auth.signedIn ? auth.email || 'Signed in' : 'Not signed in'}
-      />
-      {auth.signedIn ? (
-        <ListRow
-          action={
-            <OkvevoPortalActions canCancelPlan={Boolean(canCancelPlan)} livePlan={livePlan} />
-          }
-          description={
-            liveSnapshot
-              ? okvevoPlanDescription(liveSnapshot, livePlan)
-              : billingState === 'error'
-                ? 'Open the portal to manage your plan.'
-                : 'Plan details appear once billing is live.'
-          }
-          title="Current Plan"
-        />
-      ) : null}
-      {liveSnapshot ? (
-        <>
-          <OkvevoUsageRow label="Plan remaining" pct={liveSnapshot.remainingPct} />
-          <OkvevoUsageRow label="Additional remaining" pct={liveSnapshot.additionalPct} />
-        </>
-      ) : null}
-    </SettingsSection>
-  )
-}
 
 function SummaryCard({ label, value, tone }: { label: string; tone?: 'muted' | 'primary'; value: string }) {
   return (
@@ -324,18 +88,25 @@ function NoticeCard({ notice }: { notice: BillingNoticeView }) {
       <div className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
         {notice.message}
       </div>
-      {notice.action && (
-        <Button
-          className="mt-3"
-          onClick={() => openExternal(notice.action?.url)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {notice.action.label}
-          <ExternalLink className="size-3.5" />
-        </Button>
-      )}
+      {notice.action &&
+        (notice.action.onSelect ? (
+          // In-app action (free-tier sign-in): a plain button, no external-link
+          // glyph — nothing leaves the app.
+          <Button className="mt-3" onClick={notice.action.onSelect} size="sm" type="button" variant="outline">
+            {notice.action.label}
+          </Button>
+        ) : (
+          <Button
+            className="mt-3"
+            onClick={() => openExternal(notice.action?.url)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {notice.action.label}
+            <ExternalLink className="size-3.5" />
+          </Button>
+        ))}
     </div>
   )
 }
@@ -392,6 +163,9 @@ function AccountRow({ billing, row }: { billing?: BillingStateResponse; row: Bil
 }
 
 function BuyCreditsRow({ billing, row }: { billing: BillingStateResponse; row: BillingAccountRowView }) {
+  const { t } = useI18n()
+  const b = t.settings.billing
+
   const presets = useMemo(
     () =>
       billing.charge_presets.map((amount, index) => ({
@@ -421,7 +195,7 @@ function BuyCreditsRow({ billing, row }: { billing: BillingStateResponse; row: B
   return (
     <ListRow
       action={
-        <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 @2xl:justify-end">
+        <>
           <SegmentedControl
             disabled={controlsDisabled}
             onChange={value => setAmount(value)}
@@ -429,7 +203,7 @@ function BuyCreditsRow({ billing, row }: { billing: BillingStateResponse; row: B
             value={amount}
           />
           <Input
-            aria-label="Custom credit amount"
+            aria-label={b.buyCredits.customAmount}
             containerClassName="w-16"
             disabled={controlsDisabled}
             inputMode="decimal"
@@ -448,9 +222,9 @@ function BuyCreditsRow({ billing, row }: { billing: BillingStateResponse; row: B
             value={amount}
           />
           <Button disabled={!canBuy} onClick={startBuy} size="xs" type="button" variant="secondary">
-            Buy
+            {b.buyCredits.buyButton}
           </Button>
-        </div>
+        </>
       }
       below={
         <BuyCreditsOutcome
@@ -487,12 +261,14 @@ function BuyCreditsOutcome({
   onRetry: () => void
   outcome: ReturnType<typeof useChargeFlow>['outcome']
 }) {
+  const { t } = useI18n()
+  const b = t.settings.billing
   const stepUp = useStepUpFlow()
 
   if (busy) {
     return (
       <div className="mt-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-        Processing… checking settlement
+        {b.buyCredits.processing}
       </div>
     )
   }
@@ -504,7 +280,7 @@ function BuyCreditsOutcome({
   if (outcome.kind === 'success') {
     return (
       <div className="mt-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-        {formatMoney(outcome.amountUsd ?? amount)} added. Balance is refreshing.
+        {b.buyCredits.added(formatMoney(outcome.amountUsd ?? amount))}
       </div>
     )
   }
@@ -517,7 +293,7 @@ function BuyCreditsOutcome({
         </span>
         {outcome.portalUrl && (
           <Button onClick={() => onPortal(outcome.portalUrl)} size="sm" type="button" variant="outline">
-            Open portal
+            {b.buyCredits.openPortal}
             <ExternalLink className="size-3.5" />
           </Button>
         )}
@@ -534,13 +310,13 @@ function BuyCreditsOutcome({
       </span>
       {outcome.action?.type === 'retry' && (
         <Button onClick={onRetry} size="sm" type="button" variant="outline">
-          Retry
+          {b.buyCredits.retry}
         </Button>
       )}
       {outcome.action?.type === 'step_up' && <StepUpInlineAction flow={stepUp} />}
       {portalUrl && (
         <Button onClick={() => onPortal(portalUrl)} size="sm" type="button" variant="outline">
-          Open portal
+          {b.buyCredits.openPortal}
           <ExternalLink className="size-3.5" />
         </Button>
       )}
@@ -549,8 +325,10 @@ function BuyCreditsOutcome({
 }
 
 function UsageBar({ bar, fallbackLabel }: { bar?: BillingUsageRowView['bar']; fallbackLabel: string }) {
+  const { t } = useI18n()
+
   const resolvedBar = bar ?? {
-    label: `${fallbackLabel} usage`,
+    label: t.settings.billing.usageLabel(fallbackLabel),
     state: 'neutral',
     tone: 'topup',
     value: 0
@@ -612,10 +390,13 @@ function BillingFixtureSelect({
   onValueChange: (value: BillingFixtureSelection) => void
   value: BillingFixtureSelection
 }) {
+  const { t } = useI18n()
+  const b = t.settings.billing
+
   return (
     <div className="flex items-center gap-1.5 text-(--ui-text-tertiary)">
       <Wrench className="size-3.5 shrink-0" />
-      <span className="text-xs font-normal">preview</span>
+      <span className="text-xs font-normal">{b.preview}</span>
       <Select onValueChange={value => onValueChange(value as BillingFixtureSelection)} value={value}>
         <SelectTrigger
           aria-label="Billing preview fixture (dev only)"
@@ -644,16 +425,19 @@ function BillingHeader({
   fixtureName?: BillingFixtureSelection
   onFixtureChange?: (value: BillingFixtureSelection) => void
 }) {
+  const { t } = useI18n()
+
   return (
-    <div className="mb-2.5 flex items-center justify-between gap-3 pt-2 text-[length:var(--conversation-text-font-size)] font-medium">
-      <div className="flex min-w-0 items-center gap-2">
-        <BarChart3 className="size-4 shrink-0 text-muted-foreground" />
-        <span>Billing</span>
-      </div>
-      {import.meta.env.DEV && fixtureName && onFixtureChange ? (
-        <BillingFixtureSelect onValueChange={onFixtureChange} value={fixtureName} />
-      ) : null}
-    </div>
+    <SectionHeading
+      aside={
+        import.meta.env.DEV && fixtureName && onFixtureChange ? (
+          <BillingFixtureSelect onValueChange={onFixtureChange} value={fixtureName} />
+        ) : undefined
+      }
+      icon={BarChart3}
+      page
+      title={t.settings.nav.billing}
+    />
   )
 }
 
@@ -692,6 +476,8 @@ function BillingSettingsContent({
   fixtureName?: BillingFixtureSelection
   onFixtureChange?: (value: BillingFixtureSelection) => void
 }) {
+  const { t } = useI18n()
+  const b = t.settings.billing
   const [subView, setSubView] = useRouteEnumParam<BillingSubView>('bview', BILLING_VIEWS, 'overview')
 
   // Fixture mode flows through the SAME query path — the simulated api (supplied by
@@ -706,7 +492,6 @@ function BillingSettingsContent({
     return (
       <SettingsContent>
         <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
-        <OkvevoAccountChrome />
         <BillingSkeleton />
       </SettingsContent>
     )
@@ -714,7 +499,7 @@ function BillingSettingsContent({
 
   const billingResult = billingState.data
   const subscriptionResult = subscriptionState.data
-  const view = deriveBillingView(billingResult, subscriptionResult)
+  const view = deriveBillingView(billingResult, subscriptionResult, b)
   const billing = billingResult?.ok ? billingResult.data : undefined
 
   const { paymentRow, refillRow, topupRow } = view
@@ -733,7 +518,6 @@ function BillingSettingsContent({
     return (
       <SettingsContent>
         <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
-        <OkvevoAccountChrome />
         <BillingPlansView onBack={() => setSubView('overview')} tiers={view.tiers} />
       </SettingsContent>
     )
@@ -742,7 +526,6 @@ function BillingSettingsContent({
   return (
     <SettingsContent>
       <BillingHeader fixtureName={fixtureName} onFixtureChange={onFixtureChange} />
-      <OkvevoAccountChrome />
 
       {view.notice && <NoticeCard notice={view.notice} />}
 
@@ -755,8 +538,13 @@ function BillingSettingsContent({
       </div>
 
       {view.plan && (
-        <SettingsSection icon={Package} title="Plan">
+        <SettingsSection icon={Package} title={b.sections.plan}>
           <CurrentPlanCard onViewPlans={() => setSubView('plans')} plan={view.plan} />
+          {view.planFootnote && (
+            <div className="mt-1 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+              {view.planFootnote}
+            </div>
+          )}
         </SettingsSection>
       )}
 
@@ -764,7 +552,7 @@ function BillingSettingsContent({
         <SettingsSection
           aside={paymentRow ? <PaymentMethodAside row={paymentRow} /> : undefined}
           icon={CreditCard}
-          title="Payment & credits"
+          title={b.sections.paymentAndCredits}
         >
           {accountRows.map(row => (
             <AccountRow billing={billing} key={row.id} row={row} />
@@ -773,7 +561,7 @@ function BillingSettingsContent({
       )}
 
       {view.usageRows.length > 0 && (
-        <SettingsSection icon={BarChart3} title="Usage">
+        <SettingsSection icon={BarChart3} title={b.sections.usage}>
           <div className="@container">
             {view.usageRows.map(row => (
               <UsageRow key={row.id} row={row} />
@@ -784,7 +572,9 @@ function BillingSettingsContent({
 
       {
         // no endpoint yet — NAS capability-board gap
-        FEATURE_BILLING_INVOICES ? <SectionHeading icon={BarChart3} title="Invoices" /> : null
+        FEATURE_BILLING_INVOICES ? (
+          <SectionHeading icon={BarChart3} title={t.settings.billing.sections.invoices} />
+        ) : null
       }
     </SettingsContent>
   )
@@ -816,16 +606,6 @@ function BillingSettingsWithDevFixtures() {
 }
 
 export function BillingSettings() {
-  // Public Nia: OkVevo listener only. Hermes/Nous billing stays on the internal channel.
-  if (!isByokChromeVisible()) {
-    return (
-      <SettingsContent>
-        <BillingHeader />
-        <OkvevoAccountChrome />
-      </SettingsContent>
-    )
-  }
-
   if (import.meta.env.DEV) {
     return <BillingSettingsWithDevFixtures />
   }

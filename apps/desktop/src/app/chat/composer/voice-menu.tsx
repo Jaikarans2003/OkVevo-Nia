@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { displayWakePhrase } from '@/lib/display-path'
 import { triggerHaptic } from '@/lib/haptics'
 import { AudioLines, Ear, EarOff, iconSize, Loader2, Square, Volume2, VolumeX } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -21,6 +20,7 @@ import { $wakeWord, toggleWakeWord } from '@/store/wake-word'
 
 import { ACTIVE_ICON_BTN, GHOST_ICON_BTN } from './control-classes'
 import type { ChatBarState, VoiceStatus } from './types'
+import { VoiceEngineRows } from './voice-engine-rows'
 
 export interface VoiceMenuProps {
   autoSpeak: boolean
@@ -34,7 +34,7 @@ export interface VoiceMenuProps {
 
 /**
  * Every voice control behind one trigger: dictation, spoken replies, the
- * "ok nia" wake word, and starting a full conversation.
+ * "hey hermes" wake word, and starting a full conversation.
  *
  * The bar carried four separate icon buttons — mic, speaker, ear, and the
  * voice-conversation primary — which is most of a Spotlight-width composer
@@ -60,7 +60,7 @@ export function VoiceMenu({
   const c = t.composer
   const wake = useStore($wakeWord)
 
-  const phrase = displayWakePhrase(wake.phrase)
+  const phrase = wake.phrase || 'hey hermes'
   const dictating = state.voice.active || voiceStatus !== 'idle'
   const wakeListening = wake.listening
   // Anything live keeps the trigger lit, so a folded menu can never look idle
@@ -79,7 +79,7 @@ export function VoiceMenu({
 
   return (
     <DropdownMenu>
-      <Tip label={wake.notice && !dictating ? `${triggerLabel} — ${wake.notice}` : triggerLabel}>
+      <Tip label={wake.notice && !dictating ? `${triggerLabel} — ${wake.notice}` : triggerLabel} placement="control">
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={triggerLabel}
@@ -113,6 +113,8 @@ export function VoiceMenu({
           <AudioLines className={iconSize.sm} />
           {c.startVoice}
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <VoiceEngineRows disabled={disabled} />
         <DropdownMenuSeparator />
         {/* Checkbox items, because all three are toggles the user is reading
             the CURRENT state of — the reason they were pressed-state buttons

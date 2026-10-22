@@ -11,12 +11,12 @@ const MODE_KEY = 'hermes.desktop.embed-mode'
 const ALLOWED_KEY = 'hermes.desktop.embed-allowed'
 
 const modeCodec: Codec<EmbedMode> = {
-  decode: raw => (raw === 'ask' || raw === 'off' || raw === 'always' ? raw : 'always'),
+  decode: raw => (raw === 'always' || raw === 'off' ? raw : 'ask'),
   encode: value => value
 }
 
-/** Global default: always (auto-load). ask = placeholder; off = plain link. */
-export const $embedMode = persistentAtom<EmbedMode>(MODE_KEY, 'always', modeCodec)
+/** Global default: ask (placeholder), always (auto-load), off (plain link). */
+export const $embedMode = persistentAtom<EmbedMode>(MODE_KEY, 'ask', modeCodec)
 /** Providers granted a standing "always allow" (e.g. `youtube`, `twitter`). */
 export const $embedAllowed = persistentAtom<string[]>(ALLOWED_KEY, [], Codecs.stringArray)
 

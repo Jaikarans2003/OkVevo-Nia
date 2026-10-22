@@ -2,25 +2,41 @@ import { cn } from '@/lib/utils'
 
 /**
  * The composer surface and the status/queue stack paint ONE shared
- * `--composer-fill` var. Rest and scrolled-up are both opaque `--dt-card`
- * (see styles.css on `[data-slot='composer-root']`).
+ * `--composer-fill` var. The state ladder (rest / scrolled) lives in styles.css
+ * on `[data-slot='composer-root']`, so the layers can never disagree.
  */
 export const composerFill = 'bg-(--composer-fill)'
 
-/** Backdrop treatment for slash/`@` drawers. Not used on the input surface. */
+const composerFillTransition = 'transition-[background-color] duration-150 ease-out'
+
+/** Paint for the frequently repainting editable surface. Keep backdrop filters
+ *  off this hot path so typing does not re-blur the transcript each frame. */
+export const composerInputSurface = cn(composerFill, composerFillTransition)
+// The `-z-10` paint layer behind the editable surface; hydrated and fallback composers share it.
+export const composerInputBacking = cn(
+  'pointer-events-none absolute inset-0 -z-10 rounded-[inherit]',
+  composerInputSurface
+)
+
+/** Backdrop treatment for non-input composer chrome. Harmless when the fill
+ *  goes opaque (drawer open) — nothing shows through to blur. */
 export const composerSurfaceGlass = cn(
   'backdrop-blur-[0.75rem] backdrop-saturate-[1.12] [-webkit-backdrop-filter:blur(0.75rem)_saturate(1.12)]',
-  'transition-[background-color] duration-150 ease-out'
+  composerFillTransition
 )
 
 const composerDockEdge = (edge: 'bottom' | 'top') =>
-  cn(edge === 'top' ? 'rounded-t-3xl' : 'rounded-b-3xl')
+  cn('border border-border/65', edge === 'top' ? 'rounded-t-2xl border-b-0' : 'rounded-b-2xl border-t-0')
 
 /** Glassy docked card — the status stack / queue. Paints the SAME
  *  `--composer-fill` as the surface, so rest / scrolled / focused / drawer-open
- *  all match the composer by construction. */
+ *  all match the composer by construction.
+ *
+ * Keep the card non-shrinking inside capped flex scroll containers. Otherwise
+ * flexbox compresses the card to the cap and its own overflow-hidden clips
+ * later status rows before the outer status stack gets anything to scroll. */
 export const composerDockCard = (edge: 'bottom' | 'top' = 'top') =>
-  cn(composerDockEdge(edge), composerFill, composerSurfaceGlass)
+  cn('shrink-0', composerDockEdge(edge), composerFill, composerSurfaceGlass)
 
 /** Floating composer panel skin — the `/`·`@`·`?` completion drawer and the
  *  attach (`+`) menu. Glassy translucent card, hairline border, full radius,

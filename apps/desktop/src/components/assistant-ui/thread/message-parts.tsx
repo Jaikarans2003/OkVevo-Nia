@@ -1,38 +1,51 @@
 import {
   type ReasoningMessagePartComponent,
   type TextMessagePartProps,
-  TextMessagePartProvider,
   type ToolCallMessagePartProps,
   useAuiState,
   useMessagePartReasoning,
   useMessagePartText
 } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
-import { type ComponentProps, type FC, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ComponentProps, type FC, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
-import { ClarifyTool } from '@/components/assistant-ui/clarify-tool'
+import { useSessionView } from '@/app/chat/session-view'
+import { CatalogInstallTool } from '@/components/assistant-ui/catalog-install-tool'
+import { ClarifyTool } from '@/components/assistant-ui/clarify'
+import { ConnectorExecution, ConnectorTool } from '@/components/assistant-ui/connector-tool'
 import { MarkdownText, MarkdownTextContent } from '@/components/assistant-ui/markdown-text'
 import { McpSetupTool } from '@/components/assistant-ui/mcp-setup-tool'
+import { SetupBeatTool } from '@/components/assistant-ui/setup-beat/setup-beat-tool'
+import { setThemeCall } from '@/components/assistant-ui/theme-picker/args'
+import { ThemeTool } from '@/components/assistant-ui/theme-picker/theme-tool'
 import { AgentDeliveryNotice, deliveryTargetFromCommand } from '@/components/assistant-ui/thread/agent-delivery'
 import { TimelineTimestamp } from '@/components/assistant-ui/thread/timeline-timestamp'
 import { DelegateTool } from '@/components/assistant-ui/tool/delegate'
 import { ToolFallback, ToolGroupSlot } from '@/components/assistant-ui/tool/fallback'
+import { parseMaybeObject, toolCallFailed } from '@/components/assistant-ui/tool/fallback-model'
 import { formatElapsed, useElapsedSeconds, useMeasuredDuration } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
 import { GeneratedImage } from '@/components/chat/generated-image-result'
-import { GeneratedVideo } from '@/components/chat/generated-video-result'
 import { SCAFFOLD_LABEL_CLASS, SCAFFOLD_META_CLASS, ScaffoldRow } from '@/components/chat/scaffold-row'
 import { useI18n } from '@/i18n'
-import { renderMediaTags } from '@/lib/chat-messages/parts'
-import { sanitizePublicText, sanitizeUserFacingBrand } from '@/lib/display-path'
-import { generatedImageFromResult, generatedVideoFromResult } from '@/lib/generated-images'
+import { mcpTargets, toolLabels } from '@/lib/connector-tools'
+import { generatedImageFromResult } from '@/lib/generated-images'
 import { separateGluedReasoningBlocks } from '@/lib/reasoning-blocks'
+import { isTodoToolName } from '@/lib/todos'
+import { type CardToolName, isCardTool, isCardToolName } from '@/lib/tool-render-class'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
-import { $reasoningCollapsedByDefault } from '@/store/reasoning-disclosure'
-import { $toolViewMode } from '@/store/tool-view'
+import { onboardingChatStore } from '@/store/onboarding-session'
+import { $reasoningCollapsedByDefault, $showReasoning } from '@/store/reasoning-disclosure'
+import { useForcedTextDirection } from '@/store/text-direction'
+import { $showToolActivity } from '@/store/tool-activity'
 
 type TimelineToolCallProps = ToolCallMessagePartProps & { completedAt?: number; timestamp?: number }
+
+// A call sealed without a result (turn stopped, completion event lost) is
+// neither pending nor successful; only the generic row can say so.
+const settledWithoutResult = ({ completedAt, result }: TimelineToolCallProps): boolean =>
+  result === undefined && completedAt !== undefined
 
 const ImageGenerateTool: FC<TimelineToolCallProps> = props => {
   const { args, completedAt, result, timestamp } = props
@@ -41,7 +54,7 @@ const ImageGenerateTool: FC<TimelineToolCallProps> = props => {
   // The image card owns successful generations. Failed or malformed results
   // still need the normal tool row: it extracts the error text and gives the
   // user an honest, expandable failure rather than silently dropping the call.
-  if (result !== undefined && !generatedImageFromResult(result)) {
+  if (settledWithoutResult(props) || (result !== undefined && !generatedImageFromResult(result))) {
     return <ToolFallback {...props} />
   }
 
@@ -53,26 +66,10 @@ const ImageGenerateTool: FC<TimelineToolCallProps> = props => {
   )
 }
 
-const VideoGenerateTool: FC<TimelineToolCallProps> = props => {
-  const { completedAt, result, timestamp } = props
-
-  // Same contract as the image card: failures render as the normal tool row.
-  if (result !== undefined && !generatedVideoFromResult(result)) {
-    return <ToolFallback {...props} />
-  }
-
-  return (
-    <div className="mt-1.5">
-      <TimelineTimestamp className="mb-0.5 block" completedAt={completedAt} timestamp={timestamp} />
-      <GeneratedVideo result={result} />
-    </div>
-  )
-}
-
 const DelegateToolPart: FC<TimelineToolCallProps> = props => {
   // A call that failed outright dispatched nothing — there are no children to
   // list, only an error. The generic row extracts and expands it properly.
-  if (props.isError) {
+  if (props.isError || settledWithoutResult(props)) {
     return <ToolFallback {...props} />
   }
 
@@ -84,9 +81,72 @@ const DelegateToolPart: FC<TimelineToolCallProps> = props => {
   )
 }
 
+const ClarifyToolPart: FC<TimelineToolCallProps> = props => {
+  // Stopped on this question, never answered: history. ClarifyTool reads
+  // the session's live clarify request, so a later turn's question would
+  // otherwise paint onto this row as a second live card.
+  if (settledWithoutResult(props)) {
+    return <ToolFallback {...props} />
+  }
+
+  return (
+    <>
+      <TimelineTimestamp className="mb-0.5 block" completedAt={props.completedAt} timestamp={props.timestamp} />
+      <ClarifyTool {...props} />
+    </>
+  )
+}
+
+const ThemeToolPart: FC<TimelineToolCallProps> = props => {
+  if (settledWithoutResult(props)) {
+    return <ToolFallback {...props} />
+  }
+
+  return (
+    <>
+      <TimelineTimestamp className="mb-0.5 block" completedAt={props.completedAt} timestamp={props.timestamp} />
+      <ThemeTool {...props} />
+    </>
+  )
+}
+
+const SetupBeatToolPart: FC<TimelineToolCallProps> = props => {
+  if (settledWithoutResult(props)) {
+    return <ToolFallback {...props} />
+  }
+
+  return <SetupBeatTool {...props} />
+}
+
+const ConnectionsToolPart: FC<TimelineToolCallProps> = props =>
+  mcpTargets(props.toolName, props.args).length > 0 ? <McpSetupTool {...props} /> : <ConnectorTool {...props} />
+
+const TOOL_CARDS: Record<CardToolName, FC<TimelineToolCallProps>> = {
+  clarify: ClarifyToolPart,
+  delegate_task: DelegateToolPart,
+  image_generate: ImageGenerateTool,
+  manage_catalog: CatalogInstallTool,
+  manage_connections: ConnectionsToolPart,
+  set_theme: ThemeToolPart,
+  setup_beat: SetupBeatToolPart
+}
+
+// A failure the user still has to see. The gateway's tool.complete carries the
+// failure inside `result`, never as the top-level error that sets isError, so
+// this reads the body like the run summary does. A non-zero exit_code counts
+// too, matching the gateway's _tool_result_needs_user, which forwards terminal
+// {output, exit_code: 1, error: null} even with display.tool_progress off.
+const failedCallNeedsUser = (part: TimelineToolCallProps): boolean => {
+  const exitCode = parseMaybeObject(part.result).exit_code
+
+  return toolCallFailed(part) || (typeof exitCode === 'number' && exitCode !== 0)
+}
+
 const ChainToolFallback: FC<TimelineToolCallProps> = props => {
+  const showToolActivity = useStore($showToolActivity)
+
   // todo parts are hoisted to a dedicated panel above the message content.
-  if (props.toolName === 'todo') {
+  if (isTodoToolName(props.toolName)) {
     return null
   }
 
@@ -94,7 +154,7 @@ const ChainToolFallback: FC<TimelineToolCallProps> = props => {
   // compact "Messaged X" / "Message from X" notices, not a transcript row
   // (Grok-bots parity; the receiving side already renders notices via
   // AGENT_MESSAGE_RE). Non-delivery terminal calls fall through unchanged.
-  if (props.toolName === 'terminal' && !props.isError) {
+  if (props.toolName === 'terminal' && !props.isError && !settledWithoutResult(props)) {
     const command = typeof props.args?.command === 'string' ? props.args.command : ''
 
     if (deliveryTargetFromCommand(command)) {
@@ -109,48 +169,49 @@ const ChainToolFallback: FC<TimelineToolCallProps> = props => {
     return null
   }
 
-  if (props.toolName === 'delegate_task') {
-    return <DelegateToolPart {...props} />
+  if (isCardToolName(props.toolName)) {
+    const ToolCard = TOOL_CARDS[props.toolName]
+
+    return <ToolCard {...props} />
   }
 
-  if (props.toolName === 'image_generate') {
-    return <ImageGenerateTool {...props} />
+  // A reloaded transcript holds the model's own call: set_theme reached through the tool_call bridge.
+  if (setThemeCall(props.toolName, props.args)) {
+    return <ThemeToolPart {...props} />
   }
 
-  if (props.toolName === 'video_generate') {
-    return <VideoGenerateTool {...props} />
+  if (toolLabels(props.args).length > 0) {
+    return <ConnectorExecution {...props} />
   }
 
-  if (props.toolName === 'clarify') {
-    return (
-      <>
-        <TimelineTimestamp className="mb-0.5 block" completedAt={props.completedAt} timestamp={props.timestamp} />
-        <ClarifyTool {...props} />
-      </>
-    )
-  }
-
-  if (props.toolName === 'setup_mcp') {
-    return <McpSetupTool {...props} />
+  // The tool feed (reads, searches, commands) follows display.tool_progress,
+  // never show_reasoning. Cards, approvals, and failed calls the user must act
+  // on remain regardless.
+  if (!showToolActivity && !failedCallNeedsUser(props) && !isCardTool(props.toolName)) {
+    return null
   }
 
   return <ToolFallback {...props} />
 }
 
+// Match the compact terminal/log viewers rather than the full thread's slack.
+const PREVIEW_RELOCK_THRESHOLD_PX = 24
+
 type TimelineTextPartProps = TextMessagePartProps & { completedAt?: number; timestamp?: number }
 
 const TimelineMarkdownText: FC<TimelineTextPartProps> = ({ completedAt, timestamp }) => {
-  const { status, text } = useMessagePartText()
+  const { text } = useMessagePartText()
+
+  // assistant-ui adds an empty continuation after a tool starts. It is not
+  // prose yet and must not create paragraph spacing above pending approvals.
+  if (!text.trim()) {
+    return null
+  }
 
   return (
     <>
       <TimelineTimestamp className="mb-0.5 block" completedAt={completedAt} timestamp={timestamp} />
-      <TextMessagePartProvider
-        isRunning={status.type === 'running'}
-        text={sanitizeUserFacingBrand(renderMediaTags(text))}
-      >
-        <MarkdownText />
-      </TextMessagePartProvider>
+      <MarkdownText />
     </>
   )
 }
@@ -158,18 +219,18 @@ const TimelineMarkdownText: FC<TimelineTextPartProps> = ({ completedAt, timestam
 const ThinkingDisclosure: FC<{
   children: ReactNode
   completedAt?: number
-  // Product mode: keep the "Thinking… 12s" header (the only live signal during
-  // a long reasoning phase) but never paint the reasoning body.
-  headerOnly?: boolean
   messageRunning?: boolean
   pending?: boolean
   timestamp?: number
   // Required: the block's duration is remembered against this key, so a
   // component that mounts after the block finished can still report it.
   timerKey: string
-}> = ({ children, completedAt, headerOnly = false, messageRunning = false, pending = false, timestamp, timerKey }) => {
+}> = ({ children, completedAt, messageRunning = false, pending = false, timestamp, timerKey }) => {
   const { t } = useI18n()
-  const reasoningCollapsedByDefault = useStore($reasoningCollapsedByDefault)
+  const sessionId = useStore(useSessionView().$runtimeId)
+  const onboardingChat = useStore(useMemo(() => onboardingChatStore(sessionId), [sessionId]))
+  // The first-run chat rests reasoning collapsed: its cards and short replies carry the run.
+  const reasoningCollapsedByDefault = useStore($reasoningCollapsedByDefault) || onboardingChat
   // `null` = no explicit user toggle yet. Live reasoning remains visible by
   // default, unless the user opts into the low-jitter collapsed presentation.
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
@@ -184,14 +245,15 @@ const ThinkingDisclosure: FC<{
   // a still-running turn) never latch, so they stay collapsed.
   const [sawLivePreview, setSawLivePreview] = useState(false)
 
-  if (pending && !sawLivePreview) {
+  // Not while collapsed: a block that never showed a preview must not open when the preference lifts.
+  if (pending && !sawLivePreview && !reasoningCollapsedByDefault) {
     setSawLivePreview(true)
   }
 
   // The collapsed-by-default preference outranks the latch: it opts out of
   // live previews entirely, so there is nothing to hold open.
-  const showPreview = !headerOnly && !reasoningCollapsedByDefault && (pending || sawLivePreview)
-  const open = headerOnly ? false : (userOpen ?? showPreview)
+  const showPreview = !reasoningCollapsedByDefault && (pending || sawLivePreview)
+  const open = userOpen ?? showPreview
   const isPreview = userOpen === null && showPreview
 
   // Three ways a finished block can report itself. With a measured duration it
@@ -211,8 +273,7 @@ const ThinkingDisclosure: FC<{
     }
   }
 
-  // While the preview is live, pin the scroll container to the bottom on
-  // every content growth so the latest tokens are always visible.
+  // Follow new tokens until the user scrolls up to read earlier reasoning.
   useEffect(() => {
     if (!isPreview) {
       return
@@ -230,13 +291,18 @@ const ThinkingDisclosure: FC<{
     // scrollHeight read+write per preview per frame. Only actual content
     // growth needs the pin; the height rides the RO entry, reflow-free.
     let lastHeight = -1
+    let following = true
+
+    const trackScroll = () => {
+      following = el.scrollHeight - el.scrollTop - el.clientHeight < PREVIEW_RELOCK_THRESHOLD_PX
+    }
 
     const pin = (entries: readonly ResizeObserverEntry[]) => {
       const height = entries[entries.length - 1]?.borderBoxSize?.[0]?.blockSize ?? -1
       const grew = height < 0 || height > lastHeight
       lastHeight = height
 
-      if (grew) {
+      if (grew && following) {
         el.scrollTop = el.scrollHeight
       }
     }
@@ -245,8 +311,12 @@ const ThinkingDisclosure: FC<{
     // layout already clean (still before paint), avoiding a forced reflow.
     const observer = new ResizeObserver(pin)
     observer.observe(content)
+    el.addEventListener('scroll', trackScroll, { passive: true })
 
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      el.removeEventListener('scroll', trackScroll)
+    }
     // Re-run when the disclosure toggles so the observer attaches to the new
     // DOM after expand/collapse (refs are conditionally rendered on `open`).
   }, [isPreview, open])
@@ -259,7 +329,7 @@ const ThinkingDisclosure: FC<{
       ref={enterRef}
     >
       <ScaffoldRow
-        onToggle={headerOnly ? undefined : () => setUserOpen(!open)}
+        onToggle={() => setUserOpen(!open)}
         open={open}
         trailing={
           <span className="flex shrink-0 items-center gap-1.5">
@@ -277,7 +347,8 @@ const ThinkingDisclosure: FC<{
             // and inherits the disclosure-level opacity fade defined in
             // styles.css (~0.67 at rest, 1 on hover/focus). overflow-auto so
             // the max-h-40 preview is a real scroller, not a clip.
-            'mt-0.5 w-full min-w-0 max-w-full overflow-auto overscroll-contain wrap-anywhere pb-1',
+            // Even a body that fits must hand vertical input to the thread.
+            'mt-0.5 w-full min-w-0 max-w-full overflow-auto overscroll-x-contain overscroll-y-auto wrap-anywhere pb-1',
             isPreview && 'max-h-40'
           )}
           data-slot="aui_thinking-body"
@@ -299,6 +370,7 @@ const ReasoningAccordionGroup: FC<{ children?: ReactNode; endIndex: number; star
   endIndex,
   startIndex
 }) => {
+  const showReasoning = useStore($showReasoning)
   const messageId = useAuiState(s => s.message.id)
   const messageRunning = useAuiState(s => s.message.status?.type === 'running')
 
@@ -339,9 +411,7 @@ const ReasoningAccordionGroup: FC<{ children?: ReactNode; endIndex: number; star
     }, undefined)
   )
 
-  const toolViewMode = useStore($toolViewMode)
-
-  if (!hasContent) {
+  if (!hasContent || !showReasoning) {
     return null
   }
 
@@ -350,14 +420,8 @@ const ReasoningAccordionGroup: FC<{ children?: ReactNode; endIndex: number; star
     // of a key the same origin, so a turn that thinks three separate times used
     // to measure the second and third blocks from the first one's start and
     // report the running total as each block's duration.
-    //
-    // Product mode hides the reasoning TEXT, not the header: the pre-first-token
-    // spinner unmounts on the first reasoning delta and the quiet-gap indicator
-    // never fires while tokens flow, so this header's timer is the only thing
-    // telling the user a 60s thinking phase is alive (2026-09-14 regression).
     <ThinkingDisclosure
       completedAt={completedAt}
-      headerOnly={toolViewMode === 'product'}
       messageRunning={messageRunning}
       pending={pending}
       timerKey={`reasoning:${messageId}:${startIndex}`}
@@ -375,13 +439,24 @@ const ReasoningTextPart: ReasoningMessagePartComponent = () => {
   const { status, text } = useMessagePartReasoning()
   const messageRunning = useAuiState(s => s.message.status?.type === 'running')
 
+  // The group above already hides grouped parts; this covers a Reasoning part
+  // rendered without a ReasoningGroup wrapper (assistant-ui drops the group
+  // when a ChainOfThought component is registered).
+  const showReasoning = useStore($showReasoning)
+  const textDirection = useForcedTextDirection()
+
+  if (!showReasoning) {
+    return null
+  }
+
   return (
     <MarkdownTextContent
       containerClassName="text-xs leading-snug text-muted-foreground/85"
       containerProps={{ 'data-slot': 'aui_reasoning-text' } as ComponentProps<'div'>}
-      disableArtifacts
       isRunning={status.type === 'running' || messageRunning}
-      text={sanitizePublicText(separateGluedReasoningBlocks(text.trimStart()))}
+      scratchpad
+      text={separateGluedReasoningBlocks(text.trimStart())}
+      textDirection={textDirection}
     />
   )
 }

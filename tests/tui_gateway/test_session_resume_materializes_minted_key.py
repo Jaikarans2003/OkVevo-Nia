@@ -1,118 +1,141 @@
-"""session.resume materializes a row for a minted-but-never-persisted key.
+"""``session.resume`` materializes a row for a minted-but-never-persisted key.
 
-Adapted to Nia's resume handler: the locate step is still inline in
-methods_session.py, and a non-lazy resume builds an agent. These cases use
-``defer_history`` so the test stops after the row is created.
+Bug class: the backend dies between ``session.create`` (which intentionally
+writes no state.db row until the first prompt — no "Untitled" litter) and that
+first ``prompt.submit``. The stored key exists client-side (pinned tile,
+sidebar) but has no row anywhere, and after a restart the in-memory live-lazy
+lookup can't find it either — so resume used to 4007 forever and the desktop
+surfaced "no route to the backend holding this session".
+
+The fix: when the resume target is a well-formed server-minted key
+(``%Y%m%d_%H%M%S_`` + 6 hex, the exact shape ``_new_session_key()`` produces),
+materialize the row and continue the normal empty resume instead of failing.
+Abandoned drafts still leave no row — nothing is written until a client
+explicitly resumes the exact key. Fail-closed: garbage, 8-hex runtime ids,
+and titles still 4007, and lazy subagent watch windows are excluded.
 """
 
 from __future__ import annotations
 
-import importlib
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 from hermes_state import SessionDB
+from tui_gateway import server
 
-MINTED_KEY = "20260828_053121_3427a9"
+MINTED_KEY = "20260828_053121_3427a9"  # the morning's lost session shape
 EXISTING_KEY = "20260827_224618_956bf8"
 
 
 @pytest.fixture()
 def real_db(monkeypatch, tmp_path):
-    home = tmp_path / ".hermes"
-    home.mkdir()
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("HERMES_HOME", str(home))
-    with patch.dict(
-        "sys.modules",
-        {
-            "hermes_cli.env_loader": MagicMock(),
-            "hermes_cli.banner": MagicMock(),
-        },
-    ):
-        server = importlib.import_module("tui_gateway.server")
-    db = SessionDB(db_path=home / "state.db")
-    server._db = db
+    """Real SessionDB behind ``_get_db``, with the heavy resume machinery off."""
+    db = SessionDB(db_path=tmp_path / "state.db")
+    monkeypatch.setattr(server, "_get_db", lambda: db)
     monkeypatch.setattr(server, "_resolve_model", lambda: "test-model")
     monkeypatch.setattr(server, "_enable_gateway_prompts", lambda: None)
-    monkeypatch.setattr(server, "_schedule_resume_hydration", lambda *a, **k: None)
+    monkeypatch.setattr(server, "_find_live_session_by_key", lambda _key, _home=None: None)
+    monkeypatch.setattr(server, "_schedule_agent_build", lambda *a, **k: None)
     monkeypatch.setattr(server, "_schedule_session_cap_enforcement", lambda *a, **k: None)
-    monkeypatch.setattr(server, "_child_run_active", lambda _key: False)
+    monkeypatch.setattr(server, "_maybe_schedule_auto_continue", lambda *a, **k: None)
+    monkeypatch.setattr(server, "_default_session_cwd", lambda *a, **k: str(tmp_path))
+    monkeypatch.setattr(server, "_profile_configured_cwd", lambda _home: str(tmp_path))
+    monkeypatch.setattr(server, "_child_run_active", lambda _key, _home=None: False)
     known = set(server._sessions)
-    yield server, db
+    yield db
     with server._sessions_lock:
         for sid in [s for s in server._sessions if s not in known]:
             server._sessions.pop(sid, None)
-    server._db = None
     db.close()
 
 
-def _resume(server, **params):
-    params.setdefault("defer_history", True)
+def _resume(**params):
     return server.handle_request({"id": "1", "method": "session.resume", "params": params})
 
 
-def test_resume_materializes_row_for_minted_key(real_db):
-    server, db = real_db
-    resp = _resume(server, session_id=MINTED_KEY)
-
+def _assert_resumed_ok(resp, target):
     assert "error" not in resp, resp
-    assert resp["result"]["resumed"] == MINTED_KEY
-    row = db.get_session(MINTED_KEY)
-    assert row is not None
+    assert resp["result"]["resumed"] == target
+    assert resp["result"]["session_id"], "a live runtime must be registered"
+
+
+def test_resume_materializes_row_for_minted_key(real_db):
+    """The core fix: a minted-but-never-persisted key resumes, row now exists."""
+    resp = _resume(session_id=MINTED_KEY)
+
+    _assert_resumed_ok(resp, MINTED_KEY)
+    row = real_db.get_session(MINTED_KEY)
+    assert row is not None, "resume must materialize the DB row"
+    assert row["source"] == "tui"
     assert row["model"] == "test-model"
+    # Materialization stamps the launch profile explicitly (the #99222 contract
+    # _ensure_session_db_row applies on first-prompt persistence: profile_name_for_home
+    # or _current_profile_name, never NULL). A bare create_session leaves NULL, so the
+    # oracle is the production expression itself, not a bare insert.
+    assert row.get("profile_name") == (
+        server.profile_name_for_home(None) or server._current_profile_name())
 
 
 def test_resume_existing_row_unaffected(real_db):
-    server, db = real_db
-    db.create_session(EXISTING_KEY, source="tui", model="test-model")
-    db.append_message(EXISTING_KEY, "user", "hello")
+    """A persisted session resumes normally and its row is not duplicated."""
+    real_db.create_session(EXISTING_KEY, source="tui", model="test-model")
+    real_db.append_message(EXISTING_KEY, "user", "hello")
 
-    resp = _resume(server, session_id=EXISTING_KEY)
+    resp = _resume(session_id=EXISTING_KEY)
 
-    assert "error" not in resp, resp
-    assert resp["result"]["resumed"] == EXISTING_KEY
-    assert db.get_session(EXISTING_KEY)["message_count"] == 1
+    _assert_resumed_ok(resp, EXISTING_KEY)
+    # message_count stays 1 — a second create would have been an INSERT-OR-IGNORE
+    # no-op, but the row must remain the same single conversation.
+    assert real_db.get_session(EXISTING_KEY)["message_count"] == 1
 
 
 def test_resume_garbage_id_still_4007(real_db):
-    server, db = real_db
-    resp = _resume(server, session_id="not-a-session")
+    """Non-key garbage stays fail-closed: same error, no write."""
+    resp = _resume(session_id="not-a-session")
 
     assert resp["error"]["code"] == 4007
-    assert db.get_session("not-a-session") is None
+    # nothing materialized for arbitrary strings
+    assert len(real_db.list_sessions_rich(source="tui")) == 0
 
 
 def test_resume_8hex_runtime_id_still_4007(real_db):
-    server, db = real_db
-    resp = _resume(server, session_id="5a81f231")
+    """8-hex runtime session ids (``uuid4().hex[:8]``) are NOT stored keys."""
+    resp = _resume(session_id="5a81f231")
 
     assert resp["error"]["code"] == 4007
-    assert db.get_session("5a81f231") is None
+    assert len(real_db.list_sessions_rich(source="tui")) == 0
 
 
 def test_resume_lazy_watch_missing_key_still_4007(real_db):
-    server, db = real_db
-    resp = _resume(server, session_id=MINTED_KEY, lazy=True, defer_history=False)
+    """Lazy subagent watch windows must not mint phantom rows for dead children."""
+    resp = _resume(session_id=MINTED_KEY, lazy=True)
 
     assert resp["error"]["code"] == 4007
-    assert db.get_session(MINTED_KEY) is None
+    assert real_db.get_session(MINTED_KEY) is None
 
 
 def test_resume_minted_key_claimed_by_other_profile_fails_closed(real_db):
-    server, db = real_db
-    server._sessions["live-other-profile"] = {
+    """A key claimed by a live session under ANOTHER profile must not mint here.
+
+    Mirrors test_resume_live_lazy_session's unscoped-resume fail-closed rule
+    (#93296): the materialize gate must not turn a cross-profile leak into a
+    phantom launch-store row. The key looks server-minted, but a live record
+    owns it — routing guesses are forbidden.
+    """
+    record = {
         "history": [],
+        "last_active": 0.0,
+        "pending_title": "Bot Chat",
+        "pending_hidden": True,
         "profile_home": "/tmp/other-profile",
+        "running": False,
         "session_key": MINTED_KEY,
         "source": "desktop",
     }
+    server._sessions["live-other-profile"] = record
     try:
-        resp = _resume(server, session_id=MINTED_KEY)
+        resp = _resume(session_id=MINTED_KEY)
         assert resp["error"]["code"] == 4007
-        assert db.get_session(MINTED_KEY) is None
+        assert real_db.get_session(MINTED_KEY) is None
     finally:
         with server._sessions_lock:
             server._sessions.pop("live-other-profile", None)
@@ -123,14 +146,14 @@ def test_resume_minted_key_claimed_by_other_profile_fails_closed(real_db):
     [
         ("20260828_053121_3427a9", True),
         ("20260827_224618_956bf8", True),
-        ("5a81f231", False),
+        ("5a81f231", False),  # 8-hex runtime sid
+        ("fcd97d0c", False),  # 8-hex runtime sid
         ("not-a-session", False),
         ("", False),
-        ("20260828_053121_3427", False),
-        ("20260828_053121_3427a9ZZ", False),
-        ("Bot Chat", False),
+        ("20260828_053121_3427", False),  # too-short hex tail
+        ("20260828_053121_3427a9ZZ", False),  # trailing garbage
+        ("Bot Chat", False),  # titles are not keys
     ],
 )
-def test_is_server_minted_key_shape(real_db, value, expected):
-    server, _db = real_db
+def test_is_server_minted_key_shape(value, expected):
     assert server._is_server_minted_key(value) is expected

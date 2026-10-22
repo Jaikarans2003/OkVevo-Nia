@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  BUILTIN_THEME_LIST,
-  BUILTIN_THEMES,
-  DEFAULT_SKIN_NAME,
-  DEFAULT_TYPOGRAPHY,
-  EMOJI_FALLBACK,
-  niaTheme
-} from './presets'
+import { BUILTIN_THEME_LIST, DEFAULT_TYPOGRAPHY, nousTheme } from './presets'
 
 // #40364: none of the UI text/mono fonts carry emoji glyphs, so every font
 // stack must end with a color-emoji fallback or emoji render as tofu on
@@ -31,22 +24,40 @@ describe('theme typography emoji fallback (#40364)', () => {
   it.each(stacks)('%s includes a color-emoji font', (_label, stack) => {
     expect(stack).toMatch(/Apple Color Emoji|Segoe UI Emoji|Noto Color Emoji|(^|,\s*)emoji\b/)
   })
-
-  it('EMOJI_FALLBACK lists the major platform emoji fonts', () => {
-    expect(EMOJI_FALLBACK).toContain('Apple Color Emoji')
-    expect(EMOJI_FALLBACK).toContain('Segoe UI Emoji')
-    expect(EMOJI_FALLBACK).toContain('Noto Color Emoji')
-  })
 })
 
-describe('nia is the only built-in skin', () => {
-  it('is registered as the default', () => {
-    expect(DEFAULT_SKIN_NAME).toBe('nia')
-    expect(BUILTIN_THEMES.nia).toBe(niaTheme)
-    expect(Object.keys(BUILTIN_THEMES)).toEqual(['nia'])
-    expect(niaTheme.colors.background).toBe('#2b2b2b')
-    expect(niaTheme.colors.foreground).toBe('#e3dcd6')
-    expect(niaTheme.colors.primary).toBe('#ff6d1f')
-    expect(niaTheme.darkColors).toEqual(niaTheme.colors)
+describe('theme typography Latin Extended fallback (#61392)', () => {
+  const monoStacks: Array<[string, string]> = [
+    ['DEFAULT_TYPOGRAPHY.fontMono', DEFAULT_TYPOGRAPHY.fontMono],
+    ...BUILTIN_THEME_LIST.map(
+      theme =>
+        [
+          `${theme.name}.effectiveFontMono`,
+          theme.typography?.fontMono ?? nousTheme.typography?.fontMono ?? DEFAULT_TYPOGRAPHY.fontMono
+        ] as [string, string]
+    )
+  ]
+
+  it.each(monoStacks)('%s falls back to bundled JetBrains Mono before generic fonts', (_label, stack) => {
+    const jetbrains = stack.indexOf('JetBrains Mono')
+
+    expect(jetbrains).toBeGreaterThanOrEqual(0)
+
+    const genericIndexes = [
+      stack.indexOf('ui-monospace'),
+      stack.indexOf('monospace'),
+      stack.indexOf('Apple Color Emoji'),
+      stack.indexOf('Segoe UI Emoji'),
+      stack.indexOf('Noto Color Emoji')
+    ].filter(index => index >= 0)
+
+    expect(genericIndexes.length).toBeGreaterThan(0)
+    expect(jetbrains).toBeLessThan(Math.min(...genericIndexes))
+  })
+
+  it('default stack includes common Linux monospace glyph fallbacks', () => {
+    expect(DEFAULT_TYPOGRAPHY.fontMono).toContain('DejaVu Sans Mono')
+    expect(DEFAULT_TYPOGRAPHY.fontMono).toContain('Liberation Mono')
+    expect(DEFAULT_TYPOGRAPHY.fontMono).toContain('Noto Sans Mono')
   })
 })

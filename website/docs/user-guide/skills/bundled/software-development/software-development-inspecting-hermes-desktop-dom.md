@@ -1,14 +1,14 @@
 ---
-title: "Inspecting Hermes Desktop Dom — Read the live Nia desktop DOM/CSS over CDP"
+title: "Inspecting Hermes Desktop Dom — Read the live Hermes desktop DOM/CSS over CDP"
 sidebar_label: "Inspecting Hermes Desktop Dom"
-description: "Read the live Nia desktop DOM/CSS over CDP"
+description: "Read the live Hermes desktop DOM/CSS over CDP"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
 # Inspecting Hermes Desktop Dom
 
-Read the live Nia desktop DOM/CSS over CDP.
+Read the live Hermes desktop DOM/CSS over CDP.
 
 ## Skill metadata
 
@@ -21,7 +21,7 @@ Read the live Nia desktop DOM/CSS over CDP.
 | License | MIT |
 | Platforms | linux, macos, windows |
 | Tags | `desktop`, `electron`, `cdp`, `dom`, `ui-verification`, `self-inspection` |
-| Related skills | [`node-inspect-debugger`](/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger), [`systematic-debugging`](/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging), [`dogfood`](/docs/user-guide/skills/bundled/software-development/software-development-dogfood) |
+| Related skills | [`node-inspect-debugger`](../../bundled/software-development/software-development-node-inspect-debugger.md), [`systematic-debugging`](../../bundled/software-development/software-development-systematic-debugging.md), [`dogfood`](../../bundled/software-development/software-development-dogfood.md) |
 
 ## Reference: full SKILL.md
 
@@ -29,7 +29,7 @@ Read the live Nia desktop DOM/CSS over CDP.
 The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
-# Inspecting the live Nia desktop DOM
+# Inspecting the live Hermes desktop DOM
 
 ## Overview
 
@@ -140,10 +140,10 @@ When there is no port, or you must not disturb the user's window:
 
 ```bash
 cd apps/desktop
-HERMES_HOME=/tmp/cdp-probe-home \
+HERMES_HOME=$HOME/.hermes/cache/scratch/cdp-probe-home \
 HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 \
 HERMES_DESKTOP_CDP_PORT=9333 \
-  npx electron . --user-data-dir=/tmp/cdp-probe-userdata
+  npx electron . --user-data-dir=$HOME/.hermes/cache/scratch/cdp-probe-userdata
 ```
 
 The separate `--user-data-dir` dodges Electron's single-instance lock, so it

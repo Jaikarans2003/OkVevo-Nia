@@ -109,12 +109,13 @@ async function main() {
   await pressKey(ws, 'Escape')
   await sleep(300)
 
-  // === 2. CmdK submenu: open, navigate to pets picker ===
-  results.push(await measure(ws, '2. CmdK pets submenu', async (ws) => {
+  // === 2. CmdK submenu: open, navigate to theme picker, click a theme, back ===
+  results.push(await measure(ws, '2. CmdK theme submenu', async (ws) => {
     await pressKey(ws, 'k', { metaKey: true })
     await sleep(300)
-    await typeInInput(ws, 'pets')
+    await typeInInput(ws, 'theme')
     await sleep(200)
+    // Click first theme item
     await eval_(ws, `
       const item = document.querySelector('[cmdk-item]')
       if (item) item.click()
@@ -125,7 +126,19 @@ async function main() {
   await pressKey(ws, 'Escape')
   await sleep(300)
 
-  // === 3. Settings: open, click through nav items ===
+  // === 3. CmdK color-mode submenu ===
+  results.push(await measure(ws, '3. CmdK color-mode submenu', async (ws) => {
+    await pressKey(ws, 'k', { metaKey: true })
+    await sleep(300)
+    await typeInInput(ws, 'color mode')
+    await sleep(200)
+    await eval_(ws, `const item = document.querySelector('[cmdk-item]'); if (item) item.click(); true`)
+    await sleep(300)
+  }))
+  await pressKey(ws, 'Escape')
+  await sleep(300)
+
+  // === 4. Settings: open, click through nav items ===
   results.push(await measure(ws, '4. Settings (5 nav clicks)', async (ws) => {
     await clickByHref(ws, 'settings')
     await sleep(500)

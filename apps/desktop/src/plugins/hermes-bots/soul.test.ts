@@ -25,7 +25,7 @@ const { hostMock, serverInjects } = vi.hoisted(() => ({
 vi.mock('@hermes/plugin-sdk', () => ({ host: hostMock }))
 
 vi.mock('./data', () => ({
-  botHandle: (name: string) => (String(name).toLowerCase() === 'default' ? 'nia' : name),
+  botHandle: (name: string) => (String(name).toLowerCase() === 'default' ? 'hermes' : name),
   // A live binding in the real module — useRoster flips it from the roster
   // response, so the mock has to be a getter too.
   get serverInjectsProtocol() {
@@ -69,28 +69,13 @@ describe('appending the protocol to an existing SOUL', () => {
     expect(once).toMatch(/I am the default profile on this machine/)
     expect(once).toMatch(/`researcher` — research specialist/)
     // The primary profile addresses itself by its callable alias.
-    expect(once).toMatch(/@nia/)
+    expect(once).toMatch(/@hermes/)
     expect(once).not.toMatch(/@default/)
 
     const twice = ensureMessagingProtocol(once, 'default', roster)
 
     expect(twice).toBe(once.trim())
     expect(sectionCount(twice)).toBe(1)
-  })
-
-  it('points at the real CLI verb, not the plural that does not exist', async () => {
-    const { ensureMessagingProtocol } = await loadSoul()
-    const soul = ensureMessagingProtocol('', 'default', roster)
-
-    expect(soul).toMatch(/run `hermes profile list` for the LIVE/)
-    expect(soul).not.toMatch(/hermes profiles list/)
-  })
-
-  it('seeds an empty SOUL with the section alone', async () => {
-    const { ensureMessagingProtocol } = await loadSoul()
-
-    expect(ensureMessagingProtocol('', 'ops', [])).toMatch(/^## Messaging other agents/)
-    expect(ensureMessagingProtocol('', 'ops', [])).toMatch(/- \(none yet\)/)
   })
 })
 

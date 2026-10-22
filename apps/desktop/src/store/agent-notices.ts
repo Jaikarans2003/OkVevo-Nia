@@ -1,4 +1,3 @@
-import { scrubUserFacingText } from '@/lib/user-facing-error'
 import type { NativeNotificationInput } from '@/store/native-notifications'
 import { dismissNotification, type NotificationInput, type NotificationKind, notify } from '@/store/notifications'
 
@@ -25,6 +24,8 @@ export interface AgentNoticePayload {
   ttl_ms?: null | number
   key?: string
   id?: string
+  /** Full text behind a short `text` (the low-disk auto-prune question): the toast's expandable body. */
+  detail?: string
 }
 
 const LEVEL_TO_TOAST_KIND: Record<string, NotificationKind> = {
@@ -124,8 +125,6 @@ export function noticeToToast(payload: AgentNoticePayload | undefined): Notifica
   // status line that reads fine, but the toast follows the title-plus-description
   // convention (Sonner/shadcn): the primary status is the message and the detail
   // drops to a muted second line, instead of inlining a `·` separator.
-  // Public builds: scrub leftover vendor names (curated copy, not raw
-  // exceptions — scrub, not default-deny).
   const [primary, meta] = splitMeta(stripGlyph(text))
 
   return {
@@ -137,8 +136,9 @@ export function noticeToToast(payload: AgentNoticePayload | undefined): Notifica
     durationMs: isTtl ? ttl : 0,
     id: payload?.key || payload?.id,
     kind: LEVEL_TO_TOAST_KIND[payload?.level ?? 'info'] ?? 'info',
-    message: scrubUserFacingText(primary),
-    meta: meta ? scrubUserFacingText(meta) : meta
+    message: primary,
+    meta,
+    ...(payload?.detail?.trim() ? { detail: payload.detail.trim() } : {})
   }
 }
 
@@ -201,7 +201,7 @@ export function nativeNoticeInput(
   }
 
   return {
-    body: scrubUserFacingText(text),
+    body: text,
     global: true,
     kind: 'credits',
     title

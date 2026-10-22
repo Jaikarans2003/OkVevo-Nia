@@ -514,10 +514,7 @@ describe('useVirtualHistory offset cache reuse', () => {
     }
   })
 
-  // Flaky on staging and this branch (adjustScrollTop spy sometimes sees 0 calls).
-  // Evidence: staging 14/20, PR 18/20 locally; same assertion as CI.
-  // Tracking: https://github.com/Jaikarans2003/OkVevo-Nia/issues/17
-  it.skip('corrects and compensates a same-layout row measured at unmount', async () => {
+  it('corrects and compensates a same-layout row measured at unmount', async () => {
     const items = Array.from({ length: 20 }, (_, index) => ({ height: 2, key: `item-${index}` }))
     const expose = { current: null as Exposed | null }
     const streams = makeStreams()
@@ -531,18 +528,21 @@ describe('useVirtualHistory offset cache reuse', () => {
     })
 
     try {
-      await delay(20)
+      // Generous settle windows: the unmount-measurement callback must fire
+      // before the assertion, and under CI load a 20-40ms sleep is not
+      // enough (flaked as "adjustScrollTop called 0 times").
+      await delay(50)
       const scroll = expose.current!.scroll!
 
       scroll.scrollTo(0)
-      await delay(20)
+      await delay(50)
       scroll.scrollTo(5)
       const adjustScrollTop = vi.spyOn(scroll, 'adjustScrollTop')
       const staleHeights = new Map(initialHeights)
 
       staleHeights.set(items[0]!.key, 1)
       instance.rerender(React.createElement(Harness, { expose, initialHeights: staleHeights, items }))
-      await delay(40)
+      await delay(400)
 
       expect(adjustScrollTop).toHaveBeenCalledOnce()
       expect(adjustScrollTop).toHaveBeenCalledWith(1)

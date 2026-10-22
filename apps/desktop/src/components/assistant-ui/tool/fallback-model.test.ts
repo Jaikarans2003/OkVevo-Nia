@@ -1,16 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { setRuntimeI18nLocale } from '@/i18n'
-import { $toolViewMode } from '@/store/tool-view'
 
 import {
   buildToolView,
   clampForDisplay,
   countDiffLineStats,
   inlineDiffFromResult,
+  isPreviewableTarget,
   MAX_TOOL_RENDER_CHARS,
   prettyJson,
-  type ToolPart
+  type ToolPart,
+  toolPreviewOutcome
 } from './fallback-model'
 
 const part = (overrides: Partial<ToolPart>): ToolPart => ({
@@ -25,16 +26,12 @@ const part = (overrides: Partial<ToolPart>): ToolPart => ({
 
 afterEach(() => {
   setRuntimeI18nLocale('en')
-  $toolViewMode.set('product')
 })
 
 describe('buildToolView image handling', () => {
-  // vision_analyze reports the input image as a local path; an <img> pointed at
-  // a bare path resolves against the renderer origin and 404s, so we render the
-  // tool codicon instead of a broken image.
-  it('drops bare filesystem paths', () => {
-    expect(buildToolView(part({ args: { path: '/Users/me/shot.png' } }), '').imageUrl).toBe('')
-    expect(buildToolView(part({ result: { image_path: '/tmp/out.jpg' } }), '').imageUrl).toBe('')
+  it('keeps local image paths for the activity renderer to resolve', () => {
+    expect(buildToolView(part({ args: { path: '/Users/me/shot.png' } }), '').imageUrl).toBe('/Users/me/shot.png')
+    expect(buildToolView(part({ result: { image_path: '/tmp/out.jpg' } }), '').imageUrl).toBe('/tmp/out.jpg')
   })
 
   it('keeps fetchable data URLs', () => {
@@ -61,10 +58,9 @@ describe('buildToolView terminal exit-code status', () => {
     expect(terminal({ exit_code: 1, stdout: 'partial results' }).status).toBe('success')
   })
 
-  // No output + non-zero exit is a genuine failure worth flagging.
-  it('treats non-zero exit with no output as error', () => {
+  it('distinguishes a command failure from an empty no-match exit', () => {
     expect(terminal({ exit_code: 127, output: '' }).status).toBe('error')
-    expect(terminal({ exit_code: 1 }).status).toBe('error')
+    expect(terminal({ exit_code: 1, output: '' }).status).toBe('notice')
   })
 
   it('treats zero exit as success', () => {
@@ -91,6 +87,93 @@ describe('buildToolView terminal exit-code status', () => {
 
     expect(view.terminalCommand).toBe('npm run check --workspace=apps/desktop')
     expect(view.terminalExitCode).toBe(0)
+  })
+})
+
+describe('buildToolView error confidence', () => {
+  it('keeps routine misses and returned diagnostic data out of destructive status', () => {
+    const cases: Array<[Partial<ToolPart>, ReturnType<typeof buildToolView>['status']]> = [
+      [
+        {
+          toolName: 'read_file',
+          result: { error: 'File not found: /repo/session-view.ts', similar_files: ['/repo/session-view.tsx'] }
+        },
+        'notice'
+      ],
+      [{ toolName: 'read_file', isError: true, result: { error: 'File not found: /repo/session-view.ts' } }, 'notice'],
+      [{ toolName: 'terminal', result: { exit_code: 0, output: '{"error":"a logged failure"}' } }, 'success'],
+      [{ result: { error: 'none', message: 'No changes needed' } }, 'success'],
+      [{ result: { status: 'no error', message: 'Ready' } }, 'success'],
+      [{ result: { meta: { error: 'a previous attempt' }, data: { count: 1 } } }, 'success'],
+      [{ toolName: 'read_file', result: { error: 'Permission denied reading /repo/private.ts' } }, 'error'],
+      [{ toolName: 'patch', result: { error: 'File not found: /repo/session-view.ts' } }, 'error'],
+      [
+        {
+          toolName: 'skill_manage',
+          result: { success: false, error: 'SKILL.md content is over the limit', file_preview: 'ROLLBACK FAILED notes' }
+        },
+        'notice'
+      ],
+      [{ toolName: 'skill_manage', result: { success: false, error: "batch aborted, ROLLBACK FAILED for 'demo'" } }, 'error'],
+      [{ result: { success: false, result: { output: { error: { message: 'Connection refused' } } } } }, 'error']
+    ]
+
+    for (const [overrides, status] of cases) {
+      expect(buildToolView(part(overrides), '').status, JSON.stringify(overrides)).toBe(status)
+    }
+  })
+})
+
+describe('buildToolView envelope errors', () => {
+  it('shows the event error when the result carries no explanation', () => {
+    const view = buildToolView(
+      part({
+        isError: true,
+        result: 'partial output',
+        toolName: 'terminal',
+        toolResultMetadata: { error: 'killed by signal 9' }
+      }),
+      ''
+    )
+
+    expect(view.status).toBe('error')
+    expect(view.subtitle).toBe('killed by signal 9')
+  })
+
+  it('keeps an envelope-only read miss on the notice tier', () => {
+    const view = buildToolView(
+      part({
+        isError: true,
+        result: undefined,
+        completedAt: 5,
+        toolName: 'read_file',
+        toolResultMetadata: { error: 'File not found: /repo/missing.ts' }
+      }),
+      ''
+    )
+
+    expect(view.status).toBe('notice')
+  })
+})
+
+describe('buildToolView calls sealed without a result', () => {
+  it('warns that a lost result is unavailable', () => {
+    const view = buildToolView(part({ completedAt: 5, result: undefined, toolName: 'terminal' }), '')
+
+    expect(view.status).toBe('warning')
+  })
+
+  it('shows a call the user interrupted as a neutral notice', () => {
+    const view = buildToolView(part({ completedAt: 5, interrupted: true, result: undefined, toolName: 'terminal' }), '')
+
+    expect(view.status).toBe('notice')
+  })
+
+  it('shows the real result when one arrived after the interruption', () => {
+    const view = buildToolView(part({ completedAt: 5, interrupted: true, result: 'ok', toolName: 'terminal' }), '')
+
+    expect(view.status).toBe('success')
+    expect(view.title).not.toBe('Interrupted')
   })
 })
 
@@ -162,7 +245,7 @@ describe('buildToolView browser_navigate title', () => {
     )
 
     expect(view.status).toBe('error')
-    expect(view.title).toBe('Failed to open hermes-agent.nousresearch.com/docs')
+    expect(view.title).toContain('hermes-agent.nousresearch.com/docs')
   })
 
   it('shows opened title on success', () => {
@@ -176,15 +259,12 @@ describe('buildToolView browser_navigate title', () => {
     )
 
     expect(view.status).toBe('success')
-    expect(view.title).toBe('Opened hermes-agent.nousresearch.com/docs')
+    expect(view.title).toContain('hermes-agent.nousresearch.com/docs')
   })
 })
 
 describe('buildToolView file edit diffs', () => {
   const patchDiff = '--- a/src/demo.ts\n+++ b/src/demo.ts\n@@ -1 +1 @@\n-old\n+new'
-
-  // Full-path subtitles are Technical-mode chrome; Product shows basenames.
-  beforeEach(() => $toolViewMode.set('technical'))
 
   it('reads inline_diff and diff fields from patch results', () => {
     expect(inlineDiffFromResult({ inline_diff: patchDiff })).toBe(patchDiff)
@@ -224,37 +304,6 @@ describe('buildToolView file edit diffs', () => {
 })
 
 describe('buildToolView title actions', () => {
-  // Commands in titles are Technical-mode chrome; Product headlines intent.
-  beforeEach(() => $toolViewMode.set('technical'))
-
-  it('marks the pending action separately from the rest of the title', () => {
-    const read = buildToolView(part({ args: { path: '/tmp/demo.txt' }, result: undefined, toolName: 'read_file' }), '')
-
-    const web = buildToolView(
-      part({ args: { url: 'https://example.com/docs' }, result: undefined, toolName: 'web_extract' }),
-      ''
-    )
-
-    const terminal = buildToolView(
-      part({ args: { command: 'npm test -- --runInBand' }, result: undefined, toolName: 'terminal' }),
-      ''
-    )
-
-    const code = buildToolView(
-      part({ args: { code: 'print("hello")' }, result: undefined, toolName: 'execute_code' }),
-      ''
-    )
-
-    expect(read.title).toBe('Reading demo.txt')
-    expect(read.titleAction).toEqual({ prefix: '', text: 'Reading', suffix: ' demo.txt' })
-    expect(web.title).toBe('Reading example.com/docs')
-    expect(web.titleAction).toEqual({ prefix: '', text: 'Reading', suffix: ' example.com/docs' })
-    expect(terminal.title).toBe('Running npm test -- --runInBand')
-    expect(terminal.titleAction).toEqual({ prefix: '', text: 'Running', suffix: ' npm test -- --runInBand' })
-    expect(code.title).toBe('Scripting print("hello")')
-    expect(code.titleAction).toEqual({ prefix: '', text: 'Scripting', suffix: ' print("hello")' })
-  })
-
   it('does not mark completed tool titles as pending actions', () => {
     const view = buildToolView(part({ args: { url: 'https://example.com/docs' }, toolName: 'web_extract' }), '')
 
@@ -408,6 +457,27 @@ describe('buildToolView title actions', () => {
     expect(view.detail).toBe('')
   })
 
+  it('does not double the action verb when the context already starts with it', () => {
+    // A model-authored `context` that opens with the same verb the template
+    // prepends ("Running grep …") otherwise renders as "Running Running grep …".
+    const view = buildToolView(
+      part({
+        args: { context: 'Running grep -rn -i "bedrock" ~/.hermes/' },
+        result: undefined,
+        toolName: 'terminal'
+      }),
+      ''
+    )
+
+    expect(view.title.startsWith('Running Running')).toBe(false)
+    expect(view.title).toBe('Running grep -rn -i "bedrock" ~/.hermes/')
+    expect(view.titleAction).toEqual({
+      prefix: '',
+      text: 'Running',
+      suffix: ' grep -rn -i "bedrock" ~/.hermes/'
+    })
+  })
+
   it('uses the runtime locale for title text and action placement', () => {
     setRuntimeI18nLocale('ja')
 
@@ -425,6 +495,27 @@ describe('buildToolView title actions', () => {
   })
 })
 
+// #85132: Windows agents write `C:\\...` / UNC paths; those must get the same
+// artifact preview tag a POSIX `/Users/...` path gets.
+describe('Windows absolute preview targets', () => {
+  it.each(['C:\\Users\\me\\report.html', 'D:/work/report.htm', '\\\\server\\share\\report.html'])(
+    'tags a written %s as a previewable artifact',
+    path => {
+      const outcome = toolPreviewOutcome(
+        part({ args: { content: '<h1>hi</h1>', path }, result: { bytes_written: 11 }, toolName: 'write_file' })
+      )
+
+      expect(outcome.previewTarget).toBe(path)
+      expect(isPreviewableTarget(outcome.previewTarget)).toBe(true)
+    }
+  )
+
+  it('keeps non-HTML Windows files out of the preview tag, like POSIX ones', () => {
+    expect(isPreviewableTarget('C:\\Users\\me\\notes.txt')).toBe(isPreviewableTarget('/Users/me/notes.txt'))
+    expect(isPreviewableTarget('C:\\Users\\me\\notes.txt')).toBe(false)
+  })
+})
+
 describe('clampForDisplay', () => {
   it('passes short payloads through untouched', () => {
     expect(clampForDisplay('hello')).toBe('hello')
@@ -437,8 +528,7 @@ describe('clampForDisplay', () => {
 
     expect(clamped.length).toBeLessThan(oversized.length)
     expect(clamped.startsWith('x'.repeat(MAX_TOOL_RENDER_CHARS))).toBe(true)
-    expect(clamped).toContain('5,000 more characters truncated')
-    expect(clamped).toContain('Copy')
+    expect(clamped).toContain(`${new Intl.NumberFormat().format(5_000)} more characters truncated`)
   })
 })
 
@@ -463,9 +553,6 @@ describe('countDiffLineStats', () => {
 })
 
 describe('buildToolView memory status', () => {
-  // Raw result.error text in the subtitle is Technical-mode chrome.
-  beforeEach(() => $toolViewMode.set('technical'))
-
   const memory = (overrides: Partial<Parameters<typeof part>[0]> = {}) =>
     buildToolView(part({ toolName: 'memory', ...overrides }), '')
 
@@ -481,7 +568,6 @@ describe('buildToolView memory status', () => {
     })
 
     expect(view.status).toBe('success')
-    expect(view.title).toBe('Saved to memory')
     expect(view.countLabel).toBe('13 entries')
     expect(view.subtitle).toBe('Applied 1 operation(s).')
   })
@@ -495,147 +581,6 @@ describe('buildToolView memory status', () => {
     })
 
     expect(view.status).toBe('warning')
-    expect(view.title).toBe('Memory write noted')
     expect(view.subtitle).toContain('Memory is full')
-  })
-})
-
-// Product mode (the public-build default) must never leak commands, full
-// paths, or raw provider/tool error text into a row.
-describe('buildToolView product mode', () => {
-  it('headlines the model intent for terminal rows, never the command', () => {
-    const view = buildToolView(
-      part({
-        args: { command: 'rm -rf /private/tmp/staging && curl https://api.fal.ai/x', intent: 'Cleaning up the staging folder' },
-        result: { exit_code: 0, output: 'done' },
-        toolName: 'terminal'
-      }),
-      ''
-    )
-
-    expect(view.title).toBe('Cleaning up the staging folder')
-    expect(view.subtitle).toBe('')
-    expect(view.title).not.toContain('rm -rf')
-    expect(view.title).not.toContain('fal.ai')
-  })
-
-  it('falls back to the generic title when no intent was provided', () => {
-    const view = buildToolView(
-      part({ args: { command: 'cat /etc/secret' }, result: { exit_code: 0, output: 'x' }, toolName: 'terminal' }),
-      ''
-    )
-
-    expect(view.title).toBe('Ran command')
-    expect(view.subtitle).toBe('')
-  })
-
-  it('shows basenames only for file edits', () => {
-    const view = buildToolView(
-      part({
-        args: { mode: 'replace', new_string: 'new', path: 'src/deep/nested/demo.ts' },
-        result: { success: true },
-        toolName: 'patch'
-      }),
-      ''
-    )
-
-    expect(view.title).toBe('demo.ts')
-    expect(view.subtitle).toBe('demo.ts')
-  })
-
-  it('maps recognized provider errors to the friendly copy', () => {
-    const view = buildToolView(
-      part({
-        isError: true,
-        result: { error: 'HTTP 402: insufficient credits. Add credit at https://nousresearch.com/portal' },
-        toolName: 'image_generate'
-      }),
-      ''
-    )
-
-    expect(view.status).toBe('error')
-    expect(view.subtitle).toContain('OkVevo credits')
-    expect(view.subtitle).not.toContain('nousresearch')
-  })
-
-  it('default-denies unrecognized raw errors to the generic fallback', () => {
-    const view = buildToolView(
-      part({
-        isError: true,
-        result: { error: 'Memory is full (2,200/2,200). Consolidate before adding more.' },
-        toolName: 'memory'
-      }),
-      ''
-    )
-
-    expect(view.subtitle).toBe('Something went wrong on my end — give that another try.')
-  })
-
-  it('rotates web_search pending titles from the phrasing deck with the real query', () => {
-    const pending = part({
-      args: { search_term: 'okra recipes' },
-      result: undefined,
-      toolCallId: 'call_1',
-      toolName: 'web_search'
-    })
-    const view = buildToolView(pending, '')
-
-    expect(view.title).toContain('okra recipes')
-    expect(view.title).toMatch(/hunt|dig/i)
-    // Deterministic per toolCallId — no flicker across re-renders.
-    expect(buildToolView(pending, '').title).toBe(view.title)
-  })
-
-  it('rotates read_file and file-edit pending titles with the basename only', () => {
-    const read = buildToolView(
-      part({ args: { path: 'src/deep/nested/notes.md' }, result: undefined, toolName: 'read_file' }),
-      ''
-    )
-    const edit = buildToolView(
-      part({ args: { mode: 'replace', path: 'src/deep/nested/demo.ts' }, result: undefined, toolName: 'patch' }),
-      ''
-    )
-
-    expect(read.title).toContain('notes.md')
-    expect(read.title).toMatch(/peeking|read|checking/i)
-    expect(read.title).not.toContain('src/deep')
-    expect(edit.title).toContain('demo.ts')
-    expect(edit.title).toMatch(/tweaking|glow-up|patching/i)
-    expect(edit.title).not.toContain('src/deep')
-  })
-
-  it('rotates media and vision pending titles from their decks', () => {
-    const image = buildToolView(part({ result: undefined, toolName: 'image_generate' }), '')
-    const video = buildToolView(part({ result: undefined, toolName: 'video_generate' }), '')
-    const vision = buildToolView(part({ result: undefined, toolName: 'vision_analyze' }), '')
-
-    expect(image.title).toMatch(/cooking|painting|whipping/i)
-    expect(video.title).toMatch(/rolling|cooking|rendering/i)
-    expect(vision.title).toMatch(/taking a look|eyes on|studying/i)
-  })
-
-  it('uses the generic rotating deck for pending tools without their own set', () => {
-    const view = buildToolView(part({ result: undefined, toolName: 'memory' }), '')
-
-    expect(['Working on it…', 'Doing the thing…', 'On it…']).toContain(view.title)
-  })
-
-  it('keeps the static done titles once the tool completes', () => {
-    const view = buildToolView(
-      part({ args: { search_term: 'okra recipes' }, result: { results: [] }, toolName: 'web_search' }),
-      ''
-    )
-
-    expect(view.title).toBe('Searched “okra recipes”')
-  })
-
-  it('leaves technical-mode pending titles untouched', () => {
-    $toolViewMode.set('technical')
-    const view = buildToolView(
-      part({ args: { search_term: 'okra recipes' }, result: undefined, toolName: 'web_search' }),
-      ''
-    )
-
-    expect(view.title).toBe('Searching “okra recipes”')
   })
 })

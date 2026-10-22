@@ -3,34 +3,74 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { modePref, skinPref } from './context'
 import { DEFAULT_SKIN_NAME } from './presets'
 
-describe('per-profile skin', () => {
+// Skin and mode share one per-profile contract, so assert it once over both.
+interface Pref {
+  resolve: (profile: string) => string
+  assign: (profile: string, value: string) => void
+}
+
+const cases = [
+  {
+    name: 'skin',
+    pref: skinPref as unknown as Pref,
+    fallback: DEFAULT_SKIN_NAME,
+    a: 'ember',
+    b: 'catppuccin',
+    junk: 'nope'
+  },
+  { name: 'mode', pref: modePref as unknown as Pref, fallback: 'system', a: 'dark', b: 'light', junk: 'dusk' }
+]
+
+describe.each(cases)('per-profile $name', ({ pref, fallback, a, b, junk }) => {
   beforeEach(() => window.localStorage.clear())
 
-  it('falls back to nia when unassigned', () => {
-    expect(skinPref.resolve('default')).toBe(DEFAULT_SKIN_NAME)
-    expect(skinPref.resolve('work')).toBe(DEFAULT_SKIN_NAME)
+  it('falls back to the default when unassigned', () => {
+    expect(pref.resolve('default')).toBe(fallback)
+    expect(pref.resolve('work')).toBe(fallback)
   })
 
-  it('normalizes deleted or unknown preset names to nia', () => {
-    skinPref.assign('work', 'ember')
-    skinPref.assign('default', 'nope')
-    expect(skinPref.resolve('work')).toBe(DEFAULT_SKIN_NAME)
-    expect(skinPref.resolve('default')).toBe(DEFAULT_SKIN_NAME)
+  it('keeps each profile on its own value', () => {
+    pref.assign('work', a)
+    pref.assign('default', b)
+    expect(pref.resolve('work')).toBe(a)
+    expect(pref.resolve('default')).toBe(b)
+  })
+
+  it('lets unassigned profiles inherit the default profile as the global fallback', () => {
+    pref.assign('default', a)
+    expect(pref.resolve('never-themed')).toBe(a)
+  })
+
+  it('normalizes an unknown stored value back to the default', () => {
+    pref.assign('work', junk)
+    expect(pref.resolve('work')).toBe(fallback)
   })
 })
-
-describe('per-profile mode', () => {
+// #101216: named-profile assign must seed the global fallback so a Bot Mode
+// gateway hop onto a never-themed bot does not resolve `system`.
+describe('named-profile appearance seeds the global fallback (#101216)', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('is always dark — Nia has no light or OS-follow mode', () => {
-    expect(modePref.resolve('default')).toBe('dark')
-    expect(modePref.resolve('work')).toBe('dark')
+  it('lets a never-themed bot profile inherit Dark set on the launch profile', () => {
+    modePref.assign('forge', 'dark')
+    expect(modePref.resolve('atlas')).toBe('dark')
   })
 
-  it('normalizes stored light/system prefs to dark', () => {
-    modePref.assign('default', 'light')
-    modePref.assign('work', 'system')
-    expect(modePref.resolve('default')).toBe('dark')
-    expect(modePref.resolve('work')).toBe('dark')
+  it('keeps an explicit per-profile override over the global fallback', () => {
+    modePref.assign('forge', 'dark')
+    modePref.assign('atlas', 'light')
+    expect(modePref.resolve('forge')).toBe('dark')
+    expect(modePref.resolve('atlas')).toBe('light')
+  })
+
+  it('lets a never-themed profile inherit the last named-profile assign', () => {
+    modePref.assign('forge', 'dark')
+    modePref.assign('atlas', 'light')
+    expect(modePref.resolve('never-themed')).toBe('light')
+  })
+
+  it('promotes a unanimous pre-existing per-profile mode into the empty global slot', () => {
+    window.localStorage.setItem('hermes-desktop-profile-modes-v1', JSON.stringify({ forge: 'dark' }))
+    expect(modePref.resolve('atlas')).toBe('dark')
   })
 })

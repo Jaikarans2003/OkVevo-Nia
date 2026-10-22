@@ -6,7 +6,11 @@
  * backend is not coming and the caller should fail instead of hanging.
  * Reconnect-class awaits against an already-spawned backend use the shorter
  * RECONNECT_ATTEMPT_TIMEOUT_MS below instead. */
-export const BACKEND_BOOT_WAIT_TIMEOUT_MS = 45_000
+// Keep in lockstep with DEFAULT_BACKEND_READY_TIMEOUT_MS in
+// electron/backend-health.ts: the renderer must out-wait the main process
+// cold-boot budget, or it flips to "not connected" and re-drives boot while
+// main is still mid-wait (#63454).
+export const BACKEND_BOOT_WAIT_TIMEOUT_MS = 180_000
 
 // desktop.getConnection() / getConnectionFor() / revalidateConnection() /
 // resolveGatewayWsUrl() are IPC round-trips into the main process with no
@@ -14,6 +18,25 @@ export const BACKEND_BOOT_WAIT_TIMEOUT_MS = 45_000
 // stuck revalidation after a liveness-probe trip) otherwise hangs an awaiting
 // caller forever. Every caller of these bounds them with this shared budget.
 export const RECONNECT_ATTEMPT_TIMEOUT_MS = 20_000
+
+/** Budget for the phase-1 dial of a source switch (store/connections
+ * selectConnection). Unlike the two above this await is not one IPC: it is the
+ * main process's whole remote bring-up chain — one ssh connect
+ * (DEFAULT_CONNECT_TIMEOUT_MS 15 s in electron/ssh-connection.ts), the
+ * sequential ssh execs that probe platform, locate the runtime and read its
+ * version (DEFAULT_EXEC_TIMEOUT_MS 20 s each), the spawned backend's ready
+ * sentinel (DEFAULT_READY_TIMEOUT_MS 45 s in electron/remote-lifecycle.ts) and
+ * the port forward (DEFAULT_FORWARD_TIMEOUT_MS 15 s). Their sum is ~135 s, and
+ * a *healthy* cold dial lands far inside it — measured 37-64 s against a 2 GB
+ * VPS over Windows ssh (no mux: every stage is a fresh ssh process plus a cold
+ * `serve` boot).
+ *
+ * Bounding that chain with RECONNECT_ATTEMPT_TIMEOUT_MS reported
+ * "Could not connect to <source>" for switches that were still dialing, and
+ * then connected anyway (withTimeout does not cancel the dial), which read as a
+ * failure the user had to retry. The per-IPC budget still catches the #93454
+ * class from inside the dial; this one only has to outlast a legitimate dial. */
+export const SOURCE_SWITCH_DIAL_TIMEOUT_MS = 135_000
 
 /** Rejection raised by withTimeout. The bounded work is NOT cancelled — the
  * caller decides what a straggler that settles later means. */
@@ -26,90 +49,6 @@ export class TimeoutError extends Error {
 
 export function isTimeoutError(error: unknown): error is TimeoutError {
   return error instanceof TimeoutError
-}
-
-/** True while first-run bootstrap blocks backend reachability — renderer boot
- * must not burn BACKEND_BOOT_WAIT_TIMEOUT_MS during these phases. */
-export function shouldSuspendBackendBootWait(snapshot: {
-  bootstrapActive?: boolean
-  bootstrapSetupChoice?: unknown | null
-  bootPhase?: null | string
-}): boolean {
-  return (
-    snapshot.bootstrapSetupChoice != null ||
-    snapshot.bootstrapActive === true ||
-    snapshot.bootPhase === 'bootstrap.choice'
-  )
-}
-
-/** Like withTimeout, but the deadline only advances while `isSuspended()` is
- * false. Used for initial getConnection() while main is in first-run setup. */
-export function withSuspendableTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  message: string,
-  options: { isSuspended: () => boolean; pollMs?: number }
-): Promise<T> {
-  const pollMs = options.pollMs ?? 200
-
-  return new Promise<T>((resolve, reject) => {
-    let elapsed = 0
-    let lastTick = Date.now()
-    let settled = false
-    let timer: ReturnType<typeof setInterval> | null = null
-
-    const settle = () => {
-      if (settled) {
-        return false
-      }
-
-      settled = true
-
-      if (timer) {
-        clearInterval(timer)
-      }
-
-      return true
-    }
-
-    const tick = () => {
-      if (settled) {
-        return
-      }
-
-      const now = Date.now()
-
-      if (!options.isSuspended()) {
-        elapsed += now - lastTick
-
-        if (elapsed >= ms) {
-          if (settle()) {
-            reject(new TimeoutError(message))
-          }
-
-          return
-        }
-      }
-
-      lastTick = now
-    }
-
-    timer = setInterval(tick, pollMs)
-    lastTick = Date.now()
-
-    Promise.resolve(promise).then(
-      value => {
-        if (settle()) {
-          resolve(value)
-        }
-      },
-      err => {
-        if (settle()) {
-          reject(err)
-        }
-      }
-    )
-  })
 }
 
 /** Settle with `promise`, or reject with a TimeoutError after `ms`.

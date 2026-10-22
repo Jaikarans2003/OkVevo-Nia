@@ -97,7 +97,7 @@ export async function confirmSendDiagnostics(): Promise<void> {
     const gateway = $gateway.get()
 
     if (!gateway) {
-      throw new Error('Nia unavailable')
+      throw new Error('Hermes gateway unavailable')
     }
 
     const extraFiles = await collectLocalExtras()
