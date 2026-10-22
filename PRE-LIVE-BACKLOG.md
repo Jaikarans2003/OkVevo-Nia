@@ -61,6 +61,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Required before live
 
+### [ ] Port manage_bot tool into plugins/okvevo (upstream reset dropped it)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live (public lockdown builds only) |
+| **Risk if skipped** | Public builds block raw file/shell access to the agent data folder, and upstream v0.22.4 has no bot-create tool. Without the port, chat-driven bot creation ("make me a bot that…") fails on public builds. Internal builds unaffected (file tools open). |
+| **Scope** | `plugins/okvevo/` (new `manage_bot.py` + `ctx.register_tool` in `__init__.py`); fork source at `pre-upstream-reset:tools/manage_bot_tool.py` (254 lines) |
+| **Fix** | Port the fork tool as a plugin-registered tool via `PluginContext.register_tool()`. Before porting, re-check the v0.22.4 bot layout (`tools/bot_desktop/`, bot profiles under `~/.hermes`) — the fork wrote bot `SOUL.md` files against the 2026.8 layout and the write paths may have moved. |
+| **Verify** | `.venv/bin/pytest plugins/okvevo/tests/` includes a manage_bot registration + slug/compose test; create-bot round-trip on a packed public build. |
+| **Notes** | Logged 2026-10-22 during the upstream-reset `plugins` todo (commit 2). Deferred because the upstream bot layout changed between the fork base (v2026.8.31) and v0.22.4 and blind porting could write stale paths. |
+
 ### [ ] Phase C: staging pack must upload installers directly to R2
 
 | Field | Value |

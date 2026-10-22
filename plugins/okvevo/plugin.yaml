@@ -1,0 +1,7 @@
+name: okvevo
+version: 1.0.0
+description: "OkVevo portal integration — web search, image & video generation metered on OkVevo credits, error copy, token redaction."
+author: OkVevo
+kind: backend
+provides_web_providers:
+  - okvevo

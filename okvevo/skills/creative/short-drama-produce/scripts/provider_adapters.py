@@ -3006,7 +3006,7 @@ def _gateway_helpers():
     root = Path(__file__).resolve().parents[4]
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
-    from agent.okvevo_gateway import (
+    from plugins.okvevo.gateway import (
         _quote_args,
         ensure_okvevo_id_token,
         resolve_okvevo_fal_gateway,
