@@ -80,6 +80,7 @@ corresponding list **exactly**.
 - `apps/desktop/resources/ffmpeg-licenses/SOURCE-OFFER.txt`
 - `apps/desktop/scripts/after-pack.mjs`
 - `apps/desktop/scripts/before-pack.mjs`
+- `apps/desktop/scripts/build-ffmpeg-macos.mjs`
 - `apps/desktop/scripts/build.mjs`
 - `apps/desktop/scripts/bundle-electron-main.mjs`
 - `apps/desktop/scripts/ci-desktop-version.mjs`

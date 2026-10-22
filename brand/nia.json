@@ -11,9 +11,6 @@
     "sand": "#e3dcd6"
   },
   "assetOverlay": {
-    "root": "brand/assets",
-    "remove": [
-      "apps/desktop/public/apple-touch-icon.png"
-    ]
+    "root": "brand/assets"
   }
 }
