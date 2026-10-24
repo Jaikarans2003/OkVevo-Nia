@@ -47,7 +47,7 @@ test('--require exits 1 with no secrets', () => {
   const result = spawnSync(process.execPath, [script, '--require'], { env, encoding: 'utf8' })
   assert.equal(result.status, 1)
   assert.match(result.stderr, /fail-closed/)
-  assert.match(formatMissingPackSecrets(['OKVEVO_WEB_ORIGIN']), /Do not hardcode/)
+  assert.match(formatMissingPackSecrets(['OKVEVO_WEB_ORIGIN']), /okvevo-feed-urls/)
 })
 
 function shapedPackEnv(overrides = {}) {

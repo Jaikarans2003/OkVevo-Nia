@@ -1,6 +1,7 @@
-# Tag pack only. Uploads versioned OkVevo-* + blockmaps + versions/{ver}/latest*.yml.
-# Does not move root latest*.yml, stable names, or releases.json — that is
-# desktop-publish.yml (workflow_dispatch). No GitHub Environments.
+# Tag pack. Uploads versioned OkVevo-* + blockmaps + versions/{ver}/latest*.yml
+# at the bucket root, and the same files plus latest*.yml and stable installer
+# names under okvevo/stable. Root latest*.yml, root stable names, and
+# releases.json stay on desktop-publish.yml. No GitHub Environments.
 
 name: OkVevo desktop production
 
@@ -57,7 +58,7 @@ jobs:
     uses: ./.github/workflows/okvevo-desktop-pack.yml
     with:
       pack_target: production
-      feed_prefix: ''
+      feed_prefix: okvevo/stable
       yml_mode: versioned
       version: ${{ needs.require-tag.outputs.version }}
       allow_unsigned: ${{ vars.PROD_ALLOW_UNSIGNED == '1' || vars.PROD_ALLOW_UNSIGNED == 'true' || vars.PROD_ALLOW_UNSIGNED == 'TRUE' }}

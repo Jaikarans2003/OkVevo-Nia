@@ -78,6 +78,7 @@ export function appIconCandidates(opts: {
 
   return [
     ...(isWindows ? [path.join(resourcesPath ?? '', 'icon.ico'), path.join(appRoot, 'assets', 'icon.ico')] : []),
+    ...(resourcesPath ? [path.join(resourcesPath, 'okvevo.png')] : []),
     // The unpacked on-disk copy first (dist/** is asarUnpack'ed), as resolveWebDist() does: statting
     // any path inside app.asar goes through Electron's asar fs.Stats shim, which emits Node's DEP0180
     // on every packaged launch (#96857). In a dev tree unpackedPathFor is the identity.

@@ -4,6 +4,8 @@ import { Check, ChevronRight, Terminal } from '@/lib/icons'
 import { PROVIDER_DISPLAY_NAMES } from '@/lib/model-status-label'
 import type { OAuthProvider } from '@/types/hermes'
 
+import okvevoMark from '../../../../../brand/assets/apps/desktop/public/okvevo.png'
+
 // Titles live in PROVIDER_DISPLAY_NAMES (shared with the model pill); this is
 // only the featured order. Both Anthropic entries sit at the bottom: the API-key
 // path first, then the subscription OAuth path (only works with extra usage credits).
@@ -16,8 +18,6 @@ const PROVIDER_ORDER: Record<string, number> = {
   anthropic: 5,
   'claude-code': 6
 }
-
-const assetPath = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
 
 export const providerTitle = (p: OAuthProvider) => PROVIDER_DISPLAY_NAMES[p.id] ?? p.name
 const orderOf = (p: OAuthProvider) => PROVIDER_ORDER[p.id] ?? 99
@@ -45,7 +45,7 @@ export function FeaturedProviderRow({
       <span aria-hidden className="arc-border arc-reverse arc-nous" />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <img alt="" className="size-5 shrink-0 rounded" src={assetPath('nia.png')} />
+          <img alt="" className="size-5 shrink-0 rounded" src={okvevoMark} />
           <span className="text-[length:var(--conversation-text-font-size)] font-semibold">
             {freeTier ? t.freeTier.providerRowTitle : providerTitle(provider)}
           </span>

@@ -491,7 +491,7 @@ async function completeWithModelConfirm(
         return
       }
 
-      onFail(error instanceof Error ? error.message : 'Hermes could not save the selected model.')
+      onFail(error instanceof Error ? error.message : 'OkVevo could not save the selected model.')
 
       return
     }
@@ -824,7 +824,7 @@ export async function refreshOnboarding(ctx: OnboardingContext, stillWanted?: ()
         kind: 'info',
         title: 'Runtime not ready',
         message:
-          'Hermes Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.'
+          'OkVevo Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.'
       })
     }
 
@@ -1310,7 +1310,7 @@ export async function saveOnboardingLocalEndpoint(
     if (!runtime.ready) {
       const detail = (runtime.reason ?? '').trim()
 
-      return { ok: false, message: detail || `Saved, but Hermes still cannot reach ${resolvedUrl}.` }
+      return { ok: false, message: detail || `Saved, but OkVevo still cannot reach ${resolvedUrl}.` }
     }
 
     notifyReady('Local / custom endpoint')

@@ -108,7 +108,7 @@ export function useGatewayRequest() {
         const conn = await withTimeout(
           desktop.getConnection(),
           RECONNECT_ATTEMPT_TIMEOUT_MS,
-          'Timed out reconnecting to Hermes backend'
+          'Timed out reconnecting to OkVevo backend'
         )
 
         if (!ownsForeground()) {
@@ -161,7 +161,7 @@ export function useGatewayRequest() {
       const gateway = gatewayRef.current ?? activeGateway()
 
       if (!gateway) {
-        throw new Error('Hermes gateway unavailable')
+        throw new Error('OkVevo gateway unavailable')
       }
 
       // Bind retries to the dispatch owner, not whichever source is focused

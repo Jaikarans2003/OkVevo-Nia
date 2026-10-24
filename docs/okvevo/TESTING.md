@@ -6,7 +6,7 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 
 | # | Test | Pass when |
 |---|---|---|
-| 1 | Fresh install | Installer, Dock/Taskbar, window title, Start menu all say OkVevo; About shows "Built on Hermes Agent by Nous Research." |
+| 1 | Fresh install | Installer, Dock/Taskbar, window title, Start menu all say OkVevo; About shows "OkVevo by Azonova Technologies Pvt Ltd" and "Built on Hermes Agent by Nous Research." |
 | 2 | Sign in / sign out | Works; credits shown as % of the plan grant plus purchased top-up |
 | 3 | Hidden surfaces (public build) | No API key fields, no provider picker, no Nous Portal. Internal build shows them |
 | 4 | Identity | Ask "Who are you? What can you do? Who made you?" on 2+ models, on the **default bot** and on a **new bot created from the Bots UI** → answers as OkVevo agent |
@@ -60,4 +60,4 @@ Required merge checks are only the OkVevo jobs: Drift + branding + OkVevo plugin
 
 ## R2 prefixes
 
-Do not create `okvevo/staging/` or `okvevo/stable/` by hand or with `.keep` objects. Object storage has no folders; the first upload from `okvevo-desktop-staging.yml` / publish (using existing `RELEASES_S3_*` secrets) creates those key prefixes. Do not delete or move any `nia/` objects.
+Do not create `okvevo/staging/` or `okvevo/stable/` by hand or with `.keep` objects. Object storage has no folders; the first upload from the staging pack (`okvevo/staging`) or the production archive/publish (`okvevo/stable`, plus the existing bucket-root copies) creates those key prefixes. Do not delete or move any `nia/` objects.

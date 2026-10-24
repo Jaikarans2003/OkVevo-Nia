@@ -108,11 +108,11 @@ const MAINTENANCE_ROUTE = '/command-center?section=maintenance'
 /** One-click recoveries reused by several rules. */
 export const RECOVERY_ACTIONS = {
   openUpdates: (): NotificationAction => ({
-    label: translateNow('notifications.updateHermes'),
+    label: translateNow('notifications.updateOkVevo'),
     onClick: () => void import('@/store/updates').then(({ openUpdatesWindow }) => openUpdatesWindow())
   }),
   restartHermes: (): NotificationAction => ({
-    label: translateNow('notifications.actions.restartHermes'),
+    label: translateNow('notifications.actions.restartOkVevo'),
     onClick: requestBackendRestart
   }),
   openKeys: (envKey: string): NotificationAction => ({

@@ -225,7 +225,7 @@ async function locateHermes(ssh, remoteHermesPath) {
     }
 
     const err: any = new Error(
-      `The Hermes path you set is not an executable on the remote host: "${remoteHermesPath}". ` +
+      `The Hermes path you set is not an executable on the remote host: "${remoteOkVevoPath}". ` +
         'Check the path (it must be the full path to the `hermes` binary on the remote, e.g. ' +
         '~/hermes-agent/.venv/bin/hermes), or clear it to auto-detect.'
     )
@@ -980,7 +980,7 @@ finally:
 // live, unreadable, or checkout-held one, then keeps the
 // lock across the spawn and the initial lockfile publication. The descriptor
 // is close-on-exec and passed only to the outer shell; each detached child
-// closes it before execing Hermes. markerPath is expandRemotePath() output — a
+// closes it before execing OkVevo. markerPath is expandRemotePath() output — a
 // complete shell word ("$HOME"'/…' or '/abs/…') embedded raw so $HOME expands
 // remotely; a second shq() would hand python the quote characters. `hermes`
 // is the same kind of word (expandRemotePath of the located executable).

@@ -52,7 +52,6 @@ function mustStoreMsix(value) {
 // with the .appinstaller generator so the manifest and the App Installer can
 // never drift (see scripts/msix-shared.mjs).
 const { OUT_OF_STORE_PUBLISHER, channelBuildRequest, stageChannelManifest } = require('../../scripts/msix-shared.mjs')
-const { macIconResource } = require('./scripts/mac-icon.cjs')
 const channelRequest = channelBuildRequest()
 
 /** @typedef {import("app-builder-lib").Configuration} Configuration */
@@ -75,6 +74,7 @@ module.exports = {
   appId,
   productName: displayName,
   executableName: displayName,
+  copyright: '© 2026 Azonova Technologies Pvt Ltd',
   protocols: [
     {
       name: `${displayName} Protocol`,
@@ -84,8 +84,10 @@ module.exports = {
   // A store build is archived, never served to a feed — prefix its artifact
   // so it can't collide with the out-of-store MSIX of the same tag/arch, and
   // the release pipeline can keep the two apart.
-  artifactName: `${store ? 'Store-' : ''}${artifactNamePascal}-\${version}-\${os}-\${arch}.\${ext}`,
-  icon: 'assets/icon',
+  // Bundled packs ship the agent payload but keep the OkVevo-* feed filenames.
+  // artifactNamePascal for that variant is OkVevoBundled, which the feed does not publish.
+  artifactName: `${store ? 'Store-' : ''}${(process.env.HERMES_DESKTOP_VARIANT || '') === 'bundled' ? 'OkVevo' : artifactNamePascal}-\${version}-\${os}-\${arch}.\${ext}`,
+  icon: '../../brand/assets/apps/desktop/assets/icon.icns',
   // The electron-updater feed. CI builds set CLOUDFLARE_R2_PUBLIC_URL (the R2
   // public bucket / custom domain) and publish there — the feed yml, blockmaps
   // and installers all live in the same flat R2 bucket, and electron-updater
@@ -145,8 +147,12 @@ module.exports = {
       ? [{ from: 'build/agent-payload', to: 'agent-payload' }]
       : []),
     {
-      from: 'assets/icon.ico',
+      from: '../../brand/assets/apps/desktop/assets/icon.ico',
       to: 'icon.ico'
+    },
+    {
+      from: '../../brand/assets/apps/desktop/public/okvevo.png',
+      to: 'okvevo.png'
     }
   ],
   asar: {
@@ -159,7 +165,7 @@ module.exports = {
     // electron-builder compiles `.icon` with actool >= 26 only, so hosts
     // without Xcode 26 fall back to the .icns alone (see scripts/mac-icon.cjs);
     // after-pack.mjs restores our full-resolution .icns either way.
-    icon: macIconResource(__dirname),
+    icon: '../../brand/assets/apps/desktop/assets/icon.icns',
     // The afterSign hook owns notarization, including keychain-profile builds.
     notarize: false,
     // The packaged client reads this generated app-update.yml by default.
@@ -209,19 +215,9 @@ module.exports = {
   dmg: {
     // Avoid the failing optional APFS shrink pass; keep compressed conversion.
     shrink: false,
-    // The volume icon defaults to the packager's icns, which is actool's 256px
-    // fallback whenever `mac.icon` is the Icon Composer package. Ship our own
-    // drive-with-the-girl artwork instead (dmgbuild's badge option can only
-    // paste onto the stock removable-drive icon). It lives in packaging/ with
-    // the background so the `files` whitelist keeps it out of the app bundle.
-    icon: 'packaging/dmg-volume.icns',
-    title: 'Hermes Agent Installer',
-    // A prebuilt .tiff on purpose, not a PNG plus a @2x sibling: dmg-builder's
-    // PNG path runs `tiffutil -cathidpicheck`, which on macOS 26 rewrites both
-    // frames to 72 dpi and silently drops the 2x representation. A .tiff is
-    // handed to dmgbuild untouched (dmg-builder/dist/dmgUtil.js), and living
-    // outside assets/ keeps it out of the app bundle via the `files` whitelist.
-    background: 'packaging/nous-dmg-2b.tiff',
+    icon: '../../brand/assets/apps/desktop/assets/icon.icns',
+    title: 'OkVevo',
+    backgroundColor: '#f5f5f7',
     iconSize: 96,
     iconTextSize: 11,
     window: {
@@ -245,12 +241,17 @@ module.exports = {
   win: {
     executableName: windowsExecutableName,
     legalTrademarks: displayName,
+    icon: '../../brand/assets/apps/desktop/assets/icon.ico',
     target: ['msix'],
     // The updaters' relaunch waiter is PowerShell run outside the package. The
     // sealed payload's snapshot omits scripts/, so it ships as a resource
     // (RELAUNCH_WAITER_SCRIPT in electron/updater/relaunch-waiter.ts).
     extraResources: [{ from: 'scripts/update-relaunch-waiter.ps1', to: 'update-relaunch-waiter.ps1' }],
     ...windowsSigning()
+  },
+  nsis: {
+    shortcutName: 'OkVevo',
+    uninstallDisplayName: 'OkVevo'
   },
   msix: {
     // A store build uses the Partner Center packaging identity (the Store
@@ -260,7 +261,7 @@ module.exports = {
     applicationId: appNamePascal,
     displayName,
     publisher: store ? mustStoreMsix(storeMsixWhenStore).publisher : OUT_OF_STORE_PUBLISHER,
-    publisherDisplayName: store ? mustStoreMsix(storeMsixWhenStore).publisherDisplayName : 'Nous Research',
+    publisherDisplayName: store ? mustStoreMsix(storeMsixWhenStore).publisherDisplayName : 'Azonova Technologies Pvt Ltd',
     // The native quad is the build time (scripts/msix-shared.mjs::nativeQuad),
     // baked into the manifest template, so the builder's own build-number
     // override would stamp a second, conflicting version.

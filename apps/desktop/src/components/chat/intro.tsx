@@ -3,9 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { capitalize, normalize } from '@/lib/text'
 import { type OkvevoAuthPublic, useOkvevoAuth } from '@/store/okvevo-auth'
 
+import introGif from '../../../../../brand/assets/apps/desktop/public/okvevo-intro.gif'
 import introCopyJsonl from './intro-copy.jsonl?raw'
-
-const assetPath = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
 
 type IntroCopy = {
   headline: string
@@ -254,7 +253,7 @@ export function Intro(_props: IntroProps = {}) {
       <img
         alt=""
         className="size-20 rounded-[1.75rem] object-cover sm:size-24 sm:rounded-[2rem] [image-rendering:pixelated]"
-        src={assetPath('okvevo-intro.gif')}
+        src={introGif}
       />
 
       <p

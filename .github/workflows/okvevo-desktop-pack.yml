@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       feed_prefix:
-        description: S3 key prefix (staging) or empty (production root)
+        description: S3 key prefix. Staging is okvevo/staging. Production is okvevo/stable (bucket-root copies stay). Empty skips the prefix upload.
         required: false
         default: ''
         type: string
@@ -48,6 +48,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
+      - name: Brand asset spec
+        run: python3 scripts/okvevo/asset_spec.py --check
       - name: Check yml_mode
         run: |
           set -euo pipefail
@@ -62,8 +64,6 @@ jobs:
           PACK_TARGET: ${{ inputs.pack_target }}
           STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
           PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
-          STAGING_UPDATE_FEED_URL: ${{ secrets.STAGING_UPDATE_FEED_URL }}
-          PROD_UPDATE_FEED_URL: ${{ secrets.PROD_UPDATE_FEED_URL }}
           STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
           PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
           STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
@@ -157,8 +157,6 @@ jobs:
           PACK_TARGET: ${{ inputs.pack_target }}
           STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
           PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
-          STAGING_UPDATE_FEED_URL: ${{ secrets.STAGING_UPDATE_FEED_URL }}
-          PROD_UPDATE_FEED_URL: ${{ secrets.PROD_UPDATE_FEED_URL }}
           STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
           PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
           STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
@@ -179,13 +177,17 @@ jobs:
         with:
           path: apps/desktop/resources/ffmpeg
           key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
+      - name: Prepare bundled agent payload
+        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           OKVEVO_PACK_VERSION: ${{ inputs.version }}
+          HERMES_DESKTOP_VARIANT: bundled
         run: |
           set -euo pipefail
+          unset HERMES_BUILD_COMMIT || true
           PKG_VER=$(node -p "require('./package.json').version")
           if [ -n "${OKVEVO_PACK_VERSION:-}" ]; then
             VERSION=$(node scripts/ci-desktop-version.mjs --from-tag "$OKVEVO_PACK_VERSION")
@@ -201,6 +203,14 @@ jobs:
           npm run builder -- --mac dmg zip --publish never \
             -c.extraMetadata.version="$VERSION"
           node scripts/publish-release-feed.mjs write-yml --dir release --platform mac --version "$VERSION"
+      - name: Assert bundled payload and baked feed
+        run: |
+          set -euo pipefail
+          app=$(ls -d apps/desktop/release/mac*/OkVevo.app | head -1)
+          node apps/desktop/scripts/ci-assert-bundled-pack.mjs \
+            --resources "$app/Contents/Resources" \
+            --target "${{ inputs.pack_target }}" \
+            --prefix "${{ inputs.feed_prefix }}"
       - name: List bundled OSS notice
         run: |
           set -euo pipefail
@@ -227,7 +237,8 @@ jobs:
           node apps/desktop/scripts/publish-release-feed.mjs archive \
             --dir apps/desktop/release \
             --platform mac \
-            --version "$OKVEVO_CI_VERSION"
+            --version "$OKVEVO_CI_VERSION" \
+            --prefix "${{ inputs.feed_prefix }}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: ${{ inputs.yml_mode == 'staging' || inputs.yml_mode == 'artifacts' }}
         with:
@@ -267,8 +278,6 @@ jobs:
           PACK_TARGET: ${{ inputs.pack_target }}
           STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
           PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
-          STAGING_UPDATE_FEED_URL: ${{ secrets.STAGING_UPDATE_FEED_URL }}
-          PROD_UPDATE_FEED_URL: ${{ secrets.PROD_UPDATE_FEED_URL }}
           STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
           PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
           STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
@@ -290,14 +299,19 @@ jobs:
         with:
           path: apps/desktop/resources/ffmpeg
           key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
+      - name: Prepare bundled agent payload
+        shell: bash
+        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         shell: bash
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           OKVEVO_PACK_VERSION: ${{ inputs.version }}
+          HERMES_DESKTOP_VARIANT: bundled
         run: |
           set -euo pipefail
+          unset HERMES_BUILD_COMMIT || true
           PKG_VER=$(node -p "require('./package.json').version")
           if [ -n "${OKVEVO_PACK_VERSION:-}" ]; then
             VERSION=$(node scripts/ci-desktop-version.mjs --from-tag "$OKVEVO_PACK_VERSION")
@@ -313,6 +327,14 @@ jobs:
           npm run builder -- --win nsis --publish never \
             -c.extraMetadata.version="$VERSION"
           node scripts/publish-release-feed.mjs write-yml --dir release --platform win --version "$VERSION"
+      - name: Assert bundled payload and baked feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/desktop/scripts/ci-assert-bundled-pack.mjs \
+            --resources apps/desktop/release/win-unpacked/resources \
+            --target "${{ inputs.pack_target }}" \
+            --prefix "${{ inputs.feed_prefix }}"
       - name: List bundled OSS notice
         shell: bash
         run: |
@@ -343,7 +365,8 @@ jobs:
           node apps/desktop/scripts/publish-release-feed.mjs archive \
             --dir apps/desktop/release \
             --platform win \
-            --version "$OKVEVO_CI_VERSION"
+            --version "$OKVEVO_CI_VERSION" \
+            --prefix "${{ inputs.feed_prefix }}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: ${{ inputs.yml_mode == 'staging' || inputs.yml_mode == 'artifacts' }}
         with:

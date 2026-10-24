@@ -469,3 +469,58 @@ test('verifyArchivedVersion checks sha512 and requires sibling blockmaps', () =>
   assert.throws(() => verifyArchivedVersion({ bucket: 'releases', version, aws }), /missing blockmap/)
   fs.rmSync(dir, { recursive: true, force: true })
 })
+
+test('archiveFeed prefix writes okvevo/stable live yml and installers without root live yml', () => {
+  const version = '0.17.15'
+  const dir = writePlatformDir(version, 'mac')
+  const store = {}
+  archiveFeed({
+    feedDir: dir,
+    bucket: 'releases',
+    platform: 'mac',
+    version,
+    prefix: 'okvevo/stable',
+    aws: createMemoryAws(store)
+  })
+  assert.equal(store['latest-mac.yml'], undefined)
+  assert.ok(store[`OkVevo-${version}-mac-arm64.dmg`])
+  assert.ok(store[`okvevo/stable/OkVevo-${version}-mac-arm64.dmg`])
+  assert.ok(store[`okvevo/stable/OkVevo-${version}-mac-arm64.zip`])
+  assert.ok(store['okvevo/stable/latest-mac.yml'])
+  assert.ok(store[`okvevo/stable/versions/${version}/latest-mac.yml`])
+  assert.equal(
+    Buffer.from(store['okvevo/stable/OkVevo-mac-arm64.dmg']).toString(),
+    Buffer.from(store[`OkVevo-${version}-mac-arm64.dmg`]).toString()
+  )
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('publishPointers prefix mirrors live yml and installers and keeps bucket-root copies', () => {
+  const version = '0.17.15'
+  const dir = writePlatformDir(version, 'both')
+  const store = {}
+  const aws = createMemoryAws(store)
+  archiveFeed({ feedDir: dir, bucket: 'releases', platform: 'mac', version, aws })
+  archiveFeed({ feedDir: dir, bucket: 'releases', platform: 'win', version, aws })
+  publishPointers({
+    bucket: 'releases',
+    version,
+    prefix: 'okvevo/stable',
+    aws,
+    hashObject: () => ({ sha512: 'x', size: 1 }),
+    date: '2026-09-21T00:00:00.000Z'
+  })
+  assert.match(store['latest-mac.yml'].toString(), new RegExp(`version: ${version}`))
+  assert.match(store['latest.yml'].toString(), new RegExp(`version: ${version}`))
+  assert.ok(store[STABLE_MAC_NAME])
+  assert.ok(store[STABLE_WIN_NAME])
+  assert.match(store['okvevo/stable/latest-mac.yml'].toString(), new RegExp(`version: ${version}`))
+  assert.match(store['okvevo/stable/latest.yml'].toString(), new RegExp(`version: ${version}`))
+  assert.ok(store[`okvevo/stable/${STABLE_MAC_NAME}`])
+  assert.ok(store[`okvevo/stable/${STABLE_WIN_NAME}`])
+  assert.ok(store[`okvevo/stable/OkVevo-${version}-mac-arm64.zip`])
+  assert.ok(store[`okvevo/stable/OkVevo-${version}-win-x64.exe`])
+  assert.ok(store[`okvevo/stable/OkVevo-${version}-mac-arm64.zip.blockmap`])
+  assert.equal(store['okvevo/stable/releases.json'], undefined)
+  fs.rmSync(dir, { recursive: true, force: true })
+})

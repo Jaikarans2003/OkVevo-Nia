@@ -51,11 +51,9 @@
  */
 import { existsSync, rmSync, renameSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { Arch } from 'electron-builder'
 import { copyNativeInputs } from './prepared-native-deps.mjs'
 import { removeDirSync } from './stage-native-deps.mjs'
-import { overlayBrandAssets } from './overlay-brand-assets.mjs'
 
 /** @param {string | null | undefined} appOutDir @returns {boolean} */
 export function cleanStaleAppOutDir(appOutDir) {
@@ -116,9 +114,6 @@ export function preserveRollbackBackup(appOutDir, productExeName = 'OkVevo.exe')
 
 /** @param {import("app-builder-lib").BeforePackContext} context @returns {Promise<void>} */
 export default async function beforePack(context) {
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
-  const overlaid = overlayBrandAssets(repoRoot)
-  console.log(`[before-pack] brand overlay: ${overlaid.copied.length} copied, ${overlaid.removed.length} removed`)
   const appOutDir = context && context.appOutDir
   const platformName = context && context.electronPlatformName
   try {

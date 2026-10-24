@@ -208,7 +208,7 @@ export function reportBackendContract(contract: number | undefined, protocol?: s
 
     notify({
       action: {
-        label: translateNow('notifications.updateHermes'),
+        label: translateNow('notifications.updateOkVevo'),
         onClick: () => {
           snoozeSkewToast()
           void applyBackendUpdate()
