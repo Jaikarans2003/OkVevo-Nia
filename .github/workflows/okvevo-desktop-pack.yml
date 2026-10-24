@@ -18,7 +18,7 @@ on:
         default: ''
         type: string
       yml_mode:
-        description: staging (artifacts + R2 sync), versioned (direct R2 archive), or artifacts (GitHub artifacts only, no feed publish)
+        description: staging (artifacts + R2 sync), versioned (direct R2 archive), artifacts (GitHub artifacts only), or build (pack and assert only, no upload, no publish)
         required: true
         type: string
       version:
@@ -54,8 +54,8 @@ jobs:
         run: |
           set -euo pipefail
           mode="${{ inputs.yml_mode }}"
-          if [ "$mode" != 'staging' ] && [ "$mode" != 'versioned' ] && [ "$mode" != 'artifacts' ]; then
-            echo "::error::yml_mode must be staging, versioned, or artifacts, got $mode"
+          if [ "$mode" != 'staging' ] && [ "$mode" != 'versioned' ] && [ "$mode" != 'artifacts' ] && [ "$mode" != 'build' ]; then
+            echo "::error::yml_mode must be staging, versioned, artifacts, or build, got $mode"
             exit 1
           fi
       - name: Map prefixed repository secrets
@@ -81,7 +81,7 @@ jobs:
         if: ${{ inputs.allow_unsigned }}
         run: echo "::warning::UNSIGNED PACK ALLOWED"
       - name: Require feed and signing secrets
-        if: ${{ inputs.yml_mode != 'artifacts' }}
+        if: ${{ inputs.yml_mode != 'artifacts' && inputs.yml_mode != 'build' }}
         env:
           OKVEVO_ALLOW_UNSIGNED: ${{ inputs.allow_unsigned && '1' || '' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -173,12 +173,15 @@ jobs:
       - name: Require pack-env
         working-directory: apps/desktop
         run: node scripts/write-okvevo-pack-env.mjs --require
+      # desktop.py refuses a dirty checkout. Upstream's Desktop pack restores
+      # ffmpeg into apps/desktop/resources/ffmpeg and then builds. Those files
+      # are untracked, so this pack prepares the payload before that restore.
+      - name: Prepare bundled agent payload
+        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
           key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
-      - name: Prepare bundled agent payload
-        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         env:
@@ -295,13 +298,14 @@ jobs:
         working-directory: apps/desktop
         shell: bash
         run: node scripts/write-okvevo-pack-env.mjs --require
+      # Same order as macOS: prepare while the checkout is still clean.
+      - name: Prepare bundled agent payload
+        shell: bash
+        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
           key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
-      - name: Prepare bundled agent payload
-        shell: bash
-        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         shell: bash

@@ -1,0 +1,70 @@
+# Build-only Mac and Windows pack on pull requests to staging.
+# No GitHub artifact upload and no R2 publish. The reusable pack still
+# asserts install-stamp payload bundled and Resources/agent-payload.
+# The gate job always reports, so it can be a required check. The pack
+# itself runs only when desktop, brand, bundle, or pack-workflow files change.
+
+name: OkVevo desktop pack (pull request)
+
+on:
+  pull_request:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: okvevo-desktop-pr-pack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Desktop pack paths
+    runs-on: ubuntu-latest
+    outputs:
+      pack: ${{ steps.filter.outputs.pack }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Detect desktop pack paths
+        id: filter
+        run: |
+          set -euo pipefail
+          git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD > "$RUNNER_TEMP/changed"
+          if grep -Eq '^\.github/workflows/okvevo-desktop-.*\.yml$|^apps/desktop/|^scripts/bundles/|^brand/' "$RUNNER_TEMP/changed"; then
+            echo "pack=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pack=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  pack:
+    name: OkVevo desktop pack
+    needs: changes
+    if: needs.changes.outputs.pack == 'true'
+    uses: ./.github/workflows/okvevo-desktop-pack.yml
+    with:
+      pack_target: staging
+      feed_prefix: okvevo/staging
+      yml_mode: build
+      allow_unsigned: true
+    secrets: inherit
+
+  gate:
+    name: OkVevo desktop pack (build only)
+    needs: [changes, pack]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a green build-only pack when desktop paths changed
+        run: |
+          set -euo pipefail
+          echo "paths=${{ needs.changes.outputs.pack }} pack=${{ needs.pack.result }}"
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "::error::could not read the pull request diff"
+            exit 1
+          fi
+          if [ "${{ needs.changes.outputs.pack }}" = "true" ] && [ "${{ needs.pack.result }}" != "success" ]; then
+            echo "::error::Mac and Windows build-only pack did not pass"
+            exit 1
+          fi
