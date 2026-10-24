@@ -178,7 +178,7 @@ jobs:
       # are untracked, so this pack prepares the payload before that restore.
       - name: Prepare bundled agent payload
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/desktop/resources/ffmpeg
           key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
@@ -302,7 +302,7 @@ jobs:
       - name: Prepare bundled agent payload
         shell: bash
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/desktop/resources/ffmpeg
           key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
