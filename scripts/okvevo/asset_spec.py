@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -130,24 +131,33 @@ def icns_size(data: bytes) -> str:
     return ", ".join(found) if found else "icns"
 
 
-def used_in(name: str) -> str:
-    hits = []
-    roots = [ROOT / "apps" / "desktop", ROOT / "scripts" / "okvevo", ROOT / "brand"]
-    for root in roots:
-        if not root.exists():
+def tracked_text() -> list[tuple[str, str]]:
+    # git ls-files, not a directory walk: local .build/venv files and macOS vs
+    # Linux directory order were making the spec differ on the CI runner.
+    out = subprocess.check_output(
+        ["git", "-C", str(ROOT), "ls-files", "-z", "--", "apps/desktop", "scripts/okvevo", "brand"]
+    )
+    rows = []
+    for rel in out.split(b"\0"):
+        if not rel:
             continue
-        for path in root.rglob("*"):
-            if not path.is_file() or path == SPEC or path.suffix in {".png", ".gif", ".ico", ".icns"}:
-                continue
-            if any(part in {"node_modules", "dist", "release", "build"} for part in path.parts):
-                continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
-                continue
-            if name in text:
-                hits.append(path.relative_to(ROOT).as_posix())
-    return ", ".join(hits) if hits else "brand asset"
+        name = rel.decode()
+        path = ROOT / name
+        if path == SPEC or path.suffix.lower() in IMAGE_EXT or not path.is_file():
+            continue
+        try:
+            rows.append((name, path.read_text(encoding="utf-8")))
+        except (UnicodeDecodeError, OSError):
+            continue
+    return rows
+
+
+TRACKED_TEXT = tracked_text()
+
+
+def used_in(name: str) -> str:
+    hits = [rel for rel, text in TRACKED_TEXT if name in text]
+    return ", ".join(sorted(hits)) if hits else "brand asset"
 
 
 def describe(path: Path) -> str:
