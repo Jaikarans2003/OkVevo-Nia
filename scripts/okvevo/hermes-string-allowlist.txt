@@ -1,0 +1,8 @@
+# Lines are either "substring <text>" or "exact <text>".
+# substring: removed from a literal before the Hermes check.
+# exact: the whole literal is internal and stays.
+substring Built on Hermes Agent by Nous Research
+substring Hermes Agent by Nous Research
+substring X-Hermes-
+exact Hermes Agent
+exact user.name=Hermes

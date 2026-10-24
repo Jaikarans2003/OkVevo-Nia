@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { en } from '@/i18n/en'
+import { TRANSLATIONS } from '@/i18n'
 import { $desktopBoot } from '@/store/boot'
 import { $notifications } from '@/store/notifications'
 import { $desktopOnboarding } from '@/store/onboarding'
@@ -92,7 +92,7 @@ describe('BootFailureOverlay', () => {
       </>
     )
 
-    const recoverySurface = screen.getByRole('dialog', { name: /Hermes couldn't start/i })
+    const recoverySurface = screen.getByRole('dialog', { name: /OkVevo couldn't start/i })
     const retry = screen.getByRole('button', { name: /retry/i })
     const backgroundAction = screen.getByText(/background action/i)
 
@@ -129,7 +129,7 @@ describe('BootFailureOverlay', () => {
 
     $desktopBoot.set({ ...$desktopBoot.get(), error: 'A different startup failure' })
     rerender(<BootFailureOverlay />)
-    expect(screen.getByRole('dialog', { name: /Hermes couldn't start/i })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /OkVevo couldn't start/i })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -139,14 +139,14 @@ describe('BootFailureOverlay', () => {
     $desktopBoot.set({ ...$desktopBoot.get(), error, running: false })
     rerender(<BootFailureOverlay />)
 
-    expect(screen.getByRole('dialog', { name: /Hermes couldn't start/i })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /OkVevo couldn't start/i })).toBeTruthy()
   })
 
   it('dismisses on Escape and keeps the boot error latched', () => {
     render(<BootFailureOverlay />)
     const error = $desktopBoot.get().error
 
-    fireEvent.keyDown(screen.getByRole('dialog', { name: /Hermes couldn't start/i }), { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('dialog', { name: /OkVevo couldn't start/i }), { key: 'Escape' })
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect($desktopBoot.get().error).toBe(error)
@@ -174,7 +174,7 @@ describe('BootFailureOverlay', () => {
     act(() => $desktopBoot.set({ ...$desktopBoot.get(), running: true }))
     act(() => $desktopBoot.set({ ...$desktopBoot.get(), error, running: false }))
 
-    expect(screen.getByRole('dialog', { name: /Hermes couldn't start/i })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /OkVevo couldn't start/i })).toBeTruthy()
   })
 
   it('drops local-only Repair and Use-local-gateway on a local failure', () => {
@@ -335,7 +335,7 @@ describe('BootFailureOverlay', () => {
     $desktopBoot.set({
       ...$desktopBoot.get(),
       error:
-        'This app bundles its own Hermes runtime, but the runtime files are missing or damaged. Reinstall Hermes Desktop to restore it.'
+        'This app bundles its own OkVevo runtime, but the runtime files are missing or damaged. Reinstall OkVevo Desktop to restore it.'
     })
 
     try {
@@ -402,8 +402,8 @@ describe('BootFailureOverlay', () => {
         failure === 'thrown'
           ? 'installer permission denied'
           : failure === 'refused'
-            ? en.boot.failure.bundledReinstallHint
-            : en.boot.errors.ipcBridgeUnavailable
+            ? TRANSLATIONS.en.boot.failure.bundledReinstallHint
+            : TRANSLATIONS.en.boot.errors.ipcBridgeUnavailable
 
       await waitFor(() =>
         expect($notifications.get()).toEqual(

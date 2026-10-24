@@ -1,11 +1,14 @@
 /**
  * Publish OkVevo artifacts to the generic electron-updater feed (S3/R2).
  *
- * Staging: prefix `staging/`, keep electron-builder latest*.yml names,
- *   and copy versioned DMG/EXE → stable names under the prefix.
+ * Staging sync: prefix `okvevo/staging`, latest*.yml names, plus stable
+ *   DMG/EXE names under that prefix.
  * Production archive: versioned OkVevo-* + blockmaps at bucket root and
- *   versions/{ver}/latest*.yml. Never writes live pointers.
- * Production publish: stable names → releases.json → root latest*.yml last.
+ *   versions/{ver}/latest*.yml. Root live pointers stay untouched.
+ *   With --prefix okvevo/stable, the same objects plus latest*.yml and the
+ *   stable installer names are also written under that prefix.
+ * Production publish: stable names → releases.json → root latest*.yml last,
+ *   and the same live files under --prefix (bucket-root copies stay).
  */
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -20,6 +23,12 @@ export const CATALOG_KEEP_N = 10
 export const PUBLIC_FEED_ORIGIN = 'https://releases.okvevo.com'
 export const CACHE_CONTROL_IMMUTABLE = 'public, max-age=31536000, immutable'
 export const CACHE_CONTROL_NO_STORE = 'no-store'
+
+export function feedKey(prefix, key) {
+  const cleanPrefix = String(prefix || '').replace(/^\/+|\/+$/g, '')
+  const cleanKey = String(key || '').replace(/^\/+/, '')
+  return cleanPrefix ? `${cleanPrefix}/${cleanKey}` : cleanKey
+}
 
 export function publicFeedOrigin(env = process.env) {
   const fromEnv = String(env.RELEASES_PUBLIC_ORIGIN || '').trim()
@@ -275,11 +284,23 @@ function cpLocalToS3({ aws, env, src, bucket, key, extra = [] }) {
   aws(['s3', 'cp', src, s3Uri(bucket, key), ...extra], env)
 }
 
+function listedArtifactNames(parsed) {
+  const names = new Set()
+  const add = url => {
+    if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) names.add(url)
+  }
+  for (const file of parsed.files || []) add(file && file.url)
+  add(parsed.path)
+  for (const url of parsed.urls || []) add(url)
+  return [...names]
+}
+
 export function archiveFeed({
   feedDir,
   bucket,
   platform,
   version,
+  prefix = '',
   env = process.env,
   aws = runAws
 }) {
@@ -324,6 +345,46 @@ export function archiveFeed({
     bucket,
     key: `versions/${version}/${set.yml}`,
     extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
+  })
+
+  if (!prefix) return
+  for (const name of toUpload) {
+    const src = path.join(feedDir, name)
+    if (!fs.existsSync(src) || !fs.statSync(src).isFile()) continue
+    cpLocalToS3({
+      aws,
+      env,
+      src,
+      bucket,
+      key: feedKey(prefix, name),
+      extra: ['--cache-control', CACHE_CONTROL_IMMUTABLE]
+    })
+  }
+  cpLocalToS3({
+    aws,
+    env,
+    src: ymlPath,
+    bucket,
+    key: feedKey(prefix, `versions/${version}/${set.yml}`),
+    extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
+  })
+  cpLocalToS3({
+    aws,
+    env,
+    src: ymlPath,
+    bucket,
+    key: feedKey(prefix, set.yml),
+    extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
+  })
+  const stableName = platform === 'mac' ? STABLE_MAC_NAME : STABLE_WIN_NAME
+  const stableSrcName = platform === 'mac' ? artifactNameFor(version, 'mac-dmg') : artifactNameFor(version, 'win-nsis')
+  cpLocalToS3({
+    aws,
+    env,
+    src: path.join(feedDir, stableSrcName),
+    bucket,
+    key: feedKey(prefix, stableName),
+    extra: ['--cache-control', CACHE_CONTROL_NO_STORE]
   })
 }
 
@@ -423,6 +484,7 @@ export function publishPointers({
   markStable = false,
   date = new Date().toISOString(),
   origin,
+  prefix = '',
   env = process.env,
   aws = runAws,
   hashObject,
@@ -523,6 +585,63 @@ export function publishPointers({
       toKey: 'latest.yml',
       extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
     })
+
+    if (prefix) {
+      const names = new Set([...listedArtifactNames(mac), ...listedArtifactNames(win), macDmg, winExe])
+      for (const name of names) {
+        copyS3({
+          aws,
+          env,
+          bucket,
+          fromKey: name,
+          toKey: feedKey(prefix, name),
+          extra: ['--cache-control', CACHE_CONTROL_IMMUTABLE]
+        })
+        const blockmap = siblingBlockmapName(name)
+        if (blockmap && getTextObject({ bucket, key: blockmap, aws, env }) != null) {
+          copyS3({
+            aws,
+            env,
+            bucket,
+            fromKey: blockmap,
+            toKey: feedKey(prefix, blockmap),
+            extra: ['--cache-control', CACHE_CONTROL_IMMUTABLE]
+          })
+        }
+      }
+      copyS3({
+        aws,
+        env,
+        bucket,
+        fromKey: macDmg,
+        toKey: feedKey(prefix, STABLE_MAC_NAME),
+        extra: ['--cache-control', CACHE_CONTROL_NO_STORE]
+      })
+      copyS3({
+        aws,
+        env,
+        bucket,
+        fromKey: winExe,
+        toKey: feedKey(prefix, STABLE_WIN_NAME),
+        extra: ['--cache-control', CACHE_CONTROL_NO_STORE]
+      })
+      copyS3({
+        aws,
+        env,
+        bucket,
+        fromKey: `versions/${version}/latest-mac.yml`,
+        toKey: feedKey(prefix, 'latest-mac.yml'),
+        extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
+      })
+      copyS3({
+        aws,
+        env,
+        bucket,
+        fromKey: `versions/${version}/latest.yml`,
+        toKey: feedKey(prefix, 'latest.yml'),
+        extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
+      })
+    }
 
     return {
       version,
@@ -627,7 +746,8 @@ if (isMain) {
       feedDir: flag('--dir', process.argv) || 'feed',
       bucket,
       platform: flag('--platform', process.argv),
-      version: flag('--version', process.argv)
+      version: flag('--version', process.argv),
+      prefix: flag('--prefix', process.argv) || ''
     })
   } else if (cmd === 'verify') {
     const result = verifyArchivedVersion({
@@ -639,15 +759,16 @@ if (isMain) {
     const result = publishPointers({
       bucket,
       version: flag('--version', process.argv),
-      markStable: process.argv.includes('--mark-stable')
+      markStable: process.argv.includes('--mark-stable'),
+      prefix: flag('--prefix', process.argv) || ''
     })
     console.log(JSON.stringify({ version: result.version, stableMac: result.stableMac, stableWin: result.stableWin }))
   } else {
     console.error('Usage: publish-release-feed.mjs write-yml --dir DIR --platform mac|win --version X.Y.Z')
-    console.error('       publish-release-feed.mjs sync --dir DIR --mode staging [--prefix staging]')
-    console.error('       publish-release-feed.mjs archive --dir DIR --platform mac|win --version X.Y.Z')
+    console.error('       publish-release-feed.mjs sync --dir DIR --mode staging [--prefix okvevo/staging]')
+    console.error('       publish-release-feed.mjs archive --dir DIR --platform mac|win --version X.Y.Z [--prefix okvevo/stable]')
     console.error('       publish-release-feed.mjs verify --version X.Y.Z')
-    console.error('       publish-release-feed.mjs publish --version X.Y.Z [--mark-stable]')
+    console.error('       publish-release-feed.mjs publish --version X.Y.Z [--mark-stable] [--prefix okvevo/stable]')
     process.exit(1)
   }
 }

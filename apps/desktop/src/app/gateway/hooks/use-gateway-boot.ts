@@ -481,7 +481,7 @@ export function useGatewayBoot({
               }) ?? Promise.reject(new Error('Registry gateway connection is unavailable')))
             : desktop.getConnection(primaryConnection?.profile),
           RECONNECT_ATTEMPT_TIMEOUT_MS,
-          'Timed out reconnecting to Hermes backend'
+          'Timed out reconnecting to OkVevo backend'
         )
 
         // A boot/connection apply that recorded a newer primary route during
@@ -843,7 +843,7 @@ export function useGatewayBoot({
         const conn = await withTimeout(
           getWindowBackend(),
           BACKEND_BOOT_WAIT_TIMEOUT_MS,
-          'Timed out reconnecting to Hermes backend'
+          'Timed out reconnecting to OkVevo backend'
         )
 
         if (!ownsSwitch()) {
@@ -1043,7 +1043,7 @@ export function useGatewayBoot({
     configureGatewayRegistry({
       onServerRequest: request => {
         if (!callbacksRef.current.handleServerRequest(request)) {
-          request.fail(JSON_RPC_METHOD_NOT_FOUND, `Hermes Desktop cannot answer ${request.method}`)
+          request.fail(JSON_RPC_METHOD_NOT_FOUND, `OkVevo Desktop cannot answer ${request.method}`)
         }
       },
       // The primary socket has no secondary entry to carry registry identity.
@@ -1232,7 +1232,7 @@ export function useGatewayBoot({
         activeGateway()?.close()
 
         if (!(await ensureActiveGatewayOpen({ explicit: true }))) {
-          throw new Error('Hermes gateway is not connected')
+          throw new Error('OkVevo gateway is not connected')
         }
 
         return
@@ -1445,7 +1445,7 @@ export function useGatewayBoot({
         message: translateNow('boot.errors.backgroundExited'),
         durationMs: 0,
         action: {
-          label: translateNow('boot.errors.restartHermes'),
+          label: translateNow('boot.errors.restartOkVevo'),
           onClick: requestBackendRestart
         },
         secondaryAction: {
@@ -1473,7 +1473,7 @@ export function useGatewayBoot({
         const conn = await withTimeout(
           getWindowBackend(true),
           BACKEND_BOOT_WAIT_TIMEOUT_MS,
-          'Timed out connecting to Hermes backend'
+          'Timed out connecting to OkVevo backend'
         )
 
         if (cancelled) {

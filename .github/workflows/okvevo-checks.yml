@@ -18,7 +18,7 @@ jobs:
   drift-branding-plugins:
     name: Drift + branding + OkVevo plugins
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
+      - name: Install desktop workspace
+        run: npm ci --workspace apps/desktop --include-workspace-root
       - name: Fetch upstream tag for drift
         run: git fetch --tags origin 'v0.22.4' || git fetch --tags https://github.com/NousResearch/hermes-agent.git 'refs/tags/v0.22.4:refs/tags/v0.22.4'
       - name: Upstream drift
@@ -58,7 +60,7 @@ jobs:
   desktop-okvevo:
     name: Desktop OkVevo suites
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -71,10 +73,19 @@ jobs:
           npx vitest run --project electron \
             electron/okvevo-config-migration.test.ts \
             electron/okvevo-env.test.ts \
+            electron/okvevo-feed.test.ts \
+            electron/okvevo-about.test.ts \
             electron/backend-env.test.ts \
-            electron/okvevo-auth.test.ts
+            electron/okvevo-auth.test.ts \
+            scripts/okvevo-feed-urls.test.mjs \
+            scripts/ci-map-pack-env.test.mjs \
+            scripts/publish-release-feed.test.mjs
           npx vitest run --project ui \
             src/plugins/hermes-bots/data.identity.test.ts \
             src/plugins/hermes-bots/group-chat.test.ts \
             src/plugins/hermes-bots/routing.test.ts \
-            src/app/settings/settings-ui-policy.test.ts
+            src/app/settings/settings-ui-policy.test.ts \
+            src/i18n/okvevo-catalog.test.ts \
+            src/components/boot-failure-overlay.test.tsx \
+            src/components/chat/intro.test.tsx \
+            src/lib/okvevo-billing-listener.test.ts

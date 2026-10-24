@@ -381,7 +381,7 @@ const classicPalette = (colors: Record<string, string>) => skinToDesktopTheme({ 
  */
 export const classicTheme: DesktopTheme = {
   name: 'classic',
-  label: 'Classic Hermes',
+  label: 'Classic OkVevo',
   description: "Gold on navy, the CLI's original look",
   colors: classicPalette(CLASSIC_LIGHT_SKIN_COLORS),
   darkColors: classicPalette(CLASSIC_DARK_SKIN_COLORS)

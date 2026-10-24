@@ -42,7 +42,7 @@ export function formatMissingPackSecrets(missing) {
   return [
     'Packaged OkVevo builds are fail-closed: missing portal origin, update feed, or Vite Firebase keys.',
     `Unset: ${missing.join(', ')}`,
-    'Set STAGING_* or PROD_* repository secrets (mapped in the desktop workflow). Do not hardcode www.okvevo.com.'
+    'Set STAGING_OKVEVO_WEB_ORIGIN or PROD_OKVEVO_WEB_ORIGIN and the Firebase keys. The update feed URL comes from okvevo-feed-urls.mjs.'
   ].join('\n')
 }
 
@@ -64,7 +64,7 @@ export function isAbsoluteHttpsOrigin(value) {
   return Boolean(url && (url.pathname === '/' || url.pathname === ''))
 }
 
-/** Absolute https URL. A path is allowed (staging feed is /staging). */
+/** Absolute https URL. A path is allowed (the staging feed is /okvevo/staging). */
 export function isAbsoluteHttpsUrl(value) {
   return parseHttpsUrl(value) !== null
 }

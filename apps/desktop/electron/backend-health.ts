@@ -303,7 +303,7 @@ export async function waitForHermesReady(baseUrl: string, options: HermesReadyOp
       }
 
       if (options.alreadyBound && isConnectionRefusedError(error)) {
-        throw new Error(`Hermes backend did not become ready: ${(error as Error).message}`)
+        throw new Error(`OkVevo backend did not become ready: ${(error as Error).message}`)
       }
 
       // An explicitly missing route means the backend predates /api/health.

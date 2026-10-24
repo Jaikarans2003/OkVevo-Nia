@@ -115,9 +115,9 @@ describe('DesktopInstallOverlay first-run setup', () => {
 
     render(<DesktopInstallOverlay />)
 
-    expect(await screen.findByText('Set up Hermes Desktop')).toBeTruthy()
-    expect(screen.queryByText('Connect to existing Hermes')).toBeNull()
-    expect(screen.getByText('Install Hermes locally')).toBeTruthy()
+    expect(await screen.findByText('Set up OkVevo Desktop')).toBeTruthy()
+    expect(screen.queryByText('Connect to existing OkVevo')).toBeNull()
+    expect(screen.getByText('Install OkVevo locally')).toBeTruthy()
     expect(screen.getByText(/Will install to/i)).toBeTruthy()
     expect(screen.queryByText(/steps complete/i)).toBeNull()
     expect(screen.queryByText(/Fetching installer manifest/i)).toBeNull()
@@ -577,7 +577,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
       })
     )
     render(<DesktopInstallOverlay />)
-    fireEvent.click(await screen.findByText('Connect to existing Hermes'))
+    fireEvent.click(await screen.findByText('Connect to existing OkVevo'))
     const url = screen.getByPlaceholderText('https://gateway.example.com/hermes')
     fireEvent.change(url, { target: { value: 'https://a.example' } })
     fireEvent.click(await screen.findByRole('button', { name: /Sign in with/ }))
@@ -590,7 +590,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(saveConnectionConfig).not.toHaveBeenCalled()
     expect(desktop.applyConnectionConfig).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('Back'))
-    fireEvent.click(await screen.findByText('Install Hermes locally'))
+    fireEvent.click(await screen.findByText('Install OkVevo locally'))
     expect(desktop.continueBootstrapLocal).toHaveBeenCalledTimes(1)
     expect(saveConnectionConfig).not.toHaveBeenCalled()
   })
@@ -684,9 +684,9 @@ function runningProgressState(): DesktopBootstrapState {
   })
 }
 it.each([
-  ['installed', false, 'Use Hermes on this computer', /already installed here/i, false],
-  ['bundled', true, 'Use Hermes on this computer', /included with this app/i, false],
-  [undefined, false, 'Install Hermes locally', /Will install to/i, true]
+  ['installed', false, 'Use OkVevo on this computer', /already installed here/i, false],
+  ['bundled', true, 'Use OkVevo on this computer', /included with this app/i, false],
+  [undefined, false, 'Install OkVevo locally', /Will install to/i, true]
 ] as const)(
   'local presentation for %s (including old backends)',
   async (
@@ -711,7 +711,7 @@ it.each([
     expect(screen.queryByText(/Will install to/i) !== null).toBe(footer)
 
     if (!footer) {
-      expect(screen.queryByText('Install Hermes locally')).toBeNull()
+      expect(screen.queryByText('Install OkVevo locally')).toBeNull()
     }
   }
 )

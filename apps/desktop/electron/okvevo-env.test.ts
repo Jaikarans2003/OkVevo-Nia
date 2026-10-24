@@ -51,7 +51,7 @@ test('pack origin overwrites wrong home .env after dotenv', () => {
     file,
     JSON.stringify({
       OKVEVO_WEB_ORIGIN: 'https://from-pack.example',
-      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging',
+      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/okvevo/staging',
       OKVEVO_UPDATE_CHANNEL: 'latest'
     })
   )
@@ -61,7 +61,7 @@ test('pack origin overwrites wrong home .env after dotenv', () => {
   const applied = applyPackEnv(loadPackEnvFile(file), env)
 
   assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://from-pack.example')
-  assert.equal(env.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
+  assert.equal(env.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/okvevo/staging')
   assert.equal(env.OKVEVO_UPDATE_CHANNEL, 'latest')
   assert.deepEqual(applied.sort(), ['OKVEVO_UPDATE_CHANNEL', 'OKVEVO_UPDATE_FEED_URL', 'OKVEVO_WEB_ORIGIN'])
 
@@ -118,7 +118,7 @@ test('empty pack origin does not clobber a home value', () => {
     file,
     JSON.stringify({
       OKVEVO_WEB_ORIGIN: '',
-      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging'
+      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/okvevo/staging'
     })
   )
 
@@ -127,7 +127,7 @@ test('empty pack origin does not clobber a home value', () => {
   const applied = applyPackEnv(loadPackEnvFile(file), env)
 
   assert.equal(env.OKVEVO_WEB_ORIGIN, 'https://from-home.example')
-  assert.equal(env.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/staging')
+  assert.equal(env.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/okvevo/staging')
   assert.deepEqual(applied, ['OKVEVO_UPDATE_FEED_URL'])
 
   fs.rmSync(root, { recursive: true, force: true })
