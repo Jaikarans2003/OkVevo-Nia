@@ -74,11 +74,15 @@ class OkvevoProfile(ProviderProfile):
                 body.update(upstream.build_extra_body(session_id=session_id, **context))
             except Exception:
                 logger.debug("openrouter extra-body delegation failed", exc_info=True)
-        from plugins.okvevo.auto_router import auto_plugin
+        from plugins.okvevo.auto_router import auto_plugin, wire_model
 
         auto = auto_plugin(context.get("model"))
         if auto:
             body["plugins"] = [auto]
+            # request_overrides are applied after top-level kwargs and put the
+            # alias back. The OpenAI SDK merges extra_body over the JSON body,
+            # so the wire model has to be here or Auto never leaves the client.
+            body["model"] = wire_model(context.get("model"))
         return body
 
     def build_api_kwargs_extras(
