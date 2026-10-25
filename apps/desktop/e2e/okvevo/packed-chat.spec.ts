@@ -19,8 +19,26 @@ function resourcesDir(executable: string): string {
   throw new Error(`okvevo-pack-env.json not beside ${executable}`)
 }
 
+function messageText(message: unknown): string {
+  if (!message || typeof message !== 'object') return ''
+  const content = (message as { content?: unknown }).content
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map(part => {
+      if (typeof part === 'string') return part
+      if (part && typeof part === 'object' && 'text' in part) return String((part as { text?: unknown }).text ?? '')
+      return ''
+    })
+    .join('')
+}
+
+/** The chat turn, not a later title or memory call that quotes the same text. */
 function callFor(calls: ChatCall[], marker: string): ChatCall {
-  const found = [...calls].reverse().find(call => JSON.stringify(call.messages ?? '').includes(marker))
+  const found = calls.find(call => {
+    const messages = Array.isArray(call.messages) ? call.messages : []
+    return messages.some(message => messageText(message).trim() === marker)
+  })
   if (!found) throw new Error(`no gateway call contained ${marker}`)
   return found
 }
@@ -84,14 +102,14 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     await shot(page, 'default-bot-chat.png')
 
     await openModelMenu(page)
-    await page.getByText('Intelligence', { exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Intelligence', exact: true }).click()
     const intelligenceBefore = await replies(page)
     await send(page, 'ping auto intelligence')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(intelligenceBefore)
     expect(callFor(mock.calls, 'ping auto intelligence').plugins?.[0]?.cost_tier).toBe('xhigh')
 
     await openModelMenu(page)
-    await page.getByText(/gpt-4o-mini/i).first().click()
+    await page.getByRole('menuitem', { name: /gpt-4o-mini/i }).click()
     await shot(page, 'model-picker.png')
     const specificBefore = await replies(page)
     await send(page, 'ping specific model')
