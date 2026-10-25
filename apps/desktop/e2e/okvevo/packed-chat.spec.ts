@@ -3,7 +3,7 @@ import * as path from 'node:path'
 
 import { _electron, expect, test, type Page } from '@playwright/test'
 
-import { appLogTail, composer, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
+import { appLogTail, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
 
 import { type ChatCall, startGatewayMock } from './gateway-mock'
 import { noteRequestUrl } from './vendor-guard'
@@ -200,7 +200,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
       const match = line.match(/https?:\/\/[^\s'")]+/)
       if (match) noteRequestUrl(match[0])
     }
-    expect(composer(page)).toBeVisible()
+    await expect(groupBox).toBeVisible()
   } finally {
     await app.close().catch(() => undefined)
     fs.writeFileSync(packPath, originalPack)
