@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { type ReactElement, useMemo, useRef, useState } from 'react'
 
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { catalogProviderMatches, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { currentPickerSelection } from '@/lib/model-status-label'
 import { accountResetMs, formatReset, modelResetMs } from '@/lib/provider-limit'
@@ -218,12 +219,16 @@ export function ModelPickerDialog({
         </Command>
 
         <DialogFooter className="flex-row items-center justify-end gap-2 bg-card p-3">
-          <Button className="mr-auto" onClick={enterSlug} variant="ghost">
-            {copy.addCustomModelAction}
-          </Button>
-          <Button onClick={addProvider} variant="ghost">
-            {copy.addProvider}
-          </Button>
+          {isByokChromeVisible() ? (
+            <>
+              <Button className="mr-auto" onClick={enterSlug} variant="ghost">
+                {copy.addCustomModelAction}
+              </Button>
+              <Button onClick={addProvider} variant="ghost">
+                {copy.addProvider}
+              </Button>
+            </>
+          ) : null}
           <Button onClick={() => onOpenChange(false)} variant="outline">
             {t.common.cancel}
           </Button>

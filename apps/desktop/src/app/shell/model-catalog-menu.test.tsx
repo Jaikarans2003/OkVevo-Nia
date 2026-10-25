@@ -1,3 +1,8 @@
+const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
 vi.mock('@/store/profile', async (): Promise<object> => {
   const { atom } = await import('nanostores')
 
@@ -64,6 +69,7 @@ vi.mock('@/hermes', () => ({
 }))
 
 beforeEach((): void => {
+  isByokChromeVisible.mockReturnValue(true)
   queryClient.clear()
   queryClient.setDefaultOptions({ queries: { ...queryClient.getDefaultOptions().queries, retry: false } })
   window.localStorage.clear()
@@ -733,6 +739,8 @@ describe('the catalog renders per-model pricing', () => {
     await screen.findByText('Sonnet 5')
     expect(screen.queryByText(/\/Mtok/)).toBeNull()
     expect(screen.queryByText('free')).toBeNull()
+  })
+})
 
 describe('OkVevo Auto rows (composer-only)', () => {
   function renderMenuWithAuto(includeOkvevoAuto = true) {
@@ -778,16 +786,50 @@ describe('OkVevo Auto rows (composer-only)', () => {
   it('still lists every prior catalog id alongside Auto', async () => {
     renderMenuWithAuto(true)
     await screen.findByText(/Gemini 3\.1 Pro/i)
-    expect(screen.getByText(/Gemini 2\.5 Flash/i)).toBeTruthy()
+    expect(screen.getByText(/Gemini 2\.5/)).toBeTruthy()
     expect(screen.getByText('Intelligence')).toBeTruthy()
   })
 
-  it('selects virtual id with openrouter provider', async () => {
+  it('hides other providers, MoA, and Add custom model on the public channel', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    getGlobalModelOptions.mockResolvedValue({
+      providers: [
+        { models: ['openai/gpt-4o-mini'], name: 'OpenRouter', slug: 'openrouter' },
+        { models: ['BeastMode'], name: 'Mixture of Agents', slug: 'moa' }
+      ]
+    })
+    const select = vi.fn().mockResolvedValue(true)
+    const controller: ModelMenuController = {
+      applyPreset: vi.fn(),
+      current: { effort: '', fast: false, model: '', provider: '' },
+      presetFor: () => ({}),
+      select,
+      setOptions: vi.fn()
+    }
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DropdownMenu open>
+          <DropdownMenuContent>
+            <ModelCatalogMenu controller={controller} includeMoa includeOkvevoAuto />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </QueryClientProvider>
+    )
+
+    await screen.findByText('Cost Effective')
+    expect(screen.queryByText('Add custom model…')).toBeNull()
+    expect(screen.queryByText('MoA presets')).toBeNull()
+    expect(screen.queryByText('BeastMode')).toBeNull()
+    expect(screen.queryByText('OpenRouter')).toBeNull()
+  })
+
+  it('selects virtual id with the okvevo provider', async () => {
     const select = renderMenuWithAuto(true)
     await screen.findByText('Intelligence')
     fireEvent.click(screen.getByText('Intelligence'))
     await vi.waitFor(() => {
-      expect(select).toHaveBeenCalledWith('okvevo/auto-intelligence', 'openrouter')
+      expect(select).toHaveBeenCalledWith('okvevo/auto-intelligence', 'okvevo')
     })
   })
 })

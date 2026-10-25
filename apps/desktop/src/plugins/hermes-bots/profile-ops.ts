@@ -10,6 +10,8 @@
 
 import { forgetSessionUnread, host, queryClient } from '@hermes/plugin-sdk'
 
+import { provisionOkvevoProfile } from '@/lib/okvevo-provision'
+
 import { isBackfilledFacePng } from './avatar-image'
 import {
   $focusedBotOwner,
@@ -379,6 +381,10 @@ export async function duplicateBot(bot: RosterRow, roster: RosterRow[]) {
     clone_from: base,
     description: bot.description || ''
   })
+
+  if (!bot.remoteSource && bot.route?.mode !== 'remote') {
+    await provisionOkvevoProfile(name)
+  }
 
   // Same look: avatar shape/color/image and a "(copy)" title so the two
   // are tellable apart in the roster until the user renames. Do not copy

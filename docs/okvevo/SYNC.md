@@ -49,3 +49,24 @@ fix forward.
 
 Optional: `git config rerere.enabled true` in this clone so desktop conflict
 resolutions replay (do not run that from CI; it is a local clone setting).
+
+## PATCHES conflict stop
+
+If `docs/okvevo/PATCHES.md` conflicts, stop. Keep every OkVevo row. Do not
+delete a delta to get a clean merge, and do not edit upstream Python to make
+`scripts/okvevo/check_upstream_delta.sh` pass. Re-apply the OkVevo side, then
+run the delta script against the tag you just merged.
+
+## Nous-diff scan
+
+After the merge, list Nous hosts in the new tag and match each one to
+`docs/okvevo/NOUS-TOUCHPOINTS.md`. A hit that is not in that file, and is not
+switched off by `okvevo/config/okvevo-defaults.yaml`, is a stop.
+
+```bash
+git grep -n -E 'nousresearch\.com|hermes-sandbox' vX.Y.Z -- '*.py' '*.ts' '*.tsx' '*.yml' '*.yaml'
+```
+
+Do not edit the upstream file to delete the string. Switch it off from
+OkVevo config, `isByokChromeVisible()`, or an OkVevo plugin, then record the
+row.

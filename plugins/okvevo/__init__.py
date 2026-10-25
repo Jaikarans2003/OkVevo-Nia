@@ -58,3 +58,6 @@ def register(ctx) -> None:
     ctx.register_redaction_patterns([_JWT_PATTERN])
     ctx.register_hook("transform_api_error_classification", _classify_okvevo_api_error)
     ctx.register_hook("pre_tool_call", _okvevo_secrets_guard)
+    from plugins.okvevo.auto_router import install_auto_wire_swap
+
+    install_auto_wire_swap()

@@ -13,6 +13,7 @@ import { RowButton } from '@/components/ui/row-button'
 import { Switch } from '@/components/ui/switch'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { Plus, Search, X } from '@/lib/icons'
 import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { displayModelName, modelDisplayParts } from '@/lib/model-status-label'
@@ -269,18 +270,20 @@ export function ModelVisibilityDialog({
         </div>
 
         <div className="flex items-center justify-between px-3 py-2">
-          <Button
-            className="-ml-2 text-(--ui-text-tertiary)"
-            onClick={() => {
-              onOpenChange(false)
-              onOpenProviders()
-            }}
-            size="xs"
-            type="button"
-            variant="text"
-          >
-            {copy.addProvider}
-          </Button>
+          {isByokChromeVisible() ? (
+            <Button
+              className="-ml-2 text-(--ui-text-tertiary)"
+              onClick={() => {
+                onOpenChange(false)
+                onOpenProviders()
+              }}
+              size="xs"
+              type="button"
+              variant="text"
+            >
+              {copy.addProvider}
+            </Button>
+          ) : null}
           {/* Only once there is something to undo, like the sidebar view reset. */}
           {stored !== null && modelOptions.isSuccess && (
             <Button className="-mr-2" onClick={() => void resetToDefaults()} size="xs" type="button" variant="text">

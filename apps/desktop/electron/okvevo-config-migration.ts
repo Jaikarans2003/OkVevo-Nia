@@ -9,6 +9,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { dump as stringifyYaml, load as parseYaml } from 'js-yaml'
 
@@ -72,46 +73,175 @@ function asStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.map(item => String(item)) : []
 }
 
-export function planConfigChanges(
-  raw: unknown,
-  opts: { skillsDir?: string | null } = {}
-): { next: Record<string, unknown>; changes: string[] } {
-  const next = structuredClone(asRecord(raw))
-  const changes: string[] = []
+/** Providers a fresh or leftover install must not keep. Desired values live in the defaults file. */
+const REPLACE_PROVIDERS = new Set(['', 'auto', 'openrouter', 'nous', 'tavily'])
 
+const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
+
+type DefaultsTree = Record<string, unknown>
+
+export function defaultOkvevoDefaultsPath(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    path.resolve(here, '../../okvevo/config/okvevo-defaults.yaml'),
+    path.resolve(here, '../../../okvevo/config/okvevo-defaults.yaml')
+  ]
+  let dir = here
+
+  for (let depth = 0; depth < 6; depth += 1) {
+    candidates.push(path.join(dir, 'okvevo', 'config', 'okvevo-defaults.yaml'))
+    const parent = path.dirname(dir)
+
+    if (parent === dir) {
+      break
+    }
+
+    dir = parent
+  }
+
+  const found = candidates.find(candidate => fs.existsSync(candidate))
+
+  if (!found) {
+    throw new Error(`okvevo defaults not found from ${here}`)
+  }
+
+  return found
+}
+
+export function loadOkvevoDefaults(filePath = defaultOkvevoDefaultsPath()): DefaultsTree {
+  const parsed = parseYaml(fs.readFileSync(filePath, 'utf8'))
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`okvevo defaults must be a mapping: ${filePath}`)
+  }
+
+  return parsed as DefaultsTree
+}
+
+export function readFirstText(
+  candidates: readonly string[],
+  io: Pick<MigrationFs, 'existsSync' | 'readFileSync'> = fs
+): string {
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue
+    }
+
+    try {
+      if (!io.existsSync(candidate)) {
+        continue
+      }
+
+      const text = io.readFileSync(candidate, 'utf8')
+
+      if (text.trim()) {
+        return text
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return ''
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function forceMerge(
+  target: Record<string, unknown>,
+  defaults: Record<string, unknown>,
+  pathName: string,
+  changes: string[],
+  stringPolicy: 'force' | 'replace'
+): void {
+  for (const [key, value] of Object.entries(defaults)) {
+    const childPath = `${pathName}.${key}`
+
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const child = asRecord(target[key])
+      forceMerge(child, value as Record<string, unknown>, childPath, changes, stringPolicy)
+      target[key] = child
+      continue
+    }
+
+    if (typeof value === 'string' && stringPolicy === 'replace') {
+      const current = String(target[key] ?? '').trim().toLowerCase()
+
+      if (!REPLACE_PROVIDERS.has(current) || current === value.trim().toLowerCase()) {
+        continue
+      }
+
+      target[key] = value
+      changes.push(`${childPath}=${current || 'unset'}→${value}`)
+      continue
+    }
+
+    if (sameValue(target[key], value)) {
+      continue
+    }
+
+    const from = target[key] === undefined ? 'unset' : JSON.stringify(target[key])
+    target[key] = value
+    changes.push(`${childPath}=${from}→${JSON.stringify(value)}`)
+  }
+}
+
+function applyModel(next: Record<string, unknown>, defaults: DefaultsTree, changes: string[]): void {
+  const wantedProvider = String(defaults.provider ?? '').trim()
+  const wantedDefault = String(defaults.default ?? '').trim()
   const model = asRecord(next.model)
   const provider = String(model.provider ?? '').trim().toLowerCase()
 
-  if (provider === 'openrouter' || provider === '') {
-    model.provider = 'okvevo'
-    next.model = model
-    changes.push(provider === '' ? 'model.provider=okvevo (was unset)' : 'model.provider openrouter→okvevo')
+  if (REPLACE_PROVIDERS.has(provider)) {
+    model.provider = wantedProvider
+    changes.push(
+      provider === '' ? `model.provider=${wantedProvider} (was unset)` : `model.provider ${provider}→${wantedProvider}`
+    )
   }
 
-  for (const key of ['image_gen', 'video_gen'] as const) {
-    const block = asRecord(next[key])
+  const id = String(model.default ?? model.model ?? model.name ?? '').trim()
+  const providerNow = String(model.provider ?? '').trim().toLowerCase()
+
+  if (!id && wantedDefault && providerNow === wantedProvider.toLowerCase()) {
+    model.default = wantedDefault
+    changes.push(`model.default=${wantedDefault} (was unset)`)
+  }
+
+  next.model = model
+}
+
+function applyAuxiliary(next: Record<string, unknown>, defaults: DefaultsTree, changes: string[]): void {
+  const auxiliary = asRecord(next.auxiliary)
+
+  for (const [task, spec] of Object.entries(defaults)) {
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+      continue
+    }
+
+    const wanted = String((spec as Record<string, unknown>).provider ?? '').trim()
+
+    if (!wanted) {
+      continue
+    }
+
+    const block = asRecord(auxiliary[task])
     const current = String(block.provider ?? '').trim().toLowerCase()
 
-    if (current !== 'okvevo') {
-      block.provider = 'okvevo'
-      next[key] = block
-      changes.push(`${key}.provider=${current || 'unset'}→okvevo`)
+    if (!REPLACE_PROVIDERS.has(current) || current === wanted.toLowerCase()) {
+      continue
     }
+
+    block.provider = wanted
+    auxiliary[task] = block
+    changes.push(`auxiliary.${task}.provider=${current || 'unset'}→${wanted}`)
   }
 
-  const web = asRecord(next.web)
+  next.auxiliary = auxiliary
+}
 
-  for (const key of ['backend', 'search_backend', 'extract_backend'] as const) {
-    const current = String(web[key] ?? '').trim().toLowerCase()
-
-    if (current === 'tavily' || current === '') {
-      web[key] = 'okvevo'
-      changes.push(`web.${key}=${current || 'unset'}→okvevo`)
-    }
-  }
-
-  next.web = web
-
+function applyPlugins(next: Record<string, unknown>, defaults: DefaultsTree, changes: string[]): void {
   const plugins = asRecord(next.plugins)
   const enabled = asStringList(plugins.enabled)
   const cleaned = enabled.filter(name => name !== 'nia-public-guard')
@@ -120,13 +250,49 @@ export function planConfigChanges(
     changes.push('plugins.enabled removed nia-public-guard')
   }
 
-  if (!cleaned.includes('okvevo')) {
-    cleaned.push('okvevo')
-    changes.push('plugins.enabled added okvevo')
+  for (const name of asStringList(defaults.enabled)) {
+    if (!cleaned.includes(name)) {
+      cleaned.push(name)
+      changes.push(`plugins.enabled added ${name}`)
+    }
   }
 
   plugins.enabled = cleaned
   next.plugins = plugins
+}
+
+function applyForced(next: Record<string, unknown>, defaults: DefaultsTree, changes: string[]): void {
+  if (defaults.web && typeof defaults.web === 'object') {
+    const web = asRecord(next.web)
+    forceMerge(web, asRecord(defaults.web), 'web', changes, 'replace')
+    next.web = web
+  }
+
+  for (const key of ['image_gen', 'video_gen', 'telemetry', 'nous', 'model_catalog', 'cron', 'tools']) {
+    const spec = defaults[key]
+
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+      continue
+    }
+
+    const block = asRecord(next[key])
+    forceMerge(block, spec as Record<string, unknown>, key, changes, 'force')
+    next[key] = block
+  }
+}
+
+export function planConfigChanges(
+  raw: unknown,
+  opts: { defaults?: DefaultsTree; defaultsPath?: string; skillsDir?: string | null } = {}
+): { next: Record<string, unknown>; changes: string[] } {
+  const defaults = opts.defaults ?? loadOkvevoDefaults(opts.defaultsPath)
+  const next = structuredClone(asRecord(raw))
+  const changes: string[] = []
+
+  applyModel(next, asRecord(defaults.model), changes)
+  applyAuxiliary(next, asRecord(defaults.auxiliary), changes)
+  applyPlugins(next, asRecord(defaults.plugins), changes)
+  applyForced(next, defaults, changes)
 
   const hints = asRecord(next.platform_hints)
   const desktop = asRecord(hints.desktop)
@@ -168,6 +334,8 @@ export interface MigrateHomeArgs {
   hermesHome: string
   upstreamSoul: string
   skillsDir?: string | null
+  defaults?: DefaultsTree
+  defaultsPath?: string
   log?: (message: string) => void
   fsImpl?: MigrationFs
 }
@@ -229,7 +397,13 @@ function migrateSoul(home: string, generated: string, upstream: string, io: Migr
   log(`[okvevo-migrate] ${soulPath}: wrote generated OkVevo SOUL`)
 }
 
-function migrateConfig(home: string, skillsDir: string | null | undefined, io: MigrationFs, log: (m: string) => void): void {
+function migrateConfig(
+  home: string,
+  skillsDir: string | null | undefined,
+  io: MigrationFs,
+  log: (m: string) => void,
+  defaults: DefaultsTree
+): void {
   const configPath = path.join(home, 'config.yaml')
   const rawText = io.existsSync(configPath) ? io.readFileSync(configPath, 'utf8') : ''
   let parsed: unknown = {}
@@ -238,7 +412,7 @@ function migrateConfig(home: string, skillsDir: string | null | undefined, io: M
     parsed = parseYaml(rawText) ?? {}
   }
 
-  const { next, changes } = planConfigChanges(parsed, { skillsDir })
+  const { next, changes } = planConfigChanges(parsed, { skillsDir, defaults })
 
   if (changes.length === 0) {
     return
@@ -256,12 +430,46 @@ function migrateConfig(home: string, skillsDir: string | null | undefined, io: M
 export function migrateOkvevoHermesHome(args: MigrateHomeArgs): void {
   const io = args.fsImpl ?? defaultFs()
   const log = args.log ?? ((message: string) => console.log(message))
-  const generated = makeOkvevoSoul(args.upstreamSoul)
+  const defaults = args.defaults ?? loadOkvevoDefaults(args.defaultsPath)
+  let generated = ''
+
+  if (args.upstreamSoul.trim()) {
+    try {
+      generated = makeOkvevoSoul(args.upstreamSoul)
+    } catch (error) {
+      log(`[okvevo-migrate] SOUL skipped: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
 
   io.mkdirSync(args.hermesHome, { recursive: true })
 
   for (const home of profileHomes(args.hermesHome, io)) {
-    migrateSoul(home, generated, args.upstreamSoul, io, log)
-    migrateConfig(home, args.skillsDir, io, log)
+    if (generated) {
+      migrateSoul(home, generated, args.upstreamSoul, io, log)
+    }
+
+    migrateConfig(home, args.skillsDir, io, log, defaults)
   }
+}
+
+/** Same config migration, for a profile created after launch. */
+export function provisionOkvevoProfile(
+  hermesHome: string,
+  profileName: string,
+  opts: { defaultsPath?: string; fsImpl?: MigrationFs; log?: (message: string) => void; skillsDir?: string | null } = {}
+): void {
+  if (!PROFILE_NAME.test(profileName) || profileName.includes('..')) {
+    throw new Error('refusing profile name')
+  }
+
+  const io = opts.fsImpl ?? defaultFs()
+  const home = path.join(hermesHome, 'profiles', profileName)
+  io.mkdirSync(home, { recursive: true })
+  migrateConfig(
+    home,
+    opts.skillsDir,
+    io,
+    opts.log ?? ((message: string) => console.log(message)),
+    loadOkvevoDefaults(opts.defaultsPath)
+  )
 }

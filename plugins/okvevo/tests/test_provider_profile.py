@@ -32,8 +32,26 @@ def test_auto_alias_swaps_wire_model(profile):
     )
     assert top_level["model"] == AUTO_WIRE_MODEL
     body = profile.build_extra_body(session_id="s1", model="okvevo/auto-intelligence")
+    assert body["model"] == AUTO_WIRE_MODEL
     assert body["plugins"][0]["id"] == AUTO_PLUGIN_ID
     assert body["plugins"][0]["allowed_models"]
+
+
+def test_alias_override_still_wires_auto_beta(profile):
+    """A session model override puts the alias back on the kwargs. extra_body wins on the wire."""
+    from agent.transports.chat_completions import ChatCompletionsTransport
+
+    kwargs = ChatCompletionsTransport().build_kwargs(
+        model="okvevo/auto-cost",
+        messages=[{"role": "user", "content": "ping"}],
+        provider_profile=profile,
+        request_overrides={"model": "okvevo/auto-cost"},
+    )
+    extra = kwargs["extra_body"]
+    wire = {key: value for key, value in kwargs.items() if key != "extra_body"}
+    wire.update(extra)
+    assert wire["model"] == AUTO_WIRE_MODEL
+    assert extra["plugins"][0]["cost_tier"] == "medium"
 
 
 def test_normal_model_untouched(profile):

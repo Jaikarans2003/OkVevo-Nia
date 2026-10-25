@@ -17,6 +17,7 @@ describe('brandProviderSlug', () => {
     isByokChromeVisible.mockReturnValue(false)
 
     expect(brandProviderSlug('openrouter')).toBe('OkVevo')
+    expect(brandProviderSlug('okvevo')).toBe('OkVevo')
     expect(brandProviderSlug('nous')).toBe('nous')
   })
 
@@ -60,6 +61,21 @@ describe('brandProviderCatalog', () => {
 
     expect(result.map(row => row.slug)).toEqual(['openrouter'])
     expect(result[0]?.name).toBe('OkVevo')
+    expect(result[0]?.aliases).toEqual(['openrouter', 'okvevo'])
+  })
+
+  it('collapses openrouter and okvevo into one OkVevo row', () => {
+    isByokChromeVisible.mockReturnValue(false)
+
+    const result = brandProviderCatalog([
+      openrouter,
+      { models: ['okvevo/auto-cost'], name: 'OkVevo', slug: 'okvevo' },
+      nous
+    ])
+
+    expect(result.map(row => row.slug)).toEqual(['okvevo'])
+    expect(result[0]?.name).toBe('OkVevo')
+    expect(result[0]?.models).toEqual(['anthropic/claude-opus-4.8', 'okvevo/auto-cost'])
   })
 
   it('drops a catalog that has no OpenRouter row', () => {

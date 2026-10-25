@@ -37,6 +37,10 @@ const { hostMock, isByokChromeVisible } = vi.hoisted(() => ({
   isByokChromeVisible: vi.fn(() => true)
 }))
 
+vi.mock('@/lib/build-channel', () => ({
+  isByokChromeVisible
+}))
+
 vi.mock('@hermes/plugin-sdk', async () => {
   const { useQuery } = await import('@tanstack/react-query')
   const { catalogProviderMatches, useI18n } = await vi.importActual<typeof HermesSdk>('@hermes/plugin-sdk')
@@ -231,6 +235,8 @@ describe('a saved custom provider', () => {
     await waitFor(() => expect(container.querySelector('[data-testid="spinner"]')).toBeNull())
     expect(isFreeText(container)).toBe(false)
     expect(screen.getByText('lab-small')).toBeTruthy()
+  })
+})
 
 describe('internal channel keeps the Provider dropdown', () => {
   it('still offers Inherit and Enter manually', async () => {
@@ -265,7 +271,7 @@ describe('public channel locks Provider to OkVevo', () => {
     expect(container.textContent).not.toContain('Inherit (launch profile)')
     expect(container.textContent).not.toContain('Enter manually')
     expect(container.querySelector('input[placeholder*="omnirouter"]')).toBeNull()
-    expect(onChange).toHaveBeenCalledWith({ provider: 'openrouter' })
+    expect(onChange).toHaveBeenCalledWith({ provider: 'okvevo' })
   })
 
   it('keeps locked OkVevo plus a free-text Model when the catalog fails', async () => {

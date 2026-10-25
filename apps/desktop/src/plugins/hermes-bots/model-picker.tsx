@@ -22,7 +22,7 @@ import {
 import { useEffect, useState } from 'react'
 
 import { isByokChromeVisible } from '@/lib/build-channel'
-import { brandProviderSlug } from '@/lib/provider-branding'
+import { brandModelOptionsResponse, brandProviderSlug } from '@/lib/provider-branding'
 
 import { labeled } from './dialog-parts'
 import { useBots } from './i18n'
@@ -96,7 +96,7 @@ function useModelOptions(bot: null | RosterRow = null) {
           include_unconfigured: true,
           explicit_only: false
         }) as Promise<ModelOptionsResult>
-      ),
+      ).then(brandModelOptionsResponse),
     enabled: !orphaned,
     staleTime: 120000,
     retry: false
@@ -151,8 +151,8 @@ export function ModelPicker({ bot = null, value, onChange, placeholderModel }: M
 
   // Public builds pin every bot to the OkVevo-managed provider.
   useEffect(() => {
-    if (publicLocked && value.provider !== 'openrouter') {
-      onChange({ provider: 'openrouter' })
+    if (publicLocked && value.provider !== 'okvevo') {
+      onChange({ provider: 'okvevo' })
     }
   }, [publicLocked, value.provider, onChange])
 
@@ -165,11 +165,11 @@ export function ModelPicker({ bot = null, value, onChange, placeholderModel }: M
   }
 
   if (publicLocked) {
-    const openrouter = providers.find(p => p.slug === 'openrouter') || null
-    const models = openrouter
-      ? (openrouter.models || []).map(m => (typeof m === 'string' ? m : m.id || m.name || ''))
+    const okvevo = providers.find(p => p.slug === 'okvevo' || p.slug === 'openrouter') || null
+    const models = okvevo
+      ? (okvevo.models || []).map(m => (typeof m === 'string' ? m : m.id || m.name || ''))
       : []
-    const catalogReady = !error && Boolean(openrouter)
+    const catalogReady = !error && Boolean(okvevo)
 
     return (
       <div className="grid grid-cols-[1fr_1.4fr] gap-2.5">

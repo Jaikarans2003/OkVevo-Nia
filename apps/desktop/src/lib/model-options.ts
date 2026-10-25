@@ -1,6 +1,7 @@
 import type { ModelCapabilities, ModelOptionProvider, ModelOptionsResult } from '@hermes/shared'
 
 import { getGlobalModelOptions, type HermesGateway } from '@/hermes'
+import { brandModelOptionsResponse } from '@/lib/provider-branding'
 
 type CatalogProviderIdentity = Partial<Pick<ModelOptionProvider, 'aliases' | 'name'>> &
   Pick<ModelOptionProvider, 'slug'>
@@ -188,7 +189,7 @@ export async function requestModelOptions({
     }
 
     if (gatewayOptions && hasSelectableModels(gatewayOptions)) {
-      return gatewayOptions
+      return brandModelOptionsResponse(gatewayOptions)
     }
 
     // An owner-routed dispatcher can name a different registry connection than
@@ -201,11 +202,11 @@ export async function requestModelOptions({
         const restOptions = await restModelOptions(explicitOnly, refresh, profile)
 
         if (hasSelectableModels(restOptions)) {
-          return {
+          return brandModelOptionsResponse({
             ...restOptions,
             ...(gatewayOptions?.provider ? { provider: gatewayOptions.provider } : {}),
             ...(gatewayOptions?.model ? { model: gatewayOptions.model } : {})
-          }
+          })
         }
       } catch {
         // Preserve the gateway result (or its original error) when the recovery
@@ -214,11 +215,11 @@ export async function requestModelOptions({
     }
 
     if (gatewayOptions) {
-      return gatewayOptions
+      return brandModelOptionsResponse(gatewayOptions)
     }
 
     throw gatewayError
   }
 
-  return restModelOptions(explicitOnly, refresh, profile)
+  return restModelOptions(explicitOnly, refresh, profile).then(brandModelOptionsResponse)
 }

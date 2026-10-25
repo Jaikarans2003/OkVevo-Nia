@@ -443,7 +443,7 @@ import {
   persistOkvevoAuthSession,
   rewriteOkvevoAuthSecret
 } from './okvevo-auth-store'
-import { migrateOkvevoHermesHome } from './okvevo-config-migration'
+import { migrateOkvevoHermesHome, provisionOkvevoProfile, readFirstText } from './okvevo-config-migration'
 import { ABOUT_CREDITS, OKVEVO_COPYRIGHT } from './okvevo-about'
 import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, upsertHermesEnvKey } from './okvevo-env'
 import { bakedFeedUrlFromPack, resolveDesktopFeedBase } from './okvevo-feed'
@@ -1350,41 +1350,49 @@ if (IS_PACKAGED) {
 }
 
 {
-  let upstreamSoul = ''
-
-  try {
-    upstreamSoul = fs.readFileSync(path.join(SOURCE_REPO_ROOT, 'SOUL.md'), 'utf8')
-  } catch {
-    try {
-      const payloadSoul = process.resourcesPath
-        ? path.join(process.resourcesPath, 'agent-payload', 'SOUL.md')
-        : ''
-      if (payloadSoul) {
-        upstreamSoul = fs.readFileSync(payloadSoul, 'utf8')
-      }
-    } catch {
-      upstreamSoul = ''
-    }
-  }
-
+  const resources = process.resourcesPath || ''
+  const upstreamSoul = readFirstText([
+    path.join(SOURCE_REPO_ROOT, 'SOUL.md'),
+    resources ? path.join(resources, 'agent-payload', 'hermes-agent', 'SOUL.md') : '',
+    resources ? path.join(resources, 'agent-payload', 'SOUL.md') : ''
+  ])
   const skillsCandidates = [
     path.join(SOURCE_REPO_ROOT, 'okvevo', 'skills'),
-    process.resourcesPath ? path.join(process.resourcesPath, 'agent-payload', 'okvevo', 'skills') : ''
+    resources ? path.join(resources, 'agent-payload', 'hermes-agent', 'okvevo', 'skills') : '',
+    resources ? path.join(resources, 'agent-payload', 'okvevo', 'skills') : ''
   ]
   const skillsDir = skillsCandidates.find(candidate => candidate && fs.existsSync(candidate)) || null
+  const defaultsPath =
+    [
+      path.join(SOURCE_REPO_ROOT, 'okvevo', 'config', 'okvevo-defaults.yaml'),
+      resources ? path.join(resources, 'agent-payload', 'hermes-agent', 'okvevo', 'config', 'okvevo-defaults.yaml') : ''
+    ].find(candidate => candidate && fs.existsSync(candidate)) || ''
 
-  if (upstreamSoul) {
-    try {
-      migrateOkvevoHermesHome({
-        hermesHome: HERMES_HOME,
-        upstreamSoul,
-        skillsDir,
-        log: message => console.log(message)
-      })
-    } catch (error) {
-      console.error(`[okvevo-migrate] ${error instanceof Error ? error.message : String(error)}`)
-    }
+  try {
+    migrateOkvevoHermesHome({
+      hermesHome: HERMES_HOME,
+      upstreamSoul,
+      skillsDir,
+      defaultsPath: defaultsPath || undefined,
+      log: message => console.log(message)
+    })
+  } catch (error) {
+    console.error(`[okvevo-migrate] ${error instanceof Error ? error.message : String(error)}`)
   }
+
+  ipcMain.handle('hermes:okvevo:provision-profile', async (_event, name: unknown) => {
+    if (typeof name !== 'string') {
+      throw new Error('profile name required')
+    }
+
+    provisionOkvevoProfile(HERMES_HOME, name, {
+      defaultsPath: defaultsPath || undefined,
+      skillsDir,
+      log: message => console.log(message)
+    })
+
+    return { ok: true }
+  })
 }
 
 // #77311: `desktop.electron_flags` and the renderer heap ceiling

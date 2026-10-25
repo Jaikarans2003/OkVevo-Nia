@@ -300,6 +300,17 @@ corresponding list **exactly**.
 - `apps/desktop/src/vite-env.d.ts`
 - `apps/desktop/vite.config.ts`
 - `apps/desktop/vitest.config.ts`
+- `apps/desktop/src/components/model-picker.tsx`
+- `apps/desktop/src/components/model-visibility-dialog.tsx`
+- `apps/desktop/src/lib/model-options.ts`
+- `apps/desktop/src/plugins/hermes-bots/create-dialog.tsx`
+- `apps/desktop/src/plugins/hermes-bots/profile-ops.ts`
+- `apps/desktop/e2e/okvevo/gateway-mock.ts`
+- `apps/desktop/e2e/okvevo/packed-chat.spec.ts`
+- `apps/desktop/e2e/okvevo/playwright.config.ts`
+- `apps/desktop/e2e/okvevo/vendor-guard.ts`
+- `apps/desktop/e2e/okvevo/vendor-guard.unit.test.ts`
+- `apps/desktop/src/lib/okvevo-provision.ts`
 <!-- /okvevo-delta:apps/desktop -->
 
 ## Retired

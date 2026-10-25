@@ -69,7 +69,14 @@ describe('requestModelOptions', () => {
     await expect(requestModelOptions({ gateway: gateway as never, sessionId: null })).resolves.toEqual({
       model: 'anthropic/claude-opus-4.8',
       provider: 'openrouter',
-      providers: [{ models: ['anthropic/claude-opus-4.8'], name: 'OkVevo', slug: 'openrouter' }]
+      providers: [
+        {
+          aliases: ['openrouter', 'okvevo'],
+          models: ['anthropic/claude-opus-4.8'],
+          name: 'OkVevo',
+          slug: 'openrouter'
+        }
+      ]
     })
   })
 

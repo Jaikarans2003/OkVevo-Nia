@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { test } from 'vitest'
+import { dump as stringifyYaml } from 'js-yaml'
 
 import {
   DESKTOP_PLATFORM_HINT_APPEND,
+  loadOkvevoDefaults,
   makeOkvevoSoul,
   migrateOkvevoHermesHome,
   NIA_DEFAULT_SOUL,
   planConfigChanges,
+  provisionOkvevoProfile,
+  readFirstText,
   shouldReplaceSoul,
   type MigrationFs
 } from './okvevo-config-migration'
@@ -132,4 +136,108 @@ test('migrateOkvevoHermesHome covers root + profiles, backs up, skips custom sou
     fsImpl: io
   })
   assert.equal(files.get(path.join(root, 'config.yaml')), before)
+})
+
+test('planConfigChanges writes the defaults file and leaves no auto, openrouter, or nous auxiliary slot', () => {
+  const defaults = loadOkvevoDefaults()
+  const { next } = planConfigChanges({
+    model: { provider: 'openrouter', model: 'keep-me' },
+    auxiliary: { vision: { provider: 'auto', timeout: 12 }, title_generation: { provider: 'anthropic' } }
+  })
+  const model = next.model as { default?: string; model: string; provider: string }
+  const auxiliary = next.auxiliary as Record<string, { provider?: string; timeout?: number }>
+
+  assert.equal(model.provider, 'okvevo')
+  assert.equal(model.model, 'keep-me')
+  assert.equal(model.default, undefined)
+  assert.equal(auxiliary.vision.provider, 'main')
+  assert.equal(auxiliary.vision.timeout, 12)
+  assert.equal(auxiliary.title_generation.provider, 'anthropic')
+  assert.equal((next.telemetry as { shared_metrics: { enabled: boolean; send: boolean } }).shared_metrics.send, false)
+  assert.equal((next.nous as { guest: boolean }).guest, false)
+
+  const wantedAux = defaults.auxiliary as Record<string, { provider: string }>
+
+  for (const [task, spec] of Object.entries(wantedAux)) {
+    const provider = auxiliary[task]?.provider
+    assert.equal(provider === 'auto' || provider === 'openrouter' || provider === 'nous', false, task)
+    if (task !== 'title_generation') {
+      assert.equal(provider, spec.provider, task)
+    }
+  }
+})
+
+test('planConfigChanges fills model.default only for an unset OkVevo provider', () => {
+  const fresh = planConfigChanges({})
+  assert.equal((fresh.next.model as { default: string }).default, 'okvevo/auto-cost')
+  const dumped = stringifyYaml(fresh.next, { lineWidth: 120, noRefs: true })
+  assert.match(dumped, /default: okvevo\/auto-cost/)
+  assert.doesNotMatch(dumped, /provider: (auto|openrouter|nous)\b/)
+
+  const openai = planConfigChanges({ model: { provider: 'openai' } })
+  assert.equal((openai.next.model as { default?: string; provider: string }).provider, 'openai')
+  assert.equal((openai.next.model as { default?: string }).default, undefined)
+})
+
+test('migrateOkvevoHermesHome writes config when SOUL.md is missing', () => {
+  const files = new Map<string, string>()
+  const root = '/tmp/hermes-no-soul'
+  const io: MigrationFs = {
+    existsSync: target => files.has(target),
+    readFileSync: target => {
+      const text = files.get(target)
+      if (text === undefined) throw new Error(`missing ${target}`)
+      return text
+    },
+    writeFileSync: (target, data) => {
+      files.set(target, data)
+    },
+    mkdirSync: () => undefined,
+    copyFileSync: () => undefined,
+    readdirSync: () => []
+  }
+
+  migrateOkvevoHermesHome({ hermesHome: root, upstreamSoul: '', fsImpl: io, log: () => undefined })
+
+  assert.match(files.get(path.join(root, 'config.yaml')) ?? '', /provider: okvevo/)
+  assert.equal(files.has(path.join(root, 'SOUL.md')), false)
+})
+
+test('readFirstText keeps the checkout SOUL ahead of the packaged payload path', () => {
+  const files = new Map<string, string>([
+    ['/repo/SOUL.md', 'checkout soul'],
+    ['/app/Resources/agent-payload/hermes-agent/SOUL.md', 'payload soul']
+  ])
+  const io: Pick<MigrationFs, 'existsSync' | 'readFileSync'> = {
+    existsSync: target => files.has(target),
+    readFileSync: target => files.get(target) ?? ''
+  }
+
+  assert.equal(
+    readFirstText(['/repo/SOUL.md', '/app/Resources/agent-payload/hermes-agent/SOUL.md', '/app/Resources/agent-payload/SOUL.md'], io),
+    'checkout soul'
+  )
+  assert.equal(
+    readFirstText(['/missing/SOUL.md', '/app/Resources/agent-payload/hermes-agent/SOUL.md', '/app/Resources/agent-payload/SOUL.md'], io),
+    'payload soul'
+  )
+})
+
+test('provisionOkvevoProfile writes the new profile and refuses a path', () => {
+  const files = new Map<string, string>()
+  const root = '/tmp/hermes-provision'
+  const io: MigrationFs = {
+    existsSync: target => files.has(target),
+    readFileSync: target => files.get(target) ?? '',
+    writeFileSync: (target, data) => {
+      files.set(target, data)
+    },
+    mkdirSync: () => undefined,
+    copyFileSync: () => undefined,
+    readdirSync: () => []
+  }
+
+  provisionOkvevoProfile(root, 'worker-2', { fsImpl: io, log: () => undefined })
+  assert.match(files.get(path.join(root, 'profiles', 'worker-2', 'config.yaml')) ?? '', /provider: okvevo/)
+  assert.throws(() => provisionOkvevoProfile(root, '../escape', { fsImpl: io }), /refusing profile name/)
 })
