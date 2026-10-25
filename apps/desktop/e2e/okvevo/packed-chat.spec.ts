@@ -162,13 +162,37 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     await expect(room).toBeHidden({ timeout: 60_000 })
     const groupTab = page.getByRole('tab', { name: /e2eroom/ }).first()
     await expect(groupTab).toBeVisible()
-    await groupTab.click()
-    const groupBox = page.getByRole('textbox', { name: /Message e2eroom/ }).filter({ visible: true })
-    await expect(groupBox).toBeVisible()
+    if ((await groupTab.getAttribute('aria-selected')) !== 'true') {
+      await groupTab.getByText(/e2eroom/).first().click()
+      await expect(groupTab).toHaveAttribute('aria-selected', 'true')
+    }
+    const groupBox = page
+      .getByRole('textbox', { name: 'Group message', exact: true })
+      .or(page.getByRole('textbox', { name: /Message e2eroom/ }))
+      .filter({ visible: true })
+      .first()
+    const startGateway = page.getByRole('button', { name: 'Start gateway group' })
+    await expect
+      .poll(
+        async () => {
+          if (await groupBox.isVisible().catch(() => false)) return 'ready'
+          if (await startGateway.isEnabled().catch(() => false)) {
+            await startGateway.click()
+          }
+          return 'wait'
+        },
+        { timeout: 60_000 }
+      )
+      .toBe('ready')
+    await expect(groupBox).toBeEnabled({ timeout: 60_000 })
     const visibleReplies = () => page.getByText('E2E_REPLY ok').filter({ visible: true }).count()
     const groupBefore = await visibleReplies()
     await groupBox.fill('@e2eone ping group chat')
-    await groupBox.press('Enter')
+    if ((await groupBox.getAttribute('aria-label')) === 'Group message') {
+      await groupBox.locator('xpath=ancestor::form').getByRole('button', { name: 'Send', exact: true }).click()
+    } else {
+      await groupBox.press('Enter')
+    }
     await expect.poll(visibleReplies, { timeout: 120_000 }).toBeGreaterThan(groupBefore)
     await shot(page, 'group-chat.png')
 
