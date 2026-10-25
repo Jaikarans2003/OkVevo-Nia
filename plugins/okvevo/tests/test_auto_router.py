@@ -25,6 +25,28 @@ def test_wire_model_swaps_only_aliases():
     assert wire_model("anthropic/claude-sonnet-4.6") == "anthropic/claude-sonnet-4.6"
 
 
+def test_transport_swap_survives_a_profileless_build():
+    from agent.transports.chat_completions import ChatCompletionsTransport
+
+    from plugins.okvevo.auto_router import install_auto_wire_swap
+
+    install_auto_wire_swap()
+    transport = ChatCompletionsTransport()
+    kwargs = transport.build_kwargs(
+        model="okvevo/auto-cost",
+        messages=[{"role": "user", "content": "ping"}],
+        request_overrides={"model": "okvevo/auto-cost"},
+    )
+    assert kwargs["model"] == AUTO_WIRE_MODEL
+    assert kwargs["extra_body"]["plugins"][0]["cost_tier"] == "medium"
+    specific = transport.build_kwargs(
+        model="openai/gpt-4o-mini",
+        messages=[{"role": "user", "content": "ping"}],
+        request_overrides={"model": "openai/gpt-4o-mini"},
+    )
+    assert specific["model"] == "openai/gpt-4o-mini"
+
+
 def test_auto_plugin_payloads():
     intel = auto_plugin("okvevo/auto-intelligence")
     assert intel == {"id": AUTO_PLUGIN_ID, "cost_tier": "xhigh",

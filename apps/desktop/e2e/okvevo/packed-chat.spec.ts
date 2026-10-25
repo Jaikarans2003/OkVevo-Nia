@@ -97,7 +97,9 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     await send(page, 'ping default bot')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(before)
     const cost = callFor(mock.calls, 'ping default bot')
-    expect(cost.model).toBe('openrouter/auto-beta')
+    if (cost.model !== 'openrouter/auto-beta') {
+      throw new Error(`wire model ${cost.model} plugins ${JSON.stringify(cost.plugins)}`)
+    }
     expect(cost.plugins?.[0]?.cost_tier).toBe('medium')
     await shot(page, 'default-bot-chat.png')
 
