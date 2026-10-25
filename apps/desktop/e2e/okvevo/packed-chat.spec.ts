@@ -33,14 +33,18 @@ function messageText(message: unknown): string {
     .join('')
 }
 
-/** The chat turn, not a later title or memory call that quotes the same text. */
+function matchesMarker(call: ChatCall, marker: string): boolean {
+  const messages = Array.isArray(call.messages) ? call.messages : []
+  return messages.some(message => messageText(message).trim() === marker)
+}
+
+/** The chat turn. Prefer the rewritten Auto call when an earlier quote also matched. */
 function callFor(calls: ChatCall[], marker: string): ChatCall {
-  const found = calls.find(call => {
-    const messages = Array.isArray(call.messages) ? call.messages : []
-    return messages.some(message => messageText(message).trim() === marker)
-  })
-  if (!found) throw new Error(`no gateway call contained ${marker}`)
-  return found
+  const found = calls.filter(call => matchesMarker(call, marker))
+  const wired = found.find(call => call.model === 'openrouter/auto-beta' || call.plugins?.some(plugin => plugin.cost_tier))
+  const match = wired ?? found[0]
+  if (!match) throw new Error(`no gateway call contained ${marker}`)
+  return match
 }
 
 async function shot(page: Page, name: string) {
@@ -140,6 +144,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     expect(botConfig).toContain('provider: okvevo')
     expect(botConfig).not.toMatch(/provider: (auto|openrouter|nous)\b/)
     await page.getByRole('button', { name: /^E2E One\b/ }).first().click()
+    await expect(page.getByText('ping specific model', { exact: true })).toHaveCount(0)
     const botBefore = await replies(page)
     await send(page, 'ping new bot')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(botBefore)
