@@ -159,6 +159,10 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     }
     await room.getByRole('textbox', { name: 'Group name' }).fill('e2eroom')
     await room.getByRole('button', { name: 'Create Group (2)' }).click()
+    await expect(room).toBeHidden({ timeout: 60_000 })
+    const groupTab = page.getByRole('tab', { name: /e2eroom/ })
+    await expect(groupTab).toBeVisible()
+    await expect(page.getByText('ping new bot', { exact: true })).toHaveCount(0)
     const groupBefore = await replies(page)
     await send(page, 'ping group chat')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(groupBefore)
