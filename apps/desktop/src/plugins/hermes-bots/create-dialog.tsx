@@ -39,6 +39,8 @@ import {
 } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 
+import { provisionOkvevoProfile } from '@/lib/okvevo-provision'
+
 import { avatarColor, blobatarSvg, botAppearance, BotFace } from './avatar'
 import { isBackfilledFacePng } from './avatar-image'
 import { AvatarPicker } from './avatar-picker'
@@ -553,6 +555,10 @@ export function CreateAgentDialog({ open, onClose, onConfigureModel, roster }: C
 
       createdRef.current = slug
       draftTargetRef.current = target
+
+      if (!remoteTarget) {
+        await provisionOkvevoProfile(slug)
+      }
 
       // Apply capability picks from the Advanced tabs (best-effort; the
       // profile exists either way and Edit Profile can finish the job).

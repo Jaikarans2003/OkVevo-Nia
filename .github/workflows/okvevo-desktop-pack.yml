@@ -214,6 +214,23 @@ jobs:
             --resources "$app/Contents/Resources" \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: Packed-app chat E2E
+        if: ${{ inputs.yml_mode == 'build' }}
+        working-directory: apps/desktop
+        run: |
+          set -euo pipefail
+          app=$(ls -d release/mac*/OkVevo.app | head -1)
+          export OKVEVO_E2E_EXECUTABLE="$PWD/$app/Contents/MacOS/OkVevo"
+          test -f "$OKVEVO_E2E_EXECUTABLE"
+          python3 ../../scripts/okvevo/check_vendor_keys.py --pack "$PWD/$app/Contents/Resources"
+          npx playwright test --config e2e/okvevo/playwright.config.ts
+      - name: Upload packed-app E2E screenshots
+        if: ${{ always() && inputs.yml_mode == 'build' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: okvevo-packed-e2e-mac
+          path: apps/desktop/release/e2e-screenshots
+          if-no-files-found: ignore
       - name: List bundled OSS notice
         run: |
           set -euo pipefail
@@ -339,6 +356,25 @@ jobs:
             --resources apps/desktop/release/win-unpacked/resources \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: Packed-app chat E2E
+        if: ${{ inputs.yml_mode == 'build' }}
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          export OKVEVO_E2E_EXECUTABLE="$PWD/release/win-unpacked/OkVevo.exe"
+          test -f "$OKVEVO_E2E_EXECUTABLE"
+          py=python3
+          command -v python3 >/dev/null 2>&1 || py=python
+          "$py" ../../scripts/okvevo/check_vendor_keys.py --pack "$PWD/release/win-unpacked/resources"
+          npx playwright test --config e2e/okvevo/playwright.config.ts
+      - name: Upload packed-app E2E screenshots
+        if: ${{ always() && inputs.yml_mode == 'build' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: okvevo-packed-e2e-win
+          path: apps/desktop/release/e2e-screenshots
+          if-no-files-found: ignore
       - name: List bundled OSS notice
         shell: bash
         run: |

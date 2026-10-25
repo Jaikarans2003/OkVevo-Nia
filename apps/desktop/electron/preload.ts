@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   getConnection: (profile, opts) => ipcRenderer.invoke('hermes:connection', profile, opts),
   // Loopback origin that hosts YouTube's player for the file:// renderer.
   getEmbedHostOrigin: () => ipcRenderer.invoke('hermes:embed-host:origin'),
+  provisionOkvevoProfile: (name: string) => ipcRenderer.invoke('hermes:okvevo:provision-profile', name),
   // Registry-scoped backend resolution: { connectionId, profile } → descriptor.
   getConnectionFor: payload => ipcRenderer.invoke('hermes:connection:for', payload),
   getProfileRoutes: profiles => ipcRenderer.invoke('hermes:plugin-profile-routes', profiles),

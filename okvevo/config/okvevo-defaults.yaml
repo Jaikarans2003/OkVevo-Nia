@@ -1,0 +1,90 @@
+# First-run OkVevo config. Desktop migration and a later cloud image both read
+# this file. Do not copy these values into TypeScript.
+#
+# auxiliary.<task>.provider: main means "use the main agent provider"
+# (model.provider). With model.provider okvevo, title, compression, and vision
+# follow OkVevo. The model-provider plugin (plugins/model-providers/okvevo,
+# kind model-provider) is bundled default-on; plugins.enabled lists the
+# backend plugin that registers portal web/image/video.
+
+model:
+  provider: okvevo
+  default: okvevo/auto-cost
+
+auxiliary:
+  vision:
+    provider: main
+  compression:
+    provider: main
+  skills_hub:
+    provider: main
+  approval:
+    provider: main
+  review:
+    provider: main
+  mcp:
+    provider: main
+  title_generation:
+    provider: main
+  memory_query_rewrite:
+    provider: main
+  tts_audio_tags:
+    provider: main
+  voice_chat:
+    provider: main
+  triage_specifier:
+    provider: main
+  kanban_decomposer:
+    provider: main
+  profile_describer:
+    provider: main
+  goal_judge:
+    provider: main
+  curator:
+    provider: main
+  monitor:
+    provider: main
+  background_review:
+    provider: main
+  moa_reference:
+    provider: main
+  moa_aggregator:
+    provider: main
+
+plugins:
+  enabled:
+    - okvevo
+
+image_gen:
+  provider: okvevo
+
+video_gen:
+  provider: okvevo
+
+web:
+  backend: okvevo
+  search_backend: okvevo
+  extract_backend: okvevo
+  keyless_fallback: false
+  keyless_rescue: false
+
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+
+# Public first-run does not sign into Nous, fetch the Nous model catalog,
+# arm Chronos, or start the Nous tool-gateway connectors.
+nous:
+  guest: false
+
+model_catalog:
+  enabled: false
+
+cron:
+  chronos:
+    portal_url: ""
+
+tools:
+  connectors:
+    enabled: false

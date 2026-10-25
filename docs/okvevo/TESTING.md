@@ -20,6 +20,12 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 | 12 | Mac permissions | Re-grant microphone, screen-recording and accessibility to the new app |
 | 13 | Windows extras | SmartScreen "More info → Run anyway"; username with a space; PowerShell tasks |
 | 14 | Auto-update | Staging build N updates to N+1 (unsigned Mac in-app update will not swap — re-download the DMG) |
+| 15 | Fresh chat | After sign-in, send a message on the default chat. A reply appears. `~/.hermes/config.yaml` has `model.provider: okvevo`, `model.default: okvevo/auto-cost`, and every `auxiliary.*.provider` is `main` |
+| 16 | Default bot | Open Bots. The default agent opens and answers |
+| 17 | Model picker | The public picker shows one OkVevo row. Auto Cost Effective and Auto Intelligence both reply. Picking a specific model sends that model id. No OpenRouter, MoA, Add custom model, or Add provider |
+| 18 | New bot, no restart | Create a bot, send a message in that same launch, and get a reply. Duplicate a bot the same way. If an old receipt still fails, start a new chat |
+| 19 | Group chat | Create a group with two bots and get a reply in the room |
+| 20 | Vendor hosts | The public build does not contact `openrouter.ai` or any other host in `docs/okvevo/VENDOR-TOUCHPOINTS.md` |
 
 ## Known gaps
 

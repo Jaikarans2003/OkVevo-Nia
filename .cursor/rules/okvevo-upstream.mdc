@@ -1,0 +1,14 @@
+---
+description: OkVevo stays on upstream Hermes and does not call a paid vendor directly
+alwaysApply: true
+---
+
+# OkVevo stays on upstream Hermes
+
+The desktop app does not call a paid or AI vendor itself. Chat, images, video, and web search go through the OkVevo portal. Allowed hosts are the ones in `docs/okvevo/VENDOR-TOUCHPOINTS.md`.
+
+First-run values live in `okvevo/config/okvevo-defaults.yaml`. Do not copy them into TypeScript.
+
+Do not edit upstream Python (`gateway/`, `agent/`, `hermes_cli/`, `providers/`) to make an OkVevo check pass. If a check fails, fix the OkVevo-owned path or rebuild the app the way upstream packs it.
+
+Push only the `okvevo` remote. Never `origin`.

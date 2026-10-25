@@ -34,6 +34,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tip, TipHintLabel } from '@/components/ui/tooltip'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { isByokChromeVisible } from '@/lib/build-channel'
 import { triggerHaptic } from '@/lib/haptics'
 import { isSubmitEnter } from '@/lib/ime'
 import { catalogProviderMatches, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
@@ -316,9 +317,11 @@ export function ModelCatalogMenu({
 
   // The catalog carries MoA presets as a virtual `moa` provider row. Keep it
   // out of the main groups so presets never show up twice.
+  const publicLocked = !isByokChromeVisible()
   const moaPresets = useMemo(
-    () => (includeMoa ? (providers?.find(p => p.slug.toLowerCase() === 'moa')?.models ?? []) : []),
-    [providers, includeMoa]
+    () =>
+      includeMoa && !publicLocked ? (providers?.find(p => p.slug.toLowerCase() === 'moa')?.models ?? []) : [],
+    [providers, includeMoa, publicLocked]
   )
 
   const pickerProviders = useMemo(
@@ -426,8 +429,11 @@ export function ModelCatalogMenu({
   // catalog lacks is one Enter away, then remember it as a normal row. While
   // the query still matches catalog rows the section stays out of the way
   // unless the user asked for it via "Add custom model…".
-  const customSlug =
-    slugEntry || (!hasList && shownMoaPresets.length === 0) ? customModelCandidate(search, pickerProviders) : null
+  const customSlug = publicLocked
+    ? null
+    : slugEntry || (!hasList && shownMoaPresets.length === 0)
+      ? customModelCandidate(search, pickerProviders)
+      : null
 
   const customProviders = useMemo(
     () =>
@@ -488,7 +494,7 @@ export function ModelCatalogMenu({
   }
 
   const selectOkvevoAuto = async (id: string) => {
-    if ((await controller.select(id, 'openrouter')) === false) {
+    if ((await controller.select(id, 'okvevo')) === false) {
       return
     }
 
@@ -559,7 +565,7 @@ export function ModelCatalogMenu({
     row.kind === 'moa'
       ? current.provider === 'moa' && row.preset === current.model
       : row.kind === 'okvevo-auto'
-        ? current.provider === 'openrouter' && row.id === current.model
+        ? (current.provider === 'okvevo' || current.provider === 'openrouter') && row.id === current.model
         : row.kind === 'custom'
         ? false
         : catalogProviderMatches(row.provider, current.provider) &&
@@ -806,7 +812,7 @@ export function ModelCatalogMenu({
                   <span className="min-w-0 flex-1 truncate">
                     <HighlightMatches query={search} text={row.label} />
                   </span>
-                  {current.provider === 'openrouter' && current.model === row.id ? (
+                  {(current.provider === 'okvevo' || current.provider === 'openrouter') && current.model === row.id ? (
                     <Codicon className="ml-auto text-foreground" name="check" size="0.75rem" />
                   ) : null}
                 </DropdownMenuItem>
@@ -963,20 +969,22 @@ export function ModelCatalogMenu({
           trailing block it has always rendered. */}
       <DropdownMenuSeparator className="mx-0" />
       {footer}
-      <DropdownMenuItem
-        className={cn(dropdownMenuRow, 'text-(--ui-text-tertiary)', slugEntry && 'text-foreground')}
-        onSelect={event => {
-          event.preventDefault()
-          setSearch('')
-          setKbOverride(null)
-          setSlugEntry(true)
-          // Radix hands focus back to the row after onSelect; refocus after.
-          window.setTimeout(() => searchRef.current?.focus(), 0)
-        }}
-      >
-        <Codicon name="add" size="0.75rem" />
-        {copyPicker.addCustomModelAction}
-      </DropdownMenuItem>
+      {publicLocked ? null : (
+        <DropdownMenuItem
+          className={cn(dropdownMenuRow, 'text-(--ui-text-tertiary)', slugEntry && 'text-foreground')}
+          onSelect={event => {
+            event.preventDefault()
+            setSearch('')
+            setKbOverride(null)
+            setSlugEntry(true)
+            // Radix hands focus back to the row after onSelect; refocus after.
+            window.setTimeout(() => searchRef.current?.focus(), 0)
+          }}
+        >
+          <Codicon name="add" size="0.75rem" />
+          {copyPicker.addCustomModelAction}
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem
         className={cn(dropdownMenuRow, 'text-(--ui-text-tertiary)')}
         onSelect={() => setModelVisibilityOpen(true)}
