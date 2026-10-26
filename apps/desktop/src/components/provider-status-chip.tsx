@@ -6,6 +6,7 @@ import type { ModelMenuTranslations } from '@/i18n/types_model_menu'
 import {
   accountResetMs,
   formatReset,
+  okvevoLimitLabel,
   type PoolAccountView,
   poolUsage,
   USAGE_NOTICE_PERCENT,
@@ -38,12 +39,13 @@ function poolChipState(provider: ModelOptionProvider, copy: ModelMenuTranslation
   const count =
     pool.limited > 0 ? copy.poolLimited(pool.limited, pool.accounts.length) : copy.poolAccounts(pool.accounts.length)
 
-  const label = resetMs === null ? count : time ? copy.limitedUntil(time) : copy.limited
+  const label =
+    okvevoLimitLabel(provider.slug, resetMs, time) ?? (resetMs === null ? count : time ? copy.limitedUntil(time) : copy.limited)
 
   return {
     label,
     remaining: 0,
-    tip: <PoolUsageTip accounts={pool.accounts} copy={copy} />,
+    tip: <PoolUsageTip accounts={pool.accounts} copy={copy} provider={provider} />,
     tipPlacement: 'row',
     warn: resetMs !== null
   }
@@ -51,7 +53,15 @@ function poolChipState(provider: ModelOptionProvider, copy: ModelMenuTranslation
 
 /** A scan-first account list: each row shows its tightest live window as a bar, with exact
  *  remaining/reset beside it. Unknown and signed-out rows stay empty rather than looking full. */
-function PoolUsageTip({ accounts, copy }: { accounts: PoolAccountView[]; copy: ModelMenuTranslations }) {
+function PoolUsageTip({
+  accounts,
+  copy,
+  provider
+}: {
+  accounts: PoolAccountView[]
+  copy: ModelMenuTranslations
+  provider: ModelOptionProvider
+}) {
   return (
     <span className="grid w-60 gap-2 py-0.5">
       {accounts.map((entry, index) => {
@@ -68,9 +78,8 @@ function PoolUsageTip({ accounts, copy }: { accounts: PoolAccountView[]; copy: M
             ? copy.poolUnknown
             : copy.poolUnavailable
           : limited
-            ? accountReset
-              ? copy.limitedUntil(accountReset)
-              : copy.limited
+            ? okvevoLimitLabel(provider.slug, entry.resetMs, accountReset) ??
+              (accountReset ? copy.limitedUntil(accountReset) : copy.limited)
             : tightest
               ? copy.usageWindow(tightest.label, tightest.remaining, null)
               : copy.poolUnknown
@@ -123,7 +132,7 @@ function useChipState(provider: ModelOptionProvider): ChipState | null {
     const time = formatReset(resetMs)
 
     return {
-      label: time ? copy.limitedUntil(time) : copy.limited,
+      label: okvevoLimitLabel(provider.slug, resetMs, time) ?? (time ? copy.limitedUntil(time) : copy.limited),
       remaining: 0,
       tip: copy.limitedTip(provider.name, time),
       warn: true

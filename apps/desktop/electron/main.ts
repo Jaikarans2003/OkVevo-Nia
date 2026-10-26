@@ -445,7 +445,7 @@ import {
 } from './okvevo-auth-store'
 import { migrateOkvevoHermesHome, provisionOkvevoProfile, readFirstText } from './okvevo-config-migration'
 import { ABOUT_CREDITS, OKVEVO_COPYRIGHT } from './okvevo-about'
-import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, upsertHermesEnvKey } from './okvevo-env'
+import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, stripOkvevoApiKeyCopies } from './okvevo-env'
 import { bakedFeedUrlFromPack, resolveDesktopFeedBase } from './okvevo-feed'
 import {
   canShowInteractiveOauthLogin,
@@ -7676,7 +7676,43 @@ function _writeOkvevoIdTokenFile(idToken: string) {
 
   fs.mkdirSync(path.dirname(target), { recursive: true })
   writeSecretFileAtomic(target, idToken, { encoding: 'utf8' })
-  upsertHermesEnvKey(path.join(HERMES_HOME, '.env'), 'OKVEVO_API_KEY', idToken)
+  // The token file is the only copy. Profile .env snapshots expire and 401.
+  stripOkvevoApiKeyCopies(HERMES_HOME)
+  void _resetOkvevoCredentialCooldowns()
+}
+
+async function _resetOkvevoCredentialCooldowns() {
+  const profiles: Array<string | null> = [null]
+
+  try {
+    for (const name of fs.readdirSync(path.join(HERMES_HOME, 'profiles'))) {
+      if (fs.statSync(path.join(HERMES_HOME, 'profiles', name)).isDirectory()) {
+        profiles.push(name)
+      }
+    }
+  } catch {
+    // No profiles yet.
+  }
+
+  for (const profile of profiles) {
+    const args = profile ? ['--profile', profile, 'auth', 'reset', 'okvevo'] : ['auth', 'reset', 'okvevo']
+
+    try {
+      const backend = await resolveHermesBackend(args)
+
+      await runGatewayEnsure(
+        { ...backend, env: desktopBackendSpawnEnv(backend.env || {}) },
+        resolveHermesCwd(),
+        HERMES_HOME,
+        process.env,
+        { timeoutMs: 20_000, label: 'hermes auth reset okvevo' }
+      )
+    } catch (error) {
+      rememberLog(
+        `[okvevo-auth] credential reset failed: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+  }
 }
 
 function _writeOkvevoRefreshTokenFile(refreshToken: string) {
@@ -7694,7 +7730,7 @@ function _clearOkvevoIdTokenFile() {
   }
 
   try {
-    upsertHermesEnvKey(path.join(HERMES_HOME, '.env'), 'OKVEVO_API_KEY', '')
+    stripOkvevoApiKeyCopies(HERMES_HOME)
   } catch (error) {
     rememberLog(`[okvevo-auth] clear OKVEVO_API_KEY failed: ${error.message}`)
   }
@@ -7771,6 +7807,7 @@ function _scheduleOkvevoRefresh() {
 }
 
 function _hydrateOkvevoAuthFromDisk() {
+  stripOkvevoApiKeyCopies(HERMES_HOME)
   const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
 
   if (!session?.idToken) {
@@ -17401,6 +17438,13 @@ ipcMain.handle('hermes:openExternal', async (_event, url) => {
   if (result.ok === false && result.reason === 'invalid') {
     throw new Error('Invalid external URL')
   }
+})
+
+ipcMain.handle('hermes:okvevo:reset-credential-cooldown', async () => {
+  stripOkvevoApiKeyCopies(HERMES_HOME)
+  await _resetOkvevoCredentialCooldowns()
+
+  return { ok: true }
 })
 
 ipcMain.handle('hermes:okvevo-auth:start', async () => {

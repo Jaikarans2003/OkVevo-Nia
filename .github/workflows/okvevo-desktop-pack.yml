@@ -229,7 +229,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: okvevo-packed-e2e-mac
-          path: apps/desktop/release/e2e-screenshots
+          path: |
+            apps/desktop/release/e2e-screenshots
+            apps/desktop/release/e2e-diagnostics
+            apps/desktop/release/e2e-playwright
           if-no-files-found: ignore
       - name: List bundled OSS notice
         run: |
@@ -373,7 +376,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: okvevo-packed-e2e-win
-          path: apps/desktop/release/e2e-screenshots
+          path: |
+            apps/desktop/release/e2e-screenshots
+            apps/desktop/release/e2e-diagnostics
+            apps/desktop/release/e2e-playwright
           if-no-files-found: ignore
       - name: List bundled OSS notice
         shell: bash

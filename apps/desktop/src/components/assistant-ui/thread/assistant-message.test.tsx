@@ -37,12 +37,12 @@ vi.mock('@/store/profile', async importOriginal => ({
 vi.mock('@/store/onboarding', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   startManualProviderOAuth: (...args: unknown[]) => startManualProviderOAuth(...args)
+}))
 
 const isByokChromeVisible = vi.hoisted(() => vi.fn(() => true))
 
 vi.mock('@/lib/build-channel', () => ({
   isByokChromeVisible
-}))
 }))
 
 // Timeline timestamps render only when `display.timestamps` is enabled.
@@ -211,11 +211,13 @@ function LocationProbe() {
 function Harness({
   assistant = assistantMessage(),
   onBranchInNewChat,
-  onReload
+  onReload,
+  probe = false
 }: {
   assistant?: ThreadMessage
   onBranchInNewChat?: (messageId: string) => void
   onReload?: () => Promise<void>
+  probe?: boolean
 }) {
   const runtime = useExternalStoreRuntime<ThreadMessage>({
     messages: [userMessage(), assistant],
@@ -226,6 +228,7 @@ function Harness({
 
   return (
     <MemoryRouter>
+      {probe ? <LocationProbe /> : null}
       <AssistantRuntimeProvider runtime={runtime}>
         <Thread onBranchInNewChat={onBranchInNewChat} />
       </AssistantRuntimeProvider>
@@ -361,7 +364,7 @@ describe('code-keyed error card copy and actions', () => {
 
     render(<Harness assistant={legacy} />)
 
-    expect(await screen.findByText(en.assistant.thread.errorLayers.generic)).toBeTruthy()
+    expect(await screen.findByText(/couldn't finish this reply/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
   })
 })
@@ -429,23 +432,21 @@ describe('scheduled retry at the usage-limit reset (#98852)', () => {
 describe('rejected API key recovery', () => {
   it('names the key as the problem and deep-links Settings → Keys to that env var', async () => {
     render(
-      <MemoryRouter>
-        <LocationProbe />
-        <Harness
-          assistant={failedMessage(
-            {
-              apiKeyEnv: 'OPENAI_API_KEY',
-              authKind: 'api_key',
-              code: 'auth',
-              layer: 'auth',
-              provider: 'openai',
-              providerLabel: 'OpenAI',
-              retryable: false
-            },
-            'HTTP 401: {"error":{"message":"Incorrect API key provided: sk-…"}}'
-          )}
-        />
-      </MemoryRouter>
+      <Harness
+        probe
+        assistant={failedMessage(
+          {
+            apiKeyEnv: 'OPENAI_API_KEY',
+            authKind: 'api_key',
+            code: 'auth',
+            layer: 'auth',
+            provider: 'openai',
+            providerLabel: 'OpenAI',
+            retryable: false
+          },
+          'HTTP 401: {"error":{"message":"Incorrect API key provided: sk-…"}}'
+        )}
+      />
     )
 
     expect(await screen.findByText(copy(en.assistant.thread.errorAuthKinds.api_key.title, 'OpenAI'))).toBeTruthy()
@@ -464,12 +465,7 @@ describe('switch provider on a live session (#95066)', () => {
     failedMessage({ code: 'billing', layer: 'billing', provider: 'openai-codex', retryable: false }, 'HTTP 429: quota')
 
   it('opens the live session model menu instead of leaving the chat for Settings', async () => {
-    render(
-      <MemoryRouter>
-        <LocationProbe />
-        <Harness assistant={billingFailure()} />
-      </MemoryRouter>
-    )
+    render(<Harness probe assistant={billingFailure()} />)
 
     const button = await screen.findByRole('button', { name: 'Switch provider' })
     const before = screen.getByTestId('location').textContent
@@ -483,12 +479,7 @@ describe('switch provider on a live session (#95066)', () => {
 
   it('falls back to Settings → Models only when no chat surface is on screen', async () => {
     requestModelMenuToggle.mockReturnValue(false)
-    render(
-      <MemoryRouter>
-        <LocationProbe />
-        <Harness assistant={billingFailure()} />
-      </MemoryRouter>
-    )
+    render(<Harness probe assistant={billingFailure()} />)
 
     ;(await screen.findByRole('button', { name: 'Switch provider' })).click()
 
@@ -507,6 +498,8 @@ describe('expired OAuth grant recovery', () => {
 
     screen.getByRole('button', { name: 'Sign in to Nous Portal again' }).click()
     expect(startManualProviderOAuth).toHaveBeenCalledWith('nous', undefined)
+  })
+})
 
 describe('ErrorRecoveryActions channel chrome', () => {
   it('keeps Switch provider / Open logs / Copy error details on internal', async () => {
@@ -529,6 +522,8 @@ describe('ErrorRecoveryActions channel chrome', () => {
     expect(screen.queryByRole('button', { name: 'Open logs' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Copy error details' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Send diagnostics' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Update API key' })).toBeNull()
+    expect(screen.queryByText('Update API key')).toBeNull()
 
     const help = screen.getByRole('link', { name: /help@okvevo\.com/i })
     expect(help.getAttribute('href')).toBe('mailto:help@okvevo.com')
@@ -596,6 +591,4 @@ describe('reasoning accordion channel', () => {
 
     expect(container.querySelector('[data-slot="aui_thinking-disclosure"]')).toBeTruthy()
   })
-})
-
 })

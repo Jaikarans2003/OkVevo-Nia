@@ -144,6 +144,53 @@ export function isAppearanceSettingVisible(id: string): boolean {
   return isByokChromeVisible() || !PUBLIC_HIDDEN_APPEARANCE_SETTING_IDS.has(id)
 }
 
+const STANDALONE_SETTINGS_VIEWS = [
+  'providers',
+  'gateway',
+  'connections',
+  'keybinds',
+  'keys',
+  'vault',
+  'notifications',
+  'billing',
+  'sessions',
+  'plugins',
+  'about'
+] as const
+
+const PROVIDER_SUBVIEWS = ['pview:accounts', 'pview:keys', 'pview:custom-endpoints', 'pview:local'] as const
+
+/** Every settings route this build knows about. A new upstream section shows up here. */
+export function settingsRouteInventory(): string[] {
+  return [
+    ...SECTIONS.map(section => `config:${section.id}`),
+    ...STANDALONE_SETTINGS_VIEWS,
+    ...PROVIDER_SUBVIEWS
+  ]
+}
+
+export const PUBLIC_SETTINGS_ALLOWLIST = [
+  'config:safety',
+  'config:browser',
+  'config:voice',
+  'config:advanced',
+  'vault',
+  'notifications',
+  'billing',
+  'sessions',
+  'about'
+] as const
+
+export function visibleSettingsRoutes(): string[] {
+  return settingsRouteInventory().filter(route => {
+    if (route.startsWith('pview:')) {
+      return isSettingsViewVisible('providers')
+    }
+
+    return isSettingsViewVisible(route as SettingsView)
+  })
+}
+
 export function isSettingsViewVisible(view: SettingsView): boolean {
   if (isByokChromeVisible()) {
     return true

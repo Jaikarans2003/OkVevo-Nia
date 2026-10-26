@@ -62,6 +62,7 @@ import {
   usePluginSettingsRoute
 } from './plugin-settings'
 import { SettingsBreadcrumbContext } from './primitives'
+import { isSettingsViewVisible, PUBLIC_FALLBACK_SETTINGS_VIEW } from './settings-ui-policy'
 import { PROVIDER_VIEWS, ProvidersSettings, type ProviderView } from './providers-settings'
 import { SessionsSettings } from './sessions-settings'
 import { SettingsSubpageHeader } from './subpage-navigation'
@@ -117,7 +118,11 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
     }
   }, [navigate, search])
 
-  const [activeView] = useRouteEnumParam('tab', SETTINGS_VIEWS, 'config:model' as SettingsViewId)
+  const [activeView] = useRouteEnumParam(
+    'tab',
+    SETTINGS_VIEWS,
+    (isSettingsViewVisible('config:model') ? 'config:model' : PUBLIC_FALLBACK_SETTINGS_VIEW) as SettingsViewId
+  )
 
   useEffect(() => recordFeatureUse(settingsArea(activeView)), [activeView])
   const params = new URLSearchParams(search)
@@ -132,13 +137,14 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
 
   const openSettingsPage = useCallback(
     (view: SettingsViewId, page?: string) => {
+      const destinationView = isSettingsViewVisible(view) ? view : PUBLIC_FALLBACK_SETTINGS_VIEW
       const next = new URLSearchParams(search)
 
       for (const key of [...PAGE_SCOPED_PARAMS, 'pview', 'kview', 'bview']) {
         next.delete(key)
       }
 
-      next.set('tab', view)
+      next.set('tab', destinationView)
       const destination = page ?? settingsSubpages(view)[0]?.id
 
       if (destination) {
@@ -151,6 +157,12 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   )
 
   const setActiveView = useCallback((view: SettingsViewId) => openSettingsPage(view), [openSettingsPage])
+
+  useEffect(() => {
+    if (!isSettingsViewVisible(activeView)) {
+      setActiveView(PUBLIC_FALLBACK_SETTINGS_VIEW)
+    }
+  }, [activeView, setActiveView])
 
   // Connections merged into the unified Gateways page: land old
   // `?tab=connections` routes/bookmarks there instead of a dead entry.
@@ -415,7 +427,9 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
             onSelect: () => setActiveView('about')
           }
         ] as OverlayNavGroup[]
-      ).map(group => {
+      )
+        .filter(group => isSettingsViewVisible(group.id as SettingsViewId))
+        .map(group => {
         const view = group.id as SettingsViewId
         const children = settingsSubpages(view)
 

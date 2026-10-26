@@ -40,9 +40,9 @@ def _classify_okvevo_api_error(
             "should_fallback": False,
         }
     if status_code in (401, 403):
-        # Transient auth: the desktop refreshes the ID token hourly; a rebuilt
-        # client re-reads it. auth (not auth_permanent) lets that happen.
-        return {"reason": "auth", "message": AUTH_COPY, "should_rotate_credential": True}
+        # auth (not auth_permanent) so the pool calls refresh_credential once.
+        # Do not rotate: benching the only key paints "Limited until…".
+        return {"reason": "auth", "message": AUTH_COPY, "should_rotate_credential": False}
     return None
 
 
@@ -61,3 +61,9 @@ def register(ctx) -> None:
     from plugins.okvevo.auto_router import install_auto_wire_swap
 
     install_auto_wire_swap()
+    try:
+        from plugins.okvevo.credentials import ensure_okvevo_pool_entry
+
+        ensure_okvevo_pool_entry()
+    except Exception:
+        pass

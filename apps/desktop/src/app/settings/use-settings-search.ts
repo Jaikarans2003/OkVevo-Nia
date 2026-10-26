@@ -17,6 +17,7 @@ import { SECTIONS } from './constants'
 import { OTHER_SUBPAGES } from './other-subpages'
 import { settingSearchTargets } from './settings-manifest'
 import { buildConfigSearchEntries, buildCredentialSearchEntries, type SettingsSearchEntry } from './settings-search'
+import { isSettingsViewVisible } from './settings-ui-policy'
 import { settingsSubpages } from './subpages'
 import type { SettingsView } from './types'
 
@@ -174,11 +175,22 @@ export function useSettingsSearchCatalog(enabled: boolean) {
     )
     .filter(entry => !settingLabels.has(`${entry.context}\u0000${entry.label}`))
 
+  const shown = (entries: SettingsSearchEntry[]) =>
+    entries.filter(entry => isSettingsViewVisible(entry.target.view))
+
   return {
-    subpageEntries,
-    settingEntries,
-    configEntries,
-    credentialEntries,
-    pluginEntries
+    subpageEntries: shown(subpageEntries),
+    settingEntries: shown(settingEntries),
+    configEntries: shown(configEntries),
+    credentialEntries: publicByokHidden(credentialEntries),
+    pluginEntries: isSettingsViewVisible('plugins') ? pluginEntries : []
   }
+}
+
+function publicByokHidden(entries: SettingsSearchEntry[]): SettingsSearchEntry[] {
+  if (isSettingsViewVisible('keys') && isSettingsViewVisible('providers')) {
+    return entries
+  }
+
+  return []
 }

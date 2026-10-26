@@ -159,6 +159,7 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/write-okvevo-pack-env.mjs`
 - `apps/desktop/scripts/write-okvevo-pack-env.test.mjs`
 - `apps/desktop/src/api/client.ts`
+- `apps/desktop/src/api/config.ts`
 - `apps/desktop/src/api/plugins.ts`
 - `apps/desktop/src/app/artifacts/artifact-utils.ts`
 - `apps/desktop/src/app/artifacts/index.test.ts`
@@ -190,12 +191,15 @@ corresponding list **exactly**.
 - `apps/desktop/src/app/settings/constants.ts`
 - `apps/desktop/src/app/settings/gateway-settings.tsx`
 - `apps/desktop/src/app/settings/helpers.test.ts`
+- `apps/desktop/src/app/settings/index.tsx`
 - `apps/desktop/src/app/settings/model-settings.tsx`
 - `apps/desktop/src/app/settings/okvevo-locked-prefs.ts`
 - `apps/desktop/src/app/settings/providers-settings.test.tsx`
 - `apps/desktop/src/app/settings/settings-search.test.ts`
+- `apps/desktop/src/app/settings/settings-search.ts`
 - `apps/desktop/src/app/settings/settings-ui-policy.test.ts`
 - `apps/desktop/src/app/settings/settings-ui-policy.ts`
+- `apps/desktop/src/app/settings/use-settings-search.ts`
 - `apps/desktop/src/app/shell/model-catalog-menu.test.tsx`
 - `apps/desktop/src/app/shell/model-catalog-menu.tsx`
 - `apps/desktop/src/app/shell/model-menu-panel.tsx`
@@ -218,6 +222,8 @@ corresponding list **exactly**.
 - `apps/desktop/src/components/onboarding/index.tsx`
 - `apps/desktop/src/components/onboarding/providers.tsx`
 - `apps/desktop/src/components/pane-shell/tree/store.ts`
+- `apps/desktop/src/components/provider-status-chip.test.tsx`
+- `apps/desktop/src/components/provider-status-chip.tsx`
 - `apps/desktop/src/components/send-diagnostics-dialog.tsx`
 - `apps/desktop/src/components/version-details.tsx`
 - `apps/desktop/src/contrib/runtime-loader.ts`
@@ -244,6 +250,7 @@ corresponding list **exactly**.
 - `apps/desktop/src/lib/product.ts`
 - `apps/desktop/src/lib/provider-branding.test.ts`
 - `apps/desktop/src/lib/provider-branding.ts`
+- `apps/desktop/src/lib/provider-limit.ts`
 - `apps/desktop/src/lib/sibling-ws-url.ts`
 - `apps/desktop/src/lib/user-facing-error.ts`
 - `apps/desktop/src/lib/yolo-session.ts`

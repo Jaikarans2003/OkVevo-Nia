@@ -26,6 +26,7 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 | 18 | New bot, no restart | Create a bot, send a message in that same launch, and get a reply. Duplicate a bot the same way. If an old receipt still fails, start a new chat |
 | 19 | Group chat | Create a group with two bots and get a reply in the room |
 | 20 | Vendor hosts | The public build does not contact `openrouter.ai` or any other host in `docs/okvevo/VENDOR-TOUCHPOINTS.md` |
+| 21 | Image inside a bot | Open a bot you created (not the default agent). Ask it to generate an image. An approval dialog appears before anything is sent. Approve it. The image shows in that bot's chat. The chat must not say "Please sign in again" or "Limited until" |
 
 ## Known gaps
 

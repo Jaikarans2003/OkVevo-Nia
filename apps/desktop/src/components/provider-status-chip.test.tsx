@@ -76,3 +76,20 @@ it('only presents a pool-wide wall when every account is limited, preserving unk
   expect(screen.getByText('10 accounts')).toBeTruthy()
   expect(screen.queryByText(/Limited until|accounts limited/)).toBeNull()
 })
+
+it('says out of credits or busy for OkVevo instead of Limited until', () => {
+  vi.spyOn(Date, 'now').mockReturnValue(NOW)
+  const credits = {
+    slug: 'okvevo',
+    name: 'OkVevo',
+    models: ['okvevo/auto-cost'],
+    limit: { scope: 'account' as const, resets_at: iso(60) }
+  }
+  const { rerender } = render(view(credits))
+
+  expect(screen.getByText('Out of credits: top up')).toBeTruthy()
+  expect(screen.queryByText(/Limited until/)).toBeNull()
+
+  rerender(view({ ...credits, limit: { scope: 'account', resets_at: iso(5) } }))
+  expect(screen.getByText(/Busy, retrying at/)).toBeTruthy()
+})

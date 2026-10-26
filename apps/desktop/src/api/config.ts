@@ -14,6 +14,8 @@ import type {
   StatusResponse
 } from '@/types/hermes'
 
+import { refusePublicByokWrite } from '@/lib/build-channel'
+
 import { capabilityScoped, hermesApi, type ProfileScope, profileScoped, STARTUP_REQUEST_TIMEOUT_MS } from './client'
 
 type ConfigReadOrigin = { connectionId?: string; priority?: 'foreground'; profile?: string }
@@ -216,6 +218,8 @@ export function setEnvVar(
   profile?: ProfileScope,
   { providerSetup = false }: { providerSetup?: boolean } = {}
 ): Promise<{ ok: boolean }> {
+  refusePublicByokWrite(key, providerSetup)
+
   return window.hermesDesktop.api<{ ok: boolean }>({
     ...capabilityScoped(profile),
     path: '/api/env',
@@ -225,6 +229,8 @@ export function setEnvVar(
 }
 
 export function deleteEnvVar(key: string, profile?: ProfileScope): Promise<{ ok: boolean }> {
+  refusePublicByokWrite(key)
+
   return window.hermesDesktop.api<{ ok: boolean }>({
     ...capabilityScoped(profile),
     path: '/api/env',
@@ -234,6 +240,8 @@ export function deleteEnvVar(key: string, profile?: ProfileScope): Promise<{ ok:
 }
 
 export function revealEnvVar(key: string, profile?: ProfileScope): Promise<{ key: string; value: string }> {
+  refusePublicByokWrite(key)
+
   return window.hermesDesktop.api<{ key: string; value: string }>({
     ...capabilityScoped(profile),
     path: '/api/env/reveal',

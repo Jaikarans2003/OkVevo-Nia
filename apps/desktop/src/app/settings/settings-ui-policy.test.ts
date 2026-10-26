@@ -59,7 +59,10 @@ import {
   isPublicHiddenToolProvider,
   isSettingsViewVisible,
   PUBLIC_FALLBACK_SETTINGS_VIEW,
-  PUBLIC_HIDDEN_TOOL_ENV_KEYS
+  PUBLIC_HIDDEN_TOOL_ENV_KEYS,
+  PUBLIC_SETTINGS_ALLOWLIST,
+  settingsRouteInventory,
+  visibleSettingsRoutes
 } from './settings-ui-policy'
 
 const setPercent = vi.fn()
@@ -99,6 +102,15 @@ describe('settings UI policy filters', () => {
     expect(isAppearanceSettingVisible('appearance.tool-view')).toBe(true)
     expect(isAppearanceSettingVisible('appearance.translucency')).toBe(false)
     expect(HIDDEN_APPEARANCE_SETTING_IDS.has('appearance.embeds')).toBe(true)
+  })
+
+  it('public settings routes match the allowlist and internal shows every route', () => {
+    isByokChromeVisibleMock.mockReturnValue(false)
+    expect(visibleSettingsRoutes()).toEqual([...PUBLIC_SETTINGS_ALLOWLIST])
+
+    isByokChromeVisibleMock.mockReturnValue(true)
+    expect(visibleSettingsRoutes()).toEqual(settingsRouteInventory())
+    expect(settingsRouteInventory().length).toBeGreaterThan(PUBLIC_SETTINGS_ALLOWLIST.length)
   })
 
   it('hides Model, Chat, Workspace, Memory and Appearance only on public', () => {

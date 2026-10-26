@@ -1,7 +1,8 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { _electron, expect, test, type Page } from '@playwright/test'
+import { _electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 
 import { appLogTail, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
 
@@ -9,6 +10,12 @@ import { type ChatCall, startGatewayMock } from './gateway-mock'
 import { noteRequestUrl } from './vendor-guard'
 
 const shots = path.join(DESKTOP_ROOT, 'release', 'e2e-screenshots')
+const diagnostics = path.join(DESKTOP_ROOT, 'release', 'e2e-diagnostics')
+
+function fakeJwt(exp: number): string {
+  const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  return `${part({ alg: 'none', typ: 'JWT' })}.${part({ exp })}.e2e`
+}
 
 function resourcesDir(executable: string): string {
   const dir = path.dirname(executable)
@@ -57,6 +64,27 @@ async function openModelMenu(page: Page) {
   await pill.first().click()
 }
 
+function copyLogs(from: string, into: string) {
+  const logs = path.join(from, 'logs')
+  if (fs.existsSync(logs)) fs.cpSync(logs, path.join(into, 'logs'), { recursive: true })
+  const profiles = path.join(from, 'profiles')
+  if (!fs.existsSync(profiles)) return
+  for (const name of fs.readdirSync(profiles)) {
+    const profileLogs = path.join(profiles, name, 'logs')
+    if (fs.existsSync(profileLogs)) {
+      fs.cpSync(profileLogs, path.join(into, 'profiles', name, 'logs'), { recursive: true })
+    }
+  }
+}
+
+function saveFailureEvidence(hermesHome: string, app: ElectronApplication | undefined) {
+  fs.mkdirSync(diagnostics, { recursive: true })
+  copyLogs(hermesHome, path.join(diagnostics, 'sandbox'))
+  const userHome = path.join(os.homedir(), '.hermes')
+  if (path.resolve(userHome) !== path.resolve(hermesHome)) copyLogs(userHome, path.join(diagnostics, 'user-home'))
+  if (app) fs.writeFileSync(path.join(diagnostics, 'electron-log-tail.txt'), appLogTail(app, 400))
+}
+
 async function replies(page: Page): Promise<number> {
   return page.getByText('E2E_REPLY ok').count()
 }
@@ -67,7 +95,14 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     throw new Error('OKVEVO_E2E_EXECUTABLE must be the packed OkVevo binary')
   }
 
-  const mock = await startGatewayMock()
+  const now = Math.floor(Date.now() / 1000)
+  const token = fakeJwt(now + 3600)
+  const refreshed = fakeJwt(now + 7200)
+  fs.mkdirSync(diagnostics, { recursive: true })
+  const mock = await startGatewayMock({
+    freshIdToken: refreshed,
+    logPath: path.join(diagnostics, 'mock-requests.log')
+  })
   const sandbox = createCoreSandbox('okvevo-packed')
   const packPath = path.join(resourcesDir(executable), 'okvevo-pack-env.json')
   const originalPack = fs.readFileSync(packPath, 'utf8')
@@ -75,7 +110,9 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
   pack.OKVEVO_WEB_ORIGIN = mock.origin
   fs.writeFileSync(packPath, `${JSON.stringify(pack, null, 2)}\n`)
   fs.writeFileSync(path.join(sandbox.hermesHome, 'config.yaml'), 'onboarding:\n  run: false\nnous:\n  guest: false\n')
-  fs.writeFileSync(path.join(sandbox.hermesHome, '.env'), 'OKVEVO_API_KEY=e2e-okvevo-key\n', { mode: 0o600 })
+  fs.writeFileSync(path.join(sandbox.hermesHome, '.env'), 'OKVEVO_API_KEY=e2e-stale-copy\n', { mode: 0o600 })
+  fs.writeFileSync(path.join(sandbox.hermesHome, 'okvevo-firebase-id-token'), token, { mode: 0o600 })
+  fs.writeFileSync(path.join(sandbox.hermesHome, 'okvevo-firebase-refresh-token'), 'e2e-refresh', { mode: 0o600 })
 
   const env = coreAppEnv(sandbox)
   delete env.HERMES_DESKTOP_HERMES_ROOT
@@ -89,6 +126,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
   })
   const page = await app.firstWindow({ timeout: 120_000 })
   page.on('request', request => noteRequestUrl(request.url()))
+  let failed = false
 
   try {
     await waitForInteractive(app, page)
@@ -101,6 +139,8 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     await send(page, 'ping default bot')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(before)
     const cost = callFor(mock.calls, 'ping default bot')
+    expect(cost.authorization || '').toContain(token)
+    expect(fs.readFileSync(path.join(sandbox.hermesHome, '.env'), 'utf8')).not.toContain('OKVEVO_API_KEY=')
     if (cost.model !== 'openrouter/auto-beta') {
       throw new Error(`wire model ${cost.model} plugins ${JSON.stringify(cost.plugins)}`)
     }
@@ -115,6 +155,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     expect(callFor(mock.calls, 'ping auto intelligence').plugins?.[0]?.cost_tier).toBe('xhigh')
 
     await openModelMenu(page)
+    await page.getByRole('textbox').last().fill('gpt-4o-mini')
     await page.getByRole('menuitem', { name: /gpt-4o-mini/i }).click()
     await shot(page, 'model-picker.png')
     const specificBefore = await replies(page)
@@ -143,11 +184,28 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     const botConfig = fs.readFileSync(path.join(sandbox.hermesHome, 'profiles', 'e2eone', 'config.yaml'), 'utf8')
     expect(botConfig).toContain('provider: okvevo')
     expect(botConfig).not.toMatch(/provider: (auto|openrouter|nous)\b/)
+    const botEnv = path.join(sandbox.hermesHome, 'profiles', 'e2eone', '.env')
+    if (fs.existsSync(botEnv)) {
+      expect(fs.readFileSync(botEnv, 'utf8')).not.toContain('OKVEVO_API_KEY=')
+    }
     await page.getByRole('button', { name: /^E2E One\b/ }).first().click()
     await expect(page.getByText('ping specific model', { exact: true })).toHaveCount(0)
     const botBefore = await replies(page)
     await send(page, 'ping new bot')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(botBefore)
+    expect(callFor(mock.calls, 'ping new bot').authorization || '').toContain(token)
+
+    mock.expireBearer(token)
+    const afterExpiry = await replies(page)
+    await send(page, 'ping after expiry')
+    await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(afterExpiry)
+    const renewed = callFor(mock.calls, 'ping after expiry')
+    expect(renewed.authorization || '').toContain(refreshed)
+    expect(renewed.authorization || '').not.toContain(token)
+    expect(mock.refreshes).toBeGreaterThan(0)
+    await expect(page.getByText(/Limited until/i)).toHaveCount(0)
+    await expect(page.getByText('Please sign in again')).toHaveCount(0)
+    await shot(page, 'bot-after-expiry.png')
 
     await bots.click()
     await createBot('e2etwo', 'E2E Two')
@@ -201,7 +259,11 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
       if (match) noteRequestUrl(match[0])
     }
     await expect(groupBox).toBeVisible()
+  } catch (error) {
+    failed = true
+    throw error
   } finally {
+    if (failed) saveFailureEvidence(sandbox.hermesHome, app)
     await app.close().catch(() => undefined)
     fs.writeFileSync(packPath, originalPack)
     await mock.close()

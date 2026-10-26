@@ -16,7 +16,7 @@ export const PUBLIC_ERROR_COPY = {
     "You're out of OkVevo credits — top up at okvevo.com and I'll pick up right where we left off.",
   rateLimit: 'Whoa, slow down — too many requests at once. Give it a few seconds and try again.',
   server: "Something broke on our side. The OkVevo team is on it — try again in a bit.",
-  auth: 'Your session hit a snag — restart OkVevo and we should be good.',
+  auth: 'Please sign in again',
   subscription:
     "Your OkVevo subscription isn't active — visit okvevo.com to get back on a plan.",
   network: "Can't reach OkVevo right now — check your internet and try again.",
@@ -36,6 +36,8 @@ const KNOWN_FRIENDLY: ReadonlySet<string> = new Set(Object.values(PUBLIC_ERROR_C
  * ponytail: allowlist of exact patterns; new friendly copy belongs here.
  */
 const FRIENDLY_PATTERNS: RegExp[] = [/^sign in to okvevo\b/i, /contact okvevo support\.?$/i]
+
+const CLI_HINTS = ['hermes fallback add', 'hermes setup', 'hermes model', 'hermes auth']
 
 const HTTP_STATUS_RE = /\bHTTP\s{0,2}(\d{3})\b/i
 
@@ -78,6 +80,10 @@ export function categorizePublicError(raw: string): PublicErrorCategory | null {
 
   const lowered = text.toLowerCase()
   const status = extractStatus(text)
+
+  if (CLI_HINTS.some(hint => lowered.includes(hint))) {
+    return 'auth'
+  }
 
   if (
     status === 402 ||
