@@ -37,7 +37,12 @@ import { useI18n } from '@/i18n'
 import { isByokChromeVisible } from '@/lib/build-channel'
 import { triggerHaptic } from '@/lib/haptics'
 import { isSubmitEnter } from '@/lib/ime'
-import { catalogProviderMatches, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
+import {
+  catalogProviderMatches,
+  modelOptionsQueryKey,
+  okvevoCatalogNeedsLiveFetch,
+  requestModelOptions
+} from '@/lib/model-options'
 import { displayModelName, modelDisplayParts } from '@/lib/model-status-label'
 import { accountResetMs, formatReset, modelResetMs } from '@/lib/provider-limit'
 import { reasoningEffortLabel } from '@/lib/reasoning-effort'
@@ -281,7 +286,19 @@ export function ModelCatalogMenu({
     // Gateway-first even with no session: a connected (possibly remote)
     // gateway owns the model catalog, including virtual providers the local
     // REST fallback can't know about (#53817).
-    queryFn: (): Promise<ModelOptionsResult> => requestModelOptions({ gateway, profile, request, sessionId })
+    queryFn: async (): Promise<ModelOptionsResult> => {
+      const options = await requestModelOptions({ gateway, profile, request, sessionId })
+
+      if (!okvevoCatalogNeedsLiveFetch(options)) {
+        return options
+      }
+
+      try {
+        return await requestModelOptions({ gateway, profile, refresh: true, request, sessionId })
+      } catch {
+        return options
+      }
+    }
   })
 
   const loading = modelOptions.isPending && !modelOptions.data

@@ -35,6 +35,37 @@ def _gateway_base_url() -> str:
     return f"{origin}/api/gateway"
 
 
+def _is_loopback(base_url: str) -> bool:
+    from urllib.parse import urlparse
+
+    return (urlparse(base_url).hostname or "").lower() in {"127.0.0.1", "localhost", "::1"}
+
+
+def _fetch_loopback_models(base_url: str, api_key: str, timeout: float) -> list[str] | None:
+    import json
+    import urllib.request
+
+    req = urllib.request.Request(
+        base_url.rstrip("/") + "/models",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+            "User-Agent": "okvevo-catalog",
+        },
+    )
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception:
+        logger.debug("okvevo loopback catalog failed", exc_info=True)
+        return None
+    items = data if isinstance(data, list) else data.get("data", [])
+    from hermes_cli.chat_catalog import chat_catalog_ids
+
+    return chat_catalog_ids(items)
+
+
 def _okvevo_refresh_credential(entry: Any) -> dict[str, Any]:
     """One portal refresh for a 401. A second rejection asks the user to sign in.
 
@@ -56,7 +87,6 @@ def _okvevo_refresh_credential(entry: Any) -> dict[str, Any]:
     token = ensure_okvevo_id_token(force=True)
     if not token or token == previous:
         raise AuthError("Please sign in again", provider="okvevo", relogin_required=True)
-    os.environ["OKVEVO_API_KEY"] = token
     exp = id_token_exp_unix(token)
     return {
         "access_token": token,
@@ -111,7 +141,6 @@ class OkvevoProfile(ProviderProfile):
             from openai import OpenAI
 
             from plugins.okvevo.credentials import ensure_okvevo_pool_entry
-            from plugins.okvevo.gateway import ensure_okvevo_id_token
 
             ensure_okvevo_pool_entry()
         except Exception:
@@ -119,11 +148,15 @@ class OkvevoProfile(ProviderProfile):
             return None
 
         def api_key() -> str:
+            # OpenAI calls this on every request (``_refresh_api_key``). It
+            # re-reads the token file and refreshes when under 5 minutes of
+            # life remain. Nothing is copied into the process environment:
+            # that copy is what the pool benches on the first 401.
             try:
-                token = ensure_okvevo_id_token() or ""
-                if token:
-                    os.environ["OKVEVO_API_KEY"] = token
-                return token
+                from plugins.okvevo.gateway import ensure_okvevo_id_token
+
+                ensure_okvevo_pool_entry()
+                return ensure_okvevo_id_token() or ""
             except Exception:
                 logger.debug("okvevo token read failed", exc_info=True)
                 return ""
@@ -155,9 +188,13 @@ class OkvevoProfile(ProviderProfile):
             token = api_key
         if not token:
             return None
-        return super().fetch_models(
-            api_key=token, base_url=base_url or _gateway_base_url(), timeout=timeout,
-        )
+        target = (base_url or _gateway_base_url()).rstrip("/")
+        # ponytail: CI sets HTTP_PROXY. urllib would send 127.0.0.1 through it
+        # and the mock catalog would never arrive. Direct only for loopback;
+        # a real portal still uses the upstream opener (and the system proxy).
+        if _is_loopback(target):
+            return _fetch_loopback_models(target, token, timeout)
+        return super().fetch_models(api_key=token, base_url=target, timeout=timeout)
 
     def build_extra_body(self, *, session_id: str | None = None, **context: Any) -> dict[str, Any]:
         body: dict[str, Any] = {}

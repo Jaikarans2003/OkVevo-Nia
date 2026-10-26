@@ -16,7 +16,10 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-POOL_SOURCE = "okvevo-desktop"
+# ``manual:`` is an owned source: the pool keeps the token on disk and will
+# not drop the row on reload. A borrowed source strips the secret, and the
+# 401 refresh hook then has no row to refresh.
+POOL_SOURCE = "manual:okvevo-desktop"
 _ENV_KEY = "OKVEVO_API_KEY"
 
 
@@ -64,9 +67,10 @@ def ensure_okvevo_pool_entry() -> None:
     token = ensure_okvevo_id_token()
     if not token:
         return
-    # Request-time credential. The .env files stay empty; this process env is
-    # what the api_key resolver reads, and it is replaced on every refresh.
-    os.environ[_ENV_KEY] = token
+    # Do not copy the token into OKVEVO_API_KEY. ``load_pool`` would ingest that
+    # as an api_key row, and the first 401 force-benches an api_key row before
+    # the OAuth refresh hook runs. The catalog resolver falls through to this
+    # pool row's access_token. Chat reads the file per request.
     refresh = read_okvevo_refresh_token() or "okvevo-file"
     exp = id_token_exp_unix(token)
     expires_at_ms = int(exp * 1000) if exp else None

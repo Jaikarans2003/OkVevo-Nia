@@ -146,6 +146,66 @@ def test_cli_hints_map_to_sign_in_copy(monkeypatch):
     assert map_public_error("Run: hermes setup") == "Please sign in again"
 
 
+def test_first_401_refresh_does_not_bench(tmp_path, monkeypatch):
+    """The pool calls refresh_credential before any cooldown. A successful
+    refresh leaves the row usable."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+    def fake_ensure(*, force=False, now=None):
+        return "new-token" if force else "old-token"
+
+    monkeypatch.setattr("plugins.okvevo.gateway.ensure_okvevo_id_token", fake_ensure)
+    monkeypatch.setattr("plugins.okvevo.gateway.read_okvevo_refresh_token", lambda: "refresh")
+    monkeypatch.setattr("plugins.okvevo.gateway.id_token_exp_unix", lambda _token: int(time.time()) + 3600)
+
+    from agent.credential_pool import STATUS_EXHAUSTED, load_pool
+    from plugins.okvevo.credentials import ensure_okvevo_pool_entry
+
+    ensure_okvevo_pool_entry()
+    pool = load_pool("okvevo")
+    current = next(entry for entry in pool.entries() if entry.access_token == "old-token")
+    refreshed = pool.try_refresh_matching(api_key_hint=current.access_token)
+    assert refreshed is not None
+    assert refreshed.access_token == "new-token"
+    assert refreshed.last_status != STATUS_EXHAUSTED
+
+
+def test_loopback_catalog_ignores_proxy(monkeypatch):
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    from providers import get_provider_profile
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path.rsplit("/", 1)[-1] != "models":
+                self.send_response(404)
+                self.end_headers()
+                return
+            body = b'{"data":[{"id":"openai/gpt-4o-mini"}]}'
+            self.send_response(200)
+            self.send_header("content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, _fmt, *_args):
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    monkeypatch.setenv("OKVEVO_WEB_ORIGIN", f"http://127.0.0.1:{port}")
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:9")
+    monkeypatch.setattr("plugins.okvevo.gateway.ensure_okvevo_id_token", lambda **_k: "live-token")
+    try:
+        models = get_provider_profile("okvevo").fetch_models(api_key="stale")
+    finally:
+        server.shutdown()
+    assert models == ["openai/gpt-4o-mini"]
+
+
 def test_fetch_models_uses_gateway_not_openrouter(monkeypatch):
     from providers import get_provider_profile
 

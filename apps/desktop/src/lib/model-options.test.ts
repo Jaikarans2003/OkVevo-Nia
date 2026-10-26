@@ -8,6 +8,7 @@ import {
   customDefaultSupersedesPick,
   moaPickRemoved,
   modelOptionsQueryKey,
+  okvevoCatalogNeedsLiveFetch,
   requestModelOptions
 } from './model-options'
 
@@ -304,6 +305,28 @@ describe('moaPickRemoved', () => {
     expect(moaPickRemoved({ providers: [providers[0]] }, 'deepseek', 'deepseek-v4.1-flash')).toBe(false)
     expect(moaPickRemoved({ providers: [providers[0]] }, 'custom', 'my-own-slug')).toBe(false)
     expect(moaPickRemoved({ providers: [providers[0]] }, '', 'default')).toBe(false)
+  })
+})
+
+describe('okvevoCatalogNeedsLiveFetch', () => {
+  it('asks for a live catalog when the row is only the two Auto placeholders', () => {
+    expect(
+      okvevoCatalogNeedsLiveFetch({
+        model: 'okvevo/auto-cost',
+        provider: 'okvevo',
+        providers: [{ models: ['okvevo/auto-cost', 'okvevo/auto-intelligence'], slug: 'okvevo' }]
+      })
+    ).toBe(true)
+  })
+
+  it('stops once a listed model is present', () => {
+    expect(
+      okvevoCatalogNeedsLiveFetch({
+        model: 'okvevo/auto-cost',
+        provider: 'okvevo',
+        providers: [{ models: ['okvevo/auto-cost', 'openai/gpt-4o-mini'], slug: 'okvevo' }]
+      })
+    ).toBe(false)
   })
 })
 

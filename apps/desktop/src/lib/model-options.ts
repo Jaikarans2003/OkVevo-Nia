@@ -129,8 +129,22 @@ export function modelOptionsQueryKey(
   return ['model-options', profileKey, sessionId || 'global', ...(ownerKey ? ['owner', ownerKey] : [])] as const
 }
 
+const OKVEVO_AUTO_IDS = new Set(['okvevo/auto-cost', 'okvevo/auto-intelligence'])
+
 function hasSelectableModels(options: ModelOptionsResult | null | undefined): boolean {
   return options?.providers?.some(provider => (provider.models?.length ?? 0) > 0) ?? false
+}
+
+/** The GUI catalog read returns the two Auto placeholders without waiting on
+ *  the portal. A follow-up `refresh` is how the searchable list arrives. */
+export function okvevoCatalogNeedsLiveFetch(options: ModelOptionsResult | null | undefined): boolean {
+  const row = options?.providers?.find(provider => provider.slug === 'okvevo' || provider.slug === 'openrouter')
+
+  if (!row) {
+    return false
+  }
+
+  return (row.models ?? []).every(id => typeof id === 'string' && OKVEVO_AUTO_IDS.has(id))
 }
 
 function restModelOptions(
