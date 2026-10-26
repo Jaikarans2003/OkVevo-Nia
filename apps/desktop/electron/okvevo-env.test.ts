@@ -5,7 +5,7 @@ import path from 'node:path'
 
 import { test } from 'vitest'
 
-import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, upsertHermesEnvKey } from './okvevo-env'
+import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, stripOkvevoApiKeyCopies, upsertHermesEnvKey } from './okvevo-env'
 
 test('shell wins; hermes home fills; unpackaged repo fills remaining', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-env-'))
@@ -145,5 +145,18 @@ test('upsertHermesEnvKey writes, replaces, and removes without clobbering neighb
   upsertHermesEnvKey(file, 'OKVEVO_API_KEY', '')
   assert.equal(fs.readFileSync(file, 'utf8'), 'KEEP=1\nOTHER=two\n')
 
+  fs.rmSync(root, { recursive: true, force: true })
+})
+
+test('stripOkvevoApiKeyCopies removes the key from root and profile env files', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-strip-'))
+  fs.writeFileSync(path.join(root, '.env'), 'KEEP=1\nOKVEVO_API_KEY=stale-root\n')
+  fs.mkdirSync(path.join(root, 'profiles', 'cfo'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'profiles', 'cfo', '.env'), 'KEEP=1\nOKVEVO_API_KEY=stale-bot\n')
+
+  stripOkvevoApiKeyCopies(root)
+
+  assert.equal(fs.readFileSync(path.join(root, '.env'), 'utf8'), 'KEEP=1\n')
+  assert.equal(fs.readFileSync(path.join(root, 'profiles', 'cfo', '.env'), 'utf8'), 'KEEP=1\n')
   fs.rmSync(root, { recursive: true, force: true })
 })

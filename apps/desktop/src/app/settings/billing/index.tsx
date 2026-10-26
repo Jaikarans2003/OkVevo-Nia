@@ -177,10 +177,18 @@ function OkvevoAccountChrome() {
       }
 
       try {
+        let previousAdditional = -1
+
         unsubscribe = await subscribeOkvevoUserBilling(
           auth.uid!,
           tokenResult.customToken,
           data => {
+            if (previousAdditional >= 0 && data.additionalPct > previousAdditional) {
+              void window.hermesDesktop?.resetOkvevoCredentialCooldown?.()
+            }
+
+            previousAdditional = data.additionalPct
+
             if (!cancelled) {
               setBilling(data)
               setBillingState('live')

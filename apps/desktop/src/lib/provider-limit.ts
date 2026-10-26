@@ -29,6 +29,26 @@ export function providerLimit(provider: ModelOptionProvider, nowMs = Date.now())
   return live.length > 0 ? { ...limit, models: Object.fromEntries(live) } : null
 }
 
+const OKVEVO_BILLING_COOLDOWN_MS = 10 * 60 * 1000
+
+/**
+ * OkVevo menu chip. A long bench is the billing cooldown (sole-credential 402
+ * is 60 minutes). A short bench is a rate limit (sole-credential 429 is 60s).
+ * ponytail: split is the upstream TTL gap, not a reason field. Upgrade path
+ * is a `reason` on the catalog limit from inventory.py.
+ */
+export function okvevoLimitLabel(slug: string, resetMs: number | null, time: string | null): string | null {
+  if (slug.toLowerCase() !== 'okvevo') {
+    return null
+  }
+
+  if (resetMs !== null && resetMs - Date.now() > OKVEVO_BILLING_COOLDOWN_MS) {
+    return 'Out of credits: top up'
+  }
+
+  return time ? `Busy, retrying at ${time}` : 'Busy, retrying'
+}
+
 /** Account-wide reset time (ms) while the whole provider is limited. */
 export function accountResetMs(provider: ModelOptionProvider, nowMs = Date.now()): null | number {
   const limit = providerLimit(provider, nowMs)

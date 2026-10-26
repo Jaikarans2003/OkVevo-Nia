@@ -70,24 +70,49 @@ def _okvevo_fal_client():
         return _client
 
 
-def _submit_okvevo_fal(endpoint: str, arguments: Dict[str, Any], *, what: str):
-    """Submit to the portal fal-queue with run_id attached; 4xx → friendly copy."""
+class _OkvevoAuthRetry(Exception):
+    """401/403 from the portal. The caller refreshes once and retries once."""
+
+
+def _drop_okvevo_fal_client() -> None:
+    global _client, _client_config
+    with _client_lock:
+        _client = None
+        _client_config = None
+
+
+def _submit_okvevo_fal_once(endpoint: str, arguments: Dict[str, Any], *, what: str):
     from tools.fal_common import _extract_http_status, submit_managed_fal_with_rate_limit_retry
 
-    args = ensure_okvevo_fal_run_id(arguments)
     client = _okvevo_fal_client()
     try:
         return submit_managed_fal_with_rate_limit_retry(
-            lambda headers: client.submit(endpoint, arguments=args, headers=headers),
+            lambda headers: client.submit(endpoint, arguments=arguments, headers=headers),
             what=what, name=endpoint,
         )
     except Exception as exc:
         status = _extract_http_status(exc)
+        if status in (401, 403):
+            raise _OkvevoAuthRetry(str(exc)) from exc
         if status is not None and 400 <= status < 500:
-            # Public builds map to the OkVevo copy deck (402 → credits,
-            # 401/403 → session); internal keeps the raw detail.
             raise ValueError(public_error_message(str(exc), status=status)) from exc
         raise
+
+
+def _submit_okvevo_fal(endpoint: str, arguments: Dict[str, Any], *, what: str):
+    """Submit to the portal fal-queue. On 401 invalid_token: refresh once, retry once."""
+    from plugins.okvevo.gateway import ensure_okvevo_id_token
+
+    args = ensure_okvevo_fal_run_id(arguments)
+    try:
+        return _submit_okvevo_fal_once(endpoint, args, what=what)
+    except _OkvevoAuthRetry:
+        _drop_okvevo_fal_client()
+        ensure_okvevo_id_token(force=True)
+        try:
+            return _submit_okvevo_fal_once(endpoint, args, what=what)
+        except _OkvevoAuthRetry as exc:
+            raise ValueError("Please sign in again") from exc
 
 
 # ---------------------------------------------------------------------------

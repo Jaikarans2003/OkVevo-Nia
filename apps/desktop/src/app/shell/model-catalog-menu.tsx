@@ -327,13 +327,22 @@ export function ModelCatalogMenu({
   const pickerProviders = useMemo(
     () =>
       withCustomModels(
-        providers?.filter(
+        (providers?.filter(
           provider =>
             provider.slug.toLowerCase() !== 'moa' &&
             // Strict --local gate: staged local models exist on disk, but
             // without the flag the GUI doesn't offer them.
             (localModelsEnabled || provider.slug !== LOCAL_PROVIDER_SLUG)
-        ) ?? [],
+        ) ?? []).map(provider =>
+          provider.slug === 'okvevo'
+            ? {
+                ...provider,
+                models: provider.models.filter(
+                  id => id !== 'okvevo/auto-cost' && id !== 'okvevo/auto-intelligence'
+                )
+              }
+            : provider
+        ),
         customModels
       ),
     [providers, localModelsEnabled, customModels]

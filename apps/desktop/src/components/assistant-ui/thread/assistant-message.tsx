@@ -40,6 +40,7 @@ import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
 import { isByokChromeVisible } from '@/lib/build-channel'
+import { categorizePublicError } from '@/lib/user-facing-error'
 import {
   errorRecoveryPlan,
   type ErrorSurface,
@@ -853,6 +854,8 @@ const ErrorRecoveryActions: FC = () => {
 
   // One table decides which buttons this failure gets (lib/error-surface.ts).
   const plan = errorRecoveryPlan(surface)
+  const publicBuild = !isByokChromeVisible()
+  const publicCategory = publicBuild ? categorizePublicError(errorText) : null
 
   // An expired/revoked OAuth grant (HTTP 401 on nous / openai-codex / ...):
   // the one-click fix is re-running that provider's sign-in, which the
@@ -946,38 +949,38 @@ const ErrorRecoveryActions: FC = () => {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {plan.editMessage && <EditPreviousMessageAction label={copy.editMessage} />}
-      {plan.compress && <CompressConversationAction label={copy.errorCompressConversation} />}
-      {plan.chooseModel && (
+      {!publicBuild && plan.editMessage && <EditPreviousMessageAction label={copy.editMessage} />}
+      {!publicBuild && plan.compress && <CompressConversationAction label={copy.errorCompressConversation} />}
+      {!publicBuild && plan.chooseModel && (
         <button className="aui-error-action" onClick={chooseModel} type="button">
           {copy.errorChooseModel}
         </button>
       )}
-      {plan.startNewSession && (
+      {!publicBuild && plan.startNewSession && (
         <button className="aui-error-action" onClick={startNewSession} type="button">
           {copy.errorStartNewSession}
         </button>
       )}
-      {plan.signInAgain && isOAuthReauthSurface(surface) && (
+      {!publicBuild && plan.signInAgain && isOAuthReauthSurface(surface) && (
         <button className="aui-error-action" onClick={signInAgain} type="button">
           <KeyRound className="size-3" />
           {copy.errorSignInAgain(surface.providerLabel || surface.provider)}
         </button>
       )}
-      {plan.signInFreeTier && (
+      {!publicBuild && plan.signInFreeTier && (
         <button className="aui-error-action" onClick={signInFreeTier} type="button">
           <KeyRound className="size-3" />
           {copy.errorSignInFreeTier}
         </button>
       )}
-      {plan.updateApiKey && inRouter && (
+      {!publicBuild && plan.updateApiKey && inRouter && (
         <SettingsLinkAction
           icon={<KeyRound className="size-3" />}
           label={copy.errorUpdateApiKey}
           to={updateApiKeyRoute(surface)}
         />
       )}
-      {plan.openHermesFolder && localFolders && (
+      {!publicBuild && plan.openHermesFolder && localFolders && (
         <button className="aui-error-action" onClick={() => void openHermesFolder()} type="button">
           {copy.errorOpenHermesFolder}
         </button>
@@ -1018,6 +1021,20 @@ const ErrorRecoveryActions: FC = () => {
           <Upload className="size-3" />
           {copy.errorSendDiagnostics}
         </button>
+      )}
+      {publicBuild && publicCategory === 'auth' && (
+        <button
+          className="aui-error-action"
+          onClick={() => void window.hermesDesktop?.startOkvevoSignIn?.()}
+          type="button"
+        >
+          Sign in again
+        </button>
+      )}
+      {publicBuild && publicCategory === 'credits' && (
+        <a className="aui-error-action" href="https://www.okvevo.com" rel="noreferrer" target="_blank">
+          Top up
+        </a>
       )}
       {isByokChromeVisible() ? (
         <CopyButton

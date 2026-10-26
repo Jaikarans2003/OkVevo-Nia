@@ -41,20 +41,31 @@ logger = logging.getLogger(__name__)
 _CLIENT_NAME = "okvevo-agent"
 
 
-def _gateway_request(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """POST to the portal's Tavily proxy. Non-2xx raises ValueError with the body."""
-    token = ensure_okvevo_id_token()
-    if not token:
-        raise ValueError("You're signed in but the OkVevo session token is missing. Sign in again.")
+def _post_gateway(endpoint: str, payload: dict[str, Any], token: str) -> httpx.Response:
     try:
         url = f"{okvevo_gateway_base_url()}/tavily/{endpoint.lstrip('/')}"
     except OkvevoGatewayConfigError as exc:
         raise ValueError(str(exc)) from exc
-    logger.info("OkVevo web %s request via portal gateway", endpoint)
-    response = httpx.post(
+    return httpx.post(
         url, json=payload, timeout=60,
         headers={"X-Client-Name": _CLIENT_NAME, "Authorization": f"Bearer {token}"},
     )
+
+
+def _gateway_request(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """POST to the portal's Tavily proxy. 401 refreshes the token once, then retries once."""
+    token = ensure_okvevo_id_token()
+    if not token:
+        raise ValueError("Please sign in again")
+    logger.info("OkVevo web %s request via portal gateway", endpoint)
+    response = _post_gateway(endpoint, payload, token)
+    if response.status_code in (401, 403):
+        token = ensure_okvevo_id_token(force=True)
+        if not token:
+            raise ValueError("Please sign in again")
+        response = _post_gateway(endpoint, payload, token)
+        if response.status_code in (401, 403):
+            raise ValueError("Please sign in again")
     if response.status_code >= 400:
         raise ValueError(http_status_detail(response))
     return response.json()

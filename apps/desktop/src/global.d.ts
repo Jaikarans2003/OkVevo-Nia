@@ -591,6 +591,7 @@ declare global {
         callback: (payload: { kind: string; name: string; params: Record<string, string> }) => void
       ) => () => void
       startOkvevoSignIn?: () => Promise<{ ok: boolean; error?: string }>
+      resetOkvevoCredentialCooldown?: () => Promise<{ ok: boolean }>
       openOkvevoPortal?: (portalPath: string) => Promise<{ ok: boolean; error?: string }>
       getOkvevoCustomToken?: () => Promise<
         | { ok: true; customToken: string; uid: string }

@@ -274,6 +274,7 @@ function buildDesktopBackendEnv({
 
   if (hermesHomeRoot) {
     okvevoEnv.OKVEVO_FIREBASE_ID_TOKEN_FILE = pathModule.join(hermesHomeRoot, 'okvevo-firebase-id-token')
+    okvevoEnv.OKVEVO_FIREBASE_REFRESH_TOKEN_FILE = pathModule.join(hermesHomeRoot, 'okvevo-firebase-refresh-token')
   }
 
   return {

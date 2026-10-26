@@ -143,3 +143,44 @@ export function upsertHermesEnvKey(
   io.mkdirSync(path.dirname(filePath), { recursive: true })
   io.writeFileSync(filePath, next.replace(/\n+$/, '\n'), { encoding: 'utf8', mode: 0o600 })
 }
+
+/** Remove OKVEVO_API_KEY from the root .env and every profile .env. The token file is the only copy. */
+export function stripOkvevoApiKeyCopies(
+  hermesHome: string,
+  io: {
+    existsSync: typeof fs.existsSync
+    readdirSync: typeof fs.readdirSync
+    readFileSync: typeof fs.readFileSync
+    writeFileSync: typeof fs.writeFileSync
+    mkdirSync: typeof fs.mkdirSync
+    statSync: typeof fs.statSync
+  } = fs
+): void {
+  const files = [path.join(hermesHome, '.env')]
+
+  try {
+    for (const name of io.readdirSync(path.join(hermesHome, 'profiles'))) {
+      const dir = path.join(hermesHome, 'profiles', name)
+
+      try {
+        if (!io.statSync(dir).isDirectory()) {
+          continue
+        }
+      } catch {
+        continue
+      }
+
+      files.push(path.join(dir, '.env'))
+    }
+  } catch {
+    // No profiles directory yet.
+  }
+
+  for (const file of files) {
+    if (!io.existsSync(file)) {
+      continue
+    }
+
+    upsertHermesEnvKey(file, 'OKVEVO_API_KEY', '', io)
+  }
+}

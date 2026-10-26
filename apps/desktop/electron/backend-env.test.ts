@@ -288,6 +288,10 @@ test('backend env carries the OkVevo portal origin, channel, and token file path
   assert.equal(env.OKVEVO_WEB_ORIGIN, '')
   assert.equal(env.OKVEVO_BUILD_CHANNEL, 'public')
   assert.equal(env.OKVEVO_FIREBASE_ID_TOKEN_FILE, path.posix.join('/home/u/.hermes', 'okvevo-firebase-id-token'))
+  assert.equal(
+    env.OKVEVO_FIREBASE_REFRESH_TOKEN_FILE,
+    path.posix.join('/home/u/.hermes', 'okvevo-firebase-refresh-token')
+  )
 })
 
 test('backend env OKVEVO_WEB_ORIGIN env override wins and trailing slash is trimmed', () => {

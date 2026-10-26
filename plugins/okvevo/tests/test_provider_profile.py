@@ -91,7 +91,7 @@ def test_402_maps_to_billing_copy():
 def test_401_maps_to_auth():
     verdict = _classify_okvevo_api_error(provider="okvevo", status_code=401)
     assert verdict["reason"] == "auth"
-    assert verdict["should_rotate_credential"] is True
+    assert verdict["should_rotate_credential"] is False
 
 
 def test_classifier_declines_other_providers():

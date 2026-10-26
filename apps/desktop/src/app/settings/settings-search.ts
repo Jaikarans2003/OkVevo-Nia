@@ -6,6 +6,7 @@ import { FIELD_LABELS, SECTIONS } from './constants'
 import { credentialRowLabel } from './credential-key-ui'
 import { fieldCopyForSchemaKey } from './field-copy'
 import { prettyName, sectionFieldEntries, voiceFieldVisible } from './helpers'
+import { isConfigKeyVisible, isConfigSectionVisible } from './settings-ui-policy'
 import { settingsSubpageForTarget } from './subpages'
 import type { DesktopConfigSection, SettingsView } from './types'
 
@@ -70,6 +71,11 @@ function configFieldDescription(key: string, field: ConfigFieldSchema, copy: Con
   return fieldCopyForSchemaKey(copy.fieldDescriptions, key) ?? field.description ?? ''
 }
 
+export const APPEARANCE_SETTING_IDS = {
+  language: 'appearance.language',
+  toolView: 'appearance.tool-view'
+} as const
+
 export function buildConfigSearchEntries(
   schema: Record<string, ConfigFieldSchema> | null | undefined,
   config: HermesConfigRecord | null | undefined,
@@ -83,8 +89,12 @@ export function buildConfigSearchEntries(
   const sectionFields = sectionFieldEntries(schema, config)
 
   return sections.flatMap(section => {
+    if (!isConfigSectionVisible(section.id)) {
+      return []
+    }
+
     const context = copy.sections[section.id] ?? section.label
-    const fields = sectionFields.get(section.id) ?? []
+    const fields = (sectionFields.get(section.id) ?? []).filter(([key]) => isConfigKeyVisible(key))
     const visibleFields = section.id === 'voice' ? fields.filter(([key]) => voiceFieldVisible(key, config)) : fields
 
     return visibleFields.map(([key, field]) => ({

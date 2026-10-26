@@ -333,6 +333,21 @@ def check_catalog() -> int:
     return proc.returncode
 
 
+def check_error_overrides() -> int:
+    """CLI setup phrases must stay mapped to OkVevo copy in both override layers."""
+    ui = (DESKTOP / "src/lib/user-facing-error.ts").read_text(encoding="utf-8")
+    py = (ROOT / "plugins/okvevo/errors.py").read_text(encoding="utf-8")
+    failed = 0
+    for phrase in ("hermes fallback add", "hermes setup", "hermes model", "hermes auth"):
+        if phrase not in ui or phrase not in py:
+            print(f"error override missing {phrase!r}", file=sys.stderr)
+            failed += 1
+    if "Please sign in again" not in ui or "Please sign in again" not in py:
+        print("error override missing 'Please sign in again'", file=sys.stderr)
+        failed += 1
+    return failed
+
+
 def check_asset_spec() -> int:
     proc = subprocess.run([sys.executable, str(ROOT / "scripts/okvevo/asset_spec.py"), "--check"])
     return proc.returncode
@@ -351,6 +366,7 @@ def main() -> int:
     failed += check_builder_paths()
     failed += check_title()
     failed += check_literals(substrings, exact)
+    failed += check_error_overrides()
     failed += check_asset_spec()
     failed += check_catalog()
     if failed:

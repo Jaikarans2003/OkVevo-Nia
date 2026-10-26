@@ -240,19 +240,27 @@ def _quote_okvevo_fal_credits(endpoint: str, args: dict) -> Optional[int]:
     """POST /api/fal/quote on the OkVevo portal. Read-only (no reserve, no
     debit). Returns None on ANY failure — a quote outage must never block a
     generation, it just degrades the approval text."""
-    token = read_okvevo_id_token()
+    token = ensure_okvevo_id_token()
     origin = okvevo_web_origin()
     if not token or not origin:
         return None
     try:
         import httpx
 
-        res = httpx.post(
-            f"{origin}/api/fal/quote",
-            headers={"Authorization": f"Key {token}"},
-            json={"endpoint": endpoint, "args": _quote_args(args)},
-            timeout=10.0,
-        )
+        def _post(bearer: str):
+            return httpx.post(
+                f"{origin}/api/fal/quote",
+                headers={"Authorization": f"Key {bearer}"},
+                json={"endpoint": endpoint, "args": _quote_args(args)},
+                timeout=10.0,
+            )
+
+        res = _post(token)
+        if res.status_code in (401, 403):
+            refreshed = ensure_okvevo_id_token(force=True)
+            if not refreshed or refreshed == token:
+                return None
+            res = _post(refreshed)
         if res.status_code != 200:
             logger.warning("okvevo fal quote %s: HTTP %s", endpoint, res.status_code)
             return None
@@ -375,7 +383,7 @@ def resolve_okvevo_fal_gateway():
     """
     if not okvevo_fal_available():
         return None
-    token = read_okvevo_id_token()
+    token = ensure_okvevo_id_token()
     if not token:
         return None
     from types import SimpleNamespace

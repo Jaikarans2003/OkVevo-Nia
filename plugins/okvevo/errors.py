@@ -24,7 +24,14 @@ RATE_LIMIT_COPY = (
     "try again."
 )
 SERVER_COPY = "Something broke on our side. The OkVevo team is on it — try again in a bit."
-AUTH_COPY = "Your session hit a snag — sign in to OkVevo again and we should be good."
+AUTH_COPY = "Please sign in again"
+_LEGACY_AUTH_COPY = "Your session hit a snag — sign in to OkVevo again and we should be good."
+_CLI_HINTS = (
+    "hermes fallback add",
+    "hermes setup",
+    "hermes model",
+    "hermes auth",
+)
 SUBSCRIPTION_COPY = (
     "Your OkVevo subscription isn't active — visit okvevo.com to get back on a plan."
 )
@@ -107,6 +114,8 @@ def categorize_error(
     text = (raw or "").strip()
     if not text:
         return None
+    if text == _LEGACY_AUTH_COPY or any(hint in text.lower() for hint in _CLI_HINTS):
+        return "auth"
     if text in _KNOWN_FRIENDLY:
         # Idempotent: already-mapped copy categorizes as itself.
         for category, copy in _COPY_BY_CATEGORY.items():
