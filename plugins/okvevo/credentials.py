@@ -64,6 +64,9 @@ def ensure_okvevo_pool_entry() -> None:
     token = ensure_okvevo_id_token()
     if not token:
         return
+    # Request-time credential. The .env files stay empty; this process env is
+    # what the api_key resolver reads, and it is replaced on every refresh.
+    os.environ[_ENV_KEY] = token
     refresh = read_okvevo_refresh_token() or "okvevo-file"
     exp = id_token_exp_unix(token)
     expires_at_ms = int(exp * 1000) if exp else None

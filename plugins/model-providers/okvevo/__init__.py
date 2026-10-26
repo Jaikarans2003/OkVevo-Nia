@@ -56,6 +56,7 @@ def _okvevo_refresh_credential(entry: Any) -> dict[str, Any]:
     token = ensure_okvevo_id_token(force=True)
     if not token or token == previous:
         raise AuthError("Please sign in again", provider="okvevo", relogin_required=True)
+    os.environ["OKVEVO_API_KEY"] = token
     exp = id_token_exp_unix(token)
     return {
         "access_token": token,
@@ -119,7 +120,10 @@ class OkvevoProfile(ProviderProfile):
 
         def api_key() -> str:
             try:
-                return ensure_okvevo_id_token() or ""
+                token = ensure_okvevo_id_token() or ""
+                if token:
+                    os.environ["OKVEVO_API_KEY"] = token
+                return token
             except Exception:
                 logger.debug("okvevo token read failed", exc_info=True)
                 return ""
