@@ -15,10 +15,37 @@ export interface GatewayMock {
   close: () => Promise<void>
   /** Later chat calls that still send this bearer get 401 invalid_token. */
   expireBearer: (bearer: string) => void
+  /** How the next Fal queue submit answers. CI never calls live Fal. */
+  setFalMode: (mode: FalMode) => void
+  falSubmits: number
   origin: string
   refreshes: number
   urls: string[]
 }
+
+export type FalMode = 'reject' | 'ok'
+
+/** A user message starting with this makes the chat mock call image_generate once. */
+export const IMAGE_MARKER = 'draw e2e image'
+
+export const E2E_IMAGE_PATH = '/e2e-image.png'
+
+/** Same body OkVevo-Web returns when Fal refuses a job (handleQueue vendorErrorBody). */
+export const VENDOR_REJECTED_BODY = {
+  error: {
+    code: 'vendor_rejected',
+    vendor: 'fal',
+    vendor_status: 403,
+    credits_returned: true,
+    message: 'Fal rejected this job (HTTP 403). Your credits were returned.'
+  }
+}
+
+// 1x1 PNG.
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64'
+)
 
 export interface GatewayMockOptions {
   /** Bearer that should 401 once, then succeed. Simulates an expired Firebase ID token. */
@@ -70,11 +97,63 @@ function completion(stream: boolean): string {
   ].join('\n')
 }
 
+function imageToolCall(stream: boolean): string {
+  const call = {
+    id: 'call_e2e_image',
+    type: 'function',
+    function: { name: 'image_generate', arguments: JSON.stringify({ prompt: 'e2e red circle' }) }
+  }
+
+  if (!stream) {
+    return JSON.stringify({
+      id: 'chatcmpl-e2e-img',
+      object: 'chat.completion',
+      choices: [{ index: 0, message: { role: 'assistant', content: null, tool_calls: [call] }, finish_reason: 'tool_calls' }],
+      usage: { prompt_tokens: 8, completion_tokens: 3 }
+    })
+  }
+
+  return [
+    `data: ${JSON.stringify({
+      id: 'chatcmpl-e2e-img',
+      object: 'chat.completion.chunk',
+      choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, ...call }] }, finish_reason: null }]
+    })}`,
+    '',
+    `data: ${JSON.stringify({
+      id: 'chatcmpl-e2e-img',
+      object: 'chat.completion.chunk',
+      choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }]
+    })}`,
+    '',
+    'data: [DONE]',
+    ''
+  ].join('\n')
+}
+
+/** Last message is a user turn that asks for the E2E image, and image_generate is offered. */
+function wantsImageCall(body: Record<string, unknown>): boolean {
+  const messages = Array.isArray(body.messages) ? body.messages : []
+  const last = messages[messages.length - 1] as { content?: unknown; role?: unknown } | undefined
+  const tools = Array.isArray(body.tools) ? body.tools : []
+  const offered = tools.some(tool => (tool as { function?: { name?: unknown } })?.function?.name === 'image_generate')
+  const text = typeof last?.content === 'string' ? last.content : JSON.stringify(last?.content ?? '')
+
+  return offered && last?.role === 'user' && text.includes(IMAGE_MARKER)
+}
+
 /** OpenAI-compatible stand-in for `{origin}/api/gateway`. */
 export function startGatewayMock(options: GatewayMockOptions = {}): Promise<GatewayMock> {
   const calls: ChatCall[] = []
   const urls: string[] = []
-  const state = { refreshes: 0, rejectedExpired: false, dead: new Set<string>() }
+  const state = {
+    refreshes: 0,
+    rejectedExpired: false,
+    dead: new Set<string>(),
+    falMode: 'ok' as FalMode,
+    falSubmits: 0,
+    origin: ''
+  }
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))
@@ -136,7 +215,45 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         res.writeHead(200, {
           'content-type': stream ? 'text/event-stream' : 'application/json'
         })
-        res.end(completion(stream))
+        res.end(wantsImageCall(body) ? imageToolCall(stream) : completion(stream))
+        return
+      }
+
+      if (url.pathname.includes('/api/gateway/fal/queue/')) {
+        const requestBase = `${state.origin}/api/gateway/fal/queue/e2e/requests/e2e-image`
+        if (req.method === 'POST' && !url.pathname.includes('/requests/')) {
+          state.falSubmits += 1
+          const reject = state.falMode === 'reject'
+          writeLog(options.logPath, `POST ${url.pathname} ${reject ? 502 : 200} fal`)
+          res.writeHead(reject ? 502 : 200, { 'content-type': 'application/json' })
+          res.end(
+            JSON.stringify(
+              reject
+                ? VENDOR_REJECTED_BODY
+                : {
+                    request_id: 'e2e-image',
+                    status_url: `${requestBase}/status`,
+                    response_url: requestBase,
+                    cancel_url: `${requestBase}/cancel`
+                  }
+            )
+          )
+          return
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify(
+            url.pathname.endsWith('/status')
+              ? { status: 'COMPLETED', logs: [] }
+              : { images: [{ url: `${state.origin}${E2E_IMAGE_PATH}`, width: 1, height: 1 }] }
+          )
+        )
+        return
+      }
+
+      if (url.pathname === E2E_IMAGE_PATH) {
+        res.writeHead(200, { 'content-type': 'image/png' })
+        res.end(PNG)
         return
       }
 
@@ -172,10 +289,17 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         reject(new Error('gateway mock failed to bind'))
         return
       }
+      state.origin = `http://127.0.0.1:${address.port}`
       resolve({
         calls,
         expireBearer(bearer: string) {
           if (bearer) state.dead.add(bearer)
+        },
+        setFalMode(mode: FalMode) {
+          state.falMode = mode
+        },
+        get falSubmits() {
+          return state.falSubmits
         },
         get refreshes() {
           return state.refreshes

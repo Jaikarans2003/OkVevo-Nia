@@ -394,7 +394,40 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ---
 
+### [ ] Fal vendor-down email alert to help@okvevo.com (testing + production)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Fal locks the account (exhausted balance) and every image fails with "temporarily unavailable"; nobody at OkVevo is told. |
+| **Scope** | Cloud Monitoring on `okvevo-testing` and `text2video-16cbf` (console only). Log line from `OkVevo-Web/src/lib/fal/handleQueue.ts` → `sendOpsAlert` (`condition` = `vendor_unavailable`, id = UTC hour). |
+| **Fix** | Email channel `help@okvevo.com` (verified) + log alert `Fal vendor unavailable` on `jsonPayload.condition="vendor_unavailable"` AND `jsonPayload.opsAlert=true`, 1 h between notifications, on both projects. Click-by-click: `.cursor/plans/image_groups_pr_1.2_49adaf1c.plan.md` §1. |
+| **Verify** | After Karan confirms the testing channel is verified, Cursor writes one `test alert, ignore` entry on `okvevo-testing` only; the email arrives at help@okvevo.com. |
+| **Notes** | Logged 2026-10-30 (PR 1.2). Code ships in PR 1.2; console setup is Karan's. Do not write a test log on production. |
+
 ## Should fix before live (lower severity)
+
+### [ ] Sync Hermes v0.22.5 (own PR, after PR 1.2, before PR 2)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix |
+| **Risk if skipped** | Patch drift grows; the next sync is bigger and riskier. |
+| **Scope** | Whole tree; `docs/okvevo/SYNC.md`, `.cursor/commands/okvevo-sync.md`, `scripts/okvevo/check_upstream_delta.sh` tag argument + `okvevo-checks.yml` tag fetch |
+| **Fix** | `git merge v0.22.5` on its own branch. Scan the new Nous sign-in and usage-window code and switch both off in public builds. Read `docs/okvevo/WORKAROUNDS.md` + `UPSTREAM-KNOWN-ISSUES.md`. Report found / changed / verified. |
+| **Verify** | `bash scripts/okvevo/check_upstream_delta.sh v0.22.5` green; the SYNC.md required checks green. |
+| **Notes** | Deferred 2026-10-30: v0.22.5 does not fix the lease, approval, group-list, or credential-pool `reset_at` issues (PR 1.2 plan Step 0). |
+
+### [ ] Approval withdrawn after a long freeze (upstream session turn lease)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix (upstream) |
+| **Risk if skipped** | After a long main-process freeze a pending approval is withdrawn; the tester must send the request again. |
+| **Scope** | Upstream `agent/turn_facade_lease.py`, `agent/runtime_session_store.py` — not edited by OkVevo. Evidence: `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md`. |
+| **Fix** | Wait for https://github.com/NousResearch/hermes-agent/issues/139959. Workaround `event_loop_block_stack` logs the blocked stack so the cause can be found. |
+| **Verify** | On each sync, re-check #139959 / #144503; `python3 scripts/okvevo/check_workarounds.py` warns when closed. |
+| **Notes** | Logged 2026-10-30. Draft comment for #139959 is in UPSTREAM-KNOWN-ISSUES.md, not posted. |
 
 ### [ ] gpt-image-2 edit without `image_size` is priced as 1024×1024
 
@@ -587,6 +620,8 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 ## Closed
 
 _(Move items here when done.)_
+
+| Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: OkVevo-Nia `feat/okvevo-pr-1-2`. Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |
 
 | Drama target file type the endpoint cannot return (G3 job 3) | 2026-10-13 | `portal_request_body` refuses unsupported target suffixes before quote/hold. PR: [OkVevo-Nia #53](https://github.com/Jaikarans2003/OkVevo-Nia/pull/53). Verify: `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"`. |
 | Fal capture job never captured | 2026-10-12 | `billing_events` key + unconditional `main()`. PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [#13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13). Verify: `npx tsx src/lib/fal/capture.selfcheck.ts`. |

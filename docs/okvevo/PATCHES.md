@@ -167,7 +167,6 @@ corresponding list **exactly**.
 - `apps/desktop/src/app/capabilities/scope-selector.tsx`
 - `apps/desktop/src/app/chat/composer/hooks/use-voice-live-conversation.ts`
 - `apps/desktop/src/app/chat/right-rail/preview-pane.tsx`
-- `apps/desktop/src/app/contrib/wiring.tsx`
 - `apps/desktop/src/app/gateway/hooks/use-gateway-boot.ts`
 - `apps/desktop/src/app/gateway/hooks/use-gateway-request.ts`
 - `apps/desktop/src/app/messaging/index.tsx`
@@ -278,7 +277,6 @@ corresponding list **exactly**.
 - `apps/desktop/src/plugins/kanban/transfer.ts`
 - `apps/desktop/src/plugins/radio/plugin.js`
 - `apps/desktop/src/sdk/index.ts`
-- `apps/desktop/src/store/boot.ts`
 - `apps/desktop/src/store/gateway.ts`
 - `apps/desktop/src/store/notifications.ts`
 - `apps/desktop/src/store/okvevo-auth.test.ts`
@@ -294,7 +292,6 @@ corresponding list **exactly**.
 - `apps/desktop/src/store/send-diagnostics.ts`
 - `apps/desktop/src/store/session-no-reply.ts`
 - `apps/desktop/src/store/statusbar-prefs.ts`
-- `apps/desktop/src/store/updates.ts`
 - `apps/desktop/src/store/wake-word.ts`
 - `apps/desktop/src/store/zoom.ts`
 - `apps/desktop/src/styles.css`
@@ -318,6 +315,12 @@ corresponding list **exactly**.
 - `apps/desktop/e2e/okvevo/vendor-guard.ts`
 - `apps/desktop/e2e/okvevo/vendor-guard.unit.test.ts`
 - `apps/desktop/src/lib/okvevo-provision.ts`
+- `apps/desktop/electron/okvevo-block-stack.ts` — workaround event_loop_block_stack (WORKAROUNDS.md)
+- `apps/desktop/electron/okvevo-block-stack.test.ts` — behavior test for event_loop_block_stack
+- `apps/desktop/src/plugins/hermes-bots/okvevo-groups-all-profiles.tsx` — workaround groups_all_profiles (WORKAROUNDS.md)
+- `apps/desktop/src/plugins/hermes-bots/okvevo-groups-all-profiles.test.tsx` — behavior test for groups_all_profiles, toggle on and off
+- `apps/desktop/src/plugins/hermes-bots/roster-pane.tsx` — one import line: the group list comes from okvevo-groups-all-profiles
+- `apps/desktop/src/store/notifications.test.ts` — restart label compared against the branded catalog (TRANSLATIONS.en), not raw en
 <!-- /okvevo-delta:apps/desktop -->
 
 ## Retired

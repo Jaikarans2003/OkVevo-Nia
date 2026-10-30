@@ -264,14 +264,14 @@ function useRecoveryRequestToasts(): void {
 
     if (backendRestartRequest > 0) {
       if ($connection.get()?.mode === 'remote') {
-        void reconnectGateway().catch(err => notifyError(err, translateNow('notifications.errors.restartOkVevoFailed')))
+        void reconnectGateway().catch(err => notifyError(err, translateNow('notifications.errors.restartHermesFailed')))
 
         return
       }
 
       void window.hermesDesktop
         ?.recycleBackend?.(normalizeProfileKey($activeGatewayProfile.get()))
-        .catch(err => notifyError(err, translateNow('notifications.errors.restartOkVevoFailed')))
+        .catch(err => notifyError(err, translateNow('notifications.errors.restartHermesFailed')))
     }
   }, [backendRestartRequest])
 

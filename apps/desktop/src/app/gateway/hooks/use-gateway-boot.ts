@@ -1445,7 +1445,7 @@ export function useGatewayBoot({
         message: translateNow('boot.errors.backgroundExited'),
         durationMs: 0,
         action: {
-          label: translateNow('boot.errors.restartOkVevo'),
+          label: translateNow('boot.errors.restartHermes'),
           onClick: requestBackendRestart
         },
         secondaryAction: {

@@ -15,7 +15,7 @@ import {
   parseRosterKey,
   saveSelectedRosterBot
 } from './bot-state'
-import { CanonicalGroupList } from './canonical-group-registry'
+import { OkvevoCanonicalGroupList as CanonicalGroupList } from './okvevo-groups-all-profiles'
 /**
  * The Bots pane itself: the roster's selection reconciliation, the
  * workspace-ownership reads its lifecycle keys off, and the pane that lists

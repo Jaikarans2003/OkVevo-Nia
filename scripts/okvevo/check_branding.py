@@ -109,6 +109,10 @@ def suspicious_span(body: str) -> bool:
 
 
 def identifier_key(body: str) -> bool:
+    if re.fullmatch(r"[a-z][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+", body):
+        # i18n key path (``notifications.actions.restartHermes``): the brand
+        # overlay rewrites the VALUE; renaming the key paints the raw key.
+        return True
     return bool(re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", body)) and body != "Hermes"
 
 

@@ -13,6 +13,7 @@ import {
   provisionOkvevoProfile,
   readFirstText,
   shouldReplaceSoul,
+  watchOkvevoManagedConfig,
   type MigrationFs
 } from './okvevo-config-migration'
 
@@ -240,4 +241,105 @@ test('provisionOkvevoProfile writes the new profile and refuses a path', () => {
   provisionOkvevoProfile(root, 'worker-2', { fsImpl: io, log: () => undefined })
   assert.match(files.get(path.join(root, 'profiles', 'worker-2', 'config.yaml')) ?? '', /provider: okvevo/)
   assert.throws(() => provisionOkvevoProfile(root, '../escape', { fsImpl: io }), /refusing profile name/)
+})
+
+test('planConfigChanges enforce puts any drifted managed provider back; internal keeps it', () => {
+  const drifted = { model: { provider: 'anthropic', default: 'claude' }, image_gen: { provider: 'fal', model: 'fal-ai/gpt-image-2' } }
+  const pub = planConfigChanges(drifted, { enforce: true }).next as {
+    image_gen: { model: string; provider: string }
+    model: { default: string; provider: string }
+  }
+
+  assert.equal(pub.model.provider, 'okvevo')
+  assert.equal(pub.model.default, 'claude')
+  assert.equal(pub.image_gen.provider, 'okvevo')
+  assert.equal(pub.image_gen.model, 'fal-ai/gpt-image-2', 'image_gen.model is not managed')
+
+  const internal = planConfigChanges(drifted, { enforce: false }).next as { model: { provider: string } }
+  assert.equal(internal.model.provider, 'anthropic')
+
+  const disabled = planConfigChanges({ plugins: { enabled: [], disabled: ['okvevo', 'x'] } }, { enforce: true }).next
+  assert.deepEqual((disabled.plugins as { disabled: string[] }).disabled, ['x'])
+})
+
+async function reconcileHarness(enforce = true) {
+  const { mkdtempSync, mkdirSync, rmSync } = await import('node:fs')
+  const os = await import('node:os')
+  const root = mkdtempSync(path.join(os.tmpdir(), 'okvevo-reconcile-'))
+  mkdirSync(path.join(root, 'profiles', 'cfo'), { recursive: true })
+  const listeners = new Map<string, (filename: string | null) => void>()
+  const lines: string[] = []
+  const watcher = watchOkvevoManagedConfig({
+    hermesHome: root,
+    enforce,
+    debounceMs: 20,
+    log: line => lines.push(line),
+    watchDir: (dir, onChange) => {
+      listeners.set(dir, onChange)
+
+      return { close: () => listeners.delete(dir) }
+    }
+  })
+  const fire = (home: string) => listeners.get(home)?.('config.yaml')
+
+  return { root, lines, watcher, fire, cleanup: () => (watcher.close(), rmSync(root, { recursive: true, force: true })) }
+}
+
+test('watchOkvevoManagedConfig: one external change writes once, then its own write is ignored', async () => {
+  const { readFileSync, writeFileSync } = await import('node:fs')
+  const h = await reconcileHarness()
+
+  try {
+    const config = path.join(h.root, 'config.yaml')
+    // An agent bypassing the guard with sed / a python one-liner.
+    writeFileSync(config, stringifyYaml({ model: { provider: 'anthropic', default: 'claude' } }))
+    h.fire(h.root)
+    await h.watcher.idle()
+    assert.equal(h.lines.length, 1)
+    assert.match(readFileSync(config, 'utf8'), /provider: okvevo/)
+
+    h.fire(h.root)
+    await h.watcher.idle()
+    assert.equal(h.lines.length, 1, 'own write must not trigger another write')
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('watchOkvevoManagedConfig: a burst of changes writes once; a profile drift is put back', async () => {
+  const { readFileSync, writeFileSync } = await import('node:fs')
+  const h = await reconcileHarness()
+
+  try {
+    const profile = path.join(h.root, 'profiles', 'cfo')
+    const config = path.join(profile, 'config.yaml')
+    writeFileSync(config, stringifyYaml({ model: { provider: 'openai' } }))
+
+    for (let i = 0; i < 10; i += 1) {
+      h.fire(profile)
+    }
+
+    await h.watcher.idle()
+    assert.equal(h.lines.length, 1)
+    assert.match(readFileSync(config, 'utf8'), /provider: okvevo/)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('watchOkvevoManagedConfig: internal builds leave a switched provider alone', async () => {
+  const { readFileSync, writeFileSync } = await import('node:fs')
+  const h = await reconcileHarness(false)
+
+  try {
+    const config = path.join(h.root, 'config.yaml')
+    const planned = planConfigChanges({}, {}).next
+    writeFileSync(config, stringifyYaml({ ...planned, model: { provider: 'anthropic', default: 'claude' } }))
+    h.fire(h.root)
+    await h.watcher.idle()
+    assert.equal(h.lines.length, 0)
+    assert.match(readFileSync(config, 'utf8'), /provider: anthropic/)
+  } finally {
+    h.cleanup()
+  }
 })

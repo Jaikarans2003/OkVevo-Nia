@@ -54,7 +54,6 @@ def test_image_tool_seams():
 
 def test_fal_common_seams():
     from tools.fal_common import (  # noqa: F401
-        _extract_http_status,
         _ManagedFalSyncClient,
         submit_managed_fal_with_rate_limit_retry,
         wait_fal_queue_result,

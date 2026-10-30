@@ -88,3 +88,10 @@ cron:
 tools:
   connectors:
     enabled: false
+
+# Temporary stand-ins for Hermes bugs, one per docs/okvevo/WORKAROUNDS.md row.
+# false = pure Hermes behavior. Remove the key with the code once upstream fixes it.
+okvevo:
+  workarounds:
+    groups_all_profiles: true
+    event_loop_block_stack: true

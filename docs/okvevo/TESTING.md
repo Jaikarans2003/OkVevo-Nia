@@ -27,6 +27,13 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 | 19 | Group chat | Create a group with two bots and get a reply in the room |
 | 20 | Vendor hosts | The public build does not contact `openrouter.ai` or any other host in `docs/okvevo/VENDOR-TOUCHPOINTS.md` |
 | 21 | Image inside a bot | Open a bot you created (not the default agent). Ask it to generate an image. An approval dialog appears before anything is sent. Approve it. The image shows in that bot's chat. The chat must not say "Please sign in again" or "Limited until" |
+| 22 | Image service refuses or is down | When Fal refuses a job the chat says "The image service refused this request. Your credits were returned." When Fal's account is locked it says "The image service is temporarily unavailable. Your credits were returned." Never "Please sign in again". Credits on the portal are unchanged |
+| 23 | Managed settings | Ask the agent to "switch the model provider to OpenRouter" (or run `hermes config set model.provider openrouter`). It answers "This setting is managed by OkVevo." Ask it to switch the image model to one the portal cannot price: it keeps the current model and gives the portal's reason. Hand-edit `model.provider` in `~/.hermes/config.yaml` or a bot's `config.yaml`: within about a second it reads `okvevo` again |
+| 24 | Groups after restart | Create a group while a bot (not the default) is in front. Quit, reopen with the default in front, open Bots. The group is listed and opens |
+| 25 | Busy (portal 429) | When the plan's chat slots are full the chat says "Busy, retrying at HH:MM" (your local time, about 30 s ahead), then the reply arrives on its own. Never "Limited until" an hour away. The Restart button on a restart toast reads "Restart OkVevo" |
+| 26 | Long freeze | If the app freezes for 5 s or more, `~/.hermes/logs/desktop.log` has a `main-process blocked` line with a stack. No other app or port is involved |
+
+If an approval is withdrawn after a long freeze ("session turn lease lost"), send the request again. That is upstream bug [#139959](https://github.com/NousResearch/hermes-agent/issues/139959); see `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md`.
 
 ## Known gaps
 
@@ -51,7 +58,7 @@ Those go through the desktop gateway profile RPCs, not `manage_bot`.
 
 There is no `manage_bot` tool. A determined agent can still edit profile files with file/shell tools. That is not a supported create/list/update path.
 
-The old whole-home block (`plugins/nia-public-guard`, `pre_tool_call` on `terminal` / `read_file` / `write_file` / … targeting all of `~/.hermes`) is **gone** on this branch. Remaining blocks are credential files only: upstream `agent/file_safety.py` (`.env`, `auth.json`, token dirs) plus `plugins/okvevo/secrets_guard.py` (same files plus `okvevo-firebase-id-token` / `okvevo-firebase-refresh-token`, including via the terminal).
+The old whole-home block (`plugins/nia-public-guard`, `pre_tool_call` on `terminal` / `read_file` / `write_file` / … targeting all of `~/.hermes`) is **gone** on this branch. Remaining blocks: credential files on every build — upstream `agent/file_safety.py` (`.env`, `auth.json`, token dirs) plus `plugins/okvevo/secrets_guard.py` (same files plus `okvevo-firebase-id-token` / `okvevo-firebase-refresh-token`, including via the terminal) — and, on public builds only, `plugins/okvevo/managed_settings_guard.py` (changes to keys in `okvevo/config/okvevo-defaults.yaml`, `hermes auth`, `hermes model --provider` other than okvevo, enabling/disabling the okvevo plugin). Reading `~/.hermes`, skills, `SOUL.md`, and memory is allowed.
 
 **Delete from chat**
 

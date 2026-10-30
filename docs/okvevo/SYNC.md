@@ -13,6 +13,26 @@ python3 scripts/okvevo/check_branding.py
 If drift fails, either move the change into an OkVevo-owned path or add a
 KEEP-PATCH in `docs/okvevo/PATCHES.md` (cap 3).
 
+## Cadence and merge rules
+
+- Sync every Hermes release, and at least every 2 weeks when no release tag
+  landed (merge the newest tag; never an untagged `origin/main`).
+- `git merge` the tag. Do not rebase the OkVevo branch onto it.
+- Each sync is its own PR into `staging`. It merges only when all of these are
+  green: the OkVevo parity and desktop E2E suite (`okvevo-desktop-pack.yml`,
+  `e2e/okvevo`), `scripts/okvevo/check_branding.py`, the Nous-diff scan below,
+  `scripts/okvevo/check_vendor_keys.py`, and the vendor-host guard
+  (`e2e/okvevo/vendor-guard.ts`).
+- Every sync reads `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md` and
+  `docs/okvevo/WORKAROUNDS.md`. For each workaround: is the upstream issue
+  closed, or is the fix in the release notes? Run its behavior test with the
+  toggle off. If Hermes passes, recommend removing ours (set Applied-Upstream,
+  delete the code). If ours is clearly better, keep it and write down why.
+  Karan decides.
+- `check_upstream_delta.sh` prints the patch budget (desktop / installer /
+  other). A new desktop or installer entry in PATCHES.md needs a one-line
+  reason: ``- `path` — why``.
+
 Gitleaks: `docs/okvevo/gitleaks-baseline.json` is a native `gitleaks detect
 --redact` report of findings already in history (upstream `v0.22.4` plus
 OkVevo snapshot commits). CI fails only on findings not in that file. Do not
@@ -47,8 +67,9 @@ workflows (`RELEASES_S3_*`). Leave existing `nia/` objects alone.
 Do **not** `git revert` an upstream merge. Redeploy the previous R2 build and
 fix forward.
 
-Optional: `git config rerere.enabled true` in this clone so desktop conflict
-resolutions replay (do not run that from CI; it is a local clone setting).
+Required on the clone that does the merge: `git config rerere.enabled true`, so
+desktop conflict resolutions replay on the next sync. It is a local clone
+setting; do not run it from CI.
 
 ## PATCHES conflict stop
 

@@ -13,7 +13,8 @@ Keyed on HTTP status / structured error_type first, message markers second
 from __future__ import annotations
 
 import re
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 CREDITS_COPY = (
     "You're out of OkVevo credits — top up at okvevo.com and I'll pick up "
@@ -38,6 +39,10 @@ SUBSCRIPTION_COPY = (
 NETWORK_COPY = "Can't reach OkVevo right now — check your internet and try again."
 CONTENT_BLOCKED_COPY = "That one got blocked by content filters — try rephrasing."
 UNREADABLE_FILE_COPY = "I couldn't read that file — try attaching it again."
+VENDOR_REJECTED_COPY = "The image service refused this request. Your credits were returned."
+VENDOR_UNAVAILABLE_COPY = (
+    "The image service is temporarily unavailable. Your credits were returned."
+)
 FALLBACK_COPY = "Something went wrong on my end — give that another try."
 
 _COPY_BY_CATEGORY = {
@@ -49,6 +54,17 @@ _COPY_BY_CATEGORY = {
     "network": NETWORK_COPY,
     "content_blocked": CONTENT_BLOCKED_COPY,
     "unreadable_file": UNREADABLE_FILE_COPY,
+    "vendor_rejected": VENDOR_REJECTED_COPY,
+    "vendor_unavailable": VENDOR_UNAVAILABLE_COPY,
+}
+
+# OkVevo portal ``error.code`` values. When a (status, code) pair matches,
+# it decides the category and ``message`` is never read.
+_PORTAL_CODE_CATEGORY = {
+    (401, "invalid_token"): "auth",
+    (402, "insufficient_quota"): "credits",
+    (502, "vendor_rejected"): "vendor_rejected",
+    (502, "vendor_unavailable"): "vendor_unavailable",
 }
 
 # Already-friendly copy must survive a second pass through the mapper
@@ -56,6 +72,39 @@ _COPY_BY_CATEGORY = {
 _KNOWN_FRIENDLY = frozenset(_COPY_BY_CATEGORY.values()) | {FALLBACK_COPY}
 
 _HTTP_STATUS_RE = re.compile(r"\bHTTP\s{0,2}(\d{3})\b", re.IGNORECASE)
+
+# Portal 429 (in_flight_budget_exhausted / plan_concurrency_limit) carries
+# error.reset_at = now + Retry-After; the retry loop waits for Retry-After.
+_BUSY_RE = re.compile(r"^Busy, retrying at \d{2}:\d{2}$")
+
+
+def busy_until_copy(reset_at: Any) -> Optional[str]:
+    """``Busy, retrying at HH:MM`` (local time) for a portal ``reset_at``, else None.
+
+    Accepts epoch seconds, epoch milliseconds (> 1e12), or ISO-8601 (no offset = UTC).
+    """
+    if isinstance(reset_at, bool):
+        return None
+    ts: Optional[float] = None
+    if isinstance(reset_at, (int, float)):
+        ts = float(reset_at)
+    elif isinstance(reset_at, str) and reset_at.strip():
+        text = reset_at.strip()
+        try:
+            ts = float(text)
+        except ValueError:
+            try:
+                parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            ts = parsed.timestamp()
+    if ts is None or ts <= 0:
+        return None
+    if ts > 1e12:
+        ts /= 1000.0
+    return f"Busy, retrying at {datetime.fromtimestamp(ts).strftime('%H:%M')}"
 
 # Same low-level markers run_agent._summarize_api_error uses for offline
 # detection, plus the wrapped shapes httpx/requests surface.
@@ -111,6 +160,9 @@ def categorize_error(
     error_type: Optional[str] = None,
 ) -> Optional[str]:
     """Return the copy-deck category for an error, or None when unrecognized."""
+    by_code = _PORTAL_CODE_CATEGORY.get((status, (error_type or "").strip().lower()))
+    if by_code:
+        return by_code
     text = (raw or "").strip()
     if not text:
         return None
@@ -169,6 +221,24 @@ def categorize_error(
     return None
 
 
+def portal_status_and_code(exc: BaseException) -> tuple[Optional[int], Optional[str]]:
+    """HTTP status and portal ``error.code`` from an httpx / fal_client error."""
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if not isinstance(status, int):
+        status = getattr(exc, "status_code", None)
+    if not isinstance(status, int):
+        status = None
+    code = None
+    try:
+        error = response.json().get("error") if response is not None else None
+        if isinstance(error, dict) and isinstance(error.get("code"), str):
+            code = error["code"]
+    except Exception:
+        pass
+    return status, code
+
+
 def _is_internal() -> bool:
     from plugins.okvevo.gateway import okvevo_is_internal_channel
 
@@ -190,6 +260,8 @@ def map_public_error(
     """
     if _is_internal():
         return None
+    if _BUSY_RE.fullmatch((raw or "").strip()):
+        return raw.strip()
     category = categorize_error(raw, status=status, error_type=error_type)
     return _COPY_BY_CATEGORY.get(category) if category else None
 
