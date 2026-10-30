@@ -405,6 +405,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | After Karan confirms the testing channel is verified, Cursor writes one `test alert, ignore` entry on `okvevo-testing` only; the email arrives at help@okvevo.com. |
 | **Notes** | Logged 2026-10-30 (PR 1.2). Code ships in PR 1.2; console setup is Karan's. Do not write a test log on production. |
 
+### [ ] GPT Image 2 from the desktop is refused: catalog id vs portal allowlist
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Asking for GPT Image 2 (or the agent switching `image_gen.model` to it) always fails with HTTP 400; the managed-settings guard now keeps Klein instead, but the model is unusable. |
+| **Scope** | Desktop: upstream `tools/image_generation_catalog.py` row `fal-ai/gpt-image-2` (text endpoint = row id) used by `plugins/okvevo/media.py`. Portal: `OkVevo-Web/src/lib/fal/allowlist.ts` + `rateCard.ts` list only `openai/gpt-image-2` (+ `/edit`). |
+| **Fix** | Pick one side: (a) portal also allowlists/prices `fal-ai/gpt-image-2` (only if Fal serves that path), or (b) `plugins/okvevo/media.py` submits `openai/gpt-image-2` for that row (OkVevo-owned, no upstream edit). Decide after one paid submit to each id on testing. |
+| **Verify** | Testing portal: `fal-ai/gpt-image-2` image request returns an image URL from the desktop path (`.worktrees/live_images.py` style run). |
+| **Notes** | Found 2026-10-30 live test after the Fal top-up: Klein OK (13 credits, image in 5.2 s); `fal-ai/gpt-image-2` quote + submit → 400 "Fal endpoint is not meterable on the OkVevo gateway"; `openai/gpt-image-2` quotes 106 credits. Same 400 as the 14:27 flyer. |
+
 ## Should fix before live (lower severity)
 
 ### [ ] Sync Hermes v0.22.5 (own PR, after PR 1.2, before PR 2)
@@ -621,7 +632,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
-| Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: OkVevo-Nia `feat/okvevo-pr-1-2`. Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |
+| Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: [OkVevo-Nia #70](https://github.com/Jaikarans2003/OkVevo-Nia/pull/70). Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |
 
 | Drama target file type the endpoint cannot return (G3 job 3) | 2026-10-13 | `portal_request_body` refuses unsupported target suffixes before quote/hold. PR: [OkVevo-Nia #53](https://github.com/Jaikarans2003/OkVevo-Nia/pull/53). Verify: `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"`. |
 | Fal capture job never captured | 2026-10-12 | `billing_events` key + unconditional `main()`. PR: [OkVevo-Web #12](https://github.com/Jaikarans2003/OkVevo-Web/pull/12) + [#13](https://github.com/Jaikarans2003/OkVevo-Web/pull/13). Verify: `npx tsx src/lib/fal/capture.selfcheck.ts`. |
