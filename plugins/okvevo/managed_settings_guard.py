@@ -22,7 +22,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-import yaml
+import hermes_yaml as yaml
 
 MANAGED_MESSAGE = "This setting is managed by OkVevo."
 

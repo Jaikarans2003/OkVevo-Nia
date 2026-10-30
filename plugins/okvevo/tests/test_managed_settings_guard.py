@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import os
 
+import hermes_yaml as yaml
 import pytest
-import yaml
 
 from plugins.okvevo import managed_settings_guard as guard
 from plugins.okvevo.managed_settings_guard import MANAGED_MESSAGE, on_pre_tool_call
