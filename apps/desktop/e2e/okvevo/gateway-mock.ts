@@ -69,12 +69,12 @@ function writeLog(logPath: string | undefined, line: string) {
   appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`)
 }
 
-function completion(stream: boolean): string {
+function completion(stream: boolean, content: string = REPLY): string {
   if (!stream) {
     return JSON.stringify({
       id: 'chatcmpl-e2e',
       object: 'chat.completion',
-      choices: [{ index: 0, message: { role: 'assistant', content: REPLY }, finish_reason: 'stop' }],
+      choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
       usage: { prompt_tokens: 8, completion_tokens: 3 }
     })
   }
@@ -83,7 +83,7 @@ function completion(stream: boolean): string {
     `data: ${JSON.stringify({
       id: 'chatcmpl-e2e',
       object: 'chat.completion.chunk',
-      choices: [{ index: 0, delta: { role: 'assistant', content: REPLY }, finish_reason: null }]
+      choices: [{ index: 0, delta: { role: 'assistant', content }, finish_reason: null }]
     })}`,
     '',
     `data: ${JSON.stringify({
@@ -97,11 +97,18 @@ function completion(stream: boolean): string {
   ].join('\n')
 }
 
-function imageToolCall(stream: boolean): string {
+type ImageRoute = 'direct' | 'bridge'
+
+function imageToolCall(stream: boolean, route: ImageRoute): string {
+  const args = { prompt: 'e2e red circle' }
+  // tool_search defers image_generate on desktop; a real model reaches it through tool_call.
   const call = {
     id: 'call_e2e_image',
     type: 'function',
-    function: { name: 'image_generate', arguments: JSON.stringify({ prompt: 'e2e red circle' }) }
+    function:
+      route === 'direct'
+        ? { name: 'image_generate', arguments: JSON.stringify(args) }
+        : { name: 'tool_call', arguments: JSON.stringify({ calls: [{ name: 'image_generate', arguments: args }] }) }
   }
 
   if (!stream) {
@@ -131,15 +138,46 @@ function imageToolCall(stream: boolean): string {
   ].join('\n')
 }
 
-/** Last message is a user turn that asks for the E2E image, and image_generate is offered. */
-function wantsImageCall(body: Record<string, unknown>): boolean {
+function lastMessage(body: Record<string, unknown>): { content?: unknown; role?: unknown } | undefined {
   const messages = Array.isArray(body.messages) ? body.messages : []
-  const last = messages[messages.length - 1] as { content?: unknown; role?: unknown } | undefined
-  const tools = Array.isArray(body.tools) ? body.tools : []
-  const offered = tools.some(tool => (tool as { function?: { name?: unknown } })?.function?.name === 'image_generate')
-  const text = typeof last?.content === 'string' ? last.content : JSON.stringify(last?.content ?? '')
 
-  return offered && last?.role === 'user' && text.includes(IMAGE_MARKER)
+  return messages[messages.length - 1] as { content?: unknown; role?: unknown } | undefined
+}
+
+function messageContent(message: { content?: unknown } | undefined): string {
+  return typeof message?.content === 'string' ? message.content : JSON.stringify(message?.content ?? '')
+}
+
+function offeredTools(body: Record<string, unknown>): string[] {
+  const tools = Array.isArray(body.tools) ? body.tools : []
+
+  return tools.map(tool => String((tool as { function?: { name?: unknown } })?.function?.name ?? ''))
+}
+
+/** The last message asks for the E2E image: call image_generate directly if offered, else via tool_call. */
+function imageRoute(body: Record<string, unknown>): ImageRoute | null {
+  const last = lastMessage(body)
+
+  if (last?.role !== 'user' || !messageContent(last).includes(IMAGE_MARKER)) {
+    return null
+  }
+
+  const tools = offeredTools(body)
+
+  return tools.includes('image_generate') ? 'direct' : tools.includes('tool_call') ? 'bridge' : null
+}
+
+/** After a failed tool result, relay its error the way a model would; otherwise the plain reply. */
+function replyAfter(body: Record<string, unknown>): string {
+  const last = lastMessage(body)
+
+  if (last?.role !== 'tool') {
+    return REPLY
+  }
+
+  const match = /"error"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(messageContent(last))
+
+  return match ? `${REPLY} ${JSON.parse(`"${match[1]}"`)}` : REPLY
 }
 
 /** OpenAI-compatible stand-in for `{origin}/api/gateway`. */
@@ -215,7 +253,13 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         res.writeHead(200, {
           'content-type': stream ? 'text/event-stream' : 'application/json'
         })
-        res.end(wantsImageCall(body) ? imageToolCall(stream) : completion(stream))
+        const route = imageRoute(body)
+
+        if (messageContent(lastMessage(body)).includes(IMAGE_MARKER) || lastMessage(body)?.role === 'tool') {
+          writeLog(options.logPath, `image turn route=${route ?? 'none'} tools=${offeredTools(body).join(',')}`)
+        }
+
+        res.end(route ? imageToolCall(stream, route) : completion(stream, replyAfter(body)))
         return
       }
 
