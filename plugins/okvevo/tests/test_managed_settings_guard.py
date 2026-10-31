@@ -89,6 +89,14 @@ def test_unpriced_image_model_is_refused_with_the_portal_reason(monkeypatch):
     assert "not meterable" in got["message"] and "current image model was kept" in got["message"]
 
 
+def test_gpt_image_2_switch_quotes_the_portal_endpoint(monkeypatch):
+    quoted = []
+    monkeypatch.setattr("plugins.okvevo.gateway.okvevo_fal_quote",
+                        lambda endpoint, args: (quoted.append(endpoint), (106, None))[1])
+    assert on_pre_tool_call("terminal", {"command": "hermes config set image_gen.model fal-ai/gpt-image-2"}) is None
+    assert quoted == ["openai/gpt-image-2"]
+
+
 def test_internal_build_skips_the_guard(monkeypatch):
     monkeypatch.setenv("OKVEVO_BUILD_CHANNEL", "internal")
     assert on_pre_tool_call("terminal", {"command": "hermes config set model.provider anthropic"}) is None

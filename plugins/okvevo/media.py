@@ -36,7 +36,9 @@ from plugins.okvevo.gateway import (
     ensure_okvevo_id_token,
     okvevo_fal_available,
     okvevo_gateway_base_url,
+    okvevo_fal_spend_approval,
     okvevo_fal_spend_gate,
+    okvevo_image_endpoint,
 )
 
 logger = logging.getLogger(__name__)
@@ -359,14 +361,16 @@ def _build_image_provider():
                     model_id, prompt, clamped, aspect_lc, seed=seed, overrides=overrides)
                 modality = "image"
             else:
-                endpoint = model_id
+                endpoint = okvevo_image_endpoint(model_id)
                 arguments = img_tool._build_fal_payload(
                     model_id, prompt, aspect_lc, seed=seed, overrides=overrides)
                 modality = "text"
 
-            denial = okvevo_fal_spend_gate("image_generate", endpoint, arguments)
+            denial, approved = okvevo_fal_spend_approval("image_generate", endpoint, arguments)
             if denial:
                 return fail(denial, "approval_denied", model_id)
+            if approved is not None:
+                arguments = {**arguments, "approved_credits": approved}
 
             try:
                 result = img_tool._wait_fal_result(

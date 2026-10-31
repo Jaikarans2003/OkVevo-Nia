@@ -124,9 +124,9 @@ def _flag_value(args: list[str], flag: str) -> Optional[str]:
 
 
 def _check_image_model(model_id: str) -> Optional[dict[str, str]]:
-    from plugins.okvevo.gateway import okvevo_fal_quote
+    from plugins.okvevo.gateway import okvevo_fal_quote, okvevo_image_endpoint
 
-    credits, reason = okvevo_fal_quote(model_id, {"prompt": "model check", "num_images": 1})
+    credits, reason = okvevo_fal_quote(okvevo_image_endpoint(model_id), {"prompt": "model check", "num_images": 1})
     if credits is not None:
         return None
     return _blocked(

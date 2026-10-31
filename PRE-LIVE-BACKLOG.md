@@ -394,27 +394,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ---
 
-### [ ] Fal vendor-down email alert to help@okvevo.com (testing + production)
+### [ ] Video tool does not send approved_credits (rate-card video endpoints)
 
 | Field | Value |
 |-------|-------|
 | **Gate** | Required before live |
-| **Risk if skipped** | Fal locks the account (exhausted balance) and every image fails with "temporarily unavailable"; nobody at OkVevo is told. |
-| **Scope** | Cloud Monitoring on `okvevo-testing` and `text2video-16cbf` (console only). Log line from `OkVevo-Web/src/lib/fal/handleQueue.ts` → `sendOpsAlert` (`condition` = `vendor_unavailable`, id = UTC hour). |
-| **Fix** | Email channel `help@okvevo.com` (verified) + log alert `Fal vendor unavailable` on `jsonPayload.condition="vendor_unavailable"` AND `jsonPayload.opsAlert=true`, 1 h between notifications, on both projects. Click-by-click: `.cursor/plans/image_groups_pr_1.2_49adaf1c.plan.md` §1. |
-| **Verify** | After Karan confirms the testing channel is verified, Cursor writes one `test alert, ignore` entry on `okvevo-testing` only; the email arrives at help@okvevo.com. |
-| **Notes** | Logged 2026-10-30 (PR 1.2). Code ships in PR 1.2; console setup is Karan's. Do not write a test log on production. |
-
-### [ ] GPT Image 2 from the desktop is refused: catalog id vs portal allowlist
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Required before live |
-| **Risk if skipped** | Asking for GPT Image 2 (or the agent switching `image_gen.model` to it) always fails with HTTP 400; the managed-settings guard now keeps Klein instead, but the model is unusable. |
-| **Scope** | Desktop: upstream `tools/image_generation_catalog.py` row `fal-ai/gpt-image-2` (text endpoint = row id) used by `plugins/okvevo/media.py`. Portal: `OkVevo-Web/src/lib/fal/allowlist.ts` + `rateCard.ts` list only `openai/gpt-image-2` (+ `/edit`). |
-| **Fix** | Pick one side: (a) portal also allowlists/prices `fal-ai/gpt-image-2` (only if Fal serves that path), or (b) `plugins/okvevo/media.py` submits `openai/gpt-image-2` for that row (OkVevo-owned, no upstream edit). Decide after one paid submit to each id on testing. |
-| **Verify** | Testing portal: `fal-ai/gpt-image-2` image request returns an image URL from the desktop path (`.worktrees/live_images.py` style run). |
-| **Notes** | Found 2026-10-30 live test after the Fal top-up: Klein OK (13 credits, image in 5.2 s); `fal-ai/gpt-image-2` quote + submit → 400 "Fal endpoint is not meterable on the OkVevo gateway"; `openai/gpt-image-2` quotes 106 credits. Same 400 as the 14:27 flyer. |
+| **Risk if skipped** | A plain `video_generate` call to a rate-card (`source: card`) endpoint is refused with 400 "approved_credits is required for drama-skill jobs", the same failure GPT Image 2 had. |
+| **Scope** | `plugins/okvevo/media.py` video `generate` (still uses `okvevo_fal_spend_gate`); portal `submitPriceGate` in `OkVevo-Web/src/lib/fal/rateCard.ts` |
+| **Fix** | Use `okvevo_fal_spend_approval` like the image tool and add `approved_credits` to the submit. Check the upscale pass (metered separately) keeps working. |
+| **Verify** | Plugin test asserts `approved_credits` on the video submit; one paid rate-card video on the testing portal returns a URL. |
+| **Notes** | Found 2026-10-31 while fixing GPT Image 2 (image tool now sends it). Not reproduced live for video yet. |
 
 ## Should fix before live (lower severity)
 
@@ -631,6 +620,9 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 ## Closed
 
 _(Move items here when done.)_
+
+| GPT Image 2 from the desktop is refused (catalog id vs portal allowlist) | 2026-10-31 | `fal-ai/gpt-image-2` row submits + quotes `openai/gpt-image-2` (`okvevo_image_endpoint`), and the image tool sends the approved quote as `approved_credits` (rate-card endpoints require it). Live testing-portal run: 106 credits, image in 30 s. PR: OkVevo-Nia `fix/okvevo-gpt-image-2`. Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_media_providers.py`. |
+| Fal vendor-down email alert to help@okvevo.com (testing + production) | 2026-10-31 | "Fal vendor unavailable" log alerts on `okvevo-testing` + `text2video-16cbf`. The testing filter had an extra `severity>=ALERT` line (portal logs at ERROR, so it could never fire); removed, now matches production. Test entry 2026-10-31 17:18:50Z opened an incident at 17:19:34Z; email received at help@okvevo.com (Karan, 22:49 IST). Code: [OkVevo-Web #22](https://github.com/Jaikarans2003/OkVevo-Web/pull/22). |
 
 | Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: [OkVevo-Nia #70](https://github.com/Jaikarans2003/OkVevo-Nia/pull/70). Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |
 
