@@ -236,6 +236,16 @@ def _quote_args(args: Optional[dict]) -> dict:
     return out
 
 
+# Upstream catalog row id → the Fal endpoint the portal allowlists and prices
+# (OkVevo-Web src/lib/fal/allowlist.ts). The row id stays the user-facing model id.
+_PORTAL_IMAGE_ENDPOINTS = {"fal-ai/gpt-image-2": "openai/gpt-image-2"}
+
+
+def okvevo_image_endpoint(model_id: str) -> str:
+    """Text-to-image endpoint to quote and submit for an image catalog row."""
+    return _PORTAL_IMAGE_ENDPOINTS.get(model_id, model_id)
+
+
 def okvevo_fal_quote(endpoint: str, args: dict) -> tuple[Optional[int], Optional[str]]:
     """POST /api/fal/quote on the OkVevo portal. Read-only (no reserve, no
     debit). ``(credits, None)`` when the portal prices the request, else
@@ -297,12 +307,33 @@ def okvevo_fal_spend_gate(
     so no reserve/debit exists yet (the hold is created inside the gateway's
     submit handler).
     """
-    from tools.approval import is_approval_bypass_active, request_tool_approval
+    from tools.approval import is_approval_bypass_active
 
     if is_approval_bypass_active():
         return None
+    return okvevo_fal_spend_approval(tool_name, endpoint, args, extra_note=extra_note)[0]
+
+
+def okvevo_fal_spend_approval(
+    tool_name: str,
+    endpoint: str,
+    args: dict,
+    *,
+    extra_note: str = "",
+) -> tuple[Optional[str], Optional[int]]:
+    """``(denial, approved_credits)`` for an OkVevo-credit Fal spend.
+
+    ``approved_credits`` is the quoted number the user approved; send it as the
+    submit's ``approved_credits`` so the portal never reserves more (rate-card
+    endpoints such as ``openai/gpt-image-2`` require it). Under approval bypass
+    nothing is shown, but the read-only quote still runs so the submit carries
+    it. None when the quote failed (the submit then goes without it).
+    """
+    from tools.approval import is_approval_bypass_active, request_tool_approval
 
     credits, _reason = okvevo_fal_quote(endpoint, args)
+    if is_approval_bypass_active():
+        return None, credits
     what = "image" if tool_name == "image_generate" else "video"
     if okvevo_is_internal_channel():
         cost_text = (
@@ -336,18 +367,18 @@ def okvevo_fal_spend_gate(
         rule_key=f"{tool_name}:{endpoint}",
     )
     if verdict.get("approved"):
-        return None
-    return verdict.get("message") or f"BLOCKED: {tool_name} was denied."
+        return None, credits
+    return verdict.get("message") or f"BLOCKED: {tool_name} was denied.", None
 
 
 def ensure_okvevo_fal_run_id(arguments: dict) -> dict:
     """Attach one run_id per tool call. Reuse it on retries.
 
     The portal requires ``run_id`` on every metered submit (HTTP 400
-    otherwise) and keys its reserve/settle idempotency on it. Normal
-    image/video tools do not send approved_credits — the portal reserves
-    the server-computed price. Drama-skill jobs send approved_credits from
-    the rate-card quote the user already confirmed.
+    otherwise) and keys its reserve/settle idempotency on it. The image
+    tool and drama-skill jobs send approved_credits (the quote the user
+    confirmed); the video tool does not yet, so the portal reserves the
+    server-computed price there.
     """
     out = dict(arguments)
     existing = out.get("run_id")

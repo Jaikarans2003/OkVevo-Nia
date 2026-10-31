@@ -140,7 +140,7 @@ def test_image_signed_out_is_auth_error(monkeypatch):
 def test_image_happy_path(signed_in, monkeypatch):
     import tools.image_generation_tool as img_tool
 
-    monkeypatch.setattr(media, "okvevo_fal_spend_gate", lambda *a, **k: None)
+    monkeypatch.setattr(media, "okvevo_fal_spend_approval", lambda *a, **k: (None, 13))
     seen = {}
 
     def fake_submit(endpoint, arguments, *, what):
@@ -160,3 +160,46 @@ def test_image_happy_path(signed_in, monkeypatch):
     assert result["image"] == "https://fal.media/i.png"
     assert seen["arguments"]["run_id"]
     assert seen["arguments"]["prompt"] == "a cat"
+    assert seen["arguments"]["approved_credits"] == 13, "the portal never reserves more than approved"
+
+
+def test_image_without_a_quote_submits_without_approved_credits(signed_in, monkeypatch):
+    import tools.image_generation_tool as img_tool
+
+    seen = {}
+    monkeypatch.setattr(media, "okvevo_fal_spend_approval", lambda *a, **k: (None, None))
+    monkeypatch.setattr(media, "_submit_okvevo_fal",
+                        lambda endpoint, arguments, *, what: seen.update(arguments) or object())
+    monkeypatch.setattr(img_tool, "_wait_fal_result",
+                        lambda handle, **k: {"images": [{"url": "https://fal.media/i.png"}]})
+    assert media._build_image_provider().generate("a cat", upscale=False)["success"] is True
+    assert "approved_credits" not in seen
+
+
+def test_gpt_image_2_submits_the_portal_endpoint(signed_in, monkeypatch):
+    """The catalog row is fal-ai/gpt-image-2; the portal only allowlists openai/gpt-image-2."""
+    import tools.image_generation_tool as img_tool
+
+    gated, seen = {}, {}
+    monkeypatch.setattr(media, "okvevo_fal_spend_approval",
+                        lambda tool, endpoint, args, **k: (gated.setdefault("endpoint", endpoint) and None, 106))
+    monkeypatch.setattr(media, "_submit_okvevo_fal",
+                        lambda endpoint, arguments, *, what: seen.setdefault("endpoint", endpoint) or object())
+    monkeypatch.setattr(img_tool, "_resolve_fal_model",
+                        lambda *a, **k: ("fal-ai/gpt-image-2", img_tool.FAL_MODELS["fal-ai/gpt-image-2"]))
+    monkeypatch.setattr(img_tool, "_wait_fal_result",
+                        lambda handle, **k: {"images": [{"url": "https://fal.media/g.png"}]})
+
+    result = media._build_image_provider().generate("a poster", upscale=False)
+    assert result["success"] is True, result.get("error")
+    assert result["model"] == "fal-ai/gpt-image-2"
+    assert gated["endpoint"] == seen["endpoint"] == "openai/gpt-image-2"
+
+
+def test_spend_approval_quotes_even_when_approvals_are_off(monkeypatch):
+    from plugins.okvevo import gateway
+
+    monkeypatch.setattr(gateway, "okvevo_fal_quote", lambda endpoint, args: (106, None))
+    monkeypatch.setattr("tools.approval.is_approval_bypass_active", lambda: True)
+    assert gateway.okvevo_fal_spend_approval("image_generate", "openai/gpt-image-2", {}) == (None, 106)
+    assert gateway.okvevo_fal_spend_gate("video_generate", "x", {}) is None
