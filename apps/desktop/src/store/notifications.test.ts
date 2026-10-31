@@ -1,6 +1,7 @@
 import { JsonRpcGatewayError } from '@hermes/shared'
 import { beforeEach, expect, test, vi } from 'vitest'
 
+import { TRANSLATIONS } from '@/i18n/catalog'
 import { en } from '@/i18n/en'
 
 import { $notifications, clearNotifications, isDiskFullErrorMessage, notifyError } from './notifications'
@@ -64,7 +65,7 @@ test('405 method-not-allowed toasts a restart in plain words with a Restart Herm
   notifyError(new Error('405 Method Not Allowed'), 'Request failed')
 
   expect(lastMessage()).not.toMatch(/405|Method Not Allowed|backend/i)
-  expect($notifications.get()[0]?.action?.label).toBe(en.notifications.actions.restartHermes)
+  expect($notifications.get()[0]?.action?.label).toBe(TRANSLATIONS.en.notifications.actions.restartHermes)
   $notifications.get()[0]?.action?.onClick()
   expect($backendRestartRequest.get()).toBe(before + 1)
 })
@@ -138,7 +139,7 @@ test('code-skew 503 unwraps to a restart-required summary, not raw IPC JSON', ()
 
   expect(lastMessage()).not.toMatch(/hermes:api|systemctl|backend/i)
   const before = $backendRestartRequest.get()
-  expect($notifications.get()[0]?.action?.label).toBe(en.notifications.actions.restartHermes)
+  expect($notifications.get()[0]?.action?.label).toBe(TRANSLATIONS.en.notifications.actions.restartHermes)
   $notifications.get()[0]?.action?.onClick()
   expect($backendRestartRequest.get()).toBe(before + 1)
 })

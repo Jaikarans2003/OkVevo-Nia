@@ -12,3 +12,11 @@ First-run values live in `okvevo/config/okvevo-defaults.yaml`. Do not copy them 
 Do not edit upstream Python (`gateway/`, `agent/`, `hermes_cli/`, `providers/`) to make an OkVevo check pass. If a check fails, fix the OkVevo-owned path or rebuild the app the way upstream packs it.
 
 Push only the `okvevo` remote. Never `origin`.
+
+## Upstream syncs (same rules as `docs/okvevo/SYNC.md`)
+
+- Sync every Hermes release, and at least every 2 weeks when no tag landed.
+- `git merge` the tag; never rebase OkVevo onto it. `git config rerere.enabled true` on the merging clone (not CI).
+- One sync per PR into `staging`. Merge only when the OkVevo parity + desktop E2E suite, `check_branding.py`, the Nous-diff scan, `check_vendor_keys.py`, and the vendor-host guard are green.
+- Every sync reads `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md` and `docs/okvevo/WORKAROUNDS.md`, runs each workaround's behavior test with its toggle off, and recommends removal when Hermes passes. Karan decides.
+- Never start a sync inside a feature PR.

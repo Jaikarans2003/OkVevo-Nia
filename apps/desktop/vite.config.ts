@@ -1,6 +1,7 @@
 import babel from '@rolldown/plugin-babel'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { load as parseYaml } from 'js-yaml'
 import { resolveBuildChannel } from './scripts/resolve-build-channel.mjs'
 
 /** React Compiler preset scoped to modules that can actually contain
@@ -133,10 +134,20 @@ const emojibaseAssets = () => ({
   }
 })
 
+/** `okvevo.workarounds.*` from the shipped defaults (docs/okvevo/WORKAROUNDS.md). */
+function okvevoWorkarounds(): Record<string, boolean> {
+  const text = fs.readFileSync(path.resolve(__dirname, '../../okvevo/config/okvevo-defaults.yaml'), 'utf8')
+
+  const defaults = parseYaml(text) as { okvevo?: { workarounds?: Record<string, boolean> } } | null
+
+  return defaults?.okvevo?.workarounds ?? {}
+}
+
 export default defineConfig(({ command }) => ({
   base: './',
   define: {
-    __OKVEVO_BUILD_CHANNEL__: JSON.stringify(resolveBuildChannel({ isDev: command === 'serve' }))
+    __OKVEVO_BUILD_CHANNEL__: JSON.stringify(resolveBuildChannel({ isDev: command === 'serve' })),
+    __OKVEVO_WORKAROUNDS__: JSON.stringify(okvevoWorkarounds())
   },
   plugins: [react(), cachedCompilerPass(command), tailwindcss(), emojibaseAssets()],
   css: {

@@ -29,7 +29,7 @@ from agent.image_gen_provider import success_response as img_success
 from agent.video_gen_provider import error_response as vid_error
 from agent.video_gen_provider import success_response as vid_success
 
-from plugins.okvevo.errors import public_error_message
+from plugins.okvevo.errors import portal_status_and_code, public_error_message
 from plugins.okvevo.gateway import (
     OkvevoGatewayConfigError,
     ensure_okvevo_fal_run_id,
@@ -82,7 +82,7 @@ def _drop_okvevo_fal_client() -> None:
 
 
 def _submit_okvevo_fal_once(endpoint: str, arguments: Dict[str, Any], *, what: str):
-    from tools.fal_common import _extract_http_status, submit_managed_fal_with_rate_limit_retry
+    from tools.fal_common import submit_managed_fal_with_rate_limit_retry
 
     client = _okvevo_fal_client()
     try:
@@ -91,12 +91,18 @@ def _submit_okvevo_fal_once(endpoint: str, arguments: Dict[str, Any], *, what: s
             what=what, name=endpoint,
         )
     except Exception as exc:
-        status = _extract_http_status(exc)
+        status, code = portal_status_and_code(exc)
         if status in (401, 403):
             raise _OkvevoAuthRetry(str(exc)) from exc
-        if status is not None and 400 <= status < 500:
-            raise ValueError(public_error_message(str(exc), status=status)) from exc
+        if code or (status is not None and 400 <= status < 500):
+            raise ValueError(public_error_message(str(exc), status=status, error_type=code)) from exc
         raise
+
+
+def _public_failure(exc: BaseException) -> str:
+    """Display copy keyed on the portal's HTTP status + ``error.code``, not the message."""
+    status, code = portal_status_and_code(exc)
+    return public_error_message(str(exc), status=status, error_type=code)
 
 
 def _submit_okvevo_fal(endpoint: str, arguments: Dict[str, Any], *, what: str):
@@ -120,7 +126,7 @@ def _submit_okvevo_fal(endpoint: str, arguments: Dict[str, Any], *, what: str):
 # ---------------------------------------------------------------------------
 
 def _video_failure(exc: Exception) -> str:
-    return public_error_message(str(exc)) if not isinstance(exc, ValueError) else str(exc)
+    return _public_failure(exc) if not isinstance(exc, ValueError) else str(exc)
 
 
 def _build_video_provider():
@@ -392,7 +398,7 @@ def _build_image_provider():
                 return fail(str(exc), "api_error", model_id)
             except Exception as exc:  # noqa: BLE001 — uniform provider contract
                 logger.warning("OkVevo image gen failed (model=%s): %s", model_id, exc, exc_info=True)
-                return fail(public_error_message(str(exc)), "api_error", model_id)
+                return fail(_public_failure(exc), "api_error", model_id)
 
             return img_success(
                 image=formatted[0]["url"], provider="okvevo", model=model_id, prompt=prompt,

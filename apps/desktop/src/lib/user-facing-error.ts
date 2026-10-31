@@ -22,6 +22,8 @@ export const PUBLIC_ERROR_COPY = {
   network: "Can't reach OkVevo right now — check your internet and try again.",
   contentBlocked: 'That one got blocked by content filters — try rephrasing.',
   unreadableFile: "I couldn't read that file — try attaching it again.",
+  vendorRejected: 'The image service refused this request. Your credits were returned.',
+  vendorUnavailable: 'The image service is temporarily unavailable. Your credits were returned.',
   fallback: 'Something went wrong on my end — give that another try.'
 } as const
 
@@ -35,7 +37,12 @@ const KNOWN_FRIENDLY: ReadonlySet<string> = new Set(Object.values(PUBLIC_ERROR_C
  * the most actionable errors we have.
  * ponytail: allowlist of exact patterns; new friendly copy belongs here.
  */
-const FRIENDLY_PATTERNS: RegExp[] = [/^sign in to okvevo\b/i, /contact okvevo support\.?$/i]
+const FRIENDLY_PATTERNS: RegExp[] = [
+  /^sign in to okvevo\b/i,
+  /contact okvevo support\.?$/i,
+  // plugins/okvevo/errors.py busy_until_copy (portal 429 reset_at).
+  /^Busy, retrying at \d{2}:\d{2}$/
+]
 
 const CLI_HINTS = ['hermes fallback add', 'hermes setup', 'hermes model', 'hermes auth']
 

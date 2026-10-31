@@ -6,8 +6,10 @@ import { _electron, expect, test, type ElectronApplication, type Page } from '@p
 
 import { appLogTail, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
 
-import { type ChatCall, startGatewayMock } from './gateway-mock'
+import { type ChatCall, IMAGE_MARKER, startGatewayMock } from './gateway-mock'
 import { noteRequestUrl } from './vendor-guard'
+
+const VENDOR_REJECTED_COPY = 'The image service refused this request. Your credits were returned.'
 
 const shots = path.join(DESKTOP_ROOT, 'release', 'e2e-screenshots')
 const diagnostics = path.join(DESKTOP_ROOT, 'release', 'e2e-diagnostics')
@@ -109,7 +111,11 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
   const pack = JSON.parse(originalPack) as Record<string, unknown>
   pack.OKVEVO_WEB_ORIGIN = mock.origin
   fs.writeFileSync(packPath, `${JSON.stringify(pack, null, 2)}\n`)
-  fs.writeFileSync(path.join(sandbox.hermesHome, 'config.yaml'), 'onboarding:\n  run: false\nnous:\n  guest: false\n')
+  // approvals off: the image steps test error copy and rendering, not the approval card.
+  fs.writeFileSync(
+    path.join(sandbox.hermesHome, 'config.yaml'),
+    'onboarding:\n  run: false\nnous:\n  guest: false\napprovals:\n  mode: "off"\n'
+  )
   fs.writeFileSync(path.join(sandbox.hermesHome, '.env'), 'OKVEVO_API_KEY=e2e-stale-copy\n', { mode: 0o600 })
   fs.writeFileSync(path.join(sandbox.hermesHome, 'okvevo-firebase-id-token'), token, { mode: 0o600 })
   fs.writeFileSync(path.join(sandbox.hermesHome, 'okvevo-firebase-refresh-token'), 'e2e-refresh', { mode: 0o600 })
@@ -146,6 +152,20 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     }
     expect(cost.plugins?.[0]?.cost_tier).toBe('medium')
     await shot(page, 'default-bot-chat.png')
+
+    // Portal 502 vendor_rejected: the code decides the copy, not "HTTP 403" in the message.
+    mock.setFalMode('reject')
+    await send(page, `${IMAGE_MARKER} rejected`)
+    await expect(page.getByText(VENDOR_REJECTED_COPY).first()).toBeVisible({ timeout: 120_000 })
+    await expect(page.getByText('Please sign in again')).toHaveCount(0)
+    expect(mock.falSubmits).toBe(1)
+    await shot(page, 'image-vendor-rejected.png')
+
+    mock.setFalMode('ok')
+    await send(page, `${IMAGE_MARKER} ok`)
+    const picture = page.locator('[data-slot="aui_generated-image"] img[alt="Generated image"]').last()
+    await expect(picture).toHaveClass(/opacity-100/, { timeout: 120_000 })
+    await shot(page, 'image-ok.png')
 
     await openModelMenu(page)
     await page.getByRole('menuitem', { name: 'Intelligence', exact: true }).click()

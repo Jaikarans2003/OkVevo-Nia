@@ -443,7 +443,15 @@ import {
   persistOkvevoAuthSession,
   rewriteOkvevoAuthSecret
 } from './okvevo-auth-store'
-import { migrateOkvevoHermesHome, provisionOkvevoProfile, readFirstText } from './okvevo-config-migration'
+import { startOkvevoBlockStackWatchdog } from './okvevo-block-stack'
+import {
+  loadOkvevoDefaults,
+  migrateOkvevoHermesHome,
+  okvevoWorkaroundEnabled,
+  provisionOkvevoProfile,
+  readFirstText,
+  watchOkvevoManagedConfig
+} from './okvevo-config-migration'
 import { ABOUT_CREDITS, OKVEVO_COPYRIGHT } from './okvevo-about'
 import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, stripOkvevoApiKeyCopies } from './okvevo-env'
 import { bakedFeedUrlFromPack, resolveDesktopFeedBase } from './okvevo-feed'
@@ -1368,13 +1376,28 @@ if (IS_PACKAGED) {
       resources ? path.join(resources, 'agent-payload', 'hermes-agent', 'okvevo', 'config', 'okvevo-defaults.yaml') : ''
     ].find(candidate => candidate && fs.existsSync(candidate)) || ''
 
+  const enforceManaged =
+    (process.env.OKVEVO_BUILD_CHANNEL ||
+      (typeof __OKVEVO_BUILD_CHANNEL__ !== 'undefined' ? __OKVEVO_BUILD_CHANNEL__ : '')) !== 'internal'
+
   try {
     migrateOkvevoHermesHome({
       hermesHome: HERMES_HOME,
       upstreamSoul,
       skillsDir,
       defaultsPath: defaultsPath || undefined,
+      enforce: enforceManaged,
       log: message => console.log(message)
+    })
+    watchOkvevoManagedConfig({
+      hermesHome: HERMES_HOME,
+      skillsDir,
+      defaultsPath: defaultsPath || undefined,
+      enforce: enforceManaged
+    })
+    startOkvevoBlockStackWatchdog({
+      enabled: okvevoWorkaroundEnabled(loadOkvevoDefaults(defaultsPath || undefined), 'event_loop_block_stack'),
+      log: rememberLog
     })
   } catch (error) {
     console.error(`[okvevo-migrate] ${error instanceof Error ? error.message : String(error)}`)

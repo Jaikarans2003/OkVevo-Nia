@@ -236,14 +236,15 @@ def _quote_args(args: Optional[dict]) -> dict:
     return out
 
 
-def _quote_okvevo_fal_credits(endpoint: str, args: dict) -> Optional[int]:
+def okvevo_fal_quote(endpoint: str, args: dict) -> tuple[Optional[int], Optional[str]]:
     """POST /api/fal/quote on the OkVevo portal. Read-only (no reserve, no
-    debit). Returns None on ANY failure — a quote outage must never block a
-    generation, it just degrades the approval text."""
+    debit). ``(credits, None)`` when the portal prices the request, else
+    ``(None, reason)``. The spend gate fails open on a reason — a quote outage
+    must never block a generation, it just degrades the approval text."""
     token = ensure_okvevo_id_token()
     origin = okvevo_web_origin()
     if not token or not origin:
-        return None
+        return None, "not signed in to OkVevo"
     try:
         import httpx
 
@@ -259,18 +260,24 @@ def _quote_okvevo_fal_credits(endpoint: str, args: dict) -> Optional[int]:
         if res.status_code in (401, 403):
             refreshed = ensure_okvevo_id_token(force=True)
             if not refreshed or refreshed == token:
-                return None
+                return None, "not signed in to OkVevo"
             res = _post(refreshed)
         if res.status_code != 200:
             logger.warning("okvevo fal quote %s: HTTP %s", endpoint, res.status_code)
-            return None
+            reason = None
+            try:
+                error = res.json().get("error")
+                reason = error.get("message") if isinstance(error, dict) else None
+            except Exception:
+                pass
+            return None, reason or f"quote HTTP {res.status_code}"
         credits = res.json().get("credits")
         if isinstance(credits, (int, float)) and credits >= 0:
-            return int(credits)
-        return None
+            return int(credits), None
+        return None, "quote had no credit amount"
     except Exception as exc:  # noqa: BLE001 — quote must fail open
         logger.warning("okvevo fal quote failed (%s): %s", endpoint, exc)
-        return None
+        return None, "quote unavailable"
 
 
 def okvevo_fal_spend_gate(
@@ -295,7 +302,7 @@ def okvevo_fal_spend_gate(
     if is_approval_bypass_active():
         return None
 
-    credits = _quote_okvevo_fal_credits(endpoint, args)
+    credits, _reason = okvevo_fal_quote(endpoint, args)
     what = "image" if tool_name == "image_generate" else "video"
     if okvevo_is_internal_channel():
         cost_text = (
