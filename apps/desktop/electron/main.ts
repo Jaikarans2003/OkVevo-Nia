@@ -7868,6 +7868,32 @@ async function _finishOkvevoAuthCallback(code: string, state: string) {
   }
 }
 
+// okvevo-e2e-auth:begin
+// OkVevo packed-app E2E: drive sign-in without a real browser/portal. The whole
+// region is stripped from public packs (staging/production) at bundle time
+// unless the e2e pack variant sets OKVEVO_E2E_AUTH=1. A no-trace CI check
+// asserts the public main bundle contains no marker of it.
+if (typeof __OKVEVO_E2E_AUTH__ !== 'undefined' && __OKVEVO_E2E_AUTH__) {
+  ipcMain.handle('hermes:okvevo-auth:e2e-complete', async (_event, code: unknown, state: unknown) => {
+    if (typeof code !== 'string' || typeof state !== 'string' || !code || !state) {
+      return { ok: false, error: 'invalid_args' }
+    }
+
+    try {
+      // completeOkvevoAuthCallback validates against the pending row the real
+      // browser flow set via startOkvevoSignIn. Seed a valid pending row so the
+      // deep-link path accepts this callback. 10 min TTL matches PENDING_TTL_MS.
+      const deps = _okvevoAuthFlowDeps()
+      deps.setPending({ state, exp: Date.now() + 10 * 60 * 1000 })
+      await _finishOkvevoAuthCallback(code, state)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+}
+// okvevo-e2e-auth:end
+
 function _focusMainWindow() {
   try {
     if (!mainWindow || mainWindow.isDestroyed()) {

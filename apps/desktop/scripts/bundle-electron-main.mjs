@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util'
 import { isMain, workspaceTool } from '../../../scripts/build/frontend-common.mjs'
 import { environmentDefaultsBanner } from './bundle-env.mjs'
 import { resolveBuildChannel } from './resolve-build-channel.mjs'
+import { e2eAuthStripPlugin, resolveE2eAuth } from './resolve-e2e-auth.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '../../..')
 
@@ -45,6 +46,12 @@ export async function bundleElectronMain({ source, out, stamp, dev = false }) {
   // OkVevo: bake the build channel (internal vs public) so renderer/main can
   // gate internal-only chrome without a runtime env read.
   define.__OKVEVO_BUILD_CHANNEL__ = JSON.stringify(resolveBuildChannel({ isDev: dev }))
+  // OkVevo: bake the packed-app E2E sign-in hook flag. Only a dedicated e2e pack
+  // variant sets OKVEVO_E2E_AUTH=1; every other build strips the hook's source
+  // regions entirely so no marker of it ships in a customer pack.
+  const e2eAuth = resolveE2eAuth()
+  define.__OKVEVO_E2E_AUTH__ = JSON.stringify(e2eAuth)
+  const plugins = e2eAuth ? [] : [e2eAuthStripPlugin()]
   let bakedStamp = null
   if (!dev) {
     if (!stamp) throw new Error('A prepared install stamp is required')
@@ -65,6 +72,7 @@ export async function bundleElectronMain({ source, out, stamp, dev = false }) {
     target: 'node20',
     external: ['electron', 'node-pty', 'get-windows', 'fs'],
     define,
+    plugins,
     logLevel: 'info',
   }
   await build({

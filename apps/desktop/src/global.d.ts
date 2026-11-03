@@ -609,6 +609,9 @@ declare global {
         email: string | null
         displayName: string | null
       }>
+      // OkVevo packed-app E2E only: present only when the pack was built with
+      // OKVEVO_E2E_AUTH=1 (dead-code-eliminated from public packs).
+      e2eCompleteOkvevoSignIn?: (code: string, state: string) => Promise<{ ok: boolean; error?: string }>
       onOkvevoAuth?: (
         callback: (snapshot: {
           signedIn: boolean

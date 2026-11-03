@@ -214,6 +214,11 @@ jobs:
             --resources "$app/Contents/Resources" \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: No E2E sign-in hook in public pack
+        run: |
+          set -euo pipefail
+          app=$(ls -d apps/desktop/release/mac*/OkVevo.app | head -1)
+          node apps/desktop/scripts/check-no-e2e-auth.mjs --resources "$app/Contents/Resources"
       - name: Packed-app chat E2E
         if: ${{ inputs.yml_mode == 'build' }}
         working-directory: apps/desktop
@@ -359,6 +364,11 @@ jobs:
             --resources apps/desktop/release/win-unpacked/resources \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: No E2E sign-in hook in public pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/desktop/scripts/check-no-e2e-auth.mjs --resources apps/desktop/release/win-unpacked/resources
       - name: Packed-app chat E2E
         if: ${{ inputs.yml_mode == 'build' }}
         working-directory: apps/desktop
@@ -421,6 +431,180 @@ jobs:
             apps/desktop/release/OkVevo-*.exe
             apps/desktop/release/latest.yml
             apps/desktop/release/win-unpacked/resources/THIRD_PARTY_NOTICES.txt
+
+  # PR 1.3: sign-in E2E pack variant. Same commit, same steps as the public
+  # pack, but the electron bundle is built with OKVEVO_E2E_AUTH=1 so the
+  # e2eCompleteOkvevoSignIn preload bridge exists. Never uploads anything;
+  # build mode only, so it can never ship. The public jobs above carry the
+  # check-no-e2e-auth step proving the customer pack has no trace of the hook.
+  macos-e2e:
+    name: macOS sign-in E2E pack
+    needs: require-secrets
+    if: ${{ inputs.yml_mode == 'build' }}
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: python
+          extras: '[]'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm --version | grep -q '^12\.' || npm i -g npm@12
+      - run: npm ci
+      - name: Map prefixed repository secrets
+        shell: bash
+        env:
+          PACK_TARGET: ${{ inputs.pack_target }}
+          STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
+          PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
+          STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
+          PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
+          STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_APP_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_APP_ID }}
+        run: node apps/desktop/scripts/ci-map-pack-env.mjs
+      - name: Require pack-env
+        working-directory: apps/desktop
+        run: node scripts/write-okvevo-pack-env.mjs --require
+      - name: Prepare bundled agent payload
+        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: apps/desktop/resources/ffmpeg
+          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
+      - name: Stamp version and pack (E2E sign-in variant, unpacked only)
+        working-directory: apps/desktop
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          HERMES_DESKTOP_VARIANT: bundled
+          OKVEVO_E2E_AUTH: '1'
+        run: |
+          set -euo pipefail
+          unset HERMES_BUILD_COMMIT || true
+          PKG_VER=$(node -p "require('./package.json').version")
+          VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          echo "E2E pack version $VERSION"
+          if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
+          node scripts/fetch-ffmpeg.mjs
+          npm run build
+          npm run builder -- --dir --publish never \
+            -c.extraMetadata.version="$VERSION"
+      - name: Packed sign-in chat E2E
+        working-directory: apps/desktop
+        run: |
+          set -euo pipefail
+          app=$(ls -d release/mac*/OkVevo.app | head -1)
+          export OKVEVO_E2E_EXECUTABLE="$PWD/$app/Contents/MacOS/OkVevo"
+          test -f "$OKVEVO_E2E_EXECUTABLE"
+          npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
+      - name: Upload sign-in E2E screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: okvevo-signin-e2e-mac
+          path: |
+            apps/desktop/release/e2e-screenshots
+            apps/desktop/release/e2e-diagnostics
+            apps/desktop/release/e2e-playwright
+          if-no-files-found: ignore
+
+  windows-e2e:
+    name: Windows sign-in E2E pack
+    needs: require-secrets
+    if: ${{ inputs.yml_mode == 'build' }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: python
+          extras: '[]'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm --version | grep -q '^12\.' || npm i -g npm@12
+        shell: bash
+      - run: npm ci
+      - name: Map prefixed repository secrets
+        shell: bash
+        env:
+          PACK_TARGET: ${{ inputs.pack_target }}
+          STAGING_OKVEVO_WEB_ORIGIN: ${{ secrets.STAGING_OKVEVO_WEB_ORIGIN }}
+          PROD_OKVEVO_WEB_ORIGIN: ${{ secrets.PROD_OKVEVO_WEB_ORIGIN }}
+          STAGING_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_API_KEY }}
+          PROD_VITE_OKVEVO_FIREBASE_API_KEY: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_API_KEY }}
+          STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_AUTH_DOMAIN }}
+          STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_PROJECT_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_STORAGE_BUCKET }}
+          STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID }}
+          STAGING_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.STAGING_VITE_OKVEVO_FIREBASE_APP_ID }}
+          PROD_VITE_OKVEVO_FIREBASE_APP_ID: ${{ secrets.PROD_VITE_OKVEVO_FIREBASE_APP_ID }}
+        run: node apps/desktop/scripts/ci-map-pack-env.mjs
+      - name: Require pack-env
+        working-directory: apps/desktop
+        shell: bash
+        run: node scripts/write-okvevo-pack-env.mjs --require
+      - name: Prepare bundled agent payload
+        shell: bash
+        run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: apps/desktop/resources/ffmpeg
+          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
+      - name: Stamp version and pack (E2E sign-in variant, unpacked only)
+        working-directory: apps/desktop
+        shell: bash
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          HERMES_DESKTOP_VARIANT: bundled
+          OKVEVO_E2E_AUTH: '1'
+        run: |
+          set -euo pipefail
+          unset HERMES_BUILD_COMMIT || true
+          PKG_VER=$(node -p "require('./package.json').version")
+          VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
+          echo "E2E pack version $VERSION"
+          if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
+          if [ -z "${WIN_CSC_LINK:-}" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD || true; fi
+          node scripts/fetch-ffmpeg.mjs
+          npm run build
+          npm run builder -- --dir --publish never \
+            -c.extraMetadata.version="$VERSION"
+      - name: Packed sign-in chat E2E
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          export OKVEVO_E2E_EXECUTABLE="$PWD/release/win-unpacked/OkVevo.exe"
+          test -f "$OKVEVO_E2E_EXECUTABLE"
+          npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
+      - name: Upload sign-in E2E screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: okvevo-signin-e2e-win
+          path: |
+            apps/desktop/release/e2e-screenshots
+            apps/desktop/release/e2e-diagnostics
+            apps/desktop/release/e2e-playwright
+          if-no-files-found: ignore
 
   publish-feed:
     name: Upload signed feed
