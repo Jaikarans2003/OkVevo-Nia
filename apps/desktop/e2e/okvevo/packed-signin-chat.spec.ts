@@ -4,7 +4,7 @@ import * as path from 'node:path'
 
 import { _electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 
-import { appLogTail, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
+import { appLogTail, backendProcesses, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
 
 import { startGatewayMock } from './gateway-mock'
 
@@ -34,6 +34,21 @@ function resourcesDir(executable: string): string {
   throw new Error(`okvevo-pack-env.json not beside ${executable}`)
 }
 
+// Same marker the no-trace check (scripts/check-no-e2e-auth.mjs) greps, read
+// the other way: a public pack has the hook stripped, so this spec must skip
+// BEFORE it launches the app (launching just to skip leaves a backend to race
+// the sandbox cleanup).
+function packHasE2eAuthHook(executable: string): boolean {
+  const dist = path.join(resourcesDir(executable), 'app.asar.unpacked', 'dist')
+  try {
+    return ['electron-main.mjs', 'electron-preload.js'].some(bundle =>
+      fs.readFileSync(path.join(dist, bundle), 'utf8').includes('e2eCompleteOkvevoSignIn')
+    )
+  } catch {
+    return false
+  }
+}
+
 async function shot(page: Page, name: string) {
   fs.mkdirSync(shots, { recursive: true })
   await page.screenshot({ path: path.join(shots, name) })
@@ -57,6 +72,9 @@ test('packed app signs in then chats on the default bot on one launch', async ()
   if (!executable || !fs.existsSync(executable)) {
     throw new Error('OKVEVO_E2E_EXECUTABLE must be the packed OkVevo binary')
   }
+  // Pre-launch skip: the public pack compiles the hook out; there is nothing
+  // to test there (the no-trace check covers it) and no reason to boot an app.
+  test.skip(!packHasE2eAuthHook(executable), 'public pack: e2e sign-in hook is compiled out (needs OKVEVO_E2E_AUTH=1 build)')
 
   const now = Math.floor(Date.now() / 1000)
   const token = fakeJwt(now + 3600)
@@ -91,11 +109,27 @@ test('packed app signs in then chats on the default bot on one launch', async ()
   let failed = false
 
   try {
-    // The sign-in hook only exists on the E2E pack variant.
-    const hookAvailable = await page.evaluate(
-      () => typeof (window as unknown as { hermesDesktop?: { e2eCompleteOkvevoSignIn?: unknown } }).hermesDesktop?.e2eCompleteOkvevoSignIn === 'function'
-    )
-    test.skip(!hookAvailable, 'public pack: e2e sign-in hook is compiled out (needs OKVEVO_E2E_AUTH=1 build)')
+    // Reproduce the real fresh-install ordering: the backend must be fully up
+    // (gateway serving, plugins registered while signed out) BEFORE sign-in.
+    // Signing in earlier masks the bug — the backend's own plugin load would
+    // write the pool row and the first chat would pass without the fix.
+    // gateway.lock is written when the gateway serves; plugin register
+    // (okvevo) happens before that in the same process.
+    await expect
+      .poll(
+        () => {
+          try {
+            const lock = JSON.parse(fs.readFileSync(path.join(sandbox.hermesHome, 'gateway.lock'), 'utf8')) as {
+              pid?: unknown
+            }
+            return Number.isInteger(lock?.pid) && backendProcesses(sandbox).length > 0
+          } catch {
+            return false
+          }
+        },
+        { timeout: 180_000, intervals: [500] }
+      )
+      .toBe(true)
 
     // Sign in: drive the real deep-link callback path against the mock. This is
     // the moment the bug hits — the running backend gets its okvevo pool entry
@@ -121,6 +155,50 @@ test('packed app signs in then chats on the default bot on one launch', async ()
       )
       .toBe(true)
     expect(mock.exchanges).toBeGreaterThan(0)
+
+    // The fix's core invariant: sign-in writes the okvevo pool row for the
+    // RUNNING backend on this same launch (the desktop spawns the
+    // `okvevo-ensure-credentials` CLI sync in the background — wait for it).
+    // The row is file-backed: it witnesses credential resolution and must
+    // never contain the JWT itself.
+    const authJsonPath = path.join(sandbox.hermesHome, 'auth.json')
+    let rowReady = false
+    try {
+      await expect
+        .poll(
+          () => {
+            try {
+              const text = fs.readFileSync(authJsonPath, 'utf8')
+              return text.includes('manual:okvevo-desktop') && text.includes('okvevo-file')
+            } catch {
+              return false
+            }
+          },
+          { timeout: 60_000 }
+        )
+        .toBe(true)
+      rowReady = true
+    } catch {
+      rowReady = false
+    }
+    if (!rowReady) {
+      // Surface the user-facing symptom in the failure message: send the first
+      // chat anyway and quote what the user would see (pre-fix that is
+      // "No usable credentials found for provider 'okvevo'").
+      await send(page, 'ping after sign in').catch(() => undefined)
+      const credentialError = await page
+        .getByText('No usable credentials found')
+        .first()
+        .isVisible({ timeout: 60_000 })
+        .catch(() => false)
+      await shot(page, 'signin-no-pool-row.png')
+      throw new Error(
+        'sign-in did not write the okvevo pool row for the running backend on this launch' +
+          ' (PR 1.3 fresh-install bug). First chat shows' +
+          ` "No usable credentials found for provider 'okvevo'": ${credentialError ? 'YES' : 'no — see screenshot + diagnostics'}`
+      )
+    }
+    expect(fs.readFileSync(authJsonPath, 'utf8')).not.toContain(token)
 
     // Now the app should become interactive (composer visible) on this launch.
     await waitForInteractive(app, page)
