@@ -79,6 +79,12 @@ def register(ctx) -> None:
 
     install_auto_wire_swap()
     try:
+        from plugins.okvevo.identity import apply_identity_guidance_override
+
+        apply_identity_guidance_override()
+    except Exception:
+        pass
+    try:
         from plugins.okvevo.credentials import ensure_okvevo_pool_entry
 
         ensure_okvevo_pool_entry()

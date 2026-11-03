@@ -1411,6 +1411,7 @@ if (IS_PACKAGED) {
     provisionOkvevoProfile(HERMES_HOME, name, {
       defaultsPath: defaultsPath || undefined,
       skillsDir,
+      upstreamSoul,
       log: message => console.log(message)
     })
 

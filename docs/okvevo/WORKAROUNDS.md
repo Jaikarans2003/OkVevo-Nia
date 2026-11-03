@@ -38,6 +38,8 @@ below is closed or Last-Update is older than 60 days.
 | --- | --- | --- | --- | --- | --- |
 | groups_all_profiles | Bots group list asks `groups.list` on every local profile once the gateway is open, not only the foreground one. Files: `apps/desktop/src/plugins/hermes-bots/okvevo-groups-all-profiles.tsx` (+ `.test.tsx`); hook: the import line in `roster-pane.tsx` | none filed (draft below); related, different: https://github.com/NousResearch/hermes-agent/issues/139002 | no | no | 2026-10-30 |
 | event_loop_block_stack | A worker reads the main-process JS stack while it is blocked ≥5 s (in-process inspector session, no port) and writes it to the local log. Files: `apps/desktop/electron/okvevo-block-stack.ts` (+ `.test.ts`); hook: one call in the OkVevo block of `main.ts` | https://github.com/NousResearch/hermes-agent/issues/139959 https://github.com/NousResearch/hermes-agent/issues/144503 | no | no | 2026-10-30 |
+| default_agent_label | The default bot showed as "default": upstream `profiles.list` (`gateway/session_group_controls.py` `discovered()`) synthesizes `display_name` = the profile id when profile.yaml sets none, and `labels.ts` lets that beat the "OkVevo agent" fallback. The guard treats a display_name/title equal (case-insensitive) to the default profile's id as no name. Files: `apps/desktop/src/plugins/hermes-bots/okvevo-default-agent-label.ts` (+ `.test.ts`); hook: one call in `displayName` in `labels.ts` | none filed (upstream's own fallback is Hermes-branded, so the rung order only breaks white-label forks) | no | no | 2026-11-03 |
+| identity_guidance | Every session's stable prompt tier carried upstream's `HERMES_AGENT_HELP_GUIDANCE(_NO_SKILLS)` ("You run on Hermes Agent (by Nous Research)… hermes-agent.nousresearch.com"), so bots said Hermes/Nous when asked who made them or where to get help. No config gate, no plugin hook, and the documented `HERMES_AGENT_HELP_GUIDANCE` env var is never read in code (grep-verified 2026-11-03). The plugin swaps both constants for OkVevo wording at `register()`. Files: `plugins/okvevo/identity.py`, tests in `plugins/okvevo/tests/test_identity.py`; hook: one call in `plugins/okvevo/__init__.py` `register()` | none filed (draft below) | no | no | 2026-11-03 |
 
 ## Draft upstream issue: groups_all_profiles (not filed)
 
@@ -64,3 +66,31 @@ a group is to create a new one. The room is still in that profile's database.
 - `~/.hermes/profiles/cmo/state.db` hosted room `c1753c33-b0d7-4005-ad64-2a986daf33fc`, name "CMO, CEO", `disbanded_at` null.
 - The default profile and the CEO profile have no hosted rooms.
 - `CanonicalGroupList` asks `groups.list` for the foreground profile only. It does not ask the other local profiles.
+
+## Draft upstream issue: identity_guidance (not filed)
+
+Karan reviews this first. If he files it, put the issue URL in the Bug and
+Forwarded columns above.
+
+**Title:** White-label builds cannot replace the agent help guidance without forking prompt_builder
+
+**Repro**
+
+1. Build Hermes under a different product name (the MIT license permits this).
+2. Ask the bot who made the app or where to get help.
+3. It answers "Hermes Agent (by Nous Research)" and points at
+   `hermes-agent.nousresearch.com`, because
+   `HERMES_AGENT_HELP_GUIDANCE(_NO_SKILLS)` in `agent/prompt_builder.py` is
+   baked into every session's stable prompt tier.
+
+**Expected:** a supported way to replace or suppress the help guidance for
+white-label builds — e.g. read the documented `HERMES_AGENT_HELP_GUIDANCE`
+env var (it appears in docs but is never read in code, grep-verified
+2026-11-03), or a config key in `config.yaml`.
+
+**Actual:** neither a config gate nor a plugin hook exists; the only options
+are forking `prompt_builder.py` or patching the module constants.
+
+**Proposal:** make the env var real (read once at import, fall back to the
+constant). That is a three-line change upstream and unblocks forks without a
+fork-level prompt patch.

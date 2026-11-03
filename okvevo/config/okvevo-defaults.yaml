@@ -95,3 +95,5 @@ okvevo:
   workarounds:
     groups_all_profiles: true
     event_loop_block_stack: true
+    default_agent_label: true
+    identity_guidance: true
