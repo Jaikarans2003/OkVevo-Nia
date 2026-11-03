@@ -53,6 +53,9 @@ class _FakeCtx:
     def register_hook(self, name, cb):
         self.hooks.append((name, cb))
 
+    def register_cli_command(self, name, _help, setup_fn, handler_fn, description=""):
+        self.cli_command = name
+
 
 def test_register_wires_everything():
     ctx = _FakeCtx()
@@ -62,6 +65,7 @@ def test_register_wires_everything():
     assert [p.name for p in ctx.video] == ["okvevo"]
     assert ctx.redaction, "JWT redaction pattern missing"
     assert ctx.hooks and ctx.hooks[0][0] == "transform_api_error_classification"
+    assert ctx.cli_command == "okvevo-ensure-credentials"
 
 
 def test_jwt_redaction_pattern_matches():

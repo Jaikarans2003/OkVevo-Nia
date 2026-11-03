@@ -182,9 +182,10 @@ test('packed app signs in then chats on the default bot on one launch', async ()
       rowReady = false
     }
     if (!rowReady) {
-      // Surface the user-facing symptom in the failure message: send the first
-      // chat anyway and quote what the user would see (pre-fix that is
-      // "No usable credentials found for provider 'okvevo'").
+      // Surface the user-facing symptom in the failure message: bring the app
+      // up, send the first chat anyway, and quote what the user would see
+      // (pre-fix that is "No usable credentials found for provider 'okvevo'").
+      await waitForInteractive(app, page).catch(() => undefined)
       await send(page, 'ping after sign in').catch(() => undefined)
       const credentialError = await page
         .getByText('No usable credentials found')

@@ -7701,10 +7701,10 @@ function _writeOkvevoIdTokenFile(idToken: string) {
   writeSecretFileAtomic(target, idToken, { encoding: 'utf8' })
   // The token file is the only copy. Profile .env snapshots expire and 401.
   stripOkvevoApiKeyCopies(HERMES_HOME)
-  void _resetOkvevoCredentialCooldowns()
+  void _syncOkvevoCredentials()
 }
 
-async function _resetOkvevoCredentialCooldowns() {
+async function _syncOkvevoCredentials() {
   const profiles: Array<string | null> = [null]
 
   try {
@@ -7718,7 +7718,12 @@ async function _resetOkvevoCredentialCooldowns() {
   }
 
   for (const profile of profiles) {
-    const args = profile ? ['--profile', profile, 'auth', 'reset', 'okvevo'] : ['auth', 'reset', 'okvevo']
+    // A plugin command (not the built-in `auth reset`): only a plugin command
+    // makes the CLI load the okvevo plugin, which is what writes the pool row
+    // on a fresh install.
+    const args = profile
+      ? ['--profile', profile, 'okvevo-ensure-credentials']
+      : ['okvevo-ensure-credentials']
 
     try {
       const backend = await resolveHermesBackend(args)
@@ -7728,11 +7733,11 @@ async function _resetOkvevoCredentialCooldowns() {
         resolveHermesCwd(),
         HERMES_HOME,
         process.env,
-        { timeoutMs: 20_000, label: 'hermes auth reset okvevo' }
+        { timeoutMs: 20_000, label: 'hermes okvevo-ensure-credentials' }
       )
     } catch (error) {
       rememberLog(
-        `[okvevo-auth] credential reset failed: ${error instanceof Error ? error.message : String(error)}`
+        `[okvevo-auth] credential sync failed: ${error instanceof Error ? error.message : String(error)}`
       )
     }
   }
@@ -17491,7 +17496,7 @@ ipcMain.handle('hermes:openExternal', async (_event, url) => {
 
 ipcMain.handle('hermes:okvevo:reset-credential-cooldown', async () => {
   stripOkvevoApiKeyCopies(HERMES_HOME)
-  await _resetOkvevoCredentialCooldowns()
+  await _syncOkvevoCredentials()
 
   return { ok: true }
 })

@@ -20,6 +20,8 @@ def test_refresh_credential_once_then_sign_in(monkeypatch):
     from hermes_cli.auth_constants import AuthError
     from providers import get_provider_profile
 
+    from plugins.okvevo.credentials import FILE_BACKED_CREDENTIAL
+
     profile = get_provider_profile("okvevo")
     tokens = iter(["fresh-token", "fresh-token"])
 
@@ -27,7 +29,6 @@ def test_refresh_credential_once_then_sign_in(monkeypatch):
         return next(tokens)
 
     monkeypatch.setattr("plugins.okvevo.gateway.ensure_okvevo_id_token", fake_ensure)
-    monkeypatch.setattr("plugins.okvevo.gateway.read_okvevo_refresh_token", lambda: "refresh")
     monkeypatch.setattr("plugins.okvevo.gateway.id_token_exp_unix", lambda _token: int(time.time()) + 3600)
 
     class Entry:
@@ -35,7 +36,11 @@ def test_refresh_credential_once_then_sign_in(monkeypatch):
         extra: dict = {}
 
     rotated = profile.refresh_credential(Entry())
-    assert rotated["access_token"] == "fresh-token"
+    # The pool persists this dict: both secret fields keep the file-backed
+    # marker, so the rotated tokens never become a second durable copy.
+    assert rotated["access_token"] == FILE_BACKED_CREDENTIAL
+    assert rotated["refresh_token"] == FILE_BACKED_CREDENTIAL
+    assert "fresh-token" not in rotated.values()
     assert rotated["okvevo_auth_retried"] is True
 
     class Retried:
@@ -148,26 +153,33 @@ def test_cli_hints_map_to_sign_in_copy(monkeypatch):
 
 def test_first_401_refresh_does_not_bench(tmp_path, monkeypatch):
     """The pool calls refresh_credential before any cooldown. A successful
-    refresh leaves the row usable."""
+    refresh leaves the row usable — and still holding no token copy."""
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
     def fake_ensure(*, force=False, now=None):
         return "new-token" if force else "old-token"
 
     monkeypatch.setattr("plugins.okvevo.gateway.ensure_okvevo_id_token", fake_ensure)
-    monkeypatch.setattr("plugins.okvevo.gateway.read_okvevo_refresh_token", lambda: "refresh")
     monkeypatch.setattr("plugins.okvevo.gateway.id_token_exp_unix", lambda _token: int(time.time()) + 3600)
 
     from agent.credential_pool import STATUS_EXHAUSTED, load_pool
-    from plugins.okvevo.credentials import ensure_okvevo_pool_entry
+    from plugins.okvevo.credentials import (
+        FILE_BACKED_CREDENTIAL,
+        POOL_SOURCE,
+        ensure_okvevo_pool_entry,
+    )
 
     ensure_okvevo_pool_entry()
     pool = load_pool("okvevo")
-    current = next(entry for entry in pool.entries() if entry.access_token == "old-token")
+    current = next(entry for entry in pool.entries() if entry.source == POOL_SOURCE)
+    assert current.access_token == FILE_BACKED_CREDENTIAL
     refreshed = pool.try_refresh_matching(api_key_hint=current.access_token)
     assert refreshed is not None
-    assert refreshed.access_token == "new-token"
+    assert refreshed.access_token == FILE_BACKED_CREDENTIAL
     assert refreshed.last_status != STATUS_EXHAUSTED
+    on_disk = json.dumps(json.loads((tmp_path / "auth.json").read_text(encoding="utf-8")))
+    assert "new-token" not in on_disk
+    assert "old-token" not in on_disk
 
 
 def test_loopback_catalog_ignores_proxy(monkeypatch):

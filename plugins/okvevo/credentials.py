@@ -16,11 +16,19 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# ``manual:`` is an owned source: the pool keeps the token on disk and will
-# not drop the row on reload. A borrowed source strips the secret, and the
+# ``manual:`` is an owned source: the pool keeps the row on disk and will
+# not drop it on reload. A borrowed source strips the secret, and the
 # 401 refresh hook then has no row to refresh.
 POOL_SOURCE = "manual:okvevo-desktop"
 _ENV_KEY = "OKVEVO_API_KEY"
+
+# The row never holds a token: the desktop-owned files are the only durable
+# copies (a copied JWT is a stale second secret within the hour). Both secret
+# fields carry this marker so upstream resolution
+# (``hermes_cli.auth._resolve_api_key_provider_secret``) sees a usable
+# credential; the wire key is re-read from the file per request by the
+# provider profile's ``api_key`` callable.
+FILE_BACKED_CREDENTIAL = "okvevo-file"
 
 
 def strip_okvevo_api_key_copies(home: str | None = None) -> None:
@@ -53,27 +61,17 @@ def _strip_file(path: Path) -> None:
 
 
 def ensure_okvevo_pool_entry() -> None:
-    """One OAuth pool row backed by the desktop token files. Drops env snapshots."""
+    """One OAuth pool row witnessing the desktop token files. Holds no token copy."""
     strip_okvevo_api_key_copies()
     try:
         from plugins.okvevo.gateway import (
             ensure_okvevo_id_token,
             id_token_exp_unix,
-            read_okvevo_refresh_token,
         )
     except Exception:
         logger.debug("okvevo token helpers unavailable", exc_info=True)
         return
     token = ensure_okvevo_id_token()
-    if not token:
-        return
-    # Do not copy the token into OKVEVO_API_KEY. ``load_pool`` would ingest that
-    # as an api_key row, and the first 401 force-benches an api_key row before
-    # the OAuth refresh hook runs. The catalog resolver falls through to this
-    # pool row's access_token. Chat reads the file per request.
-    refresh = read_okvevo_refresh_token() or "okvevo-file"
-    exp = id_token_exp_unix(token)
-    expires_at_ms = int(exp * 1000) if exp else None
     try:
         from agent.credential_pool import PooledCredential, load_pool
     except Exception:
@@ -86,15 +84,26 @@ def ensure_okvevo_pool_entry() -> None:
         return
     _drop_env_entries(pool)
     current = next((entry for entry in pool.entries() if entry.source == POOL_SOURCE), None)
-    if current is not None and current.access_token == token and current.refresh_token:
+    if not token:
+        # Signed out: a leftover row would resolve as a usable credential and
+        # 401-loop instead of failing with the sign-in guidance.
+        if current is not None:
+            _remove_pool_source_entry(pool)
+        return
+    # Do not copy the token into OKVEVO_API_KEY or the row itself. ``load_pool``
+    # would ingest the env copy as an api_key row, and the first 401
+    # force-benches an api_key row before the OAuth refresh hook runs. A legacy
+    # row holding a copied token is scrubbed here. The catalog resolver falls
+    # through to this row; chat reads the file per request.
+    if (
+        current is not None
+        and current.access_token == FILE_BACKED_CREDENTIAL
+        and (current.refresh_token or "") == FILE_BACKED_CREDENTIAL
+    ):
         return
     if current is not None:
-        index = next(
-            (i for i, entry in enumerate(pool.entries(), start=1) if entry.source == POOL_SOURCE),
-            None,
-        )
-        if index is not None:
-            pool.remove_index(index)
+        _remove_pool_source_entry(pool)
+    exp = id_token_exp_unix(token)
     pool.add_entry(
         PooledCredential(
             provider="okvevo",
@@ -103,11 +112,20 @@ def ensure_okvevo_pool_entry() -> None:
             auth_type="oauth",
             priority=0,
             source=POOL_SOURCE,
-            access_token=token,
-            refresh_token=refresh,
-            expires_at_ms=expires_at_ms,
+            access_token=FILE_BACKED_CREDENTIAL,
+            refresh_token=FILE_BACKED_CREDENTIAL,
+            expires_at_ms=int(exp * 1000) if exp else None,
         )
     )
+
+
+def _remove_pool_source_entry(pool) -> None:
+    index = next(
+        (i for i, entry in enumerate(pool.entries(), start=1) if entry.source == POOL_SOURCE),
+        None,
+    )
+    if index is not None:
+        pool.remove_index(index)
 
 
 def reset_okvevo_pool_status() -> int:
