@@ -80,7 +80,9 @@ export function createCoreSandbox(label: string): CoreSandbox {
       stopSandboxGatewayDaemons(root, hermesHome)
 
       if (!process.env.HERMES_E2E_CORE_KEEP) {
-        fs.rmSync(root, { recursive: true, force: true })
+        // A dying backend can still be recreating files (probe pycache, logs)
+        // after the SIGKILL sweep — retry instead of throwing ENOTEMPTY.
+        fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 })
       }
     }
   }

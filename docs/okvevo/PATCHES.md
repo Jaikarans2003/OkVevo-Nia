@@ -321,6 +321,15 @@ corresponding list **exactly**.
 - `apps/desktop/src/plugins/hermes-bots/okvevo-groups-all-profiles.test.tsx` — behavior test for groups_all_profiles, toggle on and off
 - `apps/desktop/src/plugins/hermes-bots/roster-pane.tsx` — one import line: the group list comes from okvevo-groups-all-profiles
 - `apps/desktop/src/store/notifications.test.ts` — restart label compared against the branded catalog (TRANSLATIONS.en), not raw en
+- `apps/desktop/electron/okvevo-e2e-auth.d.ts` — __OKVEVO_E2E_AUTH__ ambient type for the packed-app E2E sign-in variant (PR 1.3)
+- `apps/desktop/e2e/okvevo/packed-signin-chat.spec.ts` — PR 1.3 fresh-install sign-in → default-chat packed E2E
+- `apps/desktop/e2e/core/harness.ts` — sandbox cleanup retries rmSync: a dying backend recreates files after the SIGKILL sweep (ENOTEMPTY raced the public-pack skip path)
+- `apps/desktop/scripts/resolve-e2e-auth.mjs` — OKVEVO_E2E_AUTH flag resolver + source strip that keeps the e2e hook out of public packs
+- `apps/desktop/scripts/e2e-auth-trace.test.mjs` — strip + no-trace unit tests
+- `apps/desktop/scripts/check-no-e2e-auth.mjs` — CI gate: packed public bundle carries no e2e sign-in hook marker
+- `apps/desktop/src/plugins/hermes-bots/okvevo-default-agent-label.ts` — workaround default_agent_label (WORKAROUNDS.md)
+- `apps/desktop/src/plugins/hermes-bots/okvevo-default-agent-label.test.ts` — behavior test for default_agent_label, toggle on and off
+- `apps/desktop/src/plugins/hermes-bots/labels.ts` — DEP-3 hook: displayName scrubs an id-only default row via okvevo-default-agent-label (PR 1.3)
 <!-- /okvevo-delta:apps/desktop -->
 
 ## Retired

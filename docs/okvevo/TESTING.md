@@ -20,7 +20,7 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 | 12 | Mac permissions | Re-grant microphone, screen-recording and accessibility to the new app |
 | 13 | Windows extras | SmartScreen "More info → Run anyway"; username with a space; PowerShell tasks |
 | 14 | Auto-update | Staging build N updates to N+1 (unsigned Mac in-app update will not swap — re-download the DMG) |
-| 15 | Fresh chat | After sign-in, send a message on the default chat. A reply appears. `~/.hermes/config.yaml` has `model.provider: okvevo`, `model.default: okvevo/auto-cost`, and every `auxiliary.*.provider` is `main` |
+| 15 | Fresh chat | On a **fresh install**, sign in and send a message on the default chat **immediately — before creating any bot and without restarting the app**. A reply appears. `~/.hermes/config.yaml` has `model.provider: okvevo`, `model.default: okvevo/auto-cost`, and every `auxiliary.*.provider` is `main`. **Interim workaround until PR 1.3 ships:** if the first reply fails with "No usable credentials found for provider 'okvevo'", **create any bot once** (Bots → Create Bot), then retry — that writes the missing credential row. Quit/reopen does **not** fix it |
 | 16 | Default bot | Open Bots. The default agent opens and answers |
 | 17 | Model picker | The public picker shows one OkVevo row. Auto Cost Effective and Auto Intelligence both reply. Picking a specific model sends that model id. No OpenRouter, MoA, Add custom model, or Add provider |
 | 18 | New bot, no restart | Create a bot, send a message in that same launch, and get a reply. Duplicate a bot the same way. If an old receipt still fails, start a new chat |

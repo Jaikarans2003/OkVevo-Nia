@@ -243,6 +243,35 @@ test('provisionOkvevoProfile writes the new profile and refuses a path', () => {
   assert.throws(() => provisionOkvevoProfile(root, '../escape', { fsImpl: io }), /refusing profile name/)
 })
 
+test('provisionOkvevoProfile writes the OkVevo SOUL for a bot created after launch', () => {
+  const files = new Map<string, string>()
+  const root = '/tmp/hermes-provision-soul'
+  const io: MigrationFs = {
+    existsSync: target => files.has(target),
+    readFileSync: target => files.get(target) ?? '',
+    writeFileSync: (target, data) => {
+      files.set(target, data)
+    },
+    mkdirSync: () => undefined,
+    copyFileSync: () => undefined,
+    readdirSync: () => []
+  }
+
+  provisionOkvevoProfile(root, 'worker-3', { fsImpl: io, log: () => undefined, upstreamSoul: UPSTREAM_SOUL })
+
+  const soul = files.get(path.join(root, 'profiles', 'worker-3', 'SOUL.md')) ?? ''
+  assert.equal(soul.includes('You are OkVevo agent, built by OkVevo.'), true)
+  assert.equal(soul.includes('Hermes Agent'), false)
+  assert.equal(soul.includes('Nous Research'), false)
+
+  // No upstream text (unreadable payload): config still provisions, SOUL skipped.
+  const bare = new Map<string, string>()
+  const ioBare: MigrationFs = { ...io, existsSync: target => bare.has(target), readFileSync: target => bare.get(target) ?? '', writeFileSync: (target, data) => { bare.set(target, data) } }
+  provisionOkvevoProfile(root, 'worker-4', { fsImpl: ioBare, log: () => undefined, upstreamSoul: '  ' })
+  assert.equal(bare.has(path.join(root, 'profiles', 'worker-4', 'SOUL.md')), false)
+  assert.equal(bare.has(path.join(root, 'profiles', 'worker-4', 'config.yaml')), true)
+})
+
 test('planConfigChanges enforce puts any drifted managed provider back; internal keeps it', () => {
   const drifted = { model: { provider: 'anthropic', default: 'claude' }, image_gen: { provider: 'fal', model: 'fal-ai/gpt-image-2' } }
   const pub = planConfigChanges(drifted, { enforce: true }).next as {

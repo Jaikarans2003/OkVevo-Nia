@@ -676,20 +676,32 @@ export function watchOkvevoManagedConfig(args: {
 export function provisionOkvevoProfile(
   hermesHome: string,
   profileName: string,
-  opts: { defaultsPath?: string; fsImpl?: MigrationFs; log?: (message: string) => void; skillsDir?: string | null } = {}
+  opts: {
+    defaultsPath?: string
+    fsImpl?: MigrationFs
+    log?: (message: string) => void
+    skillsDir?: string | null
+    upstreamSoul?: string
+  } = {}
 ): void {
   if (!PROFILE_NAME.test(profileName) || profileName.includes('..')) {
     throw new Error('refusing profile name')
   }
 
   const io = opts.fsImpl ?? defaultFs()
+  const log = opts.log ?? ((message: string) => console.log(message))
   const home = path.join(hermesHome, 'profiles', profileName)
   io.mkdirSync(home, { recursive: true })
-  migrateConfig(
-    home,
-    opts.skillsDir,
-    io,
-    opts.log ?? ((message: string) => console.log(message)),
-    loadOkvevoDefaults(opts.defaultsPath)
-  )
+  // Bots created after launch need the OkVevo SOUL too — the boot migration
+  // only covers homes that exist at boot, so a fresh bot kept the upstream
+  // scaffold ("You are Hermes Agent…") on its first session.
+  if (opts.upstreamSoul?.trim()) {
+    try {
+      migrateSoul(home, makeOkvevoSoul(opts.upstreamSoul), opts.upstreamSoul, io, log)
+    } catch (error) {
+      log(`[okvevo-migrate] SOUL skipped: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  migrateConfig(home, opts.skillsDir, io, log, loadOkvevoDefaults(opts.defaultsPath))
 }

@@ -17,6 +17,7 @@ export interface GatewayMock {
   expireBearer: (bearer: string) => void
   /** How the next Fal queue submit answers. CI never calls live Fal. */
   setFalMode: (mode: FalMode) => void
+  exchanges: number
   falSubmits: number
   origin: string
   refreshes: number
@@ -48,6 +49,8 @@ const PNG = Buffer.from(
 )
 
 export interface GatewayMockOptions {
+  /** ID token the /api/auth/desktop/exchange endpoint returns (sign-in). */
+  exchangeIdToken?: string
   /** Bearer that should 401 once, then succeed. Simulates an expired Firebase ID token. */
   expiredBearer?: string
   freshIdToken?: string
@@ -185,6 +188,7 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
   const calls: ChatCall[] = []
   const urls: string[] = []
   const state = {
+    exchanges: 0,
     refreshes: 0,
     rejectedExpired: false,
     dead: new Set<string>(),
@@ -207,6 +211,22 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         } catch {
           body = {}
         }
+      }
+
+      if (req.method === 'POST' && url.pathname.includes('/api/auth/desktop/exchange')) {
+        state.exchanges += 1
+        writeLog(options.logPath, `POST ${url.pathname} 200 exchange`)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            uid: 'e2e-user',
+            email: 'e2e@okvevo.test',
+            displayName: 'E2E User',
+            idToken: options.exchangeIdToken || 'e2e-id-token',
+            refreshToken: 'e2e-refresh'
+          })
+        )
+        return
       }
 
       if (req.method === 'POST' && url.pathname.includes('/api/auth/desktop/refresh')) {
@@ -341,6 +361,9 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         },
         setFalMode(mode: FalMode) {
           state.falMode = mode
+        },
+        get exchanges() {
+          return state.exchanges
         },
         get falSubmits() {
           return state.falSubmits

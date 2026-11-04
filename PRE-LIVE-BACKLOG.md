@@ -626,6 +626,39 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Both surfaces stay in sync; hub no longer Hermes-branded. |
 | **Notes** | 2026-09-13 Karan confirmed both load as designed (Skills/Tools/MCP; brief loading is expected). Do not split the two surfaces. |
 
+### [ ] Gateway survives app quit — ownership unclear (observed pid 10572)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix before live |
+| **Risk if skipped** | Quit/reopen does not reset backend state: a stray gateway from a previous launch keeps running and gets adopted, so testers and users see stale sessions/credentials/cooldowns that "restart the app" should have cleared. |
+| **Scope** | `apps/desktop/electron/main.ts` quit path (`backendShutdown` → `stopBackendChildImpl`, `reapInstallRootedStragglers`), backend adoption/ownership markers. |
+| **Fix** | Investigate: (1) confirm the surviving gateway's parent/pgid and ownership marker (`ps -o pid,ppid,pgid,command -p <pid>`) — upstream intent is quit kills OWNED backends (group SIGTERM → SIGKILL, 7s budget); no keep-alive-for-messaging/cron path exists (`hermes serve` is the always-on route and is never desktop-owned). (2) If the stray is an adopted orphan, decide between "restart adopted backend on launch" vs a quit-time stray sweep. |
+| **Verify** | Fresh launch → quit → `pgrep -f hermes.*gateway` (or the gateway process name) returns nothing; a deliberately orphaned gateway is either adopted-then-restarted or reaped on next quit. |
+| **Notes** | Observed 2026-11-03 during PR 1.3 manual repro (Step 1): gateway pid 10572 kept running after quit. Reported to Karan as a side finding; not clearly upstream-intended. |
+
+### [ ] Staging updater 404 on `stable-mac.yml` (feed layout — PR 2 item 10)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | The staging build's update check 404s on the wrong feed path, so in-app update silently never finds new builds; testers must be told to re-download by hand. |
+| **Scope** | `apps/desktop/electron` updater channel/feed config; `apps/desktop/scripts/publish-release-feed.mjs`; R2 `okvevo/staging/` vs `okvevo/stable/` key layout. |
+| **Fix** | PR 2 item 10 (feed layout): staging builds must read `latest*.yml` from the staging prefix (and must not probe `stable-mac.yml`); production keeps the stable layout. |
+| **Verify** | On a packed staging build, the updater log shows a 200 on the staging `latest-mac.yml`; no `stable-mac.yml` request. |
+| **Notes** | Logged 2026-11-03 from PR 1.3 side findings (Karan: "that's PR 2 item 10"). Related to the unsigned-update rows under Hard gates. |
+
+### [ ] PR 2: `@okvevo` display alias for the default bot handle
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix |
+| **Risk if skipped** | The default bot's visible handle is `@hermes` — a user-facing Hermes string in group chats and @mentions. |
+| **Scope** | Desktop renderer display layer (bot handle rendering); internal handle stays `@hermes` (protocol identifier, allowlisted). |
+| **Fix** | Display-layer alias: render the internal `@hermes` handle as `@okvevo` (PR 1.3 plan line 71). No wire/protocol rename. |
+| **Verify** | Bots list and group chat show `@okvevo`; a test group @mention of the default bot still routes. |
+| **Notes** | Logged 2026-11-03; scoped to PR 2 so PR 1.3 stays minimal. |
+
 ---
 
 ## Closed

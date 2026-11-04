@@ -564,6 +564,17 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   getOkvevoCustomToken: () => ipcRenderer.invoke('hermes:okvevo-auth:custom-token'),
   signOutOkvevo: () => ipcRenderer.invoke('hermes:okvevo-auth:sign-out'),
   getOkvevoAuth: () => ipcRenderer.invoke('hermes:okvevo-auth:get'),
+  // okvevo-e2e-auth:begin
+  // OkVevo packed-app E2E only: this region is stripped from public packs at
+  // bundle time (OKVEVO_E2E_AUTH unset). Drives the sign-in callback against
+  // the gateway mock without a real browser.
+  ...(typeof __OKVEVO_E2E_AUTH__ !== 'undefined' && __OKVEVO_E2E_AUTH__
+    ? {
+        e2eCompleteOkvevoSignIn: (code: string, state: string) =>
+          ipcRenderer.invoke('hermes:okvevo-auth:e2e-complete', code, state)
+      }
+    : {}),
+  // okvevo-e2e-auth:end
   onOkvevoAuth: callback => {
     const listener = (_event, snapshot) => callback(snapshot)
     ipcRenderer.on('hermes:okvevo-auth', listener)

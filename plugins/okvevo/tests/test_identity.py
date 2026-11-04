@@ -133,3 +133,140 @@ def test_internal_fallback_is_upstream_default(tmp_path):
     )
     assert soul_loaded is False
     assert parts == [DEFAULT_AGENT_IDENTITY]
+
+
+# ---------------------------------------------------------------------------
+# Workaround identity_guidance: the every-session help guidance names Nia/OkVevo
+# ---------------------------------------------------------------------------
+
+# The leaks this PR fixes. Deliberately NOT bare "Hermes": accepted residuals
+# are internal identifiers (allowlisted) — `@hermes` (protocol handle),
+# `~/.hermes`, the `hermes` CLI, the `hermes-agent` skill, `HERMES_*` env vars,
+# and upstream's "Active Hermes profile" / "Hermes desktop app" platform hints.
+_FORBIDDEN_IDENTITY_PHRASES = (
+    "Nous Research",
+    "hermes-agent.nousresearch.com",
+    "You run on Hermes",
+    "You are Hermes Agent",
+)
+
+
+@pytest.fixture
+def guidance_override():
+    """Apply the real override, then restore the upstream constants: the patch
+    mutates process-global modules other tests in this run rely on."""
+    from agent import prompt_builder, system_prompt
+
+    from plugins.okvevo.identity import apply_identity_guidance_override
+
+    saved = (
+        prompt_builder.HERMES_AGENT_HELP_GUIDANCE,
+        prompt_builder.HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS,
+        system_prompt.HERMES_AGENT_HELP_GUIDANCE,
+        system_prompt.HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS,
+    )
+    try:
+        assert apply_identity_guidance_override() is True
+        yield
+    finally:
+        (
+            prompt_builder.HERMES_AGENT_HELP_GUIDANCE,
+            prompt_builder.HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS,
+            system_prompt.HERMES_AGENT_HELP_GUIDANCE,
+            system_prompt.HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS,
+        ) = saved
+
+
+def _prompt_agent(home: Path):
+    agent = _fake_agent(home)
+    agent.valid_tool_names = {"read_file"}
+    agent._task_completion_guidance = False
+    agent._tool_use_enforcement = False
+    agent._environment_probe = False
+    agent._kanban_worker_guidance = ""
+    agent._memory_store = None
+    agent._memory_manager = None
+    agent.model = ""
+    agent.provider = ""
+    agent.platform = ""
+    agent.pass_session_id = False
+    agent.session_id = ""
+    agent._emit_status = lambda *_args, **_kwargs: None
+    return agent
+
+
+def _build_prompt(home: Path) -> str:
+    from unittest.mock import patch
+
+    from agent.system_prompt import build_system_prompt
+
+    with (
+        patch("agent.prompt_builder.build_environment_hints", return_value=""),
+        patch("agent.prompt_builder.build_context_files_prompt", return_value=""),
+        patch("agent.coding_context.coding_system_prompt_parts", return_value=([], [], [])),
+        patch("agent.system_prompt.get_hermes_home", lambda: home),
+    ):
+        return build_system_prompt(_prompt_agent(home))
+
+
+def test_guidance_override_patches_the_upstream_seam(guidance_override):
+    """Same attributes upstream's own tests patch (tests/agent/test_system_prompt.py)."""
+    from agent import prompt_builder, system_prompt
+
+    from plugins.okvevo.identity import (
+        OKVEVO_AGENT_HELP_GUIDANCE,
+        OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS,
+    )
+
+    for module in (prompt_builder, system_prompt):
+        assert module.HERMES_AGENT_HELP_GUIDANCE == OKVEVO_AGENT_HELP_GUIDANCE
+        assert module.HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS == OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS
+    for phrase in _FORBIDDEN_IDENTITY_PHRASES:
+        assert phrase not in OKVEVO_AGENT_HELP_GUIDANCE
+        assert phrase not in OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS
+    assert "https://www.okvevo.com" in OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS
+
+
+def test_guidance_override_toggle_off_leaves_upstream(monkeypatch):
+    from agent import prompt_builder
+
+    from plugins.okvevo import identity
+
+    monkeypatch.setattr(identity, "identity_guidance_enabled", lambda: False)
+    assert identity.apply_identity_guidance_override() is False
+    assert "Nous Research" in prompt_builder.HERMES_AGENT_HELP_GUIDANCE
+
+
+def test_identity_guidance_enabled_reads_the_shipped_toggle(tmp_path, monkeypatch):
+    from plugins.okvevo import identity
+
+    # Shipped default: on.
+    assert identity.identity_guidance_enabled() is True
+    # Explicit off in the defaults file.
+    off = tmp_path / "off.yaml"
+    off.write_text("okvevo:\n  workarounds:\n    identity_guidance: false\n", encoding="utf-8")
+    monkeypatch.setattr(identity, "_DEFAULTS_PATH", off)
+    assert identity.identity_guidance_enabled() is False
+    # Unreadable defaults fail ON: a missing file must not leak Hermes identity.
+    monkeypatch.setattr(identity, "_DEFAULTS_PATH", tmp_path / "missing.yaml")
+    assert identity.identity_guidance_enabled() is True
+
+
+def test_full_prompt_has_no_identity_leak(tmp_path, guidance_override):
+    """Full-prompt scan with the OkVevo SOUL and the override: the two PR 1.3
+    leaks are gone from the whole stable tier, not just the identity slot."""
+    prompt = _build_prompt(_home_with_okvevo_soul(tmp_path))
+    for phrase in _FORBIDDEN_IDENTITY_PHRASES:
+        assert phrase not in prompt, f"{phrase!r} leaked into the system prompt"
+    assert "You are OkVevo agent, built by OkVevo." in prompt
+    assert "https://www.okvevo.com" in prompt
+
+
+def test_full_prompt_without_override_would_catch_the_leak(tmp_path):
+    """Teeth check for the scan above: without the override the forbidden
+    phrases ARE in the built prompt, so a regression cannot pass silently."""
+    from agent import prompt_builder  # noqa: F401 — prove unpatched state
+
+    prompt = _build_prompt(_home_with_okvevo_soul(tmp_path))
+    assert "Nous Research" in prompt
+    assert "hermes-agent.nousresearch.com" in prompt

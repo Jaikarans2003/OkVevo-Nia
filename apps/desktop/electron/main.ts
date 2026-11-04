@@ -1411,6 +1411,7 @@ if (IS_PACKAGED) {
     provisionOkvevoProfile(HERMES_HOME, name, {
       defaultsPath: defaultsPath || undefined,
       skillsDir,
+      upstreamSoul,
       log: message => console.log(message)
     })
 
@@ -7701,10 +7702,10 @@ function _writeOkvevoIdTokenFile(idToken: string) {
   writeSecretFileAtomic(target, idToken, { encoding: 'utf8' })
   // The token file is the only copy. Profile .env snapshots expire and 401.
   stripOkvevoApiKeyCopies(HERMES_HOME)
-  void _resetOkvevoCredentialCooldowns()
+  void _syncOkvevoCredentials()
 }
 
-async function _resetOkvevoCredentialCooldowns() {
+async function _syncOkvevoCredentials() {
   const profiles: Array<string | null> = [null]
 
   try {
@@ -7718,7 +7719,12 @@ async function _resetOkvevoCredentialCooldowns() {
   }
 
   for (const profile of profiles) {
-    const args = profile ? ['--profile', profile, 'auth', 'reset', 'okvevo'] : ['auth', 'reset', 'okvevo']
+    // A plugin command (not the built-in `auth reset`): only a plugin command
+    // makes the CLI load the okvevo plugin, which is what writes the pool row
+    // on a fresh install.
+    const args = profile
+      ? ['--profile', profile, 'okvevo-ensure-credentials']
+      : ['okvevo-ensure-credentials']
 
     try {
       const backend = await resolveHermesBackend(args)
@@ -7728,11 +7734,11 @@ async function _resetOkvevoCredentialCooldowns() {
         resolveHermesCwd(),
         HERMES_HOME,
         process.env,
-        { timeoutMs: 20_000, label: 'hermes auth reset okvevo' }
+        { timeoutMs: 20_000, label: 'hermes okvevo-ensure-credentials' }
       )
     } catch (error) {
       rememberLog(
-        `[okvevo-auth] credential reset failed: ${error instanceof Error ? error.message : String(error)}`
+        `[okvevo-auth] credential sync failed: ${error instanceof Error ? error.message : String(error)}`
       )
     }
   }
@@ -7867,6 +7873,32 @@ async function _finishOkvevoAuthCallback(code: string, state: string) {
     dialog.showErrorBox(OKVEVO_SIGN_IN_FAILED_TITLE, OKVEVO_SIGN_IN_FAILED_ERROR)
   }
 }
+
+// okvevo-e2e-auth:begin
+// OkVevo packed-app E2E: drive sign-in without a real browser/portal. The whole
+// region is stripped from public packs (staging/production) at bundle time
+// unless the e2e pack variant sets OKVEVO_E2E_AUTH=1. A no-trace CI check
+// asserts the public main bundle contains no marker of it.
+if (typeof __OKVEVO_E2E_AUTH__ !== 'undefined' && __OKVEVO_E2E_AUTH__) {
+  ipcMain.handle('hermes:okvevo-auth:e2e-complete', async (_event, code: unknown, state: unknown) => {
+    if (typeof code !== 'string' || typeof state !== 'string' || !code || !state) {
+      return { ok: false, error: 'invalid_args' }
+    }
+
+    try {
+      // completeOkvevoAuthCallback validates against the pending row the real
+      // browser flow set via startOkvevoSignIn. Seed a valid pending row so the
+      // deep-link path accepts this callback. 10 min TTL matches PENDING_TTL_MS.
+      const deps = _okvevoAuthFlowDeps()
+      deps.setPending({ state, exp: Date.now() + 10 * 60 * 1000 })
+      await _finishOkvevoAuthCallback(code, state)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+}
+// okvevo-e2e-auth:end
 
 function _focusMainWindow() {
   try {
@@ -17465,7 +17497,7 @@ ipcMain.handle('hermes:openExternal', async (_event, url) => {
 
 ipcMain.handle('hermes:okvevo:reset-credential-cooldown', async () => {
   stripOkvevoApiKeyCopies(HERMES_HOME)
-  await _resetOkvevoCredentialCooldowns()
+  await _syncOkvevoCredentials()
 
   return { ok: true }
 })

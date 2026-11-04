@@ -47,13 +47,27 @@ function matchesMarker(call: ChatCall, marker: string): boolean {
   return messages.some(message => messageText(message).trim() === marker)
 }
 
-/** The chat turn. Prefer the rewritten Auto call when an earlier quote also matched. */
-function callFor(calls: ChatCall[], marker: string): ChatCall {
-  const found = calls.filter(call => matchesMarker(call, marker))
-  const wired = found.find(call => call.model === 'openrouter/auto-beta' || call.plugins?.some(plugin => plugin.cost_tier))
-  const match = wired ?? found[0]
-  if (!match) throw new Error(`no gateway call contained ${marker}`)
-  return match
+/**
+ * The chat turn, waited for. Prefer the rewritten Auto call when an earlier
+ * quote also matched. Polls: on a cold bot backend the UI's "Working on it…"
+ * placeholder (and even a stale reply count from another chat) shows minutes
+ * before the gateway call reaches the mock, so an unpollled read races the
+ * turn and flakes (seen on PR 1.3 CI, macOS + Windows public packs).
+ */
+async function callFor(calls: ChatCall[], marker: string, timeout = 120_000): Promise<ChatCall> {
+  let match: ChatCall | undefined
+  await expect
+    .poll(
+      () => {
+        const found = calls.filter(call => matchesMarker(call, marker))
+        const wired = found.find(call => call.model === 'openrouter/auto-beta' || call.plugins?.some(plugin => plugin.cost_tier))
+        match = wired ?? found[0]
+        return Boolean(match)
+      },
+      { timeout, message: `no gateway call contained ${marker}` }
+    )
+    .toBe(true)
+  return match as ChatCall
 }
 
 async function shot(page: Page, name: string) {
@@ -144,7 +158,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     const before = await replies(page)
     await send(page, 'ping default bot')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(before)
-    const cost = callFor(mock.calls, 'ping default bot')
+    const cost = await callFor(mock.calls, 'ping default bot')
     expect(cost.authorization || '').toContain(token)
     expect(fs.readFileSync(path.join(sandbox.hermesHome, '.env'), 'utf8')).not.toContain('OKVEVO_API_KEY=')
     if (cost.model !== 'openrouter/auto-beta') {
@@ -172,7 +186,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     const intelligenceBefore = await replies(page)
     await send(page, 'ping auto intelligence')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(intelligenceBefore)
-    expect(callFor(mock.calls, 'ping auto intelligence').plugins?.[0]?.cost_tier).toBe('xhigh')
+    expect((await callFor(mock.calls, 'ping auto intelligence')).plugins?.[0]?.cost_tier).toBe('xhigh')
 
     await openModelMenu(page)
     await page.getByRole('textbox').last().fill('gpt-4o-mini')
@@ -181,7 +195,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     const specificBefore = await replies(page)
     await send(page, 'ping specific model')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(specificBefore)
-    const specific = callFor(mock.calls, 'ping specific model')
+    const specific = await callFor(mock.calls, 'ping specific model')
     expect(specific.model).toBe('openai/gpt-4o-mini')
     expect(specific.plugins?.some(plugin => plugin.cost_tier)).toBeFalsy()
 
@@ -212,14 +226,16 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     await expect(page.getByText('ping specific model', { exact: true })).toHaveCount(0)
     const botBefore = await replies(page)
     await send(page, 'ping new bot')
-    await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(botBefore)
-    expect(callFor(mock.calls, 'ping new bot').authorization || '').toContain(token)
+    // Cold-bot budget: on loaded CI runners a new profile's backend has taken
+    // ~5 min from click to first turn (PR 1.3 macOS public pack, twice).
+    await expect.poll(() => replies(page), { timeout: 420_000 }).toBeGreaterThan(botBefore)
+    expect((await callFor(mock.calls, 'ping new bot', 420_000)).authorization || '').toContain(token)
 
     mock.expireBearer(token)
     const afterExpiry = await replies(page)
     await send(page, 'ping after expiry')
     await expect.poll(() => replies(page), { timeout: 120_000 }).toBeGreaterThan(afterExpiry)
-    const renewed = callFor(mock.calls, 'ping after expiry')
+    const renewed = await callFor(mock.calls, 'ping after expiry')
     expect(renewed.authorization || '').toContain(refreshed)
     expect(renewed.authorization || '').not.toContain(token)
     expect(mock.refreshes).toBeGreaterThan(0)
@@ -271,7 +287,8 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     } else {
       await groupBox.press('Enter')
     }
-    await expect.poll(visibleReplies, { timeout: 120_000 }).toBeGreaterThan(groupBefore)
+    // Same cold-bot budget: e2etwo's backend may boot inside this group turn.
+    await expect.poll(visibleReplies, { timeout: 420_000 }).toBeGreaterThan(groupBefore)
     await shot(page, 'group-chat.png')
 
     for (const line of appLogTail(app, 200).split('\n')) {

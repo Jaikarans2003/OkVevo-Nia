@@ -74,10 +74,10 @@ def _okvevo_refresh_credential(entry: Any) -> dict[str, Any]:
     """
     from hermes_cli.auth_constants import AuthError
 
+    from plugins.okvevo.credentials import FILE_BACKED_CREDENTIAL
     from plugins.okvevo.gateway import (
         ensure_okvevo_id_token,
         id_token_exp_unix,
-        read_okvevo_refresh_token,
     )
 
     previous = (getattr(entry, "access_token", None) or "").strip()
@@ -88,9 +88,12 @@ def _okvevo_refresh_credential(entry: Any) -> dict[str, Any]:
     if not token or token == previous:
         raise AuthError("Please sign in again", provider="okvevo", relogin_required=True)
     exp = id_token_exp_unix(token)
+    # The pool persists this dict: keep the file-backed marker in both secret
+    # fields so the rotated tokens never become a second durable copy. The
+    # retried request re-reads the file (already force-refreshed above).
     return {
-        "access_token": token,
-        "refresh_token": read_okvevo_refresh_token() or "okvevo-file",
+        "access_token": FILE_BACKED_CREDENTIAL,
+        "refresh_token": FILE_BACKED_CREDENTIAL,
         "expires_at_ms": int(exp * 1000) if exp else None,
         "okvevo_auth_retried": True,
     }

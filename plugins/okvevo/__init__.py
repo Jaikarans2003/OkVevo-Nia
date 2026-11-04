@@ -79,8 +79,51 @@ def register(ctx) -> None:
 
     install_auto_wire_swap()
     try:
+        from plugins.okvevo.identity import apply_identity_guidance_override
+
+        apply_identity_guidance_override()
+    except Exception:
+        pass
+    try:
         from plugins.okvevo.credentials import ensure_okvevo_pool_entry
 
         ensure_okvevo_pool_entry()
     except Exception:
         pass
+    _register_credentials_cli(ctx)
+
+
+def _register_credentials_cli(ctx) -> None:
+    """``hermes okvevo-ensure-credentials`` — the desktop's sign-in sync.
+
+    The desktop runs this after every token write (sign-in, hourly refresh,
+    launch) so each home's pool row matches the token files. Unlike
+    ``hermes auth reset okvevo`` (a built-in), a plugin command makes the CLI
+    load this plugin — which is what writes the row on a fresh install.
+    """
+
+    def _setup(_parser) -> None:
+        pass
+
+    def _handle(_args) -> int:
+        from plugins.okvevo.credentials import (
+            ensure_okvevo_pool_entry,
+            reset_okvevo_pool_status,
+        )
+
+        ensure_okvevo_pool_entry()
+        cleared = reset_okvevo_pool_status()
+        print(f"okvevo credentials ensured; pool statuses cleared: {cleared}")
+        return 0
+
+    ctx.register_cli_command(
+        "okvevo-ensure-credentials",
+        "Sync the OkVevo credential pool row with the desktop token files.",
+        _setup,
+        _handle,
+        description=(
+            "Ensures this home's credential pool has the file-backed OkVevo "
+            "row (creating or scrubbing it as needed) and clears benched "
+            "statuses. Idempotent; run by the desktop on sign-in/refresh."
+        ),
+    )
