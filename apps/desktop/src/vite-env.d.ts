@@ -28,3 +28,4 @@ declare module '@novnc/novnc' {
 
 declare const __OKVEVO_BUILD_CHANNEL__: 'internal' | 'public' | undefined
 declare const __OKVEVO_E2E_AUTH__: boolean | undefined
+declare const __OKVEVO_AGENT_NAME__: string

@@ -1481,7 +1481,7 @@ export function groupSpeakerLabel(name?: null | string, group?: null | string) {
     // Exact key only: the bare `profile` key is a single-source record and
     // names whichever machine wrote it, never this connection's bot.
     const title = String(meta?.[trimmed]?.title || '').trim()
-    const label = title || (profile.toLowerCase() === 'default' ? 'OkVevo agent' : profile)
+    const label = title || (profile.toLowerCase() === 'default' ? __OKVEVO_AGENT_NAME__ : profile)
 
     // Another connection still exposes this name: keep them tellable apart.
     return rows.some(bot => bot.name === profile) ? `${label} · ${connection}` : label
@@ -1514,7 +1514,7 @@ export function groupSpeakerLabel(name?: null | string, group?: null | string) {
     return renamed
   }
 
-  return isDefault ? 'OkVevo agent' : trimmed
+  return isDefault ? __OKVEVO_AGENT_NAME__ : trimmed
 }
 
 /** Trim a room log + its watermarks to the retained window, keeping

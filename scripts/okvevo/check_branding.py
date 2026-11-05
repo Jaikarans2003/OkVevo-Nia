@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""OkVevo branding gates: identity, brand image paths, catalogs, user-visible Hermes."""
+"""OkVevo branding gates: identity, brand image paths, catalogs, user-visible Hermes/Nia."""
 from __future__ import annotations
 
+import importlib.util
 import re
 import subprocess
 import sys
@@ -11,6 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 DESKTOP = ROOT / "apps/desktop"
 ALLOWLIST = ROOT / "scripts/okvevo/hermes-string-allowlist.txt"
 IMAGE_EXT = re.compile(r"\.(icns|ico|png|tiff|tif|gif|svg|icon)$", re.I)
+HERMES = re.compile("Hermes")
+# The agent is "OkVevo agent"; "Nia" as a word is the retired name.
+NIA = re.compile(r"\bNia\b")
 SCAN_EXT = {".ts", ".tsx", ".js", ".mjs", ".cjs"}
 LOG_CALLS = {
     "rememberLog",
@@ -47,13 +51,13 @@ def load_allowlist() -> tuple[list[str], set[str]]:
     return substrings, exact
 
 
-def hermes_visible(body: str, substrings: list[str], exact: set[str]) -> bool:
+def hermes_visible(body: str, substrings: list[str], exact: set[str], word: re.Pattern = HERMES) -> bool:
     if body in exact:
         return False
     cleaned = body
     for token in substrings:
         cleaned = cleaned.replace(token, "")
-    return "Hermes" in cleaned
+    return bool(word.search(cleaned))
 
 
 def template_text_parts(body: str) -> list[tuple[str, str]]:
@@ -108,19 +112,19 @@ def suspicious_span(body: str) -> bool:
     return any(token in body for token in ("const ", "function ", "=>", "\n  //", "\n *", "lines.push"))
 
 
-def identifier_key(body: str) -> bool:
+def identifier_key(body: str, word: re.Pattern = HERMES) -> bool:
     if re.fullmatch(r"[a-z][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+", body):
         # i18n key path (``notifications.actions.restartHermes``): the brand
         # overlay rewrites the VALUE; renaming the key paints the raw key.
         return True
-    return bool(re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", body)) and body != "Hermes"
+    return bool(re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", body)) and not word.fullmatch(body)
 
 
-def body_visible(body: str, quote: str, substrings: list[str], exact: set[str]) -> bool:
-    if suspicious_span(body) or identifier_key(body):
+def body_visible(body: str, quote: str, substrings: list[str], exact: set[str], word: re.Pattern = HERMES) -> bool:
+    if suspicious_span(body) or identifier_key(body, word):
         return False
     chunks = [body] if quote != "`" else [chunk for kind, chunk in template_text_parts(body) if kind == "text"]
-    return any(hermes_visible(chunk, substrings, exact) for chunk in chunks)
+    return any(hermes_visible(chunk, substrings, exact, word) for chunk in chunks)
 
 
 def scan_literals(text: str) -> list[dict]:
@@ -319,12 +323,37 @@ def check_literals(substrings: list[str], exact: set[str]) -> int:
         for item in scan_literals(text):
             if item["log"]:
                 continue
-            if not body_visible(item["body"], item["quote"], substrings, exact):
-                continue
-            print(
-                f"{path.relative_to(ROOT)}:{item['line']}: user-visible Hermes literal",
-                file=sys.stderr,
-            )
+            for name, word in (("Hermes", HERMES), ("Nia", NIA)):
+                if not body_visible(item["body"], item["quote"], substrings, exact, word):
+                    continue
+                print(
+                    f"{path.relative_to(ROOT)}:{item['line']}: user-visible {name} literal",
+                    file=sys.stderr,
+                )
+                failed += 1
+    return failed
+
+
+def _load(path: Path):
+    spec = importlib.util.spec_from_file_location(f"okvevo_branding_{path.stem}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def check_prompt_identity() -> int:
+    """The agent's own words: the composed help guidance and the generated SOUL."""
+    identity = _load(ROOT / "plugins/okvevo/identity.py")
+    soul = _load(ROOT / "scripts/okvevo/make_soul.py").make_soul((ROOT / "SOUL.md").read_text(encoding="utf-8"))
+    texts = {
+        "identity guidance": identity.OKVEVO_AGENT_HELP_GUIDANCE,
+        "identity guidance (no skills)": identity.OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS,
+        "generated SOUL": soul,
+    }
+    failed = 0
+    for label, text in texts.items():
+        if NIA.search(text):
+            print(f"{label} names Nia", file=sys.stderr)
             failed += 1
     return failed
 
@@ -370,6 +399,7 @@ def main() -> int:
     failed += check_builder_paths()
     failed += check_title()
     failed += check_literals(substrings, exact)
+    failed += check_prompt_identity()
     failed += check_error_overrides()
     failed += check_asset_spec()
     failed += check_catalog()

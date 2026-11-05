@@ -7,6 +7,8 @@ signature) so an upstream sync that moves them fails here, loudly.
 from __future__ import annotations
 
 import importlib.util
+import json
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +16,9 @@ from types import SimpleNamespace
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+IDENTITY_SENTENCE = "You are OkVevo agent, made by OkVevo."
+NIA_NAME = re.compile(r"\bNia\b")
+NIA_PERSONALITY = REPO_ROOT / "okvevo" / "config" / "legacy-souls" / "nia-personality.md"
 
 
 def _load_make_soul():
@@ -31,11 +36,12 @@ UPSTREAM_SOUL = (REPO_ROOT / "SOUL.md").read_text(encoding="utf-8")
 
 def test_generated_soul_identity_phrases_only():
     out = make_soul_mod.make_soul(UPSTREAM_SOUL)
-    assert out.startswith("You are OkVevo agent, built by OkVevo.")
+    assert out.startswith(IDENTITY_SENTENCE)
     assert "Hermes Agent" not in out
     assert "Nous Research" not in out
+    assert not NIA_NAME.search(out)
     # ONLY the identity phrases changed: reversing the swap restores upstream byte-for-byte.
-    restored = out.replace("OkVevo agent", "Hermes Agent").replace("built by OkVevo", "built by Nous Research")
+    restored = out.replace("OkVevo agent", "Hermes Agent").replace("made by OkVevo", "built by Nous Research")
     assert restored == UPSTREAM_SOUL
 
 
@@ -91,7 +97,7 @@ def test_default_bot_prompt_identifies_as_okvevo(tmp_path):
     home = _home_with_okvevo_soul(tmp_path)
     parts, soul_loaded = _identity_parts(_fake_agent(home), None)
     assert soul_loaded is True
-    assert parts[0].startswith("You are OkVevo agent, built by OkVevo.")
+    assert parts[0].startswith(IDENTITY_SENTENCE)
     assert "Hermes Agent" not in parts[0] and "Nous Research" not in parts[0]
 
 
@@ -105,7 +111,7 @@ def test_new_bot_profile_prompt_identifies_as_okvevo(tmp_path):
     (profile_home / "SOUL.md").write_text(make_soul_mod.make_soul(UPSTREAM_SOUL), encoding="utf-8")
     parts, soul_loaded = _identity_parts(_fake_agent(profile_home), None)
     assert soul_loaded is True
-    assert parts[0].startswith("You are OkVevo agent, built by OkVevo.")
+    assert parts[0].startswith(IDENTITY_SENTENCE)
 
 
 def test_subagent_keeps_okvevo_identity(tmp_path):
@@ -118,7 +124,7 @@ def test_subagent_keeps_okvevo_identity(tmp_path):
         _fake_agent(home, skip_context_files=True, load_soul_identity=True), None
     )
     assert soul_loaded is True
-    assert parts[0].startswith("You are OkVevo agent, built by OkVevo.")
+    assert parts[0].startswith(IDENTITY_SENTENCE)
 
 
 def test_internal_fallback_is_upstream_default(tmp_path):
@@ -136,7 +142,7 @@ def test_internal_fallback_is_upstream_default(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Workaround identity_guidance: the every-session help guidance names Nia/OkVevo
+# Workaround identity_guidance: the every-session help guidance names OkVevo agent
 # ---------------------------------------------------------------------------
 
 # The leaks this PR fixes. Deliberately NOT bare "Hermes": accepted residuals
@@ -224,6 +230,9 @@ def test_guidance_override_patches_the_upstream_seam(guidance_override):
     for phrase in _FORBIDDEN_IDENTITY_PHRASES:
         assert phrase not in OKVEVO_AGENT_HELP_GUIDANCE
         assert phrase not in OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS
+    for guidance in (OKVEVO_AGENT_HELP_GUIDANCE, OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS):
+        assert guidance.startswith(IDENTITY_SENTENCE)
+        assert not NIA_NAME.search(guidance)
     assert "https://www.okvevo.com" in OKVEVO_AGENT_HELP_GUIDANCE_NO_SKILLS
 
 
@@ -258,8 +267,45 @@ def test_full_prompt_has_no_identity_leak(tmp_path, guidance_override):
     prompt = _build_prompt(_home_with_okvevo_soul(tmp_path))
     for phrase in _FORBIDDEN_IDENTITY_PHRASES:
         assert phrase not in prompt, f"{phrase!r} leaked into the system prompt"
-    assert "You are OkVevo agent, built by OkVevo." in prompt
+    assert IDENTITY_SENTENCE in prompt
     assert "https://www.okvevo.com" in prompt
+
+
+def _identity_home(tmp_path: Path, chat: str) -> Path:
+    """The four chats in docs/okvevo/TESTING.md's identity gate. Each home holds
+    the SOUL the desktop migration leaves there. The old bot starts on the Nia
+    personality SOUL; okvevo-config-migration.test.ts proves the migration
+    rewrites it to these same bytes because identity.json lists it as legacy."""
+    root = tmp_path / "hermes-home"
+    home = {
+        "main": root,
+        "default-bot": root / "profiles" / "default",
+        "new-bot": root / "profiles" / "new-bot",
+        "old-bot": root / "profiles" / "old-bot",
+    }[chat]
+    home.mkdir(parents=True)
+    if chat == "old-bot":
+        identity = json.loads((REPO_ROOT / "okvevo" / "config" / "identity.json").read_text(encoding="utf-8"))
+        assert "legacy-souls/nia-personality.md" in identity["legacySouls"]
+    (home / "SOUL.md").write_text(make_soul_mod.make_soul(UPSTREAM_SOUL), encoding="utf-8")
+    return home
+
+
+@pytest.mark.parametrize("chat", ["main", "default-bot", "new-bot", "old-bot"])
+def test_full_prompt_names_okvevo_agent_never_nia(tmp_path, guidance_override, chat):
+    prompt = _build_prompt(_identity_home(tmp_path, chat))
+    assert IDENTITY_SENTENCE in prompt
+    assert not NIA_NAME.search(prompt), f"Nia named in the {chat} system prompt"
+    for phrase in _FORBIDDEN_IDENTITY_PHRASES:
+        assert phrase not in prompt, f"{phrase!r} leaked into the {chat} system prompt"
+
+
+def test_nia_scan_has_teeth(tmp_path, guidance_override):
+    """An un-migrated Nia SOUL is caught by the same scan."""
+    home = tmp_path / "hermes-home"
+    home.mkdir()
+    (home / "SOUL.md").write_text(NIA_PERSONALITY.read_text(encoding="utf-8"), encoding="utf-8")
+    assert NIA_NAME.search(_build_prompt(home))
 
 
 def test_full_prompt_without_override_would_catch_the_leak(tmp_path):

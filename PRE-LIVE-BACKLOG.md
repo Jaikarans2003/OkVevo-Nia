@@ -416,6 +416,28 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Testing portal: `fal-ai/gpt-image-2` image request returns an image URL from the desktop path (`.worktrees/live_images.py` style run). |
 | **Notes** | Found 2026-10-30 live test after the Fal top-up: Klein OK (13 credits, image in 5.2 s); `fal-ai/gpt-image-2` quote + submit → 400 "Fal endpoint is not meterable on the OkVevo gateway"; `openai/gpt-image-2` quotes 106 credits. Same 400 as the 14:27 flyer. |
 
+### [ ] Old sessions may reuse a stored system prompt with the old identity
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | After an in-place update, a session started on an older build may keep answering "I'm Nia, built by OkVevo" because its system prompt was stored in `~/.hermes/state.db` (`system_prompts`) before PR 1.4 changed the identity text. New sessions are fine. |
+| **Scope** | `~/.hermes/state.db` `system_prompts` table and the upstream code that decides whether a resumed session reuses its stored prompt (`agent/system_prompt.py`, session store); fix would live in `plugins/okvevo/` or the desktop migration, not upstream |
+| **Fix** | Before the first in-place update for real users: check whether a resumed session reuses its stored system prompt. If it does, decide between (a) invalidating stored prompts that contain the old identity text on upgrade, or (b) accepting it because old sessions are rare. Testers install fresh, so PR 1.4 does not migrate them. |
+| **Verify** | On a build before PR 1.4, start a chat; update in place to the current build; reopen that chat and ask "Who are you?" and "Who made you?". Answer is "OkVevo agent … made by OkVevo". |
+| **Notes** | Logged 2026-11-05 (PR 1.4). Seen on Karan's Mac: 3 of 5 stored prompts carried "You run on Nia, the OkVevo desktop agent (built by OkVevo)". SOUL.md file migration is a different store and is done. |
+
+### [ ] Unused brand locale files still say "Nia"; extend the Nia scan to `src/i18n/`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | No user sees them today, but a later change that starts loading these files, or a new shipped catalog string, could put "Nia" back in the UI without failing CI. |
+| **Scope** | Delete `brand/locales/*.overlay.json` and `brand/locales/desktop/{en,zh,zh-hant,ja,ar}.ts`; keep `brand/locales/desktop/okvevo-overrides.ts` (imported by `apps/desktop/src/i18n/catalog.ts`). Remove the matching rows in `docs/okvevo/FORK-INVENTORY.md`. `scripts/okvevo/check_branding.py` `source_files()` (currently skips `src/i18n/`). |
+| **Fix** | PR 2: delete the unused files instead of rewriting them, drop their inventory rows, and make `check_branding.py` scan `apps/desktop/src/i18n/` for the `Nia` word too (allowlist only real slugs such as `OkVevo-Nia`). |
+| **Verify** | `rg -l "brand/locales/" apps/desktop scripts` shows only `okvevo-overrides.ts` in use; `python3 scripts/okvevo/check_branding.py` passes with `src/i18n/` in the Nia scan; temporarily adding a `"Nia"` string to `src/i18n/en.ts` makes it fail. |
+| **Notes** | Logged 2026-11-05 (PR 1.4). Verified then: only `okvevo-overrides.ts` is imported; pack copies icons from `brand/assets` only (`electron-builder.config.cjs`, `overlay-brand-assets.mjs`); shipped `src/i18n` catalogs contain no "Nia". |
+
 ## Should fix before live (lower severity)
 
 ### [ ] Sync Hermes v0.22.5 (own PR, after PR 1.2, before PR 2)
