@@ -29,6 +29,11 @@ KEEP-PATCH in `docs/okvevo/PATCHES.md` (cap 3).
   toggle off. If Hermes passes, recommend removing ours (set Applied-Upstream,
   delete the code). If ours is clearly better, keep it and write down why.
   Karan decides.
+- If an upstream sync changes the help-guidance text overridden by
+  `plugins/okvevo/identity.py` (`HERMES_AGENT_HELP_GUIDANCE` / `_NO_SKILLS`),
+  take upstream's change, then re-apply the OkVevo wording from
+  `okvevo/config/identity.json`. The identity seam test
+  (`plugins/okvevo/tests/test_identity.py`) must pass before merging.
 - `check_upstream_delta.sh` prints the patch budget (desktop / installer /
   other). A new desktop or installer entry in PATCHES.md needs a one-line
   reason: ``- `path` — why``.
