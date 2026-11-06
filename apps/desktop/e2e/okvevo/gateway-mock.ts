@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { appendFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
 import { createServer, type Server } from 'node:http'
+import { dirname } from 'node:path'
 
 export interface ChatCall {
   authorization?: string
@@ -25,6 +25,14 @@ export interface GatewayMock {
 }
 
 export type FalMode = 'reject' | 'ok'
+
+/** What the mock's `/api/gateway/models` serves: the two Auto aliases plus real catalog ids. */
+export const CATALOG_MODEL_IDS = [
+  'okvevo/auto-cost',
+  'okvevo/auto-intelligence',
+  'openai/gpt-4o-mini',
+  'openai/gpt-4.1-mini'
+] as const
 
 /** A user message starting with this makes the chat mock call image_generate once. */
 export const IMAGE_MARKER = 'draw e2e image'
@@ -61,13 +69,14 @@ export interface GatewayMockOptions {
 const REPLY = 'E2E_REPLY ok'
 
 function authFingerprint(authorization: string | undefined): string {
-  if (!authorization) return 'none'
+  if (!authorization) {return 'none'}
   const bearer = authorization.replace(/^Bearer\s+/i, '')
+
   return createHash('sha256').update(bearer).digest('hex').slice(0, 12)
 }
 
 function writeLog(logPath: string | undefined, line: string) {
-  if (!logPath) return
+  if (!logPath) {return}
   mkdirSync(dirname(logPath), { recursive: true })
   appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`)
 }
@@ -104,6 +113,7 @@ type ImageRoute = 'direct' | 'bridge'
 
 function imageToolCall(stream: boolean, route: ImageRoute): string {
   const args = { prompt: 'e2e red circle' }
+
   // tool_search defers image_generate on desktop; a real model reaches it through tool_call.
   const call = {
     id: 'call_e2e_image',
@@ -187,6 +197,7 @@ function replyAfter(body: Record<string, unknown>): string {
 export function startGatewayMock(options: GatewayMockOptions = {}): Promise<GatewayMock> {
   const calls: ChatCall[] = []
   const urls: string[] = []
+
   const state = {
     exchanges: 0,
     refreshes: 0,
@@ -196,6 +207,7 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
     falSubmits: 0,
     origin: ''
   }
+
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))
@@ -226,6 +238,7 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
             refreshToken: 'e2e-refresh'
           })
         )
+
         return
       }
 
@@ -240,25 +253,30 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
             refreshToken: 'e2e-refresh-2'
           })
         )
+
         return
       }
 
       if (req.method === 'POST' && url.pathname.includes('/chat/completions')) {
         const authorization = typeof req.headers.authorization === 'string' ? req.headers.authorization : undefined
         const bearer = authorization?.replace(/^Bearer\s+/i, '') ?? ''
+
         const dead =
           (options.expiredBearer &&
             !state.rejectedExpired &&
             bearer.length > 0 &&
             bearer === options.expiredBearer) ||
           (bearer.length > 0 && state.dead.has(bearer))
+
         if (dead) {
-          if (options.expiredBearer && bearer === options.expiredBearer) state.rejectedExpired = true
+          if (options.expiredBearer && bearer === options.expiredBearer) {state.rejectedExpired = true}
           writeLog(options.logPath, `POST ${url.pathname} 401 auth=${authFingerprint(authorization)} model=${String(body.model ?? '')}`)
           res.writeHead(401, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: { message: 'invalid_token', type: 'invalid_request_error' } }))
+
           return
         }
+
         calls.push({
           authorization: typeof authorization === 'string' ? authorization : undefined,
           messages: body.messages,
@@ -280,11 +298,13 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         }
 
         res.end(route ? imageToolCall(stream, route) : completion(stream, replyAfter(body)))
+
         return
       }
 
       if (url.pathname.includes('/api/gateway/fal/queue/')) {
         const requestBase = `${state.origin}/api/gateway/fal/queue/e2e/requests/e2e-image`
+
         if (req.method === 'POST' && !url.pathname.includes('/requests/')) {
           state.falSubmits += 1
           const reject = state.falMode === 'reject'
@@ -302,8 +322,10 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
                   }
             )
           )
+
           return
         }
+
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(
           JSON.stringify(
@@ -312,12 +334,14 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
               : { images: [{ url: `${state.origin}${E2E_IMAGE_PATH}`, width: 1, height: 1 }] }
           )
         )
+
         return
       }
 
       if (url.pathname === E2E_IMAGE_PATH) {
         res.writeHead(200, { 'content-type': 'image/png' })
         res.end(PNG)
+
         return
       }
 
@@ -329,13 +353,10 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         res.end(
           JSON.stringify({
             object: 'list',
-            data: [
-              { id: 'okvevo/auto-cost', object: 'model' },
-              { id: 'okvevo/auto-intelligence', object: 'model' },
-              { id: 'openai/gpt-4o-mini', object: 'model' }
-            ]
+            data: CATALOG_MODEL_IDS.map(id => ({ id, object: 'model' }))
           })
         )
+
         return
       }
 
@@ -349,15 +370,18 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
     server.once('error', reject)
     server.listen(0, '127.0.0.1', () => {
       const address = server.address()
+
       if (!address || typeof address === 'string') {
         reject(new Error('gateway mock failed to bind'))
+
         return
       }
+
       state.origin = `http://127.0.0.1:${address.port}`
       resolve({
         calls,
         expireBearer(bearer: string) {
-          if (bearer) state.dead.add(bearer)
+          if (bearer) {state.dead.add(bearer)}
         },
         setFalMode(mode: FalMode) {
           state.falMode = mode

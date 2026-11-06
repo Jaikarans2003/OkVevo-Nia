@@ -2,11 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { _electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test'
 
 import { appLogTail, backendProcesses, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
 
-import { startGatewayMock } from './gateway-mock'
+import { CATALOG_MODEL_IDS, type ChatCall, startGatewayMock } from './gateway-mock'
 
 // PR 1.3: fresh install → sign in → first chat on the default bot must work on
 // the SAME launch. No quit/reopen, no new bot. On the public (pre-fix) pack
@@ -22,15 +22,18 @@ const diagnostics = path.join(DESKTOP_ROOT, 'release', 'e2e-diagnostics')
 
 function fakeJwt(exp: number): string {
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+
   return `${part({ alg: 'none', typ: 'JWT' })}.${part({ exp })}.e2e`
 }
 
 function resourcesDir(executable: string): string {
   const dir = path.dirname(executable)
   const mac = path.resolve(dir, '../Resources')
-  if (fs.existsSync(path.join(mac, 'okvevo-pack-env.json'))) return mac
+
+  if (fs.existsSync(path.join(mac, 'okvevo-pack-env.json'))) {return mac}
   const win = path.join(dir, 'resources')
-  if (fs.existsSync(path.join(win, 'okvevo-pack-env.json'))) return win
+
+  if (fs.existsSync(path.join(win, 'okvevo-pack-env.json'))) {return win}
   throw new Error(`okvevo-pack-env.json not beside ${executable}`)
 }
 
@@ -40,6 +43,7 @@ function resourcesDir(executable: string): string {
 // the sandbox cleanup).
 function packHasE2eAuthHook(executable: string): boolean {
   const dist = path.join(resourcesDir(executable), 'app.asar.unpacked', 'dist')
+
   try {
     return ['electron-main.mjs', 'electron-preload.js'].some(bundle =>
       fs.readFileSync(path.join(dist, bundle), 'utf8').includes('e2eCompleteOkvevoSignIn')
@@ -54,24 +58,64 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: path.join(shots, name) })
 }
 
+async function openModelMenu(page: Page) {
+  const pill = page.locator('[data-slot="composer-root"]').getByRole('button', { name: /okvevo|auto-cost|auto-intelligence|model/i })
+  await pill.first().click()
+}
+
+// Row label is the id after the vendor slash ("openai/gpt-4o-mini" → "GPT-4o-mini").
+function catalogRow(page: Page, id: string) {
+  const base = id.slice(id.lastIndexOf('/') + 1).replace(/[.]/g, '\\.')
+
+  return page.getByRole('menuitem', { name: new RegExp(base, 'i') })
+}
+
+const CATALOG_ROWS = CATALOG_MODEL_IDS.filter(id => !id.startsWith('okvevo/auto-'))
+
+/** Pre-PR-1.3 the menu kept only the two Auto rows: the catalog read had no credential. */
+async function expectLiveCatalog(page: Page) {
+  await expect
+    .poll(
+      async () => {
+        await openModelMenu(page)
+        const shown = await Promise.all(CATALOG_ROWS.map(id => catalogRow(page, id).first().isVisible({ timeout: 3_000 }).catch(() => false)))
+        const auto = await page.getByRole('menuitem', { name: /^(Cost Effective|Intelligence)$/ }).count()
+        await page.keyboard.press('Escape')
+
+        return `auto=${auto} catalog=${shown.filter(Boolean).length}/${CATALOG_ROWS.length}`
+      },
+      { timeout: 90_000, intervals: [3_000], message: 'model menu after sign-in must list the live catalog, not only the two Auto rows' }
+    )
+    .toBe(`auto=2 catalog=${CATALOG_ROWS.length}/${CATALOG_ROWS.length}`)
+}
+
+function callWith(calls: ChatCall[], text: string): ChatCall | undefined {
+  return calls.find(call => JSON.stringify(call.messages ?? []).includes(text))
+}
+
 function copyLogs(from: string, into: string) {
   const logs = path.join(from, 'logs')
-  if (fs.existsSync(logs)) fs.cpSync(logs, path.join(into, 'logs'), { recursive: true })
+
+  if (fs.existsSync(logs)) {fs.cpSync(logs, path.join(into, 'logs'), { recursive: true })}
 }
 
 function saveFailureEvidence(hermesHome: string, app: ElectronApplication | undefined) {
   fs.mkdirSync(diagnostics, { recursive: true })
   copyLogs(hermesHome, path.join(diagnostics, 'signin-sandbox'))
   const userHome = path.join(os.homedir(), '.hermes')
-  if (path.resolve(userHome) !== path.resolve(hermesHome)) copyLogs(userHome, path.join(diagnostics, 'signin-user-home'))
-  if (app) fs.writeFileSync(path.join(diagnostics, 'signin-electron-log-tail.txt'), appLogTail(app, 400))
+
+  if (path.resolve(userHome) !== path.resolve(hermesHome)) {copyLogs(userHome, path.join(diagnostics, 'signin-user-home'))}
+
+  if (app) {fs.writeFileSync(path.join(diagnostics, 'signin-electron-log-tail.txt'), appLogTail(app, 400))}
 }
 
 test('packed app signs in then chats on the default bot on one launch', async () => {
   const executable = process.env.OKVEVO_E2E_EXECUTABLE || ''
+
   if (!executable || !fs.existsSync(executable)) {
     throw new Error('OKVEVO_E2E_EXECUTABLE must be the packed OkVevo binary')
   }
+
   // Pre-launch skip: the public pack compiles the hook out; there is nothing
   // to test there (the no-trace check covers it) and no reason to boot an app.
   test.skip(!packHasE2eAuthHook(executable), 'public pack: e2e sign-in hook is compiled out (needs OKVEVO_E2E_AUTH=1 build)')
@@ -79,10 +123,12 @@ test('packed app signs in then chats on the default bot on one launch', async ()
   const now = Math.floor(Date.now() / 1000)
   const token = fakeJwt(now + 3600)
   fs.mkdirSync(diagnostics, { recursive: true })
+
   const mock = await startGatewayMock({
     exchangeIdToken: token,
     logPath: path.join(diagnostics, 'signin-mock-requests.log')
   })
+
   const sandbox = createCoreSandbox('okvevo-signin')
   const packPath = path.join(resourcesDir(executable), 'okvevo-pack-env.json')
   const originalPack = fs.readFileSync(packPath, 'utf8')
@@ -105,6 +151,7 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     executablePath: executable,
     timeout: 120_000
   })
+
   const page = await app.firstWindow({ timeout: 120_000 })
   let failed = false
 
@@ -122,6 +169,7 @@ test('packed app signs in then chats on the default bot on one launch', async ()
             const lock = JSON.parse(fs.readFileSync(path.join(sandbox.hermesHome, 'gateway.lock'), 'utf8')) as {
               pid?: unknown
             }
+
             return Number.isInteger(lock?.pid) && backendProcesses(sandbox).length > 0
           } catch {
             return false
@@ -140,8 +188,10 @@ test('packed app signs in then chats on the default bot on one launch', async ()
       const desktop = (window as unknown as {
         hermesDesktop: { e2eCompleteOkvevoSignIn: (code: string, state: string) => Promise<{ ok: boolean; error?: string }> }
       }).hermesDesktop
+
       return desktop.e2eCompleteOkvevoSignIn('e2e-code', 'e2e-state')
     })
+
     expect(signedIn.ok, `sign-in failed: ${signedIn.error ?? 'unknown'}`).toBe(true)
     await expect
       .poll(
@@ -156,6 +206,12 @@ test('packed app signs in then chats on the default bot on one launch', async ()
       .toBe(true)
     expect(mock.exchanges).toBeGreaterThan(0)
 
+    // What a user does next: open the model menu on this launch. The live
+    // catalog (mock /api/gateway/models) must arrive, not only the Auto rows.
+    await waitForInteractive(app, page)
+    await expectLiveCatalog(page)
+    await shot(page, 'signin-model-menu.png')
+
     // The fix's core invariant: sign-in writes the okvevo pool row for the
     // RUNNING backend on this same launch (the desktop spawns the
     // `okvevo-ensure-credentials` CLI sync in the background — wait for it).
@@ -163,12 +219,14 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     // never contain the JWT itself.
     const authJsonPath = path.join(sandbox.hermesHome, 'auth.json')
     let rowReady = false
+
     try {
       await expect
         .poll(
           () => {
             try {
               const text = fs.readFileSync(authJsonPath, 'utf8')
+
               return text.includes('manual:okvevo-desktop') && text.includes('okvevo-file')
             } catch {
               return false
@@ -181,17 +239,20 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     } catch {
       rowReady = false
     }
+
     if (!rowReady) {
       // Surface the user-facing symptom in the failure message: bring the app
       // up, send the first chat anyway, and quote what the user would see
       // (pre-fix that is "No usable credentials found for provider 'okvevo'").
       await waitForInteractive(app, page).catch(() => undefined)
       await send(page, 'ping after sign in').catch(() => undefined)
+
       const credentialError = await page
         .getByText('No usable credentials found')
         .first()
         .isVisible({ timeout: 60_000 })
         .catch(() => false)
+
       await shot(page, 'signin-no-pool-row.png')
       throw new Error(
         'sign-in did not write the okvevo pool row for the running backend on this launch' +
@@ -199,6 +260,7 @@ test('packed app signs in then chats on the default bot on one launch', async ()
           ` "No usable credentials found for provider 'okvevo'": ${credentialError ? 'YES' : 'no — see screenshot + diagnostics'}`
       )
     }
+
     expect(fs.readFileSync(authJsonPath, 'utf8')).not.toContain(token)
 
     // Now the app should become interactive (composer visible) on this launch.
@@ -209,16 +271,28 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     // errors with "No usable credentials found for provider 'okvevo'".
     await send(page, 'ping after sign in')
     await expect(page.getByText('E2E_REPLY ok').first()).toBeVisible({ timeout: 120_000 })
-    const call = mock.calls.find(c => JSON.stringify(c.messages ?? []).includes('ping after sign in'))
+    const call = callWith(mock.calls, 'ping after sign in')
     expect(call, 'no gateway call carried the first-chat message').toBeTruthy()
     expect(call!.authorization || '').toContain(token)
     await expect(page.getByText('No usable credentials found')).toHaveCount(0)
     await shot(page, 'signin-first-chat.png')
+
+    // Pick a listed catalog model; that id, not an Auto alias, reaches the gateway.
+    const picked = 'openai/gpt-4o-mini'
+    await openModelMenu(page)
+    await catalogRow(page, picked).first().click()
+    const repliesBefore = await page.getByText('E2E_REPLY ok').count()
+    await send(page, 'ping picked model')
+    await expect.poll(() => page.getByText('E2E_REPLY ok').count(), { timeout: 120_000 }).toBeGreaterThan(repliesBefore)
+    await expect
+      .poll(() => callWith(mock.calls, 'ping picked model')?.model, { timeout: 60_000, message: 'picked model never reached the gateway' })
+      .toBe(picked)
+    await shot(page, 'signin-picked-model.png')
   } catch (error) {
     failed = true
     throw error
   } finally {
-    if (failed) saveFailureEvidence(sandbox.hermesHome, app)
+    if (failed) {saveFailureEvidence(sandbox.hermesHome, app)}
     await app.close().catch(() => undefined)
     fs.writeFileSync(packPath, originalPack)
     await mock.close()
