@@ -438,6 +438,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `rg -l "brand/locales/" apps/desktop scripts` shows only `okvevo-overrides.ts` in use; `python3 scripts/okvevo/check_branding.py` passes with `src/i18n/` in the Nia scan; temporarily adding a `"Nia"` string to `src/i18n/en.ts` makes it fail. |
 | **Notes** | Logged 2026-11-05 (PR 1.4). Verified then: only `okvevo-overrides.ts` is imported; pack copies icons from `brand/assets` only (`electron-builder.config.cjs`, `overlay-brand-assets.mjs`); shipped `src/i18n` catalogs contain no "Nia". |
 
+### [ ] PR 3: CI runs the full desktop UI suite; every failing test fixed or deleted
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Most desktop UI tests never run in CI, so a real regression in a file outside the hand-picked list ships silently, and broken tests rot until nobody trusts the suite. |
+| **Scope** | `.github/workflows/okvevo-checks.yml` (Desktop OkVevo suites runs a fixed list of ~15 UI files); `apps/desktop/src/**/*.test.{ts,tsx}`; `apps/desktop/vitest.config.ts` |
+| **Fix** | PR 3: make CI run `npx vitest run --project ui` (whole suite) as a required check. For each failing file: fix it, or delete it with a one-line reason in the commit message. No `skip` / `todo` left behind without a backlog row and a date. |
+| **Verify** | `cd apps/desktop && npx vitest run --project ui` exits 0 locally and in CI; `rg -n "\.skip\(|\.todo\(" apps/desktop/src` shows nothing new without a backlog row. |
+| **Notes** | Logged 2026-11-06 (PR 1.4). `src/plugins/hermes-bots/` alone: 25 of 110 files fail on clean `staging` (`410378ce66`), same with or without PR 1.4. Causes seen: missing `@novnc/novnc` (`screen-pane-*`, `screen-viewer-identity`, `screen-managed-copy`); assertions still expecting the `@hermes` handle or `hermes` profile where OkVevo shows `@okvevo` (`group-rounds`, `group-rounds.primary-alias`); `soul.test.ts` expecting `@nia`; and whole files that fail to load (all `cron-*`, `bot-row`, `bot-open-focus-identity`, `cold-bot-switch-row`, `plugin-panes`, `plugin.mentions`, `hide-bot-chats.runtime`, `reclaim-refresh-in-place`, `legacy-sdk-compat`) — root cause per file is PR 3's job. The whole UI project did not finish locally: workers for `src/lib/session-owner-routed-rpcs.test.tsx` and `src/lib/local-preview.local-target.test.ts` never terminated (vitest "Timeout terminating forks worker"), so PR 3 also fixes those hangs before the suite can gate. |
+
 ## Should fix before live (lower severity)
 
 ### [ ] Sync Hermes v0.22.5 (own PR, after PR 1.2, before PR 2)
