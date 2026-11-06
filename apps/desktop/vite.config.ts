@@ -143,11 +143,19 @@ function okvevoWorkarounds(): Record<string, boolean> {
   return defaults?.okvevo?.workarounds ?? {}
 }
 
+/** `agentName` from okvevo/config/identity.json, the one place the agent's name lives. */
+function okvevoAgentName(): string {
+  const text = fs.readFileSync(path.resolve(__dirname, '../../okvevo/config/identity.json'), 'utf8')
+
+  return (JSON.parse(text) as { agentName: string }).agentName
+}
+
 export default defineConfig(({ command }) => ({
   base: './',
   define: {
     __OKVEVO_BUILD_CHANNEL__: JSON.stringify(resolveBuildChannel({ isDev: command === 'serve' })),
-    __OKVEVO_WORKAROUNDS__: JSON.stringify(okvevoWorkarounds())
+    __OKVEVO_WORKAROUNDS__: JSON.stringify(okvevoWorkarounds()),
+    __OKVEVO_AGENT_NAME__: JSON.stringify(okvevoAgentName())
   },
   plugins: [react(), cachedCompilerPass(command), tailwindcss(), emojibaseAssets()],
   css: {

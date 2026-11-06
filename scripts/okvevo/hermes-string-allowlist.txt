@@ -6,3 +6,10 @@ substring Hermes Agent by Nous Research
 substring X-Hermes-
 exact Hermes Agent
 exact user.name=Hermes
+# Nia scan (the agent is "OkVevo agent"):
+# reason: GitHub repo slug in install, diagnostics, and commit URLs
+substring OkVevo-Nia
+# reason: stable installer object names on releases.okvevo.com
+substring Nia-mac-arm64.dmg
+# reason: stable installer object names on releases.okvevo.com
+substring Nia-win-x64.exe

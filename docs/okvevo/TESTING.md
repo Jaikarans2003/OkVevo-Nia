@@ -9,7 +9,7 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 | 1 | Fresh install | Installer, Dock/Taskbar, window title, Start menu all say OkVevo; About shows "OkVevo by Azonova Technologies Pvt Ltd" and "Built on Hermes Agent by Nous Research." |
 | 2 | Sign in / sign out | Works; credits shown as % of the plan grant plus purchased top-up |
 | 3 | Hidden surfaces (public build) | No API key fields, no provider picker, no Nous Portal. Internal build shows them |
-| 4 | Identity | Ask "Who are you? What can you do? Who made you?" on 2+ models, on the **default bot** and on a **new bot created from the Bots UI** → answers as OkVevo agent |
+| 4 | Identity | Ask "Who are you?" and "Who made you?" on 2+ models in four chats: the **default chat**, the **default bot**, a **new bot created from the Bots UI**, and a **bot created before this build** (from an older OkVevo install). All four answer "OkVevo agent … made by OkVevo", never "Nia", "Hermes", or "Nous Research". A bot whose `SOUL.md` you edited by hand keeps your text (no rewrite, no `SOUL.md.okvevo-migrate.bak`) |
 | 5 | Simple tasks (time each) | "Make an Excel file with 3 columns of sample sales data", "Write a 1-page Word doc", "Build a simple website" → correct file, finishes in one go |
 | 6 | Preview | xlsx, docx, html site, pdf, image open in preview (note any type that does not) |
 | 7 | Stream | Tool calls and paths visible; nothing replaced with "[internal details omitted]" |

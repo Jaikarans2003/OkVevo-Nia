@@ -16,19 +16,36 @@ import { dump as stringifyYaml, load as parseYaml } from 'js-yaml'
 export const DESKTOP_PLATFORM_HINT_APPEND =
   'The product name is OkVevo. You are chatting inside the OkVevo desktop app.'
 
-const SOUL_REPLACEMENTS: ReadonlyArray<readonly [string, string]> = [
-  ['Hermes Agent', 'OkVevo agent'],
-  ['Nous Research', 'OkVevo']
-]
+type Replacements = ReadonlyArray<readonly [string, string]>
 
-/** Byte-for-byte the OkVevo default SOUL from pre-upstream-reset. */
-export const NIA_DEFAULT_SOUL =
-  'You are Nia, built by OkVevo. You are warm, intelligent, curious, and quietly playful. You are confident without being overwhelming, and always feel like a thoughtful creative partner rather than a typical AI assistant. You understand what the user is trying to achieve, simplify the complicated parts, and help turn ideas into something real. You are quick, observant, and occasionally witty, with a calm personality that makes creating feel effortless.\n'
+/** okvevo/config/identity.json, with `legacySouls` read to their texts. */
+export interface OkvevoIdentity {
+  agentName: string
+  maker: string
+  upstream: { agentName: string; maker: string }
+  legacyReplacementSets: Replacements[]
+  legacySouls: string[]
+}
 
-export function makeOkvevoSoul(upstreamText: string): string {
+export function loadOkvevoIdentity(defaultsPath = defaultOkvevoDefaultsPath()): OkvevoIdentity {
+  const dir = path.dirname(defaultsPath)
+  // On disk `legacySouls` holds paths relative to the config dir.
+  const raw = JSON.parse(fs.readFileSync(path.join(dir, 'identity.json'), 'utf8')) as OkvevoIdentity
+
+  return { ...raw, legacySouls: raw.legacySouls.map(rel => fs.readFileSync(path.join(dir, rel), 'utf8')) }
+}
+
+function liveReplacements(identity: OkvevoIdentity): Replacements {
+  return [
+    [identity.upstream.agentName, identity.agentName],
+    [`built by ${identity.upstream.maker}`, `made by ${identity.maker}`]
+  ]
+}
+
+function swapPhrases(upstreamText: string, replacements: Replacements, leftovers: readonly string[]): string {
   let out = upstreamText
 
-  for (const [old, next] of SOUL_REPLACEMENTS) {
+  for (const [old, next] of replacements) {
     if (!out.includes(old)) {
       throw new Error(
         `expected phrase ${JSON.stringify(old)} missing from upstream SOUL — upstream reworded its identity`
@@ -38,7 +55,7 @@ export function makeOkvevoSoul(upstreamText: string): string {
     out = out.replaceAll(old, next)
   }
 
-  for (const [old] of SOUL_REPLACEMENTS) {
+  for (const old of leftovers) {
     if (out.includes(old)) {
       throw new Error(`${JSON.stringify(old)} still present after replacement`)
     }
@@ -47,11 +64,34 @@ export function makeOkvevoSoul(upstreamText: string): string {
   return out
 }
 
+/** Same bytes as scripts/okvevo/make_soul.py (locked by the migration test). */
+export function makeOkvevoSoul(upstreamText: string, identity = loadOkvevoIdentity()): string {
+  return swapPhrases(upstreamText, liveReplacements(identity), Object.values(identity.upstream))
+}
+
+/** SOULs earlier OkVevo builds wrote: safe to upgrade, never user-authored. */
+export function legacyOkvevoSouls(upstreamText: string, identity = loadOkvevoIdentity()): string[] {
+  const generated = identity.legacyReplacementSets.flatMap(set => {
+    try {
+      return [swapPhrases(upstreamText, set, [])]
+    } catch {
+      return []
+    }
+  })
+
+  return [...generated, ...identity.legacySouls]
+}
+
 function normalizeSoul(text: string): string {
   return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/^\uFEFF/, '').trim()
 }
 
-export function shouldReplaceSoul(current: string, generated: string, upstream: string): boolean {
+export function shouldReplaceSoul(
+  current: string,
+  generated: string,
+  upstream: string,
+  legacy: readonly string[] = []
+): boolean {
   const n = normalizeSoul(current)
 
   if (!n) {
@@ -62,7 +102,7 @@ export function shouldReplaceSoul(current: string, generated: string, upstream: 
     return false
   }
 
-  return n === normalizeSoul(upstream) || n === normalizeSoul(NIA_DEFAULT_SOUL)
+  return [upstream, ...legacy].some(known => n === normalizeSoul(known))
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -408,11 +448,24 @@ function backup(filePath: string, io: MigrationFs): void {
   io.copyFileSync(filePath, `${filePath}.okvevo-migrate.bak`)
 }
 
-function migrateSoul(home: string, generated: string, upstream: string, io: MigrationFs, log: (m: string) => void): void {
+interface SoulPlan {
+  generated: string
+  upstream: string
+  legacy: string[]
+}
+
+function planSoul(upstream: string, defaultsPath: string | undefined): SoulPlan {
+  const identity = loadOkvevoIdentity(defaultsPath)
+
+  return { generated: makeOkvevoSoul(upstream, identity), upstream, legacy: legacyOkvevoSouls(upstream, identity) }
+}
+
+function migrateSoul(home: string, plan: SoulPlan, io: MigrationFs, log: (m: string) => void): void {
+  const { generated, upstream, legacy } = plan
   const soulPath = path.join(home, 'SOUL.md')
   const current = io.existsSync(soulPath) ? io.readFileSync(soulPath, 'utf8') : ''
 
-  if (!shouldReplaceSoul(current, generated, upstream)) {
+  if (!shouldReplaceSoul(current, generated, upstream, legacy)) {
     log(`[okvevo-migrate] ${soulPath}: custom SOUL kept`)
     return
   }
@@ -464,11 +517,11 @@ export function migrateOkvevoHermesHome(args: MigrateHomeArgs): void {
   const io = args.fsImpl ?? defaultFs()
   const log = args.log ?? ((message: string) => console.log(message))
   const defaults = args.defaults ?? loadOkvevoDefaults(args.defaultsPath)
-  let generated = ''
+  let soul: SoulPlan | null = null
 
   if (args.upstreamSoul.trim()) {
     try {
-      generated = makeOkvevoSoul(args.upstreamSoul)
+      soul = planSoul(args.upstreamSoul, args.defaultsPath)
     } catch (error) {
       log(`[okvevo-migrate] SOUL skipped: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -477,8 +530,8 @@ export function migrateOkvevoHermesHome(args: MigrateHomeArgs): void {
   io.mkdirSync(args.hermesHome, { recursive: true })
 
   for (const home of profileHomes(args.hermesHome, io)) {
-    if (generated) {
-      migrateSoul(home, generated, args.upstreamSoul, io, log)
+    if (soul) {
+      migrateSoul(home, soul, io, log)
     }
 
     migrateConfig(home, args.skillsDir, io, log, defaults, args.enforce)
@@ -697,7 +750,7 @@ export function provisionOkvevoProfile(
   // scaffold ("You are Hermes Agent…") on its first session.
   if (opts.upstreamSoul?.trim()) {
     try {
-      migrateSoul(home, makeOkvevoSoul(opts.upstreamSoul), opts.upstreamSoul, io, log)
+      migrateSoul(home, planSoul(opts.upstreamSoul, opts.defaultsPath), io, log)
     } catch (error) {
       log(`[okvevo-migrate] SOUL skipped: ${error instanceof Error ? error.message : String(error)}`)
     }

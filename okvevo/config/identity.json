@@ -1,0 +1,16 @@
+{
+  "$comment": "Single source of the agent identity. Read by scripts/okvevo/make_soul.py, plugins/okvevo/identity.py, apps/desktop/electron/okvevo-config-migration.ts and apps/desktop/vite.config.ts. legacyReplacementSets and legacySouls only recognize SOULs earlier builds wrote, so the migration can upgrade them.",
+  "agentName": "OkVevo agent",
+  "maker": "OkVevo",
+  "upstream": {
+    "agentName": "Hermes Agent",
+    "maker": "Nous Research"
+  },
+  "legacyReplacementSets": [
+    [
+      ["Hermes Agent", "OkVevo agent"],
+      ["Nous Research", "OkVevo"]
+    ]
+  ],
+  "legacySouls": ["legacy-souls/nia-personality.md"]
+}

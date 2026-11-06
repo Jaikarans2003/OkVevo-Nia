@@ -74,7 +74,7 @@ export function displayName(bot: Partial<RosterRow>, meta?: BotMeta | null): str
   // that reads like nobody bothered. Present it as OkVevo agent unless
   // the user gives it a real title.
   if ((bot.name || '').trim().toLowerCase() === 'default' && !bot.title) {
-    return 'OkVevo agent'
+    return __OKVEVO_AGENT_NAME__
   }
 
   const raw = (bot.title || bot.name || '').replace(/[-_]+/g, ' ').trim()

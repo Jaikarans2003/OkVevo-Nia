@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate the OkVevo SOUL from upstream's SOUL.md — identity phrases only.
 
-Reads upstream SOUL.md (identity slot #1 at the pinned tag) and replaces ONLY:
-  "Hermes Agent"  -> "OkVevo agent"
-  "Nous Research" -> "OkVevo"
+Reads upstream SOUL.md (identity slot #1 at the pinned tag) and replaces ONLY
+the phrases composed from okvevo/config/identity.json:
+  "Hermes Agent"           -> agentName ("OkVevo agent")
+  "built by Nous Research" -> "made by {maker}" ("made by OkVevo")
 Everything else (behavior spec, paths, CLI names) is untouched.
 
 Fail-closed: exits non-zero if an expected phrase is missing from the input or
@@ -14,30 +15,40 @@ wrong identity to users.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-
-REPLACEMENTS = (
-    ("Hermes Agent", "OkVevo agent"),
-    ("Nous Research", "OkVevo"),
-)
+IDENTITY_PATH = REPO_ROOT / "okvevo" / "config" / "identity.json"
 
 
-def make_soul(upstream_text: str) -> str:
+def load_identity(path: Path = IDENTITY_PATH) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def replacements(identity: dict) -> tuple[tuple[str, str], ...]:
+    upstream = identity["upstream"]
+    return (
+        (upstream["agentName"], identity["agentName"]),
+        (f"built by {upstream['maker']}", f"made by {identity['maker']}"),
+    )
+
+
+def make_soul(upstream_text: str, identity: dict | None = None) -> str:
     """Swap identity phrases; raise ValueError if the input or output is off-spec."""
+    identity = identity or load_identity()
     out = upstream_text
-    for old, new in REPLACEMENTS:
+    for old, new in replacements(identity):
         if old not in out:
             raise ValueError(
                 f"expected phrase {old!r} missing from upstream SOUL — upstream reworded its "
-                "identity; update scripts/okvevo/make_soul.py deliberately, do not guess"
+                "identity; update okvevo/config/identity.json deliberately, do not guess"
             )
         out = out.replace(old, new)
-    for old, _new in REPLACEMENTS:
-        if old in out:  # pragma: no cover - str.replace removes all; belt and braces
-            raise ValueError(f"{old!r} still present after replacement")
+    for leftover in identity["upstream"].values():
+        if leftover in out:
+            raise ValueError(f"{leftover!r} still present after replacement")
     return out
 
 
