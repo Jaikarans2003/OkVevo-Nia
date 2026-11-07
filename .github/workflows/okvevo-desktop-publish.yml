@@ -29,7 +29,7 @@ jobs:
   publish:
     name: Point live feed at archived version
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Refuse Nous
         run: |
@@ -65,16 +65,14 @@ jobs:
           set -euo pipefail
           grep -q '\[ \] RELEASE BLOCKER for main: manage_bot' PRE-LIVE-BACKLOG.md && { echo "::error::manage_bot is still a RELEASE BLOCKER for main"; exit 1; }
 
-      - name: Verify archived objects
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
-          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+      # latest*.yml flips only after every archived installer answers HTTP 200
+      # with the archived yml's version, sha512 and size.
+      - name: Verify archived installers over HTTPS
         run: |
           set -euo pipefail
-          node apps/desktop/scripts/publish-release-feed.mjs verify --version "${{ steps.ver.outputs.version }}"
+          v="${{ steps.ver.outputs.version }}"
+          node apps/desktop/scripts/smoke-release-feed.mjs --origin https://releases.okvevo.com \
+            --yml "versions/$v/latest.yml" --yml "versions/$v/latest-mac.yml" --version "$v"
 
       - name: Flip live pointers
         env:
@@ -94,4 +92,6 @@ jobs:
       - name: Smoke public feed
         run: |
           set -euo pipefail
-          node apps/desktop/scripts/smoke-release-feed.mjs --origin https://releases.okvevo.com
+          v="${{ steps.ver.outputs.version }}"
+          node apps/desktop/scripts/smoke-release-feed.mjs --origin https://releases.okvevo.com --version "$v"
+          node apps/desktop/scripts/smoke-release-feed.mjs --origin https://releases.okvevo.com/okvevo/stable --version "$v"

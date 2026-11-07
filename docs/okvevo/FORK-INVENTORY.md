@@ -257,6 +257,7 @@ Grouped (path, status, count):
 | A | `apps/desktop/scripts/run-internal-builder.mjs` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | M | `apps/desktop/scripts/set-exe-identity.mjs` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | A | `apps/desktop/scripts/sign-windows.mjs` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
+| A | `apps/desktop/scripts/smoke-release-feed.mjs` | OkVevo desktop delta; re-apply on upstream desktop (commit 3). Restored in PR 1.5 |
 | A | `apps/desktop/scripts/smoke-release-feed.test.mjs` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | M | `apps/desktop/scripts/test-desktop.mjs` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | A | `apps/desktop/scripts/write-okvevo-pack-env.mjs` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |

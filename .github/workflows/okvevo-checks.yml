@@ -89,6 +89,7 @@ jobs:
             scripts/okvevo-feed-urls.test.mjs \
             scripts/ci-map-pack-env.test.mjs \
             scripts/publish-release-feed.test.mjs \
+            scripts/smoke-release-feed.test.mjs \
             e2e/okvevo/vendor-guard.unit.test.ts
           npx vitest run --project ui \
             src/plugins/hermes-bots/data.identity.test.ts \

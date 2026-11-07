@@ -154,6 +154,7 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/run-internal-builder.mjs`
 - `apps/desktop/scripts/set-exe-identity.mjs`
 - `apps/desktop/scripts/sign-windows.mjs`
+- `apps/desktop/scripts/smoke-release-feed.mjs`
 - `apps/desktop/scripts/smoke-release-feed.test.mjs`
 - `apps/desktop/scripts/test-desktop.mjs`
 - `apps/desktop/scripts/write-okvevo-pack-env.mjs`

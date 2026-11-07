@@ -1,8 +1,8 @@
 /**
  * Publish OkVevo artifacts to the generic electron-updater feed (S3/R2).
  *
- * Staging sync: prefix `okvevo/staging`, latest*.yml names, plus stable
- *   DMG/EXE names under that prefix.
+ * Staging sync: prefix `okvevo/staging`, installers and stable DMG/EXE names
+ *   first, an HTTPS sha512/size check, then latest*.yml last.
  * Production archive: versioned OkVevo-* + blockmaps at bucket root and
  *   versions/{ver}/latest*.yml. Root live pointers stay untouched.
  *   With --prefix okvevo/stable, the same objects plus latest*.yml and the
@@ -125,20 +125,44 @@ export function awsArgs(env = process.env) {
   return extra
 }
 
-function runAws(args, env = process.env) {
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+// ponytail: a retried `s3 cp` re-sends the whole file (~1.5 GB). Per-part retries
+// come from AWS_MAX_ATTEMPTS; upgrade to resumable s3api multipart if R2 timeouts get frequent.
+export function withRetries(fn, { attempts = 4, delayMs = 15000, sleep = sleepSync, retryable = () => true } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return fn()
+    } catch (err) {
+      if (attempt >= attempts || !retryable(err)) throw err
+      console.warn(`retry ${attempt}/${attempts - 1}: ${err instanceof Error ? err.message : err}`)
+      sleep(delayMs * attempt)
+    }
+  }
+}
+
+function runAwsOnce(args, env) {
   const result = spawnSync('aws', [...awsArgs(env), ...args], {
     encoding: 'utf8',
     env: {
       ...env,
       AWS_ACCESS_KEY_ID: env.AWS_ACCESS_KEY_ID || env.RELEASES_S3_ACCESS_KEY_ID,
       AWS_SECRET_ACCESS_KEY: env.AWS_SECRET_ACCESS_KEY || env.RELEASES_S3_SECRET_ACCESS_KEY,
-      AWS_DEFAULT_REGION: env.AWS_DEFAULT_REGION || 'auto'
+      AWS_DEFAULT_REGION: env.AWS_DEFAULT_REGION || 'auto',
+      AWS_RETRY_MODE: env.AWS_RETRY_MODE || 'standard',
+      AWS_MAX_ATTEMPTS: env.AWS_MAX_ATTEMPTS || '10'
     }
   })
   if (result.status !== 0) {
     throw new Error(`aws ${args.join(' ')} failed: ${result.stderr || result.stdout || result.status}`)
   }
   return result.stdout
+}
+
+function runAws(args, env = process.env) {
+  return withRetries(() => runAwsOnce(args, env), { retryable: err => !isMissingObjectError(err) })
 }
 
 export function s3Uri(bucket, key) {
@@ -368,14 +392,6 @@ export function archiveFeed({
     key: feedKey(prefix, `versions/${version}/${set.yml}`),
     extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
   })
-  cpLocalToS3({
-    aws,
-    env,
-    src: ymlPath,
-    bucket,
-    key: feedKey(prefix, set.yml),
-    extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
-  })
   const stableName = platform === 'mac' ? STABLE_MAC_NAME : STABLE_WIN_NAME
   const stableSrcName = platform === 'mac' ? artifactNameFor(version, 'mac-dmg') : artifactNameFor(version, 'win-nsis')
   cpLocalToS3({
@@ -386,9 +402,22 @@ export function archiveFeed({
     key: feedKey(prefix, stableName),
     extra: ['--cache-control', CACHE_CONTROL_NO_STORE]
   })
+  cpLocalToS3({
+    aws,
+    env,
+    src: ymlPath,
+    bucket,
+    key: feedKey(prefix, set.yml),
+    extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
+  })
 }
 
-export function assertYmlArtifacts(ymlText, readFile) {
+export function fileDigest(buf) {
+  return { sha512: sha512Base64(buf), size: buf.length }
+}
+
+/** `digestOf(name)` returns `{ sha512, size }` for an uploaded object, or null when it is missing. */
+export function assertYmlArtifacts(ymlText, digestOf, { requireBlockmaps = true } = {}) {
   const parsed = parseElectronBuilderYml(ymlText)
   if (!parsed.version) throw new Error('yml missing version')
   const listed = parsed.files.map(f => ({ ...f }))
@@ -400,19 +429,55 @@ export function assertYmlArtifacts(ymlText, readFile) {
   }
   if (!listed.length) throw new Error('yml has no files')
   for (const file of listed) {
-    const body = readFile(file.url)
-    if (body == null) throw new Error(`missing ${file.url}`)
-    if (file.sha512) {
-      const actual = sha512Base64(body)
-      if (actual !== file.sha512) throw new Error(`sha512 mismatch for ${file.url}`)
+    if (!path.posix.basename(file.url).includes(`-${parsed.version}-`)) {
+      throw new Error(`version mismatch: yml ${parsed.version} lists ${file.url}`)
+    }
+    const actual = digestOf(file.url)
+    if (actual == null) throw new Error(`missing ${file.url}`)
+    if (file.sha512 && actual.sha512 !== file.sha512) throw new Error(`sha512 mismatch for ${file.url}`)
+    if (file.size != null && actual.size !== file.size) {
+      throw new Error(`size mismatch for ${file.url}: yml ${file.size}, uploaded ${actual.size}`)
     }
     const blockmap = siblingBlockmapName(file.url)
-    if (blockmap) {
-      const bm = readFile(blockmap)
-      if (bm == null) throw new Error(`missing blockmap ${blockmap}`)
+    if (requireBlockmaps && blockmap && digestOf(blockmap) == null) {
+      throw new Error(`missing blockmap ${blockmap}`)
     }
   }
   return parsed
+}
+
+export function feedFileUrl(origin, fileUrl) {
+  const name = String(fileUrl || '')
+  if (/^https?:\/\//i.test(name)) return name
+  return `${String(origin).replace(/\/+$/, '')}/${name.replace(/^\/+/, '')}`
+}
+
+/** Streams the body so 1.5 GB installers never sit in memory. Null unless HTTP 200. */
+export async function fetchDigest(url, fetchImpl = globalThis.fetch) {
+  const res = await fetchImpl(url, { method: 'GET' })
+  if (!res || res.status !== 200) return null
+  const hash = createHash('sha512')
+  let size = 0
+  for await (const chunk of res.body) {
+    hash.update(chunk)
+    size += chunk.length
+  }
+  return { sha512: hash.digest('base64'), size }
+}
+
+/** Every file a yml lists must answer HTTP 200 at `origin` with the yml's sha512 and size. */
+export async function verifyYmlsOverHttp({ origin, ymlTexts, fetchImpl = globalThis.fetch, requireBlockmaps = true }) {
+  const digests = new Map()
+  const names = new Set()
+  for (const text of ymlTexts) {
+    const parsed = parseElectronBuilderYml(text)
+    for (const name of [...parsed.urls, ...parsed.files.map(f => f.url), parsed.path].filter(Boolean)) {
+      names.add(name)
+      if (requireBlockmaps && siblingBlockmapName(name)) names.add(siblingBlockmapName(name))
+    }
+  }
+  for (const name of names) digests.set(name, await fetchDigest(feedFileUrl(origin, name), fetchImpl))
+  return ymlTexts.map(text => assertYmlArtifacts(text, name => digests.get(name) ?? null, { requireBlockmaps }))
 }
 
 function objectToBuffer({ bucket, key, aws, env, tmpDir }) {
@@ -439,7 +504,10 @@ export function verifyArchivedVersion({
 }) {
   const ownedTmp = tmpDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nia-verify-'))
   try {
-    const readFile = name => tryObjectToBuffer({ bucket, key: name, aws, env, tmpDir: ownedTmp })
+    const readFile = name => {
+      const buf = tryObjectToBuffer({ bucket, key: name, aws, env, tmpDir: ownedTmp })
+      return buf == null ? null : fileDigest(buf)
+    }
     const parsed = []
     for (const name of ['latest.yml', 'latest-mac.yml']) {
       const key = `versions/${version}/${name}`
@@ -654,37 +722,26 @@ export function publishPointers({
   }
 }
 
-export function syncFeed({
+/**
+ * Installers first, then prove them over public HTTP against the local yml,
+ * then latest*.yml last, so a failed upload never leaves the feed pointing at a
+ * missing or partial file.
+ */
+export async function syncFeed({
   feedDir,
   bucket,
   prefix = '',
   mode,
   env = process.env,
-  aws = runAws
+  aws = runAws,
+  fetchImpl = globalThis.fetch
 }) {
   if (mode !== 'staging') {
     throw new Error(`syncFeed mode must be staging, got ${mode}`)
   }
 
-  const destPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : ''
-  aws(
-    [
-      's3',
-      'sync',
-      feedDir,
-      s3Uri(bucket, destPrefix),
-      '--exclude',
-      '*',
-      '--include',
-      'OkVevo-*',
-      '--include',
-      'latest*.yml'
-    ],
-    env
-  )
-
-  const macYml = fs.readFileSync(path.join(feedDir, 'latest-mac.yml'), 'utf8')
-  const winYml = fs.readFileSync(path.join(feedDir, 'latest.yml'), 'utf8')
+  const ymlNames = ['latest-mac.yml', 'latest.yml']
+  const [macYml, winYml] = ymlNames.map(name => fs.readFileSync(path.join(feedDir, name), 'utf8'))
   const mac = parseElectronBuilderYml(macYml)
   const win = parseElectronBuilderYml(winYml)
   if (!mac.version || !win.version) {
@@ -695,17 +752,45 @@ export function syncFeed({
   }
   const macDmg = artifactNameFor(mac.version, 'mac-dmg')
   const winExe = artifactNameFor(win.version, 'win-nsis')
+  for (const name of [macDmg, winExe]) {
+    if (!fs.existsSync(path.join(feedDir, name))) {
+      throw new Error(`Missing ${name} in ${feedDir}`)
+    }
+  }
+
+  const destPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : ''
+  aws(['s3', 'sync', feedDir, s3Uri(bucket, destPrefix), '--exclude', '*', '--include', 'OkVevo-*'], env)
   // Local→S3 (not S3→S3): R2 rejects GetObjectTagging on server-side copy.
   for (const [srcName, destName] of [
     [macDmg, STABLE_MAC_NAME],
     [winExe, STABLE_WIN_NAME]
   ]) {
-    const src = path.join(feedDir, srcName)
-    if (!fs.existsSync(src)) {
-      throw new Error(`Missing ${srcName} in ${feedDir}`)
-    }
     aws(
-      ['s3', 'cp', src, s3Uri(bucket, `${destPrefix}${destName}`), '--cache-control', 'public,max-age=300'],
+      ['s3', 'cp', path.join(feedDir, srcName), s3Uri(bucket, `${destPrefix}${destName}`), '--cache-control', 'public,max-age=300'],
+      env
+    )
+  }
+
+  // Staging artifacts carry no blockmaps; the updater falls back to a full download.
+  await verifyYmlsOverHttp({
+    origin: `${publicFeedOrigin(env)}/${destPrefix}`,
+    ymlTexts: [macYml, winYml],
+    fetchImpl,
+    requireBlockmaps: false
+  })
+
+  for (const name of ymlNames) {
+    aws(
+      [
+        's3',
+        'cp',
+        path.join(feedDir, name),
+        s3Uri(bucket, `${destPrefix}${name}`),
+        '--content-type',
+        'text/yaml',
+        '--cache-control',
+        CACHE_CONTROL_NO_STORE
+      ],
       env
     )
   }
@@ -735,7 +820,7 @@ if (isMain) {
     process.exit(1)
   }
   if (cmd === 'sync') {
-    syncFeed({
+    await syncFeed({
       feedDir: flag('--dir', process.argv) || 'feed',
       bucket,
       prefix: flag('--prefix', process.argv) || '',

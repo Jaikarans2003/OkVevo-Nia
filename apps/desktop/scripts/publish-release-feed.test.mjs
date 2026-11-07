@@ -16,6 +16,7 @@ import {
   archiveFeed,
   artifactNameFor,
   writeUpdaterYml,
+  isMissingObjectError,
   isPublishedVersion,
   loadCatalog,
   parseElectronBuilderYml,
@@ -26,7 +27,8 @@ import {
   siblingBlockmapName,
   syncFeed,
   upsertReleasesJson,
-  verifyArchivedVersion
+  verifyArchivedVersion,
+  withRetries
 } from './publish-release-feed.mjs'
 
 function keyFromS3(uri) {
@@ -167,38 +169,62 @@ test('writeUpdaterYml builds electron-updater files from packed artifacts', () =
   assert.equal(win.files[0].size, exe.length)
 })
 
-test('staging sync keeps latest yml names under prefix and copies stable names', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nia-feed-'))
-  fs.writeFileSync(path.join(dir, 'latest-mac.yml'), 'version: 0.17.8\npath: OkVevo-0.17.8-mac-arm64.zip\n')
-  fs.writeFileSync(path.join(dir, 'latest.yml'), 'version: 0.17.8\npath: OkVevo-0.17.8-win-x64.exe\n')
-  fs.writeFileSync(path.join(dir, 'OkVevo-0.17.8-mac-arm64.dmg'), 'x')
-  fs.writeFileSync(path.join(dir, 'OkVevo-0.17.8-win-x64.exe'), 'x')
-  const calls = []
-  syncFeed({
-    feedDir: dir,
-    bucket: 'releases',
-    prefix: 'staging',
-    mode: 'staging',
-    aws: args => {
-      calls.push(args)
+async function runStagingSync({ serve = (key, body) => body } = {}) {
+  const version = '0.17.8'
+  const dir = writePlatformDir(version, 'both')
+  const store = {}
+  const events = []
+  const memory = createMemoryAws(store)
+  const aws = args => {
+    if (args[1] === 'sync') {
+      assert.ok(!args.includes('latest*.yml'))
+      const prefix = keyFromS3(args[3])
+      for (const name of fs.readdirSync(dir).filter(n => n.startsWith('OkVevo-'))) {
+        store[prefix + name] = fs.readFileSync(path.join(dir, name))
+      }
+      events.push('sync')
       return ''
     }
-  })
-  assert.ok(calls[0].includes('s3://releases/staging/'))
-  assert.ok(calls[0].includes('latest*.yml'))
-  assert.ok(!calls[0].includes('internal.yml'))
-  assert.ok(
-    calls.some(
-      a =>
-        a.includes(path.join(dir, 'OkVevo-0.17.8-mac-arm64.dmg')) &&
-        a.includes(`s3://releases/staging/${STABLE_MAC_NAME}`)
-    )
-  )
-  fs.rmSync(dir, { recursive: true, force: true })
+    events.push(destArg(args))
+    return memory(args)
+  }
+  const fetchImpl = async url => {
+    events.push(`GET ${url}`)
+    const key = url.replace('https://releases.okvevo.com/', '')
+    const body = store[key] && serve(key, Buffer.from(store[key]))
+    return body ? { status: 200, body: [body] } : { status: 404, body: [] }
+  }
+  try {
+    await syncFeed({ feedDir: dir, bucket: 'releases', prefix: 'okvevo/staging', mode: 'staging', aws, fetchImpl, env: {} })
+    return { version, store, events }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+test('staging sync uploads installers, proves them over HTTP, then latest*.yml last', async () => {
+  const { version, store, events } = await runStagingSync()
+  const firstGet = events.findIndex(e => String(e).startsWith('GET '))
+  assert.ok(events.indexOf('sync') < firstGet)
+  assert.ok(events.indexOf(`okvevo/staging/${STABLE_MAC_NAME}`) < firstGet)
+  assert.ok(events.indexOf(`okvevo/staging/${STABLE_WIN_NAME}`) < firstGet)
+  assert.ok(events.includes(`GET https://releases.okvevo.com/okvevo/staging/OkVevo-${version}-win-x64.exe`))
+  assert.ok(firstGet < events.indexOf('okvevo/staging/latest-mac.yml'))
+  assert.ok(firstGet < events.indexOf('okvevo/staging/latest.yml'))
+  assert.match(store['okvevo/staging/latest.yml'].toString(), new RegExp(`version: ${version}`))
 })
 
-test('syncFeed rejects production-internal', () => {
-  assert.throws(
+test('staging sync never uploads latest*.yml when an uploaded installer does not match it', async () => {
+  const exe = 'okvevo/staging/OkVevo-0.17.8-win-x64.exe'
+  await assert.rejects(
+    () => runStagingSync({ serve: (key, body) => (key === exe ? body.subarray(1) : body) }),
+    /sha512 mismatch for OkVevo-0\.17\.8-win-x64\.exe/
+  )
+  await assert.rejects(() => runStagingSync({ serve: (key, body) => (key === exe ? null : body) }), /missing OkVevo-0\.17\.8-win-x64\.exe/)
+})
+
+test('syncFeed rejects production-internal', async () => {
+  await assert.rejects(
     () =>
       syncFeed({
         feedDir: '.',
@@ -208,6 +234,34 @@ test('syncFeed rejects production-internal', () => {
       }),
     /must be staging/
   )
+})
+
+test('withRetries retries a transient R2 timeout but not a missing object', () => {
+  let calls = 0
+  const sleeps = []
+  const out = withRetries(
+    () => {
+      if (++calls < 3) throw new Error('AWS_ERROR_HTTP_RESPONSE_FIRST_BYTE_TIMEOUT')
+      return 'ok'
+    },
+    { delayMs: 1, sleep: ms => sleeps.push(ms) }
+  )
+  assert.equal(out, 'ok')
+  assert.deepEqual(sleeps, [1, 2])
+  assert.throws(() => withRetries(() => { throw new Error('timeout') }, { attempts: 2, sleep: () => {} }), /timeout/)
+  let missing = 0
+  assert.throws(
+    () =>
+      withRetries(
+        () => {
+          missing++
+          throw new Error('NoSuchKey')
+        },
+        { sleep: () => {}, retryable: err => !isMissingObjectError(err) }
+      ),
+    /NoSuchKey/
+  )
+  assert.equal(missing, 1)
 })
 
 test('archiveFeed uploads binaries/blockmaps immutable and yml under versions/{ver}/, not root latest', () => {
@@ -474,14 +528,20 @@ test('archiveFeed prefix writes okvevo/stable live yml and installers without ro
   const version = '0.17.15'
   const dir = writePlatformDir(version, 'mac')
   const store = {}
+  const memory = createMemoryAws(store)
+  const dests = []
   archiveFeed({
     feedDir: dir,
     bucket: 'releases',
     platform: 'mac',
     version,
     prefix: 'okvevo/stable',
-    aws: createMemoryAws(store)
+    aws: args => {
+      dests.push(destArg(args))
+      return memory(args)
+    }
   })
+  assert.equal(dests.at(-1), 'okvevo/stable/latest-mac.yml')
   assert.equal(store['latest-mac.yml'], undefined)
   assert.ok(store[`OkVevo-${version}-mac-arm64.dmg`])
   assert.ok(store[`okvevo/stable/OkVevo-${version}-mac-arm64.dmg`])
