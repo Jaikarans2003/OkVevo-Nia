@@ -681,6 +681,28 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | On a packed staging build, the updater log shows a 200 on the staging `latest-mac.yml`; no `stable-mac.yml` request. |
 | **Notes** | Logged 2026-11-03 from PR 1.3 side findings (Karan: "that's PR 2 item 10"). Related to the unsigned-update rows under Hard gates. |
 
+### [x] Staging upload publishes `latest*.yml` before the installers
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix |
+| **Risk if skipped** | One `aws s3 sync` uploads installers and `latest*.yml` together, so a mid-upload failure can leave the feed pointing at a missing file. Seen 2026-11-04, [run 41846180430](https://github.com/Jaikarans2003/OkVevo-Nia/actions/runs/41846180430) attempt 1: `AWS_ERROR_HTTP_RESPONSE_FIRST_BYTE_TIMEOUT` on the 1.5 GB DMG left `latest-mac.yml` at 0.0.14 with `OkVevo-0.0.14-mac-arm64.dmg` 404 and the stable DMG/EXE still on 0.0.13. Low impact that time (the Mac updater uses the `.zip`, which had uploaded); a re-run of the failed job healed it. |
+| **Scope** | `apps/desktop/scripts/publish-release-feed.mjs` (`syncFeed`, `runAws`, `assertYmlArtifacts`), `apps/desktop/scripts/smoke-release-feed.mjs`, `.github/workflows/okvevo-desktop-pack.yml` "Upload signed feed", `.github/workflows/okvevo-desktop-publish.yml`. |
+| **Fix** | `syncFeed` uploads `OkVevo-*` and the stable names first, GETs every installer the yml lists from `https://releases.okvevo.com/<prefix>/` (must be HTTP 200 with the yml's sha512 and size), and only then uploads `latest*.yml`. Every `aws` call retries up to 4 times with backoff (missing-object reads excepted); `AWS_RETRY_MODE=standard` / `AWS_MAX_ATTEMPTS=10` retry multipart parts. `assertYmlArtifacts` now checks size and that each file name carries the yml version. Publish release checks the archived installers over HTTPS before flipping, then smokes root and `okvevo/stable` with `--version`. `smoke-release-feed.mjs` was missing on `staging` (only its test survived the reset) and is restored. |
+| **Verify** | `cd apps/desktop && npx vitest run --project electron scripts/publish-release-feed.test.mjs scripts/smoke-release-feed.test.mjs`; on a green staging run the `last-modified` of `okvevo/staging/latest-mac.yml` is after both installers. |
+| **Notes** | Logged 2026-11-04 during the PR 1.3 staging publish. Closed 2026-11-08 by PR 1.5: [OkVevo-Nia #75](https://github.com/Jaikarans2003/OkVevo-Nia/pull/75). |
+
+### [ ] Tag pack writes the live `okvevo/stable/latest*.yml` before Publish release
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | Production apps read `https://releases.okvevo.com/okvevo/stable`. `archiveFeed --prefix okvevo/stable` (run by each OS job on a `v*` tag) writes that live yml, so pushing a tag updates customers without the Publish release approval, and per platform (Mac can go live while the Windows job fails). |
+| **Scope** | `apps/desktop/scripts/publish-release-feed.mjs` `archiveFeed` prefix block; `.github/workflows/okvevo-desktop-production.yml` `feed_prefix: okvevo/stable`. |
+| **Fix** | Decide with Karan: drop the prefix live yml + stable-name writes from `archiveFeed` so only `publishPointers` (Publish release) writes `okvevo/stable/latest*.yml`, after an HTTPS check of the prefix installers. |
+| **Verify** | After a tag pack, `curl -s https://releases.okvevo.com/okvevo/stable/latest-mac.yml` still shows the previous version until Publish release runs. |
+| **Notes** | Found 2026-11-08 during PR 1.5. PR 1.5 only moved the prefix yml to be `archiveFeed`'s last write. Introduced in `464c6f8007` (2026-10-24). |
+
 ### [ ] PR 2: `@okvevo` display alias for the default bot handle
 
 | Field | Value |
@@ -698,6 +720,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| Staging upload publishes `latest*.yml` before the installers | 2026-11-08 | Installers first, HTTPS sha512/size check, `latest*.yml` last; R2 uploads retry; Publish release checks installers before the flip and smokes with `--version`. PR: [OkVevo-Nia #75](https://github.com/Jaikarans2003/OkVevo-Nia/pull/75). Verify: `npx vitest run --project electron scripts/publish-release-feed.test.mjs scripts/smoke-release-feed.test.mjs`. |
 | Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: [OkVevo-Nia #70](https://github.com/Jaikarans2003/OkVevo-Nia/pull/70). Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |
 
 | Drama target file type the endpoint cannot return (G3 job 3) | 2026-10-13 | `portal_request_body` refuses unsupported target suffixes before quote/hold. PR: [OkVevo-Nia #53](https://github.com/Jaikarans2003/OkVevo-Nia/pull/53). Verify: `pytest tests/skills/test_drama_fal_contract.py -k "job3 or unsupported"`. |

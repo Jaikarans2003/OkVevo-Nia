@@ -7,15 +7,10 @@ import { feedFileUrl, smokeReleaseFeed } from './smoke-release-feed.mjs'
 function mockFetch(map) {
   return async url => {
     const entry = map[url]
-    if (!entry) return { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) }
-    return {
-      ok: (entry.status ?? 200) === 200,
-      status: entry.status ?? 200,
-      arrayBuffer: async () => {
-        const buf = Buffer.isBuffer(entry.body) ? entry.body : Buffer.from(String(entry.body))
-        return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
-      }
-    }
+    if (!entry) return { ok: false, status: 404, body: [], text: async () => '' }
+    const buf = Buffer.isBuffer(entry.body) ? entry.body : Buffer.from(String(entry.body))
+    const status = entry.status ?? 200
+    return { ok: status === 200, status, body: [buf], text: async () => buf.toString('utf8') }
   }
 }
 
@@ -62,6 +57,23 @@ test('smokeReleaseFeed checks latest yml, files sha512, and sibling blockmaps', 
   }
   const result = await smokeReleaseFeed({ origin, fetchImpl: mockFetch(map) })
   assert.deepEqual(result.versions, ['0.17.15', '0.17.15'])
+  await smokeReleaseFeed({ origin, expectVersion: '0.17.15', fetchImpl: mockFetch(map) })
+  await assert.rejects(
+    () => smokeReleaseFeed({ origin, expectVersion: '0.17.16', fetchImpl: mockFetch(map) }),
+    /feed version 0\.17\.15 != expected 0\.17\.16/
+  )
+
+  const truncated = { ...map, [`${origin}/OkVevo-0.17.15-win-x64.exe`]: { body: exe.subarray(1) } }
+  await assert.rejects(() => smokeReleaseFeed({ origin, fetchImpl: mockFetch(truncated) }), /sha512 mismatch/)
+
+  const wrongSize = { ...map, [`${origin}/latest.yml`]: { body: winYml.replace(`size: ${exe.length}`, 'size: 1') } }
+  await assert.rejects(() => smokeReleaseFeed({ origin, fetchImpl: mockFetch(wrongSize) }), /size mismatch/)
+
+  const wrongVersion = { ...map, [`${origin}/latest.yml`]: { body: winYml.replace('version: 0.17.15', 'version: 0.17.16') } }
+  await assert.rejects(() => smokeReleaseFeed({ origin, fetchImpl: mockFetch(wrongVersion) }), /version mismatch/)
+
+  const notLive = { ...map, [`${origin}/OkVevo-0.17.15-win-x64.exe`]: { body: exe, status: 403 } }
+  await assert.rejects(() => smokeReleaseFeed({ origin, fetchImpl: mockFetch(notLive) }), /missing OkVevo-0\.17\.15-win-x64\.exe/)
 })
 
 test('smokeReleaseFeed fails on sha512 mismatch', async () => {
