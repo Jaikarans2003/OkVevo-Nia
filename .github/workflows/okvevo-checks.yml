@@ -106,4 +106,5 @@ jobs:
             src/lib/provider-branding.test.ts \
             src/app/shell/model-catalog-menu.test.tsx \
             src/plugins/hermes-bots/model-picker.test.tsx \
-            src/components/assistant-ui/thread/assistant-message.test.tsx
+            src/components/assistant-ui/thread/assistant-message.test.tsx \
+            src/plugins/hermes-bots/okvevo-default-agent-label.test.ts

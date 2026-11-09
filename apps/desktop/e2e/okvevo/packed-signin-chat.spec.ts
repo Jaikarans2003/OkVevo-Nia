@@ -95,12 +95,14 @@ function callWith(calls: ChatCall[], text: string): ChatCall | undefined {
 
 const IDENTITY = 'You are OkVevo agent, made by OkVevo.'
 
-// What the gateway sent: the OkVevo identity, never upstream's Hermes help guidance.
-function expectOkvevoIdentity(call: ChatCall | undefined, what: string) {
-  const sent = JSON.stringify(call?.messages ?? [])
+// What the gateway sent for the turn carrying `text`: the OkVevo identity, never upstream's Hermes
+// help guidance. Auxiliary calls (title generation) carry the same text without the agent prompt and
+// race the turn, so match any call, not the first.
+function expectOkvevoIdentity(calls: ChatCall[], text: string, what: string) {
+  const sent = calls.map(call => JSON.stringify(call.messages ?? [])).filter(body => body.includes(text))
 
-  expect(sent, `${what}: OkVevo identity missing from the system prompt`).toContain(IDENTITY)
-  expect(sent, `${what}: upstream help guidance leaked`).not.toContain('hermes-agent.nousresearch.com')
+  expect(sent.some(body => body.includes(IDENTITY)), `${what}: no call carried the OkVevo identity`).toBe(true)
+  expect(sent.some(body => body.includes('hermes-agent.nousresearch.com')), `${what}: upstream help guidance leaked`).toBe(false)
 }
 
 // Same Bots selectors as upstream's e2e/group-room-native.spec.ts.
@@ -317,7 +319,7 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     const call = callWith(mock.calls, 'ping after sign in')
     expect(call, 'no gateway call carried the first-chat message').toBeTruthy()
     expect(call!.authorization || '').toContain(token)
-    expectOkvevoIdentity(call, 'default bot first chat')
+    expectOkvevoIdentity(mock.calls, 'ping after sign in', 'default bot first chat')
     await expect(page.getByText('No usable credentials found')).toHaveCount(0)
     // v0.23.0 re-asks shared metrics unless offer_version is set; public builds never offer Nous.
     await expect(page.getByText('Share with Nous')).toHaveCount(0)
@@ -341,6 +343,8 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     // identity rides the OkVevo help guidance in every prompt.
     const bots: Array<[string, string]> = [['scout', 'Scout'], ['critic', 'Critic']]
     await openBots(page)
+    // default_agent_label is off: v0.23.0's own roster must already read "OkVevo agent", not "default".
+    await expect(page.getByRole('button', { name: /^OkVevo agent\b/ }).first()).toBeVisible({ timeout: 60_000 })
 
     for (const [name, title] of bots) {
       await createBot(page, name, title)
@@ -348,9 +352,9 @@ test('packed app signs in then chats on the default bot on one launch', async ()
       await expect
         .poll(() => fs.existsSync(config) && /provider:\s*okvevo/.test(fs.readFileSync(config, 'utf8')), { timeout: 60_000, message: `${name} config.yaml is not provisioned for OkVevo` })
         .toBe(true)
-      const own = () => callWith(mock.calls, `**Role:** ${title}`)
-      await expect.poll(() => Boolean(own()), { timeout: 120_000, message: `${name} never took its own turn` }).toBe(true)
-      expectOkvevoIdentity(own(), `${name} first turn`)
+      const role = `**Role:** ${title}`
+      await expect.poll(() => Boolean(callWith(mock.calls, role)), { timeout: 120_000, message: `${name} never took its own turn` }).toBe(true)
+      expectOkvevoIdentity(mock.calls, role, `${name} first turn`)
     }
 
     await createGroup(page, bots.map(([, title]) => title), 'Critic, Scout')
@@ -363,9 +367,9 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     }).toPass({ timeout: 150_000 })
 
     for (const [name] of bots) {
-      const turn = () => callWith(mock.calls, `You are @${name}`)
-      await expect.poll(() => Boolean(turn()), { timeout: 120_000, message: `@${name} never took a group turn` }).toBe(true)
-      expectOkvevoIdentity(turn(), `@${name} group turn`)
+      const handle = `You are @${name}`
+      await expect.poll(() => Boolean(callWith(mock.calls, handle)), { timeout: 120_000, message: `@${name} never took a group turn` }).toBe(true)
+      expectOkvevoIdentity(mock.calls, handle, `@${name} group turn`)
     }
 
     await shot(page, 'signin-group-chat.png')
