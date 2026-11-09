@@ -11,7 +11,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { en } from '@/i18n/en'
 import type { ErrorCardCopy } from '@/i18n/types'
+import { $touchPointer } from '@/lib/touch-interaction'
 import { $displayTimestamps } from '@/store/display-timestamps'
+import { $activeSessionId } from '@/store/session'
+import { type SessionTileDelegate, setSessionTileDelegate } from '@/store/session-states'
 import { $toolViewMode } from '@/store/tool-view'
 
 import { stubThreadEnvironment } from '../test-utils'
@@ -23,9 +26,19 @@ import { Thread } from '.'
 const requestFreshSession = vi.hoisted(() => vi.fn())
 const startManualProviderOAuth = vi.hoisted(() => vi.fn())
 const requestModelMenuToggle = vi.hoisted(() => vi.fn<() => boolean>(() => true))
+const requestComposerSubmit = vi.hoisted(() => vi.fn<(text: string, options?: unknown) => boolean>(() => true))
+const requestComposerInsert = vi.hoisted(() => vi.fn())
+const openExternalLink = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/external-link', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  openExternalLink: (href: string) => openExternalLink(href)
+}))
 
 vi.mock('@/app/chat/composer/focus', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
+  requestComposerInsert: (text: string, options?: unknown) => requestComposerInsert(text, options),
+  requestComposerSubmit: (text: string, options?: unknown) => requestComposerSubmit(text, options),
   requestModelMenuToggle: () => requestModelMenuToggle()
 }))
 
@@ -49,7 +62,9 @@ vi.mock('@/lib/build-channel', () => ({
 $displayTimestamps.set(true)
 
 // Resolve error-card copy from the catalog so wording edits don't break the behavior assertions.
-const copy = (value: ErrorCardCopy['title'], provider = '') => (typeof value === 'function' ? value(provider) : value)
+const copy = (value: ErrorCardCopy['title'], provider = '') =>
+  typeof value === 'function' ? value(provider, '') : value
+
 const codes = en.assistant.thread.errorCodes
 
 const createdAt = new Date('2026-05-01T00:00:00.000Z')
@@ -61,6 +76,9 @@ afterEach(() => {
   requestFreshSession.mockClear()
   startManualProviderOAuth.mockClear()
   requestModelMenuToggle.mockReset().mockReturnValue(true)
+  $displayTimestamps.set(true)
+  $touchPointer.set(false)
+  vi.unstubAllGlobals()
 })
 
 beforeEach(() => {
@@ -137,25 +155,6 @@ function ownershipRefusalMessage(): ThreadMessage {
   } as unknown as ThreadMessage
 }
 
-function assistantErrorMessage(): ThreadMessage {
-  return {
-    id: 'assistant-error-1',
-    role: 'assistant',
-    content: [],
-    status: { type: 'incomplete', reason: 'error', error: 'Provider rejected the request.' },
-    createdAt,
-    metadata: {
-      unstable_state: null,
-      unstable_annotations: [],
-      unstable_data: [],
-      steps: [],
-      custom: {
-        errorSurface: { layer: 'provider', retryable: true }
-      }
-    }
-  } as unknown as ThreadMessage
-}
-
 function oauthExpiredMessage(): ThreadMessage {
   return {
     id: 'assistant-error-2',
@@ -211,32 +210,120 @@ function LocationProbe() {
 function Harness({
   assistant = assistantMessage(),
   onBranchInNewChat,
+  onCancel,
+  onDismissError,
+  onRestoreToMessage,
   onReload,
-  probe = false
+  isRunning = false,
+  isDisabled = false
 }: {
   assistant?: ThreadMessage
   onBranchInNewChat?: (messageId: string) => void
+  onCancel?: () => void
+  onDismissError?: (messageId: string) => void
+  onRestoreToMessage?: (messageId: string) => void
   onReload?: () => Promise<void>
-  probe?: boolean
+  isRunning?: boolean
+  isDisabled?: boolean
 }) {
   const runtime = useExternalStoreRuntime<ThreadMessage>({
     messages: [userMessage(), assistant],
-    isRunning: false,
+    isRunning,
+    isDisabled,
     onNew: async () => {},
     ...(onReload ? { onReload } : {})
   })
 
   return (
-    <MemoryRouter>
-      {probe ? <LocationProbe /> : null}
-      <AssistantRuntimeProvider runtime={runtime}>
-        <Thread onBranchInNewChat={onBranchInNewChat} />
-      </AssistantRuntimeProvider>
-    </MemoryRouter>
+    <AssistantRuntimeProvider runtime={runtime}>
+      <Thread
+        onBranchInNewChat={onBranchInNewChat}
+        onCancel={onCancel}
+        onDismissError={onDismissError}
+        onRestoreToMessage={onRestoreToMessage}
+      />
+    </AssistantRuntimeProvider>
   )
 }
 
+describe('merged hover timestamps and touch actions', () => {
+  it('shows both hover times without Stop or Restore and suppresses them with timeline timestamps', async () => {
+    $displayTimestamps.set(false)
+    const { container } = render(<Harness />)
+    await screen.findByText('done')
+
+    const hoverTimes = Array.from(container.querySelectorAll('time'))
+
+    expect(hoverTimes.map(time => time.dateTime)).toEqual([
+      createdAt.toISOString(),
+      new Date(completedAt * 1000).toISOString()
+    ])
+    expect(container.querySelector('.aui-message-actions-desktop time')).toBeTruthy()
+
+    act(() => $displayTimestamps.set(true))
+    expect(hoverTimes.every(time => !time.isConnected)).toBe(true)
+    expect(container.querySelector('[data-slot="timeline-timestamp"]')).toBeTruthy()
+  })
+
+  it('mounts the touch More menu only while the pointer is coarse', async () => {
+    render(<Harness />)
+    await screen.findByText('done')
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull()
+
+    act(() => $touchPointer.set(true))
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeTruthy()
+  })
+
+  it.each([true, false])('keeps the touch Stop/Restore action correct while running=%s', async isRunning => {
+    $touchPointer.set(true)
+    $displayTimestamps.set(false)
+    const onCancel = vi.fn()
+    const onRestoreToMessage = vi.fn()
+    render(<Harness isRunning={isRunning} onCancel={onCancel} onRestoreToMessage={onRestoreToMessage} />)
+
+    const action = await screen.findByRole('button', {
+      name: isRunning ? en.assistant.thread.stop : en.assistant.thread.restoreCheckpoint
+    })
+
+    expect(action.parentElement?.querySelector('time')).toBeNull()
+    fireEvent.click(action)
+
+    if (isRunning) {
+      expect(onCancel).toHaveBeenCalledTimes(1)
+      expect(onRestoreToMessage).not.toHaveBeenCalled()
+    } else {
+      expect(await screen.findByRole('dialog')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: en.assistant.thread.restoreConfirm }))
+      expect(onRestoreToMessage).toHaveBeenCalledWith('user-1', expect.objectContaining({ text: 'question one' }))
+      expect(onCancel).not.toHaveBeenCalled()
+    }
+  })
+})
+
 describe('AssistantMessage branch button visibility (bug #2 fix)', () => {
+  it('reloads once from either desktop or touch Refresh', async () => {
+    $touchPointer.set(true)
+    const onReload = vi.fn(async () => {})
+    render(<Harness onReload={onReload} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Refresh' }))
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1))
+    onReload.mockClear()
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }), { button: 0, pointerType: 'touch' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Refresh' }))
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1))
+  })
+
+  it.each([{ isRunning: true }, { isDisabled: true }])('guards both Refresh surfaces with %j', async state => {
+    $touchPointer.set(true)
+    const onReload = vi.fn(async () => {})
+    render(<Harness onReload={onReload} {...state} />)
+    expect((await screen.findByRole('button', { name: 'Refresh' })).hasAttribute('disabled')).toBe(true)
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }), { button: 0, pointerType: 'touch' })
+    const refresh = await screen.findByRole('menuitem', { name: 'Refresh' })
+    expect(refresh.getAttribute('aria-disabled')).toBe('true')
+    fireEvent.click(refresh)
+    expect(onReload).not.toHaveBeenCalled()
+  })
   it('shows the Branch in new chat button when a handler is provided (open chat)', async () => {
     render(<Harness onBranchInNewChat={() => undefined} />)
 
@@ -252,6 +339,20 @@ describe('AssistantMessage branch button visibility (bug #2 fix)', () => {
     await screen.findByText('done')
 
     expect(screen.queryByRole('button', { name: 'Branch in new chat' })).toBeNull()
+  })
+
+  it('reaches Branch in new chat from the touch More menu', async () => {
+    $touchPointer.set(true)
+    render(<Harness onBranchInNewChat={() => undefined} />)
+
+    await screen.findByText('done')
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }), {
+      button: 0,
+      pointerType: 'touch'
+    })
+
+    expect(await screen.findByRole('menuitem', { name: 'Branch in new chat' })).toBeTruthy()
   })
 })
 
@@ -287,9 +388,11 @@ describe('ownership refusal recovery (#106217)', () => {
     render(<Harness assistant={ownershipRefusalMessage()} />)
 
     // The raw refusal ("live owner", "pid", "lease") is kept only inside the
-    // collapsed Details disclosure, never as the headline.
+    // collapsed details block, never as the headline.
     const raw = await screen.findByText(/already has a live owner/)
-    expect(raw.closest('details')).not.toBeNull()
+    const details = raw.closest<HTMLElement>('[data-slot="aui_error-details"]')
+    expect(details).not.toBeNull()
+    expect(details!.hidden).toBe(true)
   })
 })
 
@@ -306,13 +409,13 @@ describe('code-keyed error card copy and actions', () => {
       />
     )
 
-    expect(await screen.findByText(copy(codes.content_policy_blocked.title))).toBeTruthy()
+    expect(await screen.findByText(copy(codes.content_policy_blocked.title, 'openai'))).toBeTruthy()
 
     // The user bubble itself is also labelled "Edit message"; assert on the
     // card's own action button.
     const editActions = screen
       .getAllByRole('button', { name: 'Edit message' })
-      .filter(button => button.classList.contains('aui-error-action'))
+      .filter(button => button.classList.contains('aui-error-btn'))
 
     expect(editActions).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
@@ -329,7 +432,7 @@ describe('code-keyed error card copy and actions', () => {
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
     // The raw HTTP body is not the lead sentence.
     expect(screen.getByText(copy(codes.model_not_found.title))).toBeTruthy()
-    expect(screen.getByText(/HTTP 400/).closest('details')).not.toBeNull()
+    expect(screen.getByText(/HTTP 400/).closest('[data-slot="aui_error-details"]')).not.toBeNull()
   })
 
   it('offers Compress conversation and Start new session for a context overflow', async () => {
@@ -337,7 +440,7 @@ describe('code-keyed error card copy and actions', () => {
 
     expect(await screen.findByText(copy(codes.context_overflow.title))).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Compress conversation' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Start new session' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.assistant.thread.errorStartNewChatLink })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
 
@@ -351,7 +454,7 @@ describe('code-keyed error card copy and actions', () => {
       />
     )
 
-    expect(await screen.findByText(copy(codes.rate_limit.title))).toBeTruthy()
+    expect(await screen.findByText(copy(codes.rate_limit.title, 'openai'))).toBeTruthy()
     expect(screen.getByText(copy(codes.rate_limit.body, 'openai'))).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
   })
@@ -366,6 +469,149 @@ describe('code-keyed error card copy and actions', () => {
 
     expect(await screen.findByText(/couldn't finish this reply/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+  })
+})
+
+describe('error card layout (Error System Overhaul)', () => {
+  const rateLimited = () =>
+    failedMessage({ code: 'rate_limit', layer: 'provider', provider: 'openai', retryable: true }, 'HTTP 429: slow down')
+
+  it('reveals the raw error from the details toggle and hides it again', async () => {
+    render(<Harness assistant={rateLimited()} />)
+
+    const toggle = await screen.findByRole('button', { name: en.assistant.thread.errorDetails })
+    const details = screen.getByText('HTTP 429: slow down').closest<HTMLElement>('[data-slot="aui_error-details"]')!
+
+    expect(details.hidden).toBe(true)
+    expect(toggle.getAttribute('aria-controls')).toBe(details.id)
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.click(toggle)
+    expect(details.hidden).toBe(false)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(toggle.textContent).toBe(en.assistant.thread.errorHideDetails)
+
+    fireEvent.click(toggle)
+    expect(details.hidden).toBe(true)
+  })
+
+  it('lets the user close a degraded card but not a blocking one', async () => {
+    const onDismissError = vi.fn()
+    const view = render(<Harness assistant={rateLimited()} onDismissError={onDismissError} />)
+
+    const card = await screen.findByRole('alert')
+    expect(card.dataset.severity).toBe('degraded')
+    fireEvent.click(screen.getByRole('button', { name: en.assistant.thread.dismissError }))
+    expect(onDismissError).toHaveBeenCalledWith('assistant-error-3')
+    view.unmount()
+
+    render(
+      <Harness
+        assistant={failedMessage({ code: 'model_not_found', layer: 'provider', provider: 'openai', retryable: false })}
+        onDismissError={onDismissError}
+      />
+    )
+
+    expect((await screen.findByRole('alert')).dataset.severity).toBe('blocking')
+    expect(screen.queryByRole('button', { name: en.assistant.thread.dismissError })).toBeNull()
+  })
+
+  it('Continue sends "continue" through this chat\'s composer, or leaves it in the input', async () => {
+    const truncated = () => failedMessage({ code: 'truncated', layer: 'provider', provider: 'openai', retryable: true })
+    const view = render(<Harness assistant={truncated()} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: en.assistant.thread.errorContinue }))
+    expect(requestComposerSubmit).toHaveBeenCalledWith('continue', { target: 'main' })
+    expect(requestComposerInsert).not.toHaveBeenCalled()
+    view.unmount()
+
+    requestComposerSubmit.mockReturnValueOnce(false)
+    render(<Harness assistant={truncated()} />)
+    fireEvent.click(await screen.findByRole('button', { name: en.assistant.thread.errorContinue }))
+    expect(requestComposerInsert).toHaveBeenCalledWith('continue', { target: 'main' })
+  })
+
+  it('names an out-of-credits turn on its card too: the banner may be off screen', async () => {
+    render(
+      <MemoryRouter>
+        <Harness assistant={failedMessage({ code: 'billing', layer: 'billing', provider: 'nous', retryable: false })} />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('button', { name: en.assistant.thread.errorOpenBillingSettings })).toBeTruthy()
+  })
+
+  it("opens the failing provider's own billing page from this chat's billing wall", async () => {
+    const { $activeSessionId } = await import('@/store/session')
+    const { clearBillingBlock, setBillingBlock } = await import('@/store/billing-block')
+    $activeSessionId.set('wall-session')
+    setBillingBlock('wall-session', {
+      billing_url: 'https://platform.openai.com/settings/organization/billing',
+      is_nous: false,
+      message: 'out of credits',
+      provider: 'openai',
+      provider_label: 'OpenAI'
+    } as never)
+
+    try {
+      render(
+        <MemoryRouter>
+          <Harness
+            assistant={failedMessage({ code: 'billing', layer: 'billing', provider: 'openai', retryable: false })}
+          />
+        </MemoryRouter>
+      )
+
+      fireEvent.click(await screen.findByRole('button', { name: en.assistant.thread.errorOpenBillingSettings }))
+      expect(openExternalLink).toHaveBeenCalledWith('https://platform.openai.com/settings/organization/billing')
+    } finally {
+      clearBillingBlock()
+      $activeSessionId.set(null)
+    }
+  })
+
+  it('never retargets an older card at a later wall from another provider in the same chat', async () => {
+    openExternalLink.mockClear()
+    const { $activeSessionId } = await import('@/store/session')
+    const { clearBillingBlock, setBillingBlock } = await import('@/store/billing-block')
+    $activeSessionId.set('wall-session')
+    setBillingBlock('wall-session', {
+      billing_url: 'https://platform.openai.com/settings/organization/billing',
+      is_nous: false,
+      message: 'out of credits',
+      model: 'gpt-5',
+      provider: 'openai',
+      provider_label: 'OpenAI'
+    })
+
+    try {
+      render(
+        <MemoryRouter>
+          <Harness
+            assistant={failedMessage({ code: 'billing', layer: 'billing', provider: 'nous', retryable: false })}
+          />
+        </MemoryRouter>
+      )
+
+      fireEvent.click(await screen.findByRole('button', { name: en.assistant.thread.errorOpenBillingSettings }))
+      expect(openExternalLink).not.toHaveBeenCalled()
+    } finally {
+      clearBillingBlock()
+      $activeSessionId.set(null)
+    }
+  })
+
+  it("never sends a third-party provider's credit failure to Nous billing without its billing link", async () => {
+    render(
+      <MemoryRouter>
+        <Harness
+          assistant={failedMessage({ code: 'billing', layer: 'billing', provider: 'openai', retryable: false })}
+        />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('button', { name: en.assistant.thread.errorSwitchProvider })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: en.assistant.thread.errorOpenBillingSettings })).toBeNull()
   })
 })
 
@@ -386,13 +632,13 @@ describe('scheduled retry at the usage-limit reset (#98852)', () => {
 
     render(<Harness assistant={rateLimited(resetsAt)} onReload={onReload} />)
 
-    const arm = await screen.findByRole('button', { name: /^Retry when the limit resets \(\d\d:\d\d\)$/ })
+    const arm = await screen.findByRole('button', { name: /^Retry at \d\d:\d\d$/ })
 
     vi.useFakeTimers()
     fireEvent.click(arm)
 
     expect(screen.getByTestId('error-retry-scheduled').textContent).toMatch(/Retrying at \d\d:\d\d — in \d+m \d\ds/)
-    expect(screen.queryByRole('button', { name: /^Retry when the limit resets/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Retry at / })).toBeNull()
 
     await act(async () => vi.advanceTimersByTime(resetsAt * 1000 - Date.now() - 1_000))
     expect(onReload).not.toHaveBeenCalled()
@@ -409,7 +655,7 @@ describe('scheduled retry at the usage-limit reset (#98852)', () => {
     const resetsAt = Math.floor(Date.now() / 1000) + 600
 
     const view = render(<Harness assistant={rateLimited(resetsAt)} onReload={onReload} />)
-    const armName = /^Retry when the limit resets/
+    const armName = /^Retry at /
 
     fireEvent.click(await screen.findByRole('button', { name: armName }))
     vi.useFakeTimers()
@@ -429,24 +675,118 @@ describe('scheduled retry at the usage-limit reset (#98852)', () => {
   })
 })
 
+describe("a window plan's limit: one-click switch and credits (no silent switch)", () => {
+  const limitMessage = (credits: 'add_credits' | 'use_credits', suggestions = true) =>
+    failedMessage(
+      {
+        code: 'usage_window',
+        layer: 'billing',
+        message: "You've hit your daily limit · resets 15:56",
+        provider: 'nous',
+        retryable: true,
+        // The parsed surface (lib/error-surface.ts parseUsageLimit), as chat-runtime stores it.
+        usageLimit: {
+          credits,
+          suggestions: suggestions
+            ? [{ label: 'Model Free', model: 'example/model-free:free', note: 'free', provider: 'nous' }]
+            : []
+        }
+      },
+      'HTTP 402: usage window'
+    )
+
+  afterEach(() => {
+    $activeSessionId.set(null)
+  })
+
+  it('switches THIS session to the recommended model, then re-runs the turn', async () => {
+    const switchSessionModel = vi.fn(async () => true)
+    const onReload = vi.fn(async () => {})
+    setSessionTileDelegate({ switchSessionModel } as unknown as SessionTileDelegate)
+    $activeSessionId.set('rt-1')
+
+    render(
+      <MemoryRouter>
+        <Harness assistant={limitMessage('add_credits')} onReload={onReload} />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch to Model Free (free)' }))
+
+    await waitFor(() => expect(onReload).toHaveBeenCalledTimes(1))
+    expect(switchSessionModel).toHaveBeenCalledWith('rt-1', 'example/model-free:free', 'nous')
+    // No balance: the credits way on is Billing, labelled for what it does.
+    expect(screen.getByRole('button', { name: 'Open billing settings' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Turn on Keep going on credits' })).toBeNull()
+    // The generic provider menu is replaced by the one-click switch.
+    expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull()
+  })
+
+  it('re-runs nothing while the switch is unconfirmed or the user keeps the current model', async () => {
+    // The gateway asked to confirm a guarded target and the user kept the current model.
+    const switchSessionModel = vi.fn(async () => false)
+    const executeSlash = vi.fn(async () => {})
+    const onReload = vi.fn(async () => {})
+    setSessionTileDelegate({ executeSlash, switchSessionModel } as unknown as SessionTileDelegate)
+    $activeSessionId.set('rt-1')
+
+    render(
+      <MemoryRouter>
+        <Harness assistant={limitMessage('add_credits')} onReload={onReload} />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch to Model Free (free)' }))
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
+    expect(onReload).not.toHaveBeenCalled()
+  })
+
+  it('with a balance and Keep going off, offers to turn on Keep going (a lasting setting)', async () => {
+    render(
+      <MemoryRouter>
+        <Harness assistant={limitMessage('use_credits')} />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('button', { name: 'Turn on Keep going on credits' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Switch to Model Free (free)' })).toBeTruthy()
+  })
+
+  it('with no model to offer, still points at choosing one', async () => {
+    render(
+      <MemoryRouter>
+        <Harness assistant={limitMessage('add_credits', false)} />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('button', { name: 'Open billing settings' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Switch to / })).toBeNull()
+  })
+})
+
 describe('rejected API key recovery', () => {
   it('names the key as the problem and deep-links Settings → Keys to that env var', async () => {
     render(
-      <Harness
-        probe
-        assistant={failedMessage(
-          {
-            apiKeyEnv: 'OPENAI_API_KEY',
-            authKind: 'api_key',
-            code: 'auth',
-            layer: 'auth',
-            provider: 'openai',
-            providerLabel: 'OpenAI',
-            retryable: false
-          },
-          'HTTP 401: {"error":{"message":"Incorrect API key provided: sk-…"}}'
-        )}
-      />
+      <MemoryRouter>
+        <LocationProbe />
+        <Harness
+          assistant={failedMessage(
+            {
+              apiKeyEnv: 'OPENAI_API_KEY',
+              authKind: 'api_key',
+              code: 'auth',
+              layer: 'auth',
+              provider: 'openai',
+              providerLabel: 'OpenAI',
+              retryable: false
+            },
+            'HTTP 401: {"error":{"message":"Incorrect API key provided: sk-…"}}'
+          )}
+        />
+      </MemoryRouter>
     )
 
     expect(await screen.findByText(copy(en.assistant.thread.errorAuthKinds.api_key.title, 'OpenAI'))).toBeTruthy()
@@ -462,10 +802,19 @@ describe('rejected API key recovery', () => {
 
 describe('switch provider on a live session (#95066)', () => {
   const billingFailure = () =>
-    failedMessage({ code: 'billing', layer: 'billing', provider: 'openai-codex', retryable: false }, 'HTTP 429: quota')
+    // Out of credits is banner-only now, so a firewall block stands in for a card whose fix is another provider.
+    failedMessage(
+      { code: 'upstream_blocked', layer: 'provider', provider: 'openai-codex', retryable: false },
+      'HTTP 403: blocked'
+    )
 
   it('opens the live session model menu instead of leaving the chat for Settings', async () => {
-    render(<Harness probe assistant={billingFailure()} />)
+    render(
+      <MemoryRouter>
+        <LocationProbe />
+        <Harness assistant={billingFailure()} />
+      </MemoryRouter>
+    )
 
     const button = await screen.findByRole('button', { name: 'Switch provider' })
     const before = screen.getByTestId('location').textContent
@@ -479,7 +828,12 @@ describe('switch provider on a live session (#95066)', () => {
 
   it('falls back to Settings → Models only when no chat surface is on screen', async () => {
     requestModelMenuToggle.mockReturnValue(false)
-    render(<Harness probe assistant={billingFailure()} />)
+    render(
+      <MemoryRouter>
+        <LocationProbe />
+        <Harness assistant={billingFailure()} />
+      </MemoryRouter>
+    )
 
     ;(await screen.findByRole('button', { name: 'Switch provider' })).click()
 
@@ -492,7 +846,7 @@ describe('expired OAuth grant recovery', () => {
   it('explains the expiry and re-runs that provider sign-in in one click', async () => {
     render(<Harness assistant={oauthExpiredMessage()} />)
 
-    expect(await screen.findByText(/Nous Portal sign-in has expired/)).toBeTruthy()
+    expect(await screen.findByText(/Nous Portal sign-in expired/)).toBeTruthy()
     // Signing in changes the outcome, so Retry stays as the follow-up click.
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
 
@@ -501,32 +855,60 @@ describe('expired OAuth grant recovery', () => {
   })
 })
 
-describe('ErrorRecoveryActions channel chrome', () => {
-  it('keeps Switch provider / Open logs / Copy error details on internal', async () => {
-    render(<Harness assistant={assistantErrorMessage()} />)
+describe('error card channel chrome', () => {
+  const thread = en.assistant.thread
+  const providerFailure = () => failedMessage({ layer: 'provider', retryable: true }, 'Provider rejected the request.')
 
-    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Switch provider' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open logs' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Copy error details' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Send diagnostics' })).toBeTruthy()
+  it('keeps Copy / Open logs / Send diagnostics on internal', async () => {
+    render(<Harness assistant={providerFailure()} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: thread.errorDetails }))
+    expect(screen.getByRole('button', { name: thread.errorDetailsCopy })).toBeTruthy()
+    expect(screen.getByRole('button', { name: thread.errorOpenLogs })).toBeTruthy()
+    expect(screen.getByRole('button', { name: thread.errorSendDiagnostics })).toBeTruthy()
     expect(screen.queryByRole('link', { name: /help@okvevo\.com/i })).toBeNull()
   })
 
-  it('shows help email only on public (hides Switch provider / Open logs / Copy)', async () => {
+  it('public: details offer only the help email', async () => {
     isByokChromeVisible.mockReturnValue(false)
-    render(<Harness assistant={assistantErrorMessage()} />)
+    render(<Harness assistant={providerFailure()} />)
 
-    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Open logs' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Copy error details' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Send diagnostics' })).toBeNull()
-    expect(screen.queryByRole('link', { name: 'Update API key' })).toBeNull()
-    expect(screen.queryByText('Update API key')).toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: thread.errorDetails }))
+    expect(screen.queryByRole('button', { name: thread.errorDetailsCopy })).toBeNull()
+    expect(screen.queryByRole('button', { name: thread.errorOpenLogs })).toBeNull()
+    expect(screen.queryByRole('button', { name: thread.errorSendDiagnostics })).toBeNull()
+    expect(screen.getByRole('link', { name: /help@okvevo\.com/i }).getAttribute('href')).toBe('mailto:help@okvevo.com')
+  })
 
-    const help = screen.getByRole('link', { name: /help@okvevo\.com/i })
-    expect(help.getAttribute('href')).toBe('mailto:help@okvevo.com')
+  it('public: an auth failure offers OkVevo sign-in, never the BYOK key route', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    render(
+      <MemoryRouter>
+        <Harness
+          assistant={failedMessage(
+            { apiKeyEnv: 'OPENAI_API_KEY', authKind: 'api_key', code: 'auth', layer: 'auth', provider: 'openai', retryable: false },
+            'HTTP 401: unauthorized'
+          )}
+        />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('button', { name: 'Sign in again' })).toBeTruthy()
+    expect(screen.queryByText(thread.errorUpdateApiKey)).toBeNull()
+  })
+
+  it('public: an out-of-credits failure offers Top up, never Switch provider', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    render(
+      <MemoryRouter>
+        <Harness
+          assistant={failedMessage({ code: 'billing', layer: 'billing', provider: 'okvevo', retryable: false }, 'HTTP 402: insufficient credits')}
+        />
+      </MemoryRouter>
+    )
+
+    expect((await screen.findByRole('link', { name: 'Top up' })).getAttribute('href')).toBe('https://www.okvevo.com')
+    expect(screen.queryByText(thread.errorSwitchProvider)).toBeNull()
   })
 })
 
