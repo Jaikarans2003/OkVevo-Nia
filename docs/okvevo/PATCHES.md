@@ -347,9 +347,7 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/resolve-e2e-auth.mjs` — OKVEVO_E2E_AUTH flag resolver + source strip that keeps the e2e hook out of public packs
 - `apps/desktop/scripts/e2e-auth-trace.test.mjs` — strip + no-trace unit tests
 - `apps/desktop/scripts/check-no-e2e-auth.mjs` — CI gate: packed public bundle carries no e2e sign-in hook marker
-- `apps/desktop/src/plugins/hermes-bots/okvevo-default-agent-label.ts` — workaround default_agent_label (WORKAROUNDS.md)
-- `apps/desktop/src/plugins/hermes-bots/okvevo-default-agent-label.test.ts` — behavior test for default_agent_label, toggle on and off
-- `apps/desktop/src/plugins/hermes-bots/labels.ts` — DEP-3 hook: displayName scrubs an id-only default row via okvevo-default-agent-label (PR 1.3)
+- `apps/desktop/src/plugins/hermes-bots/labels.ts` — OkVevo agent fallback name and comments (the default_agent_label hook was removed at v0.23.0)
 <!-- /okvevo-delta:apps/desktop -->
 
 ## Retired

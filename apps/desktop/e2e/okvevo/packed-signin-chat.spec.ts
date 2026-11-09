@@ -343,7 +343,8 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     // identity rides the OkVevo help guidance in every prompt.
     const bots: Array<[string, string]> = [['scout', 'Scout'], ['critic', 'Critic']]
     await openBots(page)
-    // default_agent_label is off: v0.23.0's own roster must already read "OkVevo agent", not "default".
+    // v0.23.0's roster leaves the default profile's display_name empty, so it reads "OkVevo agent", not
+    // "default" (the retired default_agent_label workaround, Applied-Upstream v0.23.0).
     await expect(page.getByRole('button', { name: /^OkVevo agent\b/ }).first()).toBeVisible({ timeout: 60_000 })
 
     for (const [name, title] of bots) {

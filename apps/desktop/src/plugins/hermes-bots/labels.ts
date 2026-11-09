@@ -8,15 +8,10 @@
  * of them can own it without the others importing a sibling surface.
  */
 
-import { scrubDefaultProfileIdName } from './okvevo-default-agent-label'
 import { aliasIdentityFor } from './routing'
 import type { BotMeta, RosterRow } from './types'
 
 export function displayName(bot: Partial<RosterRow>, meta?: BotMeta | null): string {
-  // DEP-3 hook (okvevo.workarounds.default_agent_label): a default row whose
-  // only "name" is the profile id reads as no name → "OkVevo agent".
-  bot = scrubDefaultProfileIdName(bot)
-
   // A configured alias route claiming this row overrides source-derived
   // identity: the friendly alias name must survive hosted-session
   // activation and Cloud-only rosters (#89131).
