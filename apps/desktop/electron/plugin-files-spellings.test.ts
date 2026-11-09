@@ -232,7 +232,7 @@ describe('kernel pseudo-filesystems wherever they are mounted', () => {
   })
 })
 
-describe('Hermes data reached by another spelling', () => {
+describe('OkVevo data reached by another spelling', () => {
   it('compares folders by filesystem identity', async () => {
     expect(await overlapsByIdentity(hermesHome, [hermesHome])).toBe(true)
     expect(await overlapsByIdentity(path.join(scratch, 'home'), [hermesHome])).toBe(true)

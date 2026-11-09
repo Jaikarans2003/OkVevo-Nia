@@ -227,9 +227,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: 'This group chat can’t continue here: it has bots on other computers, and a group chat here seats bots from one connection only. Switch to the connection where those bots run and start a group there, or start a new group chat with bots from this connection. Earlier messages aren’t copied into a new group.',
     otherConnections: 'Bots on other connections: {connections}',
     legacyRoomBlocked: 'Desktop ran this group chat itself, so it can’t continue on this gateway, and these bots can’t form a group chat here as they are (the reason is below). Start a new group chat and choose its bots. Earlier messages aren’t copied into it.',
-    groupsUnsupported: 'Group chats can’t open here: Hermes on this connection’s computer is too old for them. Update Hermes on that computer and reconnect, then try again. Nothing is lost: earlier messages stay where they are.',
-    groupDriverStopped: 'Group chats can’t open here right now: group chats aren’t running on this connection’s gateway. Restart or update Hermes on that computer, then try again. Nothing is lost: earlier messages stay where they are.',
-    groupsUnreachable: 'Couldn’t reach this connection’s gateway to open this group chat. Check that Hermes is running there and that you’re connected, then try again. Nothing is lost: earlier messages stay where they are.',
+    groupsUnsupported: 'Group chats can’t open here: OkVevo on this connection’s computer is too old for them. Update OkVevo on that computer and reconnect, then try again. Nothing is lost: earlier messages stay where they are.',
+    groupDriverStopped: 'Group chats can’t open here right now: group chats aren’t running on this connection’s gateway. Restart or update OkVevo on that computer, then try again. Nothing is lost: earlier messages stay where they are.',
+    groupsUnreachable: 'Couldn’t reach this connection’s gateway to open this group chat. Check that OkVevo is running there and that you’re connected, then try again. Nothing is lost: earlier messages stay where they are.',
     earlierMessages: 'Earlier messages, read only. They stay on this Desktop and aren’t copied into a new group.'
   },
   ja: {
@@ -343,9 +343,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: 'このグループチャットはここでは続けられません。ほかのコンピューター上のボットが含まれていて、ゲートウェイのグループには 1 つの接続のボットしか参加させられないためです。それらのボットが動いている接続に切り替えてそこでグループを始めるか、この接続のボットで新しいグループチャットを始めてください。以前のメッセージは新しいグループにコピーされません。',
     otherConnections: 'ほかの接続上のボット: {connections}',
     legacyRoomBlocked: 'このグループチャットは Desktop 自身が動かしていたため、このゲートウェイでは続けられません。また、これらのボットはこのままではゲートウェイのグループを作れません（理由は下記）。新しいグループチャットを始めてボットを選んでください。以前のメッセージはコピーされません。',
-    groupsUnsupported: 'ここではグループチャットを開けません。この接続先のコンピューターの Hermes が古く、グループチャットに対応していないためです。そのコンピューターの Hermes を更新して再接続してから、もう一度お試しください。何も失われません。以前のメッセージはそのまま残ります。',
-    groupDriverStopped: 'いまはここでグループチャットを開けません。この接続のゲートウェイでグループの実行機能が動いていないためです。そのコンピューターの Hermes を再起動または更新してから、もう一度お試しください。何も失われません。以前のメッセージはそのまま残ります。',
-    groupsUnreachable: 'このグループチャットを開くための、この接続のゲートウェイに接続できませんでした。そのコンピューターで Hermes が動いていて、接続されていることを確認してから、もう一度お試しください。何も失われません。以前のメッセージはそのまま残ります。',
+    groupsUnsupported: 'ここではグループチャットを開けません。この接続先のコンピューターの OkVevo が古く、グループチャットに対応していないためです。そのコンピューターの OkVevo を更新して再接続してから、もう一度お試しください。何も失われません。以前のメッセージはそのまま残ります。',
+    groupDriverStopped: 'いまはここでグループチャットを開けません。この接続のゲートウェイでグループの実行機能が動いていないためです。そのコンピューターの OkVevo を再起動または更新してから、もう一度お試しください。何も失われません。以前のメッセージはそのまま残ります。',
+    groupsUnreachable: 'このグループチャットを開くための、この接続のゲートウェイに接続できませんでした。そのコンピューターで OkVevo が動いていて、接続されていることを確認してから、もう一度お試しください。何も失われません。以前のメッセージはそのまま残ります。',
     earlierMessages: '以前のメッセージ（閲覧のみ）。この Desktop に残り、新しいグループにはコピーされません。'
   },
   zh: {
@@ -459,9 +459,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: '这个群聊无法在此继续：它包含其他电脑上的机器人，而网关群组只能加入同一个连接上的机器人。请切换到这些机器人所在的连接并在那里开始群组，或者用此连接上的机器人开始一个新群聊。之前的消息不会复制到新群组。',
     otherConnections: '其他连接上的机器人：{connections}',
     legacyRoomBlocked: '这个群聊由 Desktop 自己运行，因此无法在此网关上继续，而且这些机器人目前无法组成网关群组（原因见下方）。请开始一个新群聊并选择它的机器人。之前的消息不会复制到新群组。',
-    groupsUnsupported: '无法在此打开群聊：此连接所在电脑上的 Hermes 版本太旧，不支持群聊。请在那台电脑上更新 Hermes 并重新连接，然后再试一次。不会丢失任何内容：之前的消息仍保留在原处。',
-    groupDriverStopped: '暂时无法在此打开群聊：此连接的网关没有运行群组运行程序。请在那台电脑上重启或更新 Hermes，然后再试一次。不会丢失任何内容：之前的消息仍保留在原处。',
-    groupsUnreachable: '无法连接到此连接的网关来打开这个群聊。请确认那台电脑上的 Hermes 正在运行且你已连接，然后再试一次。不会丢失任何内容：之前的消息仍保留在原处。',
+    groupsUnsupported: '无法在此打开群聊：此连接所在电脑上的 OkVevo 版本太旧，不支持群聊。请在那台电脑上更新 OkVevo 并重新连接，然后再试一次。不会丢失任何内容：之前的消息仍保留在原处。',
+    groupDriverStopped: '暂时无法在此打开群聊：此连接的网关没有运行群组运行程序。请在那台电脑上重启或更新 OkVevo，然后再试一次。不会丢失任何内容：之前的消息仍保留在原处。',
+    groupsUnreachable: '无法连接到此连接的网关来打开这个群聊。请确认那台电脑上的 OkVevo 正在运行且你已连接，然后再试一次。不会丢失任何内容：之前的消息仍保留在原处。',
     earlierMessages: '之前的消息（只读）。它们保留在此 Desktop 上，不会复制到新群组。'
   },
   'zh-hant': {
@@ -575,9 +575,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: '這個群聊無法在此繼續：它包含其他電腦上的機器人，而閘道群組只能加入同一個連線上的機器人。請切換到這些機器人所在的連線並在那裡開始群組，或用此連線上的機器人開始新的群聊。先前的訊息不會複製到新群組。',
     otherConnections: '其他連線上的機器人：{connections}',
     legacyRoomBlocked: '這個群聊由 Desktop 自行執行，因此無法在此閘道上繼續，而且這些機器人目前無法組成閘道群組（原因見下方）。請開始新的群聊並選擇它的機器人。先前的訊息不會複製到新群組。',
-    groupsUnsupported: '無法在此開啟群聊：此連線所在電腦上的 Hermes 版本太舊，不支援群聊。請在那台電腦上更新 Hermes 並重新連線，然後再試一次。不會遺失任何內容：先前的訊息仍保留在原處。',
-    groupDriverStopped: '暫時無法在此開啟群聊：此連線的閘道沒有執行群組執行程式。請在那台電腦上重新啟動或更新 Hermes，然後再試一次。不會遺失任何內容：先前的訊息仍保留在原處。',
-    groupsUnreachable: '無法連上此連線的閘道來開啟這個群聊。請確認那台電腦上的 Hermes 正在執行且你已連線，然後再試一次。不會遺失任何內容：先前的訊息仍保留在原處。',
+    groupsUnsupported: '無法在此開啟群聊：此連線所在電腦上的 OkVevo 版本太舊，不支援群聊。請在那台電腦上更新 OkVevo 並重新連線，然後再試一次。不會遺失任何內容：先前的訊息仍保留在原處。',
+    groupDriverStopped: '暫時無法在此開啟群聊：此連線的閘道沒有執行群組執行程式。請在那台電腦上重新啟動或更新 OkVevo，然後再試一次。不會遺失任何內容：先前的訊息仍保留在原處。',
+    groupsUnreachable: '無法連上此連線的閘道來開啟這個群聊。請確認那台電腦上的 OkVevo 正在執行且你已連線，然後再試一次。不會遺失任何內容：先前的訊息仍保留在原處。',
     earlierMessages: '先前的訊息（唯讀）。它們會保留在此 Desktop 上，不會複製到新群組。'
   },
   ar: {
@@ -691,9 +691,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: 'لا يمكن متابعة محادثة المجموعة هذه هنا: فيها روبوتات تعمل على أجهزة كمبيوتر أخرى، ولا تضم مجموعة البوابة إلا روبوتات من اتصال واحد. انتقل إلى الاتصال الذي تعمل عليه تلك الروبوتات وابدأ مجموعة هناك، أو ابدأ محادثة مجموعة جديدة بروبوتات من هذا الاتصال. لن تُنسخ الرسائل السابقة إلى مجموعة جديدة.',
     otherConnections: 'روبوتات على اتصالات أخرى: {connections}',
     legacyRoomBlocked: 'شغّل Desktop محادثة المجموعة هذه بنفسه، لذا لا يمكنها المتابعة على هذه البوابة، ولا تستطيع هذه الروبوتات تكوين مجموعة بوابة كما هي (السبب أدناه). ابدأ محادثة مجموعة جديدة واختر روبوتاتها. لن تُنسخ الرسائل السابقة إليها.',
-    groupsUnsupported: 'لا يمكن فتح محادثات المجموعات هنا: إصدار Hermes على كمبيوتر هذا الاتصال أقدم من أن يدعمها. حدّث Hermes على ذلك الكمبيوتر وأعد الاتصال، ثم حاول مرة أخرى. لن يضيع شيء: تبقى الرسائل السابقة في مكانها.',
-    groupDriverStopped: 'لا يمكن فتح محادثات المجموعات هنا الآن: بوابة هذا الاتصال لا تشغّل مشغّل المجموعة. أعد تشغيل Hermes على ذلك الكمبيوتر أو حدّثه، ثم حاول مرة أخرى. لن يضيع شيء: تبقى الرسائل السابقة في مكانها.',
-    groupsUnreachable: 'تعذّر الوصول إلى بوابة هذا الاتصال لفتح محادثة المجموعة هذه. تأكد من أن Hermes يعمل هناك وأنك متصل، ثم حاول مرة أخرى. لن يضيع شيء: تبقى الرسائل السابقة في مكانها.',
+    groupsUnsupported: 'لا يمكن فتح محادثات المجموعات هنا: إصدار OkVevo على كمبيوتر هذا الاتصال أقدم من أن يدعمها. حدّث OkVevo على ذلك الكمبيوتر وأعد الاتصال، ثم حاول مرة أخرى. لن يضيع شيء: تبقى الرسائل السابقة في مكانها.',
+    groupDriverStopped: 'لا يمكن فتح محادثات المجموعات هنا الآن: بوابة هذا الاتصال لا تشغّل مشغّل المجموعة. أعد تشغيل OkVevo على ذلك الكمبيوتر أو حدّثه، ثم حاول مرة أخرى. لن يضيع شيء: تبقى الرسائل السابقة في مكانها.',
+    groupsUnreachable: 'تعذّر الوصول إلى بوابة هذا الاتصال لفتح محادثة المجموعة هذه. تأكد من أن OkVevo يعمل هناك وأنك متصل، ثم حاول مرة أخرى. لن يضيع شيء: تبقى الرسائل السابقة في مكانها.',
     earlierMessages: 'الرسائل السابقة، للقراءة فقط. تبقى على Desktop هذا ولن تُنسخ إلى مجموعة جديدة.'
   },
   ru: {
@@ -810,9 +810,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: 'Этот групповой чат не может продолжиться здесь: в нём есть боты на других компьютерах, а в группу шлюза можно добавить ботов только одного подключения. Переключитесь на подключение, где работают эти боты, и начните группу там или начните новый групповой чат с ботами этого подключения. Прежние сообщения в новую группу не копируются.',
     otherConnections: 'Боты на других подключениях: {connections}',
     legacyRoomBlocked: 'Этим групповым чатом управлял сам Desktop, поэтому он не может продолжиться на этом шлюзе, а из этих ботов в нынешнем составе нельзя собрать группу шлюза (причина ниже). Начните новый групповой чат и выберите для него ботов. Прежние сообщения в него не копируются.',
-    groupsUnsupported: 'Групповые чаты здесь не открываются: Hermes на компьютере этого подключения слишком старый для них. Обновите Hermes на том компьютере, подключитесь заново и повторите попытку. Ничего не потеряно: прежние сообщения остаются на месте.',
-    groupDriverStopped: 'Сейчас групповые чаты здесь не открываются: шлюз этого подключения не запустил исполнитель группы. Перезапустите или обновите Hermes на том компьютере и повторите попытку. Ничего не потеряно: прежние сообщения остаются на месте.',
-    groupsUnreachable: 'Не удалось связаться со шлюзом этого подключения, чтобы открыть этот групповой чат. Убедитесь, что Hermes там запущен и подключение есть, и повторите попытку. Ничего не потеряно: прежние сообщения остаются на месте.',
+    groupsUnsupported: 'Групповые чаты здесь не открываются: OkVevo на компьютере этого подключения слишком старый для них. Обновите OkVevo на том компьютере, подключитесь заново и повторите попытку. Ничего не потеряно: прежние сообщения остаются на месте.',
+    groupDriverStopped: 'Сейчас групповые чаты здесь не открываются: шлюз этого подключения не запустил исполнитель группы. Перезапустите или обновите OkVevo на том компьютере и повторите попытку. Ничего не потеряно: прежние сообщения остаются на месте.',
+    groupsUnreachable: 'Не удалось связаться со шлюзом этого подключения, чтобы открыть этот групповой чат. Убедитесь, что OkVevo там запущен и подключение есть, и повторите попытку. Ничего не потеряно: прежние сообщения остаются на месте.',
     earlierMessages: 'Прежние сообщения, только для чтения. Они остаются в этом Desktop и не копируются в новую группу.'
   },
   fr: {
@@ -928,9 +928,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: 'Cette discussion de groupe ne peut pas continuer ici : elle comprend des bots sur d’autres ordinateurs, et un groupe de passerelle n’accueille que les bots d’une seule connexion. Passez à la connexion où ces bots fonctionnent et démarrez-y un groupe, ou démarrez une nouvelle discussion de groupe avec des bots de cette connexion. Les messages précédents ne sont pas copiés dans un nouveau groupe.',
     otherConnections: 'Bots sur d’autres connexions : {connections}',
     legacyRoomBlocked: 'Desktop gérait lui-même cette discussion de groupe, elle ne peut donc pas continuer sur cette passerelle, et ces bots ne peuvent pas former un groupe de passerelle tels quels (la raison figure ci-dessous). Démarrez une nouvelle discussion de groupe et choisissez ses bots. Les messages précédents n’y sont pas copiés.',
-    groupsUnsupported: 'Les discussions de groupe ne peuvent pas s’ouvrir ici : la version de Hermes sur l’ordinateur de cette connexion est trop ancienne. Mettez Hermes à jour sur cet ordinateur et reconnectez-vous, puis réessayez. Rien n’est perdu : les messages précédents restent où ils sont.',
-    groupDriverStopped: 'Les discussions de groupe ne peuvent pas s’ouvrir ici pour le moment : la passerelle de cette connexion n’exécute pas son pilote de groupe. Redémarrez ou mettez à jour Hermes sur cet ordinateur, puis réessayez. Rien n’est perdu : les messages précédents restent où ils sont.',
-    groupsUnreachable: 'Impossible de joindre la passerelle de cette connexion pour ouvrir cette discussion de groupe. Vérifiez que Hermes y fonctionne et que vous êtes connecté, puis réessayez. Rien n’est perdu : les messages précédents restent où ils sont.',
+    groupsUnsupported: 'Les discussions de groupe ne peuvent pas s’ouvrir ici : la version de OkVevo sur l’ordinateur de cette connexion est trop ancienne. Mettez OkVevo à jour sur cet ordinateur et reconnectez-vous, puis réessayez. Rien n’est perdu : les messages précédents restent où ils sont.',
+    groupDriverStopped: 'Les discussions de groupe ne peuvent pas s’ouvrir ici pour le moment : la passerelle de cette connexion n’exécute pas son pilote de groupe. Redémarrez ou mettez à jour OkVevo sur cet ordinateur, puis réessayez. Rien n’est perdu : les messages précédents restent où ils sont.',
+    groupsUnreachable: 'Impossible de joindre la passerelle de cette connexion pour ouvrir cette discussion de groupe. Vérifiez que OkVevo y fonctionne et que vous êtes connecté, puis réessayez. Rien n’est perdu : les messages précédents restent où ils sont.',
     earlierMessages: 'Messages précédents, en lecture seule. Ils restent sur ce Desktop et ne sont pas copiés dans un nouveau groupe.'
   },
   de: {
@@ -1047,9 +1047,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: 'Dieser Gruppenchat kann hier nicht weiterlaufen: Er enthält Bots auf anderen Computern, und eine Gateway-Gruppe nimmt nur Bots einer einzigen Verbindung auf. Wechseln Sie zu der Verbindung, auf der diese Bots laufen, und starten Sie dort eine Gruppe, oder starten Sie einen neuen Gruppenchat mit Bots dieser Verbindung. Frühere Nachrichten werden nicht in eine neue Gruppe kopiert.',
     otherConnections: 'Bots auf anderen Verbindungen: {connections}',
     legacyRoomBlocked: 'Desktop hat diesen Gruppenchat selbst ausgeführt, daher kann er auf diesem Gateway nicht weiterlaufen, und diese Bots können so keine Gateway-Gruppe bilden (den Grund finden Sie unten). Starten Sie einen neuen Gruppenchat und wählen Sie seine Bots. Frühere Nachrichten werden nicht in ihn kopiert.',
-    groupsUnsupported: 'Gruppenchats lassen sich hier nicht öffnen: Hermes auf dem Computer dieser Verbindung ist dafür zu alt. Aktualisieren Sie Hermes auf diesem Computer, verbinden Sie sich neu und versuchen Sie es dann erneut. Nichts geht verloren: Frühere Nachrichten bleiben, wo sie sind.',
-    groupDriverStopped: 'Gruppenchats lassen sich hier gerade nicht öffnen: Das Gateway dieser Verbindung führt seinen Gruppentreiber nicht aus. Starten Sie Hermes auf diesem Computer neu oder aktualisieren Sie es, und versuchen Sie es dann erneut. Nichts geht verloren: Frühere Nachrichten bleiben, wo sie sind.',
-    groupsUnreachable: 'Das Gateway dieser Verbindung war nicht erreichbar, um diesen Gruppenchat zu öffnen. Prüfen Sie, ob Hermes dort läuft und Sie verbunden sind, und versuchen Sie es dann erneut. Nichts geht verloren: Frühere Nachrichten bleiben, wo sie sind.',
+    groupsUnsupported: 'Gruppenchats lassen sich hier nicht öffnen: OkVevo auf dem Computer dieser Verbindung ist dafür zu alt. Aktualisieren Sie OkVevo auf diesem Computer, verbinden Sie sich neu und versuchen Sie es dann erneut. Nichts geht verloren: Frühere Nachrichten bleiben, wo sie sind.',
+    groupDriverStopped: 'Gruppenchats lassen sich hier gerade nicht öffnen: Das Gateway dieser Verbindung führt seinen Gruppentreiber nicht aus. Starten Sie OkVevo auf diesem Computer neu oder aktualisieren Sie es, und versuchen Sie es dann erneut. Nichts geht verloren: Frühere Nachrichten bleiben, wo sie sind.',
+    groupsUnreachable: 'Das Gateway dieser Verbindung war nicht erreichbar, um diesen Gruppenchat zu öffnen. Prüfen Sie, ob OkVevo dort läuft und Sie verbunden sind, und versuchen Sie es dann erneut. Nichts geht verloren: Frühere Nachrichten bleiben, wo sie sind.',
     earlierMessages: 'Frühere Nachrichten, nur lesbar. Sie bleiben auf diesem Desktop und werden nicht in eine neue Gruppe kopiert.'
   },
   es: {
@@ -1165,9 +1165,9 @@ export const CANONICAL_GROUP_LOCALES = {
     legacyRoomElsewhere: 'Este chat de grupo no puede continuar aquí: tiene bots en otros equipos, y un grupo de la pasarela solo incluye bots de una conexión. Cambia a la conexión donde funcionan esos bots e inicia un grupo allí, o inicia un chat de grupo nuevo con bots de esta conexión. Los mensajes anteriores no se copian en un grupo nuevo.',
     otherConnections: 'Bots en otras conexiones: {connections}',
     legacyRoomBlocked: 'Desktop ejecutaba este chat de grupo por sí mismo, así que no puede continuar en esta pasarela, y estos bots no pueden formar un grupo de la pasarela tal como están (el motivo está abajo). Inicia un chat de grupo nuevo y elige sus bots. Los mensajes anteriores no se copian en él.',
-    groupsUnsupported: 'Los chats de grupo no se pueden abrir aquí: Hermes en el equipo de esta conexión es demasiado antiguo para ellos. Actualiza Hermes en ese equipo y vuelve a conectarte; después, inténtalo de nuevo. No se pierde nada: los mensajes anteriores siguen donde están.',
-    groupDriverStopped: 'Los chats de grupo no se pueden abrir aquí ahora mismo: la pasarela de esta conexión no está ejecutando su controlador de grupo. Reinicia o actualiza Hermes en ese equipo y vuelve a intentarlo. No se pierde nada: los mensajes anteriores siguen donde están.',
-    groupsUnreachable: 'No se pudo contactar con la pasarela de esta conexión para abrir este chat de grupo. Comprueba que Hermes se esté ejecutando allí y que estés conectado, y vuelve a intentarlo. No se pierde nada: los mensajes anteriores siguen donde están.',
+    groupsUnsupported: 'Los chats de grupo no se pueden abrir aquí: OkVevo en el equipo de esta conexión es demasiado antiguo para ellos. Actualiza OkVevo en ese equipo y vuelve a conectarte; después, inténtalo de nuevo. No se pierde nada: los mensajes anteriores siguen donde están.',
+    groupDriverStopped: 'Los chats de grupo no se pueden abrir aquí ahora mismo: la pasarela de esta conexión no está ejecutando su controlador de grupo. Reinicia o actualiza OkVevo en ese equipo y vuelve a intentarlo. No se pierde nada: los mensajes anteriores siguen donde están.',
+    groupsUnreachable: 'No se pudo contactar con la pasarela de esta conexión para abrir este chat de grupo. Comprueba que OkVevo se esté ejecutando allí y que estés conectado, y vuelve a intentarlo. No se pierde nada: los mensajes anteriores siguen donde están.',
     earlierMessages: 'Mensajes anteriores, solo lectura. Se quedan en este Desktop y no se copian en un grupo nuevo.'
   }
 } satisfies Record<string, CanonicalGroupMessages>

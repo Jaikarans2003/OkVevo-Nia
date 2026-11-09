@@ -119,7 +119,7 @@ describe('only plain files', () => {
     ).toMatchObject({ ok: false, error: 'not-a-file' })
   })
 
-  it.runIf(posix)('refuses a hard link, which may be a second name for Hermes data', async () => {
+  it.runIf(posix)('refuses a hard link, which may be a second name for OkVevo data', async () => {
     const id = await grantVault()
     fs.linkSync(path.join(hermesHome, 'config.yaml'), path.join(vault, 'notes', 'c.md'))
 
@@ -164,7 +164,7 @@ describe('a swap between the check and the open is refused', () => {
     })
 
     // Refused either as outside the folder or, when the swap lands before the
-    // identity check, as Hermes data.
+    // identity check, as OkVevo data.
     expect(
       ((await files.run('plexus', { op: 'writeText', folder: id, path: 'sub/pwn.txt', text: 'pwned' })) as { error?: string })
         .error
@@ -172,7 +172,7 @@ describe('a swap between the check and the open is refused', () => {
     expect(fs.existsSync(path.join(hermesHome, 'pwn.txt'))).toBe(false)
   })
 
-  it.runIf(posix)('a checked file swapped for a link to Hermes data is not read or written', async () => {
+  it.runIf(posix)('a checked file swapped for a link to OkVevo data is not read or written', async () => {
     const id = await grantVault()
     const note = path.join(vault, 'notes', 'a.md')
 
@@ -218,7 +218,7 @@ describe('a swap before the final look is refused too', () => {
     }) as never)
   }
 
-  it.runIf(posix)('a checked file swapped for a link to Hermes data: not read, not written', async () => {
+  it.runIf(posix)('a checked file swapped for a link to OkVevo data: not read, not written', async () => {
     const id = await grantVault()
     const note = path.join(vault, 'notes', 'a.md')
 
@@ -385,7 +385,7 @@ describe('rename, trash and list after a parent swap', () => {
   })
 })
 
-describe('Hermes data mounted inside a granted folder', () => {
+describe('OkVevo data mounted inside a granted folder', () => {
   // Stands in for a bind mount of the Hermes home at Vault/mounted (present
   // before the grant or added after): same filesystem identity, inside path.
   it('refuses every op under it', async () => {

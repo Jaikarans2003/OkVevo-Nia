@@ -375,7 +375,7 @@ export class HermesGateway extends JsonRpcGatewayClient {
     } catch (error) {
       this.readiness.failDial(ready, error instanceof Error ? error : new Error(GATEWAY_NOT_CONNECTED_MESSAGE))
 
-      if (generation === this.connectionGeneration) { this.invalidate('Hermes gateway protocol negotiation failed') }
+      if (generation === this.connectionGeneration) { this.invalidate('OkVevo gateway protocol negotiation failed') }
       throw error
     }
   }

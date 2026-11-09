@@ -72,7 +72,8 @@ export const PUBLIC_HIDDEN_SETTINGS_VIEWS = new Set<SettingsView>([
   'keybinds',
   'keys',
   'plugins',
-  'providers'
+  'providers',
+  'web-access'
 ])
 
 /** Tools & Keys env rows hidden on public (filter keys, not the whole tab). */

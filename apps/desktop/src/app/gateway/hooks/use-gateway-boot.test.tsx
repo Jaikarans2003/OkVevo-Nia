@@ -2312,7 +2312,7 @@ describe('useGatewayBoot remote reconnect loop (real hook, fake socket)', () => 
         desktop.emitBootProgress({
           error: null,
           fakeMode: false,
-          message: 'Connecting to remote Hermes backend at https://gateway.tailnet.example:8443',
+          message: 'Connecting to remote OkVevo backend at https://gateway.tailnet.example:8443',
           phase: 'backend.remote',
           progress: 24,
           running: true,

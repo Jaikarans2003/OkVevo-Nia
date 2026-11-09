@@ -157,17 +157,17 @@ function reportReleaseHolders(host: HandoffReportHost, holders: ReleaseHolder[],
     .join('\n')
 
   const action = closable.length
-    ? 'Hermes did not close it. Close it and retry the update now, or keep using the current app and update later.'
-    : 'Hermes cannot close it. Close it yourself (Task Manager), then run the update again.'
+    ? 'OkVevo did not close it. Close it and retry the update now, or keep using the current app and update later.'
+    : 'OkVevo cannot close it. Close it yourself (Task Manager), then run the update again.'
 
-  host.log(`[updates] Desktop app swap blocked by programs outside Hermes: ${names}`)
+  host.log(`[updates] Desktop app swap blocked by programs outside OkVevo: ${names}`)
   void host.dialog
     .showMessageBox({
       type: 'warning',
       title: 'OkVevo update',
       message: `${names} is blocking the Desktop app update`,
       detail:
-        `Hermes updated, but Windows would not replace the Desktop app because this program, which is not part of Hermes, is using its folder:\n\n${listed}\n\n` +
+        `OkVevo updated, but Windows would not replace the Desktop app because this program, which is not part of OkVevo, is using its folder:\n\n${listed}\n\n` +
         `${action}\n\nDetails: ${message}`,
       buttons: closable.length ? [`Close ${closableNames} and retry`, 'Not now'] : ['OK'],
       defaultId: closable.length ? 1 : 0,

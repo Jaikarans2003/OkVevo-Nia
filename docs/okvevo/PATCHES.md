@@ -2,7 +2,7 @@
 
 Hard cap: **3** edits to upstream-owned files. Prefer extension points.
 
-Pinned upstream tag: **v0.22.4**.
+Pinned upstream tag: **v0.23.0**.
 
 ## Active
 
@@ -23,9 +23,9 @@ packaging lockfile delta, not a Python KEEP-PATCH. Drift skips this one file.
 
 ## UI/packaging deltas
 
-`apps/desktop` and `apps/bootstrap-installer` differ from `v0.22.4`. They are
+`apps/desktop` and `apps/bootstrap-installer` differ from `v0.23.0`. They are
 not KEEP-PATCH (fork-owned packaging/UI). `scripts/okvevo/check_upstream_delta.sh`
-fails if `git diff --name-only v0.22.4` for either tree does not match the
+fails if `git diff --name-only v0.23.0` for either tree does not match the
 corresponding list **exactly**.
 
 <!-- okvevo-delta:apps/bootstrap-installer -->
@@ -99,8 +99,12 @@ corresponding list **exactly**.
 - `apps/desktop/electron/okvevo-env.ts`
 - `apps/desktop/electron/okvevo-feed.test.ts`
 - `apps/desktop/electron/okvevo-feed.ts`
+- `apps/desktop/electron/plugin-files-hardening.test.ts` — asserts the OkVevo plugin-file refusal copy
+- `apps/desktop/electron/plugin-files-spellings.test.ts` — describe title follows the OkVevo plugin-file refusal copy
+- `apps/desktop/electron/plugin-files.ts` — plugin-file refusals name OkVevo data (v0.23.0 copy)
 - `apps/desktop/electron/portal-session.ts`
 - `apps/desktop/electron/preload.ts`
+- `apps/desktop/electron/primary-remote-startup.ts` — OkVevo remote boot progress copy (v0.23.0 moved it out of main.ts)
 - `apps/desktop/electron/quick-entry.ts`
 - `apps/desktop/electron/quit-guard.ts`
 - `apps/desktop/electron/remote-lifecycle.ts`
@@ -108,10 +112,13 @@ corresponding list **exactly**.
 - `apps/desktop/electron/renderer-load-error-page.ts`
 - `apps/desktop/electron/source-backend.ts`
 - `apps/desktop/electron/ssh-connection.ts`
+- `apps/desktop/electron/ssh-shared-profile-backend.ts` — OkVevo remote-profile error copy
 - `apps/desktop/electron/terminal-ipc.ts`
+- `apps/desktop/electron/update-handoff-report.test.ts` — asserts the OkVevo update-failed dialog copy (v0.23.0 test pins Hermes wording)
 - `apps/desktop/electron/update-handoff-report.ts`
 - `apps/desktop/electron/update-hold-wiring.ts`
 - `apps/desktop/electron/update-marker-gate.ts`
+- `apps/desktop/electron/update-stop-remedy.ts` — OkVevo downgrade-refused message (guide URL still upstream, PRE-LIVE-BACKLOG)
 - `apps/desktop/electron/updater-process.ts`
 - `apps/desktop/electron/updater/app-installer.ts`
 - `apps/desktop/electron/updater/checkout.ts`
@@ -161,13 +168,16 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/write-okvevo-pack-env.test.mjs`
 - `apps/desktop/src/api/client.ts`
 - `apps/desktop/src/api/config.ts`
+- `apps/desktop/src/api/dial-readiness.ts` — OkVevo gateway not-connected / timeout copy (v0.23.0 moved it out of client.ts)
 - `apps/desktop/src/api/plugins.ts`
+- `apps/desktop/src/api/remote-canonical-negotiation.test.ts` — asserts the OkVevo gateway readiness copy
 - `apps/desktop/src/app/artifacts/artifact-utils.ts`
 - `apps/desktop/src/app/artifacts/index.test.ts`
 - `apps/desktop/src/app/capabilities/catalog/catalog-detail.tsx`
 - `apps/desktop/src/app/capabilities/scope-selector.tsx`
 - `apps/desktop/src/app/chat/composer/hooks/use-voice-live-conversation.ts`
 - `apps/desktop/src/app/chat/right-rail/preview-pane.tsx`
+- `apps/desktop/src/app/gateway/hooks/use-gateway-boot.test.tsx` — asserts the OkVevo remote boot copy
 - `apps/desktop/src/app/gateway/hooks/use-gateway-boot.ts`
 - `apps/desktop/src/app/gateway/hooks/use-gateway-request.ts`
 - `apps/desktop/src/app/messaging/index.tsx`
@@ -226,11 +236,15 @@ corresponding list **exactly**.
 - `apps/desktop/src/components/provider-status-chip.tsx`
 - `apps/desktop/src/components/send-diagnostics-dialog.tsx`
 - `apps/desktop/src/components/version-details.tsx`
+- `apps/desktop/src/contrib/plugin-files.ts` — OkVevo "no plugin file access" copy
 - `apps/desktop/src/contrib/runtime-loader.ts`
 - `apps/desktop/src/global.d.ts`
 - `apps/desktop/src/i18n/catalog.ts`
 - `apps/desktop/src/i18n/en.ts`
 - `apps/desktop/src/i18n/okvevo-catalog.test.ts`
+- `apps/desktop/src/lib/boot-failure.test.ts` — asserts the OkVevo load-failure screen
+- `apps/desktop/src/lib/boot-failure.ts` — OkVevo wordmark and heading on the v0.23.0 load-failure screen
+- `apps/desktop/src/lib/browser-notifications.ts` — OkVevo notification title fallback
 - `apps/desktop/src/lib/build-channel.ts`
 - `apps/desktop/src/lib/commit-changelog.ts`
 - `apps/desktop/src/lib/desktop-fs.ts`
@@ -256,6 +270,7 @@ corresponding list **exactly**.
 - `apps/desktop/src/lib/yolo-session.ts`
 - `apps/desktop/src/main.tsx`
 - `apps/desktop/src/plugins/hermes-bots/canonical-chat.ts`
+- `apps/desktop/src/plugins/hermes-bots/canonical-group-locales.ts` — group-chat error copy names OkVevo in every locale
 - `apps/desktop/src/plugins/hermes-bots/canonical-group-send.ts`
 - `apps/desktop/src/plugins/hermes-bots/chat-empty.test.tsx`
 - `apps/desktop/src/plugins/hermes-bots/data.identity.test.ts`
@@ -278,10 +293,13 @@ corresponding list **exactly**.
 - `apps/desktop/src/plugins/kanban/transfer.ts`
 - `apps/desktop/src/plugins/radio/plugin.js`
 - `apps/desktop/src/sdk/index.ts`
+- `apps/desktop/src/store/browser-tab-title.test.ts` — asserts the OkVevo tab title
+- `apps/desktop/src/store/browser-tab-title.ts` — OkVevo tab title
 - `apps/desktop/src/store/gateway.ts`
 - `apps/desktop/src/store/notifications.ts`
 - `apps/desktop/src/store/okvevo-auth.test.ts`
 - `apps/desktop/src/store/okvevo-auth.ts`
+- `apps/desktop/src/store/onboarding-local-runtime.test.ts` — asserts the OkVevo local-model hint
 - `apps/desktop/src/store/onboarding-scope.ts`
 - `apps/desktop/src/store/onboarding.ts`
 - `apps/desktop/src/store/profile-share.test.ts`
@@ -290,6 +308,7 @@ corresponding list **exactly**.
 - `apps/desktop/src/store/prompts.ts`
 - `apps/desktop/src/store/quick-entry.ts`
 - `apps/desktop/src/store/reactions-enabled.ts`
+- `apps/desktop/src/store/secondary-negotiated-wire.test.ts` — asserts the OkVevo gateway negotiation copy
 - `apps/desktop/src/store/send-diagnostics.ts`
 - `apps/desktop/src/store/session-no-reply.ts`
 - `apps/desktop/src/store/statusbar-prefs.ts`

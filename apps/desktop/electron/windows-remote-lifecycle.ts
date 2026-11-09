@@ -201,10 +201,10 @@ async function resolveWindowsLauncher(ssh: any, runtime: any) {
     WINDOWS_NO_REPARSE_PS,
     `Assert-NoReparse ${psLiteral(runtime.hermesPath)} $false`,
     `$lines=@(& ${psLiteral(runtime.hermesPath)} '--print-runtime-command');$code=$LASTEXITCODE`,
-    'if($code -ne 0){throw "The Hermes launcher does not support --print-runtime-command; refresh the Windows installation launcher."}',
+    'if($code -ne 0){throw "The OkVevo launcher does not support --print-runtime-command; refresh the Windows installation launcher."}',
     '$command=$lines[-1]|ConvertFrom-Json',
-    'if($command -isnot [array] -or $command.Count -lt 2 -or -not [IO.Path]::IsPathRooted([string]$command[0])){throw "Invalid Hermes runtime command"}',
-    'foreach($part in $command){if($part -isnot [string] -or $part.Contains([char]0)){throw "Invalid Hermes runtime argument"}}',
+    'if($command -isnot [array] -or $command.Count -lt 2 -or -not [IO.Path]::IsPathRooted([string]$command[0])){throw "Invalid OkVevo runtime command"}',
+    'foreach($part in $command){if($part -isnot [string] -or $part.Contains([char]0)){throw "Invalid OkVevo runtime argument"}}',
     'Assert-NoReparse ([string]$command[0]) $false',
     '[ordered]@{python=[string]$command[0];runtimeCommand=@($command)}|ConvertTo-Json -Depth 5 -Compress'
   ].join('\r\n')
@@ -220,7 +220,7 @@ async function resolveWindowsLauncher(ssh: any, runtime: any) {
     }
   } catch (cause: any) {
     if (TRANSPORT_KINDS.has(cause?.kind)) {throw cause}
-    const error: any = new Error('Refresh the remote Windows Hermes launcher: its boot-selecting runtime could not be resolved.')
+    const error: any = new Error('Refresh the remote Windows OkVevo launcher: its boot-selecting runtime could not be resolved.')
     error.kind = 'update-required'
     error.cause = cause
     throw error

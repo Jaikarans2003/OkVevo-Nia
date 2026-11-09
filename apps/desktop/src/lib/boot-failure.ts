@@ -76,7 +76,7 @@ export function showBootFailure(error: unknown, reload: () => void = () => locat
   })
 
   const wordmark = document.createElement('p')
-  wordmark.textContent = 'HERMES AGENT'
+  wordmark.textContent = 'OKVEVO'
   wordmark.setAttribute('aria-hidden', 'true')
   Object.assign(wordmark.style, {
     color: palette?.accent ?? 'currentColor',
@@ -91,7 +91,7 @@ export function showBootFailure(error: unknown, reload: () => void = () => locat
 
   // English is intentional: i18n lives in the app graph that failed to load.
   const heading = document.createElement('h1')
-  heading.textContent = 'Hermes couldn’t load'
+  heading.textContent = 'OkVevo couldn’t load'
   heading.style.cssText = 'color: inherit; font-size: 1.125rem; font-weight: 600; margin: 0'
 
   const message = document.createElement('p')

@@ -81,7 +81,7 @@ export class DialReadiness {
     this.dial = dial
 
     if (!dial.settled) {
-      dial.timer = setTimeout(() => this.settle(dial, new TimeoutError('Hermes gateway protocol readiness timed out')), GATEWAY_READINESS_TIMEOUT_MS)
+      dial.timer = setTimeout(() => this.settle(dial, new TimeoutError('OkVevo gateway protocol readiness timed out')), GATEWAY_READINESS_TIMEOUT_MS)
     }
 
     return dial.promise
@@ -110,7 +110,7 @@ export class DialReadiness {
   fail(): void {
     const dial = this.dial
 
-    this.settle(dial, new Error(dial.opened ? 'Hermes gateway connection closed before protocol readiness' : GATEWAY_NOT_CONNECTED_MESSAGE))
+    this.settle(dial, new Error(dial.opened ? 'OkVevo gateway connection closed before protocol readiness' : GATEWAY_NOT_CONNECTED_MESSAGE))
   }
 
   /** Fail the dial `promise` belongs to (a connect() whose transport rejected). */

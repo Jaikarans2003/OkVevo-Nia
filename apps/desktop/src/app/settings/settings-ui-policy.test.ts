@@ -137,6 +137,7 @@ describe('settings UI policy filters', () => {
     isByokChromeVisibleMock.mockReturnValue(false)
 
     expect(isSettingsViewVisible('gateway')).toBe(false)
+    expect(isSettingsViewVisible('web-access')).toBe(false)
     expect(isSettingsViewVisible('connections')).toBe(false)
     expect(isSettingsViewVisible('keybinds')).toBe(false)
     expect(isSettingsViewVisible('keys')).toBe(false)
