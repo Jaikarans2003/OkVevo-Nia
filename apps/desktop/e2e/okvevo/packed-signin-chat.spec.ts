@@ -93,6 +93,48 @@ function callWith(calls: ChatCall[], text: string): ChatCall | undefined {
   return calls.find(call => JSON.stringify(call.messages ?? []).includes(text))
 }
 
+const IDENTITY = 'You are OkVevo agent, made by OkVevo.'
+
+// What the gateway sent: the OkVevo identity, never upstream's Hermes help guidance.
+function expectOkvevoIdentity(call: ChatCall | undefined, what: string) {
+  const sent = JSON.stringify(call?.messages ?? [])
+
+  expect(sent, `${what}: OkVevo identity missing from the system prompt`).toContain(IDENTITY)
+  expect(sent, `${what}: upstream help guidance leaked`).not.toContain('hermes-agent.nousresearch.com')
+}
+
+// Same Bots selectors as upstream's e2e/group-room-native.spec.ts.
+async function openBots(page: Page) {
+  await page.getByRole('button', { name: 'Bots', exact: true }).or(page.getByRole('tab', { name: 'Bots', exact: true })).first().click()
+  await expect(page.getByRole('button', { name: 'New bot or group chat' })).toBeVisible()
+}
+
+async function createBot(page: Page, name: string, title: string) {
+  await page.getByRole('button', { name: 'New bot or group chat' }).click()
+  await page.getByRole('menuitem', { name: 'New Bot' }).click()
+  const dialog = page.getByRole('dialog', { name: 'New Bot' })
+  await dialog.getByPlaceholder('inbox-triage').fill(name)
+  await dialog.getByPlaceholder('Inbox Triage').fill(title)
+  await dialog.getByRole('button', { name: 'Create Bot' }).click()
+  await expect(dialog).toBeHidden({ timeout: 60_000 })
+  await expect(page.getByRole('button', { name: new RegExp(`^${title}\\b`) }).first()).toBeVisible({ timeout: 60_000 })
+}
+
+async function createGroup(page: Page, titles: string[], room: string) {
+  await openBots(page)
+  await page.getByRole('button', { name: 'New bot or group chat' }).click()
+  await page.getByRole('menuitem', { name: 'New Group Chat' }).click()
+  const dialog = page.getByRole('dialog', { name: 'New Group Chat' })
+
+  for (const title of titles) {
+    await dialog.getByText(title, { exact: true }).locator('xpath=ancestor::label').getByRole('checkbox').click()
+  }
+
+  await dialog.getByRole('textbox', { name: 'Group name' }).fill(room)
+  await dialog.getByRole('button', { name: `Create Group (${titles.length})` }).click()
+  await expect(dialog).toBeHidden({ timeout: 30_000 })
+}
+
 function copyLogs(from: string, into: string) {
   const logs = path.join(from, 'logs')
 
@@ -110,6 +152,7 @@ function saveFailureEvidence(hermesHome: string, app: ElectronApplication | unde
 }
 
 test('packed app signs in then chats on the default bot on one launch', async () => {
+  test.setTimeout(900_000)
   const executable = process.env.OKVEVO_E2E_EXECUTABLE || ''
 
   if (!executable || !fs.existsSync(executable)) {
@@ -274,6 +317,7 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     const call = callWith(mock.calls, 'ping after sign in')
     expect(call, 'no gateway call carried the first-chat message').toBeTruthy()
     expect(call!.authorization || '').toContain(token)
+    expectOkvevoIdentity(call, 'default bot first chat')
     await expect(page.getByText('No usable credentials found')).toHaveCount(0)
     await shot(page, 'signin-first-chat.png')
 
@@ -288,6 +332,36 @@ test('packed app signs in then chats on the default bot on one launch', async ()
       .poll(() => callWith(mock.calls, 'ping picked model')?.model, { timeout: 60_000, message: 'picked model never reached the gateway' })
       .toBe(picked)
     await shot(page, 'signin-picked-model.png')
+
+    // Hermes v0.23.0 runs every profile on this one gateway. Bots created now, on the same launch,
+    // must be provisioned with the OkVevo SOUL and answer as OkVevo inside a group chat.
+    const bots: Array<[string, string]> = [['scout', 'Scout'], ['critic', 'Critic']]
+    await openBots(page)
+
+    for (const [name, title] of bots) {
+      await createBot(page, name, title)
+      const soul = path.join(sandbox.hermesHome, 'profiles', name, 'SOUL.md')
+      await expect
+        .poll(() => fs.existsSync(soul) && fs.readFileSync(soul, 'utf8').includes(IDENTITY), { timeout: 60_000, message: `${name} SOUL.md is not the OkVevo SOUL` })
+        .toBe(true)
+    }
+
+    await createGroup(page, bots.map(([, title]) => title), 'Critic, Scout')
+    const groupComposer = page.getByRole('textbox', { name: 'Group message', exact: true }).filter({ visible: true })
+    await expect(groupComposer).toBeVisible({ timeout: 60_000 })
+    await expect(async () => {
+      await groupComposer.fill('@scout @critic ping the group')
+      await groupComposer.press('Enter')
+      await expect.poll(() => groupComposer.evaluate(el => (el as HTMLTextAreaElement).value ?? el.textContent ?? ''), { timeout: 10_000 }).toBe('')
+    }).toPass({ timeout: 150_000 })
+
+    for (const [name] of bots) {
+      const turn = () => callWith(mock.calls, `You are @${name}`)
+      await expect.poll(() => Boolean(turn()), { timeout: 120_000, message: `@${name} never took a group turn` }).toBe(true)
+      expectOkvevoIdentity(turn(), `@${name} group turn`)
+    }
+
+    await shot(page, 'signin-group-chat.png')
   } catch (error) {
     failed = true
     throw error

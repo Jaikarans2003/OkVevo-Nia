@@ -2,6 +2,8 @@
 
 Run on a **fresh packaged staging build**, Mac **and** Windows. Quit and uninstall Nia first. The new `appId` (`com.okvevo.app`) installs **beside** Nia, not over it. Never run both at once — they share `~/.hermes`.
 
+Install minimums since the Hermes v0.23.0 sync (Electron 44): **macOS 13 Ventura or later** and **64-bit Windows** (10 or 11). Older macOS and 32-bit Windows do not launch; do not file those as bugs.
+
 Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on private repos).
 
 | # | Test | Pass when |
