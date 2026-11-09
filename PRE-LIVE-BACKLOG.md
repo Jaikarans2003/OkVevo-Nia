@@ -708,10 +708,10 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | Field | Value |
 |-------|-------|
 | **Gate** | Should fix |
-| **Risk if skipped** | The default bot's visible handle is `@hermes` — a user-facing Hermes string in group chats and @mentions. |
-| **Scope** | Desktop renderer display layer (bot handle rendering); internal handle stays `@hermes` (protocol identifier, allowlisted). |
-| **Fix** | Display-layer alias: render the internal `@hermes` handle as `@okvevo` (PR 1.3 plan line 71). No wire/protocol rename. |
-| **Verify** | Bots list and group chat show `@okvevo`; a test group @mention of the default bot still routes. |
+| **Risk if skipped** | The default bot's visible handle is `@hermes` — a user-facing Hermes string in group chats and @mentions. The @ mention menu also lists the default agent twice: "@hermes agent profile (primary)" and "@default" (seen 2026-11-09 on the v0.23.0 sync, PR #76). |
+| **Scope** | Desktop renderer display layer (bot handle rendering, @-mention completions in `apps/desktop/src/plugins/hermes-bots/plugin.tsx`, `resolveRosterMentions` / `mentionNameForms` in `data.ts`); internal handle stays `@hermes` (protocol identifier, allowlisted). |
+| **Fix** | Display-layer alias: render the internal `@hermes` handle as `@okvevo` (PR 1.3 plan line 71), including the mention menu row. Hide the duplicate `@default` row for the same agent in public builds (`isByokChromeVisible()` false); typing `@default` may still resolve. No wire/protocol rename. |
+| **Verify** | Bots list, group chat and the @ mention menu show one `@okvevo` row for the default agent and no `@default` row on public; a test group chat @mention of `@okvevo` (and of a named bot) still routes to the right profile (`plugin.mentions` + `group-rounds` tests, packed group-chat E2E). |
 | **Notes** | Logged 2026-11-03; scoped to PR 2 so PR 1.3 stays minimal. |
 
 ### [ ] Desktop typecheck and ESLint errors on staging, and neither runs in OkVevo CI
