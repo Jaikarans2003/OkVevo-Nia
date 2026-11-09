@@ -6,7 +6,7 @@
 # desktop / installer / other counts so a sync PR shows the patch budget.
 set -euo pipefail
 
-TAG="${1:-v0.22.4}"
+TAG="${1:-v0.23.0}"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
