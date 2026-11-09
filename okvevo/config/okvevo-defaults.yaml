@@ -68,10 +68,12 @@ web:
   keyless_fallback: false
   keyless_rescue: false
 
+# offer_version: Hermes v0.23.0 re-asks an "off" answer that lacks it ("Share with Nous" strip).
 telemetry:
   shared_metrics:
     enabled: false
     send: false
+    offer_version: 2
 
 # Public first-run does not sign into Nous, fetch the Nous model catalog,
 # arm Chronos, or start the Nous tool-gateway connectors.

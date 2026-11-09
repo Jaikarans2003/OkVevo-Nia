@@ -9,7 +9,7 @@ or by not starting the feature. The Nous banner in the shell is PR 2.
 | Nous portal login and free guest identity | Disabled | `nous.guest: false` in `okvevo/config/okvevo-defaults.yaml`. Public settings hide Nous Portal (`isByokChromeVisible()`). |
 | `nous` / `auto` as the chat or auxiliary provider | Disabled | First-run `model.provider` is `okvevo`. Every `auxiliary.*.provider` is `main`, which follows that provider. `auto`, `openrouter`, and `nous` are replaced. |
 | Chronos | Disabled | `cron.chronos.portal_url` is empty. Cron provider is left unset, so the portal URL is unused. |
-| Shared telemetry | Disabled | `telemetry.shared_metrics.enabled` and `send` are false. The upstream endpoint string remains in code and is not requested while send is false. |
+| Shared telemetry | Disabled | `telemetry.shared_metrics.enabled` and `send` are false, plus `offer_version: 2` so v0.23.0 reads it as a settled answer and never shows the "Share with Nous" re-ask strip (`plugins/okvevo/tests/test_shared_metrics_offer.py`). The upstream endpoint string remains in code and is not requested while send is false. |
 | Remote model catalog | Disabled | `model_catalog.enabled: false`. The picker reads the gateway `model.options` list. |
 | Nous tool-gateway connectors | Disabled | `tools.connectors.enabled: false`. |
 | Skills Hub Nous origin | Disabled | Public chrome does not offer the Nous sign-in the hub uses. No hub URL is written into first-run config. |

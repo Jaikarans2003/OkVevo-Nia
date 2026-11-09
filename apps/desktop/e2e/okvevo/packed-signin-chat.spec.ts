@@ -319,6 +319,8 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     expect(call!.authorization || '').toContain(token)
     expectOkvevoIdentity(call, 'default bot first chat')
     await expect(page.getByText('No usable credentials found')).toHaveCount(0)
+    // v0.23.0 re-asks shared metrics unless offer_version is set; public builds never offer Nous.
+    await expect(page.getByText('Share with Nous')).toHaveCount(0)
     await shot(page, 'signin-first-chat.png')
 
     // Pick a listed catalog model; that id, not an Auto alias, reaches the gateway.
@@ -334,16 +336,21 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     await shot(page, 'signin-picked-model.png')
 
     // Hermes v0.23.0 runs every profile on this one gateway. Bots created now, on the same launch,
-    // must be provisioned with the OkVevo SOUL and answer as OkVevo inside a group chat.
+    // must be provisioned for OkVevo and answer as OkVevo, alone and inside a group chat. The New Bot
+    // dialog writes the bot's own SOUL ("**Role:** <title>"), which provisioning keeps by design; the
+    // identity rides the OkVevo help guidance in every prompt.
     const bots: Array<[string, string]> = [['scout', 'Scout'], ['critic', 'Critic']]
     await openBots(page)
 
     for (const [name, title] of bots) {
       await createBot(page, name, title)
-      const soul = path.join(sandbox.hermesHome, 'profiles', name, 'SOUL.md')
+      const config = path.join(sandbox.hermesHome, 'profiles', name, 'config.yaml')
       await expect
-        .poll(() => fs.existsSync(soul) && fs.readFileSync(soul, 'utf8').includes(IDENTITY), { timeout: 60_000, message: `${name} SOUL.md is not the OkVevo SOUL` })
+        .poll(() => fs.existsSync(config) && /provider:\s*okvevo/.test(fs.readFileSync(config, 'utf8')), { timeout: 60_000, message: `${name} config.yaml is not provisioned for OkVevo` })
         .toBe(true)
+      const own = () => callWith(mock.calls, `**Role:** ${title}`)
+      await expect.poll(() => Boolean(own()), { timeout: 120_000, message: `${name} never took its own turn` }).toBe(true)
+      expectOkvevoIdentity(own(), `${name} first turn`)
     }
 
     await createGroup(page, bots.map(([, title]) => title), 'Critic, Scout')

@@ -207,6 +207,7 @@ test('planConfigChanges writes the defaults file and leaves no auto, openrouter,
   assert.equal(auxiliary.vision.timeout, 12)
   assert.equal(auxiliary.title_generation.provider, 'anthropic')
   assert.equal((next.telemetry as { shared_metrics: { enabled: boolean; send: boolean } }).shared_metrics.send, false)
+  assert.equal((next.telemetry as { shared_metrics: { offer_version: number } }).shared_metrics.offer_version, 2)
   assert.equal((next.nous as { guest: boolean }).guest, false)
 
   const wantedAux = defaults.auxiliary as Record<string, { provider: string }>
