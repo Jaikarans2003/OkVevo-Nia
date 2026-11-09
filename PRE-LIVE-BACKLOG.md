@@ -414,7 +414,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | Desktop: upstream `tools/image_generation_catalog.py` row `fal-ai/gpt-image-2` (text endpoint = row id) used by `plugins/okvevo/media.py`. Portal: `OkVevo-Web/src/lib/fal/allowlist.ts` + `rateCard.ts` list only `openai/gpt-image-2` (+ `/edit`). |
 | **Fix** | Pick one side: (a) portal also allowlists/prices `fal-ai/gpt-image-2` (only if Fal serves that path), or (b) `plugins/okvevo/media.py` submits `openai/gpt-image-2` for that row (OkVevo-owned, no upstream edit). Decide after one paid submit to each id on testing. |
 | **Verify** | Testing portal: `fal-ai/gpt-image-2` image request returns an image URL from the desktop path (`.worktrees/live_images.py` style run). |
-| **Notes** | Found 2026-10-30 live test after the Fal top-up: Klein OK (13 credits, image in 5.2 s); `fal-ai/gpt-image-2` quote + submit → 400 "Fal endpoint is not meterable on the OkVevo gateway"; `openai/gpt-image-2` quotes 106 credits. Same 400 as the 14:27 flyer. |
+| **Notes** | Found 2026-10-30 live test after the Fal top-up: Klein OK (13 credits, image in 5.2 s); `fal-ai/gpt-image-2` quote + submit → 400 "Fal endpoint is not meterable on the OkVevo gateway"; `openai/gpt-image-2` quotes 106 credits. Same 400 as the 14:27 flyer. Deferred 2026-11-09: [OkVevo-Nia #71](https://github.com/Jaikarans2003/OkVevo-Nia/pull/71) is the fix; rebase it onto the Hermes v0.23.0 sync only after that sync is merged into `staging`. |
 
 ### [ ] Old sessions may reuse a stored system prompt with the old identity
 
@@ -447,20 +447,20 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | `.github/workflows/okvevo-checks.yml` (Desktop OkVevo suites runs a fixed list of ~15 UI files); `apps/desktop/src/**/*.test.{ts,tsx}`; `apps/desktop/vitest.config.ts` |
 | **Fix** | PR 3: make CI run `npx vitest run --project ui` (whole suite) as a required check. For each failing file: fix it, or delete it with a one-line reason in the commit message. No `skip` / `todo` left behind without a backlog row and a date. |
 | **Verify** | `cd apps/desktop && npx vitest run --project ui` exits 0 locally and in CI; `rg -n "\.skip\(|\.todo\(" apps/desktop/src` shows nothing new without a backlog row. |
-| **Notes** | Logged 2026-11-06 (PR 1.4). `src/plugins/hermes-bots/` alone: 25 of 110 files fail on clean `staging` (`410378ce66`), same with or without PR 1.4. Causes seen: missing `@novnc/novnc` (`screen-pane-*`, `screen-viewer-identity`, `screen-managed-copy`); assertions still expecting the `@hermes` handle or `hermes` profile where OkVevo shows `@okvevo` (`group-rounds`, `group-rounds.primary-alias`); `soul.test.ts` expecting `@nia`; and whole files that fail to load (all `cron-*`, `bot-row`, `bot-open-focus-identity`, `cold-bot-switch-row`, `plugin-panes`, `plugin.mentions`, `hide-bot-chats.runtime`, `reclaim-refresh-in-place`, `legacy-sdk-compat`) — root cause per file is PR 3's job. The whole UI project did not finish locally: workers for `src/lib/session-owner-routed-rpcs.test.tsx` and `src/lib/local-preview.local-target.test.ts` never terminated (vitest "Timeout terminating forks worker"), so PR 3 also fixes those hangs before the suite can gate. |
+| **Notes** | Logged 2026-11-06 (PR 1.4). `src/plugins/hermes-bots/` alone: 25 of 110 files fail on clean `staging` (`410378ce66`), same with or without PR 1.4. Causes seen: missing `@novnc/novnc` (`screen-pane-*`, `screen-viewer-identity`, `screen-managed-copy`); assertions still expecting the `@hermes` handle or `hermes` profile where OkVevo shows `@okvevo` (`group-rounds`, `group-rounds.primary-alias`); `soul.test.ts` expecting `@nia`; and whole files that fail to load (all `cron-*`, `bot-row`, `bot-open-focus-identity`, `cold-bot-switch-row`, `plugin-panes`, `plugin.mentions`, `hide-bot-chats.runtime`, `reclaim-refresh-in-place`, `legacy-sdk-compat`) — root cause per file is PR 3's job. The whole UI project did not finish locally: workers for `src/lib/session-owner-routed-rpcs.test.tsx` and `src/lib/local-preview.local-target.test.ts` never terminated (vitest "Timeout terminating forks worker"), so PR 3 also fixes those hangs before the suite can gate. 2026-11-09 v0.23.0 sync: the electron + ui files around the merged code fail 8 on `staging` and 19 after the sync; the 11 new are upstream tests that assert Hermes wording or the `@hermes` handle (`data.hermes-handle`, `group-rounds.hermes-handle`, `group-transcript-speaker`, two `plugin.mentions` cases, `remote-authority-wire`, `update-handoff-report` fixed in the sync). |
 
-## Should fix before live (lower severity)
-
-### [ ] Sync Hermes v0.22.5 (own PR, after PR 1.2, before PR 2)
+### [ ] www.okvevo.com download page states the new install minimums
 
 | Field | Value |
 |-------|-------|
-| **Gate** | Should fix |
-| **Risk if skipped** | Patch drift grows; the next sync is bigger and riskier. |
-| **Scope** | Whole tree; `docs/okvevo/SYNC.md`, `.cursor/commands/okvevo-sync.md`, `scripts/okvevo/check_upstream_delta.sh` tag argument + `okvevo-checks.yml` tag fetch |
-| **Fix** | `git merge v0.22.5` on its own branch. Scan the new Nous sign-in and usage-window code and switch both off in public builds. Read `docs/okvevo/WORKAROUNDS.md` + `UPSTREAM-KNOWN-ISSUES.md`. Report found / changed / verified. |
-| **Verify** | `bash scripts/okvevo/check_upstream_delta.sh v0.22.5` green; the SYNC.md required checks green. |
-| **Notes** | Deferred 2026-10-30: v0.22.5 does not fix the lease, approval, group-list, or credential-pool `reset_at` issues (PR 1.2 plan Step 0). |
+| **Gate** | Required before live |
+| **Risk if skipped** | Since the Hermes v0.23.0 sync (Electron 44) the app does not launch on macOS 12 or older or on 32-bit Windows; users on those download, fail, and blame the product. |
+| **Scope** | OkVevo-Web `/nia` download page (`src/app/nia/page.tsx`) |
+| **Fix** | Next to the Mac / Windows buttons: "macOS 13 Ventura or later" and "Windows 10 or 11, 64-bit". |
+| **Verify** | Open `/nia` on staging: both minimums show beside the matching button. |
+| **Notes** | Logged 2026-11-09 with the v0.23.0 sync. Same minimums are in `docs/okvevo/TESTING.md`. Website not edited in the sync PR. |
+
+## Should fix before live (lower severity)
 
 ### [ ] Approval withdrawn after a long freeze (upstream session turn lease)
 
@@ -708,11 +708,33 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | Field | Value |
 |-------|-------|
 | **Gate** | Should fix |
-| **Risk if skipped** | The default bot's visible handle is `@hermes` — a user-facing Hermes string in group chats and @mentions. |
-| **Scope** | Desktop renderer display layer (bot handle rendering); internal handle stays `@hermes` (protocol identifier, allowlisted). |
-| **Fix** | Display-layer alias: render the internal `@hermes` handle as `@okvevo` (PR 1.3 plan line 71). No wire/protocol rename. |
-| **Verify** | Bots list and group chat show `@okvevo`; a test group @mention of the default bot still routes. |
+| **Risk if skipped** | The default bot's visible handle is `@hermes` — a user-facing Hermes string in group chats and @mentions. The @ mention menu also lists the default agent twice: "@hermes agent profile (primary)" and "@default" (seen 2026-11-09 on the v0.23.0 sync, PR #76). |
+| **Scope** | Desktop renderer display layer (bot handle rendering, @-mention completions in `apps/desktop/src/plugins/hermes-bots/plugin.tsx`, `resolveRosterMentions` / `mentionNameForms` in `data.ts`); internal handle stays `@hermes` (protocol identifier, allowlisted). |
+| **Fix** | Display-layer alias: render the internal `@hermes` handle as `@okvevo` (PR 1.3 plan line 71), including the mention menu row. Hide the duplicate `@default` row for the same agent in public builds (`isByokChromeVisible()` false); typing `@default` may still resolve. No wire/protocol rename. |
+| **Verify** | Bots list, group chat and the @ mention menu show one `@okvevo` row for the default agent and no `@default` row on public; a test group chat @mention of `@okvevo` (and of a named bot) still routes to the right profile (`plugin.mentions` + `group-rounds` tests, packed group-chat E2E). |
 | **Notes** | Logged 2026-11-03; scoped to PR 2 so PR 1.3 stays minimal. |
+
+### [ ] Desktop typecheck and ESLint errors on staging, and neither runs in OkVevo CI
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix |
+| **Risk if skipped** | Type errors land unseen. One is a real crash: `apps/desktop/electron/remote-lifecycle.ts` references `remoteOkVevoPath` (bad rebrand of `remoteHermesPath`, commit `464c6f8007`), a ReferenceError if that remote-path error is ever built (remote mode is off in local-only v1). |
+| **Scope** | `.github/workflows/okvevo-checks.yml`; renderer `tsc` errors in `about-settings.test.ts`, `settings-search.test.ts`, `model-catalog-menu.tsx`, `titlebar-controls.tsx`, `assistant-message.tsx` (`errorHelpEmail` not in `i18n/types.ts`), `desktop-install-overlay.test.tsx`, `i18n/catalog.ts`, `i18n/en.ts`, `model-options.test.ts`, `provider-branding.test.ts`; Electron `main.ts` theme type + `remote-lifecycle.ts`; ESLint errors in `main.ts` (import order) and `plugins/hermes-bots/profile-ops.ts` (restricted `@/lib/okvevo-provision` import). |
+| **Fix** | Fix the errors (OkVevo i18n keys into `i18n/types.ts`, restore `remoteHermesPath`, route provisioning through the plugin SDK), then add `npm run check:lint` to OkVevo checks. |
+| **Verify** | `cd apps/desktop && npm run check:lint` exits 0 locally and in OkVevo checks. |
+| **Notes** | Logged 2026-11-09 during the v0.23.0 sync. All exist on `staging` (`375e8e51e0`); the sync added none (renderer `tsc` 19 = 19, ESLint 3 = 3). The pre-commit ESLint hook fails on them, so the sync merge commit used `--no-verify` with Karan's approval. |
+
+### [ ] Update-stop dialog links the Nous updating guide
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix |
+| **Risk if skipped** | If a refused downgrade is ever reported, the (now OkVevo-worded) dialog points users at `hermes-agent.nousresearch.com/docs/getting-started/updating`. |
+| **Scope** | `apps/desktop/electron/update-stop-remedy.ts` (`STOP_EXPLANATIONS.downgrade_refused`, `UPDATES_GUIDE`) |
+| **Fix** | Drop the guide URL from the detail, or point it at an OkVevo help page once one exists. |
+| **Verify** | `cd apps/desktop && npx vitest run electron/update-handoff-report.test.ts` with a `downgrade_refused` receipt shows no Nous URL. |
+| **Notes** | New in v0.23.0. Only the git-checkout `hermes update` path writes `downgrade_refused`; bundled customer packs update through electron-updater, so it is dormant today (`docs/okvevo/NOUS-TOUCHPOINTS.md`). |
 
 ---
 
@@ -720,6 +742,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| Sync Hermes v0.22.4 → v0.23.0 (was "Sync Hermes v0.22.5") | 2026-11-09 | Direct `git merge v0.23.0` on `sync/hermes-v0.23.0`, 16 conflicts resolved; Nous sign-in / usage windows / Webapp off in public builds; pins, PATCHES lists, gitleaks range moved to v0.23.0. PR: [OkVevo-Nia #76](https://github.com/Jaikarans2003/OkVevo-Nia/pull/76) (draft). Verify: `bash scripts/okvevo/check_upstream_delta.sh v0.23.0`; `scripts/run_tests.sh plugins/okvevo/tests/`; Mac + Windows pack E2E on the PR. |
 | Staging upload publishes `latest*.yml` before the installers | 2026-11-08 | Installers first, HTTPS sha512/size check, `latest*.yml` last; R2 uploads retry; Publish release checks installers before the flip and smokes with `--version`. PR: [OkVevo-Nia #75](https://github.com/Jaikarans2003/OkVevo-Nia/pull/75). Verify: `npx vitest run --project electron scripts/publish-release-feed.test.mjs scripts/smoke-release-feed.test.mjs`. |
 | Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: [OkVevo-Nia #70](https://github.com/Jaikarans2003/OkVevo-Nia/pull/70). Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |
 

@@ -68,10 +68,12 @@ web:
   keyless_fallback: false
   keyless_rescue: false
 
+# offer_version: Hermes v0.23.0 re-asks an "off" answer that lacks it ("Share with Nous" strip).
 telemetry:
   shared_metrics:
     enabled: false
     send: false
+    offer_version: 2
 
 # Public first-run does not sign into Nous, fetch the Nous model catalog,
 # arm Chronos, or start the Nous tool-gateway connectors.
@@ -89,11 +91,16 @@ tools:
   connectors:
     enabled: false
 
+# Hermes v0.23.0 browser-hosted Desktop (Webapp / Web Access) behind Nous sign-in.
+# Public builds keep only the gateway's private loopback listener.
+webapp:
+  enabled: false
+  public_url: ""
+
 # Temporary stand-ins for Hermes bugs, one per docs/okvevo/WORKAROUNDS.md row.
 # false = pure Hermes behavior. Remove the key with the code once upstream fixes it.
 okvevo:
   workarounds:
     groups_all_profiles: true
     event_loop_block_stack: true
-    default_agent_label: true
     identity_guidance: true

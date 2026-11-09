@@ -21,7 +21,7 @@ import {
   focusedRosterOwner,
   rosterWatermarks
 } from './bot-state'
-import { ensureBotMetadata } from './canonical-chat'
+import { ensureBotProfile } from './canonical-chat'
 import {
   $botMeta,
   BOT_META_V1_KEY,
@@ -345,8 +345,8 @@ export function mergeServerMeta(roster: RosterRow[], fetchedAt = 0) {
 
 /** Clone a bot: profile (config/skills/SOUL/memory via clone_from) + look.
  *  Name is "<base>-2", "-3", … — first free slot against the live roster. */
-export async function duplicateBot(bot: RosterRow, roster: RosterRow[]) {
-  await ensureBotMetadata(bot)
+export async function duplicateBot(source: RosterRow, roster: RosterRow[]) {
+  const bot = await ensureBotProfile(source)
   const base = bot.name
   const ownerRoute = botConnectionRoute(bot)
   const ownerKey = ownerRoute ? botRouteKey(ownerRoute) : null
@@ -381,6 +381,12 @@ export async function duplicateBot(bot: RosterRow, roster: RosterRow[]) {
     clone_from: base,
     description: bot.description || ''
   })
+
+  // Prefs a deleted profile left under the copy's name must not become its.
+  // Older builds without the door keep them, as before.
+  if (typeof host.dropLeftoverProfilePrefs === 'function') {
+    host.dropLeftoverProfilePrefs(name, ownerRoute?.connectionId)
+  }
 
   if (!bot.remoteSource && bot.route?.mode !== 'remote') {
     await provisionOkvevoProfile(name)

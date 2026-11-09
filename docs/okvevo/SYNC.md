@@ -39,15 +39,15 @@ KEEP-PATCH in `docs/okvevo/PATCHES.md` (cap 3).
   reason: ``- `path` — why``.
 
 Gitleaks: `docs/okvevo/gitleaks-baseline.json` is a native `gitleaks detect
---redact` report of findings already in history (upstream `v0.22.4` plus
+--redact` report of findings already in history (upstream `v0.23.0` plus
 OkVevo snapshot commits). CI fails only on findings not in that file. Do not
 re-serialize the JSON with Python — gitleaks matches on entropy/message
 equality, not fingerprint. To refresh after a known false positive that is
 already in git history:
 
 ```bash
-gitleaks detect --source . --log-opts="v0.22.4" --report-path /tmp/gitleaks-up.json --report-format json --redact --exit-code 0
-gitleaks detect --source . --log-opts="v0.22.4..HEAD" --report-path /tmp/gitleaks-ok.json --report-format json --redact --exit-code 0
+gitleaks detect --source . --log-opts="v0.23.0" --report-path /tmp/gitleaks-up.json --report-format json --redact --exit-code 0
+gitleaks detect --source . --log-opts="v0.23.0..HEAD" --report-path /tmp/gitleaks-ok.json --report-format json --redact --exit-code 0
 # concatenate the two JSON arrays without rewriting objects, then commit.
 ```
 

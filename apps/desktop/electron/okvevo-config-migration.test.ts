@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { test } from 'vitest'
+
 import { dump as stringifyYaml } from 'js-yaml'
+import { test } from 'vitest'
 
 import {
   DESKTOP_PLATFORM_HINT_APPEND,
@@ -12,12 +13,12 @@ import {
   loadOkvevoIdentity,
   makeOkvevoSoul,
   migrateOkvevoHermesHome,
+  type MigrationFs,
   planConfigChanges,
   provisionOkvevoProfile,
   readFirstText,
   shouldReplaceSoul,
-  watchOkvevoManagedConfig,
-  type MigrationFs
+  watchOkvevoManagedConfig
 } from './okvevo-config-migration'
 
 const UPSTREAM_SOUL =
@@ -179,6 +180,17 @@ test('migrateOkvevoHermesHome covers root + profiles, backs up, skips custom sou
   assert.deepEqual(writes, [], 'second launch writes nothing')
 })
 
+test('planConfigChanges forces the v0.23.0 Webapp off, whatever the user config asked for', () => {
+  const { next } = planConfigChanges(
+    { webapp: { enabled: true, host: '0.0.0.0', port: 9120, public_url: 'https://tunnel.example' } },
+    { enforce: true }
+  )
+  const webapp = next.webapp as { enabled: boolean; public_url: string }
+
+  assert.equal(webapp.enabled, false)
+  assert.equal(webapp.public_url, '')
+})
+
 test('planConfigChanges writes the defaults file and leaves no auto, openrouter, or nous auxiliary slot', () => {
   const defaults = loadOkvevoDefaults()
   const { next } = planConfigChanges({
@@ -195,6 +207,7 @@ test('planConfigChanges writes the defaults file and leaves no auto, openrouter,
   assert.equal(auxiliary.vision.timeout, 12)
   assert.equal(auxiliary.title_generation.provider, 'anthropic')
   assert.equal((next.telemetry as { shared_metrics: { enabled: boolean; send: boolean } }).shared_metrics.send, false)
+  assert.equal((next.telemetry as { shared_metrics: { offer_version: number } }).shared_metrics.offer_version, 2)
   assert.equal((next.nous as { guest: boolean }).guest, false)
 
   const wantedAux = defaults.auxiliary as Record<string, { provider: string }>
@@ -227,7 +240,8 @@ test('migrateOkvevoHermesHome writes config when SOUL.md is missing', () => {
     existsSync: target => files.has(target),
     readFileSync: target => {
       const text = files.get(target)
-      if (text === undefined) throw new Error(`missing ${target}`)
+      if (text === undefined) {throw new Error(`missing ${target}`)}
+
       return text
     },
     writeFileSync: (target, data) => {

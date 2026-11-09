@@ -1,17 +1,17 @@
 import type * as HermesSdk from '@hermes/plugin-sdk'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, renderHook } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { $canonicalGroupBindings } from './canonical-group-registry'
-import { translateBots } from './i18n-test-helper'
-import { OkvevoCanonicalGroupList } from './okvevo-groups-all-profiles'
+import { $canonicalGroupBindings, bindGatewayGroupRoom, parseCanonicalGroupKey } from './canonical-group-registry'
+import { useOkvevoGatewayGroupRooms } from './okvevo-groups-all-profiles'
 
 // Workaround groups_all_profiles: "CMO, CFO, CEO" is hosted on the cfo profile's
 // state.db while default is in front after a restart (2026-10-30 evidence).
 const { request, profileRoutes } = vi.hoisted(() => ({ request: vi.fn(), profileRoutes: vi.fn() }))
 vi.mock('@hermes/plugin-sdk', async importOriginal => {
   const sdk = await importOriginal<typeof HermesSdk>()
-  const { en } = await import('@/i18n/en')
 
   return {
     ...sdk,
@@ -25,9 +25,7 @@ vi.mock('@hermes/plugin-sdk', async importOriginal => {
         profile: sdk.atom('default'),
         gateway: sdk.atom('open')
       }
-    },
-    useI18n: () => ({ locale: 'en', t: en }),
-    usePluginI18n: () => translateBots
+    }
   }
 })
 
@@ -38,6 +36,10 @@ const hosted: Record<string, Array<{ room_id: string; name: string; members: [] 
   ceo: []
 }
 
+function wrapper({ children }: { children: ReactNode }) {
+  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+}
+
 beforeEach(() => {
   $canonicalGroupBindings.set({})
   request.mockReset()
@@ -45,8 +47,6 @@ beforeEach(() => {
     Object.keys(hosted).map(profile => ({ connectionId: 'local', mode: 'local', profile, targetProfile: profile }))
   )
   request.mockImplementation(async (route: { profile: string }, method: string) => {
-    if (method === 'groups.capabilities') {return { driver: true }}
-
     if (method === 'groups.list') {return { rooms: hosted[route.profile] ?? [], next_offset: null }}
 
     throw new Error(`unexpected ${method}`)
@@ -58,19 +58,21 @@ afterEach(() => {
 })
 
 it('toggle on: rooms hosted on other local profiles are listed and open on their own profile', async () => {
-  const onOpen = vi.fn()
-  render(<OkvevoCanonicalGroupList enabled onOpen={onOpen} />)
+  const { result } = renderHook(() => useOkvevoGatewayGroupRooms(true), { wrapper })
 
-  fireEvent.click(await screen.findByRole('button', { name: 'CMO, CFO, CEO' }))
-  expect(screen.getByRole('button', { name: 'CMO, CEO' })).toBeTruthy()
-  const [key] = onOpen.mock.calls[0]
+  await vi.waitFor(() => expect(result.current.map(room => room.name).sort()).toEqual(['CMO, CEO', 'CMO, CFO, CEO']))
+  const cfoRoom = result.current.find(room => room.name === 'CMO, CFO, CEO')!
+  // The key format must stay the one upstream parses, or the row would open nowhere.
+  expect(parseCanonicalGroupKey(cfoRoom.key)).toEqual({ connectionId: 'local', profile: 'cfo', roomId: cfoRoom.room.room_id })
+  const key = bindGatewayGroupRoom(cfoRoom)
+  expect(key).toBe(cfoRoom.key)
   expect($canonicalGroupBindings.get()[key]).toMatchObject({ profile: 'cfo', roomName: 'CMO, CFO, CEO' })
 })
 
 it('toggle off: Hermes lists only the foreground profile (flip = upstream fixed it, remove the workaround)', async () => {
-  render(<OkvevoCanonicalGroupList enabled={false} onOpen={vi.fn()} />)
+  const { result } = renderHook(() => useOkvevoGatewayGroupRooms(false), { wrapper })
 
   await vi.waitFor(() => expect(request).toHaveBeenCalledWith(expect.objectContaining({ profile: 'default' }), 'groups.list', expect.anything()))
-  expect(screen.queryByRole('button', { name: 'CMO, CFO, CEO' })).toBeNull()
+  expect(result.current.map(room => room.name)).not.toContain('CMO, CFO, CEO')
   expect(request.mock.calls.every(([route]) => route.profile === 'default')).toBe(true)
 })

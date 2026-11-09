@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { _electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test'
 
 import { appLogTail, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, send, waitForInteractive } from '../core/harness'
 
@@ -16,27 +16,35 @@ const diagnostics = path.join(DESKTOP_ROOT, 'release', 'e2e-diagnostics')
 
 function fakeJwt(exp: number): string {
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+
   return `${part({ alg: 'none', typ: 'JWT' })}.${part({ exp })}.e2e`
 }
 
 function resourcesDir(executable: string): string {
   const dir = path.dirname(executable)
   const mac = path.resolve(dir, '../Resources')
-  if (fs.existsSync(path.join(mac, 'okvevo-pack-env.json'))) return mac
+
+  if (fs.existsSync(path.join(mac, 'okvevo-pack-env.json'))) {return mac}
   const win = path.join(dir, 'resources')
-  if (fs.existsSync(path.join(win, 'okvevo-pack-env.json'))) return win
+
+  if (fs.existsSync(path.join(win, 'okvevo-pack-env.json'))) {return win}
   throw new Error(`okvevo-pack-env.json not beside ${executable}`)
 }
 
 function messageText(message: unknown): string {
-  if (!message || typeof message !== 'object') return ''
+  if (!message || typeof message !== 'object') {return ''}
   const content = (message as { content?: unknown }).content
-  if (typeof content === 'string') return content
-  if (!Array.isArray(content)) return ''
+
+  if (typeof content === 'string') {return content}
+
+  if (!Array.isArray(content)) {return ''}
+
   return content
     .map(part => {
-      if (typeof part === 'string') return part
-      if (part && typeof part === 'object' && 'text' in part) return String((part as { text?: unknown }).text ?? '')
+      if (typeof part === 'string') {return part}
+
+      if (part && typeof part === 'object' && 'text' in part) {return String((part as { text?: unknown }).text ?? '')}
+
       return ''
     })
     .join('')
@@ -44,6 +52,7 @@ function messageText(message: unknown): string {
 
 function matchesMarker(call: ChatCall, marker: string): boolean {
   const messages = Array.isArray(call.messages) ? call.messages : []
+
   return messages.some(message => messageText(message).trim() === marker)
 }
 
@@ -62,11 +71,13 @@ async function callFor(calls: ChatCall[], marker: string, timeout = 120_000): Pr
         const found = calls.filter(call => matchesMarker(call, marker))
         const wired = found.find(call => call.model === 'openrouter/auto-beta' || call.plugins?.some(plugin => plugin.cost_tier))
         match = wired ?? found[0]
+
         return Boolean(match)
       },
       { timeout, message: `no gateway call contained ${marker}` }
     )
     .toBe(true)
+
   return match as ChatCall
 }
 
@@ -82,11 +93,15 @@ async function openModelMenu(page: Page) {
 
 function copyLogs(from: string, into: string) {
   const logs = path.join(from, 'logs')
-  if (fs.existsSync(logs)) fs.cpSync(logs, path.join(into, 'logs'), { recursive: true })
+
+  if (fs.existsSync(logs)) {fs.cpSync(logs, path.join(into, 'logs'), { recursive: true })}
   const profiles = path.join(from, 'profiles')
-  if (!fs.existsSync(profiles)) return
+
+  if (!fs.existsSync(profiles)) {return}
+
   for (const name of fs.readdirSync(profiles)) {
     const profileLogs = path.join(profiles, name, 'logs')
+
     if (fs.existsSync(profileLogs)) {
       fs.cpSync(profileLogs, path.join(into, 'profiles', name, 'logs'), { recursive: true })
     }
@@ -97,8 +112,10 @@ function saveFailureEvidence(hermesHome: string, app: ElectronApplication | unde
   fs.mkdirSync(diagnostics, { recursive: true })
   copyLogs(hermesHome, path.join(diagnostics, 'sandbox'))
   const userHome = path.join(os.homedir(), '.hermes')
-  if (path.resolve(userHome) !== path.resolve(hermesHome)) copyLogs(userHome, path.join(diagnostics, 'user-home'))
-  if (app) fs.writeFileSync(path.join(diagnostics, 'electron-log-tail.txt'), appLogTail(app, 400))
+
+  if (path.resolve(userHome) !== path.resolve(hermesHome)) {copyLogs(userHome, path.join(diagnostics, 'user-home'))}
+
+  if (app) {fs.writeFileSync(path.join(diagnostics, 'electron-log-tail.txt'), appLogTail(app, 400))}
 }
 
 async function replies(page: Page): Promise<number> {
@@ -107,6 +124,7 @@ async function replies(page: Page): Promise<number> {
 
 test('packed public app chats through the OkVevo mock on one launch', async () => {
   const executable = process.env.OKVEVO_E2E_EXECUTABLE || ''
+
   if (!executable || !fs.existsSync(executable)) {
     throw new Error('OKVEVO_E2E_EXECUTABLE must be the packed OkVevo binary')
   }
@@ -115,10 +133,12 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
   const token = fakeJwt(now + 3600)
   const refreshed = fakeJwt(now + 7200)
   fs.mkdirSync(diagnostics, { recursive: true })
+
   const mock = await startGatewayMock({
     freshIdToken: refreshed,
     logPath: path.join(diagnostics, 'mock-requests.log')
   })
+
   const sandbox = createCoreSandbox('okvevo-packed')
   const packPath = path.join(resourcesDir(executable), 'okvevo-pack-env.json')
   const originalPack = fs.readFileSync(packPath, 'utf8')
@@ -144,6 +164,7 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     executablePath: executable,
     timeout: 120_000
   })
+
   const page = await app.firstWindow({ timeout: 120_000 })
   page.on('request', request => noteRequestUrl(request.url()))
   let failed = false
@@ -161,9 +182,11 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     const cost = await callFor(mock.calls, 'ping default bot')
     expect(cost.authorization || '').toContain(token)
     expect(fs.readFileSync(path.join(sandbox.hermesHome, '.env'), 'utf8')).not.toContain('OKVEVO_API_KEY=')
+
     if (cost.model !== 'openrouter/auto-beta') {
       throw new Error(`wire model ${cost.model} plugins ${JSON.stringify(cost.plugins)}`)
     }
+
     expect(cost.plugins?.[0]?.cost_tier).toBe('medium')
     await shot(page, 'default-bot-chat.png')
 
@@ -182,6 +205,9 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     await shot(page, 'image-ok.png')
 
     await openModelMenu(page)
+    // model-catalog-menu keeps upstream's Nous-only refetchOnMount / pricing poll; they fire only for a
+    // `nous` provider row, so the public menu (opened here under the vendor guard) must list none.
+    await expect(page.getByRole('menu').getByText(/nous/i)).toHaveCount(0)
     await page.getByRole('menuitem', { name: 'Intelligence', exact: true }).click()
     const intelligenceBefore = await replies(page)
     await send(page, 'ping auto intelligence')
@@ -219,9 +245,11 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     expect(botConfig).toContain('provider: okvevo')
     expect(botConfig).not.toMatch(/provider: (auto|openrouter|nous)\b/)
     const botEnv = path.join(sandbox.hermesHome, 'profiles', 'e2eone', '.env')
+
     if (fs.existsSync(botEnv)) {
       expect(fs.readFileSync(botEnv, 'utf8')).not.toContain('OKVEVO_API_KEY=')
     }
+
     await page.getByRole('button', { name: /^E2E One\b/ }).first().click()
     await expect(page.getByText('ping specific model', { exact: true })).toHaveCount(0)
     const botBefore = await replies(page)
@@ -248,31 +276,38 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     await page.getByRole('button', { name: 'New bot or group chat' }).click()
     await page.getByRole('menuitem', { name: 'New Group Chat' }).click()
     const room = page.getByRole('dialog', { name: 'New Group Chat' })
+
     for (const title of ['E2E One', 'E2E Two']) {
       await room.getByText(title, { exact: true }).locator('xpath=ancestor::label').getByRole('checkbox').click()
     }
+
     await room.getByRole('textbox', { name: 'Group name' }).fill('e2eroom')
     await room.getByRole('button', { name: 'Create Group (2)' }).click()
     await expect(room).toBeHidden({ timeout: 60_000 })
     const groupTab = page.getByRole('tab', { name: /e2eroom/ }).first()
     await expect(groupTab).toBeVisible()
+
     if ((await groupTab.getAttribute('aria-selected')) !== 'true') {
       await groupTab.getByText(/e2eroom/).first().click()
       await expect(groupTab).toHaveAttribute('aria-selected', 'true')
     }
+
     const groupBox = page
       .getByRole('textbox', { name: 'Group message', exact: true })
       .or(page.getByRole('textbox', { name: /Message e2eroom/ }))
       .filter({ visible: true })
       .first()
+
     const startGateway = page.getByRole('button', { name: 'Start gateway group' })
     await expect
       .poll(
         async () => {
-          if (await groupBox.isVisible().catch(() => false)) return 'ready'
+          if (await groupBox.isVisible().catch(() => false)) {return 'ready'}
+
           if (await startGateway.isEnabled().catch(() => false)) {
             await startGateway.click()
           }
+
           return 'wait'
         },
         { timeout: 60_000 }
@@ -282,25 +317,29 @@ test('packed public app chats through the OkVevo mock on one launch', async () =
     const visibleReplies = () => page.getByText('E2E_REPLY ok').filter({ visible: true }).count()
     const groupBefore = await visibleReplies()
     await groupBox.fill('@e2eone ping group chat')
+
     if ((await groupBox.getAttribute('aria-label')) === 'Group message') {
       await groupBox.locator('xpath=ancestor::form').getByRole('button', { name: 'Send', exact: true }).click()
     } else {
       await groupBox.press('Enter')
     }
+
     // Same cold-bot budget: e2etwo's backend may boot inside this group turn.
     await expect.poll(visibleReplies, { timeout: 420_000 }).toBeGreaterThan(groupBefore)
     await shot(page, 'group-chat.png')
 
     for (const line of appLogTail(app, 200).split('\n')) {
       const match = line.match(/https?:\/\/[^\s'")]+/)
-      if (match) noteRequestUrl(match[0])
+
+      if (match) {noteRequestUrl(match[0])}
     }
+
     await expect(groupBox).toBeVisible()
   } catch (error) {
     failed = true
     throw error
   } finally {
-    if (failed) saveFailureEvidence(sandbox.hermesHome, app)
+    if (failed) {saveFailureEvidence(sandbox.hermesHome, app)}
     await app.close().catch(() => undefined)
     fs.writeFileSync(packPath, originalPack)
     await mock.close()

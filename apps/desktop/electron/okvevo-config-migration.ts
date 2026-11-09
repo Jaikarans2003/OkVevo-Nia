@@ -11,7 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { dump as stringifyYaml, load as parseYaml } from 'js-yaml'
+import { load as parseYaml, dump as stringifyYaml } from 'js-yaml'
 
 export const DESKTOP_PLATFORM_HINT_APPEND =
   'The product name is OkVevo. You are chatting inside the OkVevo desktop app.'
@@ -337,7 +337,7 @@ function applyForced(next: Record<string, unknown>, defaults: DefaultsTree, chan
     next.web = web
   }
 
-  for (const key of ['image_gen', 'video_gen', 'telemetry', 'nous', 'model_catalog', 'cron', 'tools']) {
+  for (const key of ['image_gen', 'video_gen', 'telemetry', 'nous', 'model_catalog', 'cron', 'tools', 'webapp']) {
     const spec = defaults[key]
 
     if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {

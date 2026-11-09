@@ -1,7 +1,7 @@
 # FORK-INVENTORY — every OkVevo change vs upstream, classified
 
 Generated 2026-10-22 during the upstream reset ([plan](../../.cursor/plans/okvevo-upstream-reset.plan.md)).
-Upstream merge target: **`v0.22.4`** (latest stable release tag).
+Upstream merge target: **`v0.23.0`** (latest stable release tag; synced 2026-11-09 from `v0.22.4`).
 Comparator for this inventory: **`v2026.8.31`** — the upstream tag with the smallest diff to `okvevo/staging` (2,806 files; the repo history is a 48-commit grafted snapshot, so commits alone under-count fork edits; amendment 1).
 
 In plain words: this file lists everything our product changed relative to the open-source Hermes Agent, and what happens to each change in the reset — kept in our own files, re-applied to the desktop app, patched into upstream with justification, or dropped so the upstream release wins.

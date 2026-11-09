@@ -93,6 +93,50 @@ function callWith(calls: ChatCall[], text: string): ChatCall | undefined {
   return calls.find(call => JSON.stringify(call.messages ?? []).includes(text))
 }
 
+const IDENTITY = 'You are OkVevo agent, made by OkVevo.'
+
+// What the gateway sent for the turn carrying `text`: the OkVevo identity, never upstream's Hermes
+// help guidance. Auxiliary calls (title generation) carry the same text without the agent prompt and
+// race the turn, so match any call, not the first.
+function expectOkvevoIdentity(calls: ChatCall[], text: string, what: string) {
+  const sent = calls.map(call => JSON.stringify(call.messages ?? [])).filter(body => body.includes(text))
+
+  expect(sent.some(body => body.includes(IDENTITY)), `${what}: no call carried the OkVevo identity`).toBe(true)
+  expect(sent.some(body => body.includes('hermes-agent.nousresearch.com')), `${what}: upstream help guidance leaked`).toBe(false)
+}
+
+// Same Bots selectors as upstream's e2e/group-room-native.spec.ts.
+async function openBots(page: Page) {
+  await page.getByRole('button', { name: 'Bots', exact: true }).or(page.getByRole('tab', { name: 'Bots', exact: true })).first().click()
+  await expect(page.getByRole('button', { name: 'New bot or group chat' })).toBeVisible()
+}
+
+async function createBot(page: Page, name: string, title: string) {
+  await page.getByRole('button', { name: 'New bot or group chat' }).click()
+  await page.getByRole('menuitem', { name: 'New Bot' }).click()
+  const dialog = page.getByRole('dialog', { name: 'New Bot' })
+  await dialog.getByPlaceholder('inbox-triage').fill(name)
+  await dialog.getByPlaceholder('Inbox Triage').fill(title)
+  await dialog.getByRole('button', { name: 'Create Bot' }).click()
+  await expect(dialog).toBeHidden({ timeout: 60_000 })
+  await expect(page.getByRole('button', { name: new RegExp(`^${title}\\b`) }).first()).toBeVisible({ timeout: 60_000 })
+}
+
+async function createGroup(page: Page, titles: string[], room: string) {
+  await openBots(page)
+  await page.getByRole('button', { name: 'New bot or group chat' }).click()
+  await page.getByRole('menuitem', { name: 'New Group Chat' }).click()
+  const dialog = page.getByRole('dialog', { name: 'New Group Chat' })
+
+  for (const title of titles) {
+    await dialog.getByText(title, { exact: true }).locator('xpath=ancestor::label').getByRole('checkbox').click()
+  }
+
+  await dialog.getByRole('textbox', { name: 'Group name' }).fill(room)
+  await dialog.getByRole('button', { name: `Create Group (${titles.length})` }).click()
+  await expect(dialog).toBeHidden({ timeout: 30_000 })
+}
+
 function copyLogs(from: string, into: string) {
   const logs = path.join(from, 'logs')
 
@@ -110,6 +154,7 @@ function saveFailureEvidence(hermesHome: string, app: ElectronApplication | unde
 }
 
 test('packed app signs in then chats on the default bot on one launch', async () => {
+  test.setTimeout(900_000)
   const executable = process.env.OKVEVO_E2E_EXECUTABLE || ''
 
   if (!executable || !fs.existsSync(executable)) {
@@ -274,7 +319,10 @@ test('packed app signs in then chats on the default bot on one launch', async ()
     const call = callWith(mock.calls, 'ping after sign in')
     expect(call, 'no gateway call carried the first-chat message').toBeTruthy()
     expect(call!.authorization || '').toContain(token)
+    expectOkvevoIdentity(mock.calls, 'ping after sign in', 'default bot first chat')
     await expect(page.getByText('No usable credentials found')).toHaveCount(0)
+    // v0.23.0 re-asks shared metrics unless offer_version is set; public builds never offer Nous.
+    await expect(page.getByText('Share with Nous')).toHaveCount(0)
     await shot(page, 'signin-first-chat.png')
 
     // Pick a listed catalog model; that id, not an Auto alias, reaches the gateway.
@@ -288,6 +336,44 @@ test('packed app signs in then chats on the default bot on one launch', async ()
       .poll(() => callWith(mock.calls, 'ping picked model')?.model, { timeout: 60_000, message: 'picked model never reached the gateway' })
       .toBe(picked)
     await shot(page, 'signin-picked-model.png')
+
+    // Hermes v0.23.0 runs every profile on this one gateway. Bots created now, on the same launch,
+    // must be provisioned for OkVevo and answer as OkVevo, alone and inside a group chat. The New Bot
+    // dialog writes the bot's own SOUL ("**Role:** <title>"), which provisioning keeps by design; the
+    // identity rides the OkVevo help guidance in every prompt.
+    const bots: Array<[string, string]> = [['scout', 'Scout'], ['critic', 'Critic']]
+    await openBots(page)
+    // v0.23.0's roster leaves the default profile's display_name empty, so it reads "OkVevo agent", not
+    // "default" (the retired default_agent_label workaround, Applied-Upstream v0.23.0).
+    await expect(page.getByRole('button', { name: /^OkVevo agent\b/ }).first()).toBeVisible({ timeout: 60_000 })
+
+    for (const [name, title] of bots) {
+      await createBot(page, name, title)
+      const config = path.join(sandbox.hermesHome, 'profiles', name, 'config.yaml')
+      await expect
+        .poll(() => fs.existsSync(config) && /provider:\s*okvevo/.test(fs.readFileSync(config, 'utf8')), { timeout: 60_000, message: `${name} config.yaml is not provisioned for OkVevo` })
+        .toBe(true)
+      const role = `**Role:** ${title}`
+      await expect.poll(() => Boolean(callWith(mock.calls, role)), { timeout: 120_000, message: `${name} never took its own turn` }).toBe(true)
+      expectOkvevoIdentity(mock.calls, role, `${name} first turn`)
+    }
+
+    await createGroup(page, bots.map(([, title]) => title), 'Critic, Scout')
+    const groupComposer = page.getByRole('textbox', { name: 'Group message', exact: true }).filter({ visible: true })
+    await expect(groupComposer).toBeVisible({ timeout: 60_000 })
+    await expect(async () => {
+      await groupComposer.fill('@scout @critic ping the group')
+      await groupComposer.press('Enter')
+      await expect.poll(() => groupComposer.evaluate(el => (el as HTMLTextAreaElement).value ?? el.textContent ?? ''), { timeout: 10_000 }).toBe('')
+    }).toPass({ timeout: 150_000 })
+
+    for (const [name] of bots) {
+      const handle = `You are @${name}`
+      await expect.poll(() => Boolean(callWith(mock.calls, handle)), { timeout: 120_000, message: `@${name} never took a group turn` }).toBe(true)
+      expectOkvevoIdentity(mock.calls, handle, `@${name} group turn`)
+    }
+
+    await shot(page, 'signin-group-chat.png')
   } catch (error) {
     failed = true
     throw error

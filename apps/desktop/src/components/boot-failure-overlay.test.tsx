@@ -2,11 +2,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TRANSLATIONS } from '@/i18n'
+import { WEBAPP_LAUNCH_REQUIRED } from '@/lib/browser-launch-session'
 import { $desktopBoot } from '@/store/boot'
 import { $notifications } from '@/store/notifications'
 import { $desktopOnboarding } from '@/store/onboarding'
 
-import { BootFailureOverlay } from './boot-failure-overlay'
+import { BootFailureOverlay, StartupOverlay } from './boot-failure-overlay'
 
 // Remote-backend users hit a hard boot failure that isn't OAuth reauth (token
 // auth, wrong URL, unreachable host). The recovery screen must let them fix the
@@ -285,6 +286,45 @@ describe('BootFailureOverlay', () => {
       expect(cloudStatus).not.toHaveBeenCalled()
       expect(cloudLogin).not.toHaveBeenCalled()
       expect(cloudAgentSignIn).not.toHaveBeenCalled()
+    } finally {
+      restore()
+    }
+  })
+
+  it('asks a signed-out Webapp tab to sign in instead of offering recovery for a working service', async () => {
+    const restore = stubDesktop({ mode: 'local' })
+    $desktopBoot.set({
+      error: WEBAPP_LAUNCH_REQUIRED,
+      fakeMode: false,
+      message: 'boot failed',
+      phase: 'renderer.error',
+      progress: 40,
+      running: false,
+      timestamp: Date.now(),
+      visible: true
+    })
+
+    try {
+      render(<StartupOverlay />)
+      expect(await screen.findByText(TRANSLATIONS.en.boot.failure.webappTitle)).toBeTruthy()
+      expect(screen.getByText(TRANSLATIONS.en.boot.failure.webappDescription)).toBeTruthy()
+      expect(screen.queryByText(TRANSLATIONS.en.boot.failure.title)).toBeNull()
+      expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /repair/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /logs/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /close/i })).toBeNull()
+    } finally {
+      restore()
+    }
+  })
+
+  it('shows the recovery steps for any other startup failure', async () => {
+    const restore = stubDesktop({ mode: 'local' })
+
+    try {
+      render(<StartupOverlay />)
+      expect(await screen.findByText(TRANSLATIONS.en.boot.failure.title)).toBeTruthy()
+      expect(screen.queryByText(TRANSLATIONS.en.boot.failure.webappTitle)).toBeNull()
     } finally {
       restore()
     }
