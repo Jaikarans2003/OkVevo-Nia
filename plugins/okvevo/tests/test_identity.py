@@ -243,7 +243,7 @@ def test_guidance_override_toggle_off_leaves_upstream(monkeypatch):
 
     monkeypatch.setattr(identity, "identity_guidance_enabled", lambda: False)
     assert identity.apply_identity_guidance_override() is False
-    assert "Nous Research" in prompt_builder.HERMES_AGENT_HELP_GUIDANCE
+    assert "hermes-agent.nousresearch.com" in prompt_builder.HERMES_AGENT_HELP_GUIDANCE
 
 
 def test_identity_guidance_enabled_reads_the_shipped_toggle(tmp_path, monkeypatch):
@@ -311,8 +311,8 @@ def test_nia_scan_has_teeth(tmp_path, guidance_override):
 def test_full_prompt_without_override_would_catch_the_leak(tmp_path):
     """Teeth check for the scan above: without the override the forbidden
     phrases ARE in the built prompt, so a regression cannot pass silently."""
-    from agent import prompt_builder  # noqa: F401 — prove unpatched state
+    from agent import prompt_builder  # prove unpatched state
 
     prompt = _build_prompt(_home_with_okvevo_soul(tmp_path))
-    assert "Nous Research" in prompt
+    assert "Hermes Agent itself" in prompt
     assert "hermes-agent.nousresearch.com" in prompt

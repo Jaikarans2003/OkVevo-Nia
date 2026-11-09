@@ -14,8 +14,11 @@ symptom are listed in `docs/okvevo/WORKAROUNDS.md`.
 - Issues: https://github.com/NousResearch/hermes-agent/issues/139959 (lease
   renewal starved by the SessionDB write lock, open), https://github.com/NousResearch/hermes-agent/issues/144503
   (same log line after host sleep, opened 2026-10-25, open).
-- Checked against: v0.22.4 (pinned) and v0.22.5. v0.22.5 does not change
-  `agent/turn_facade_lease.py` or `tui_gateway/session_reaper.py`.
+- Checked against: v0.22.4, v0.22.5 and v0.23.0 (pinned 2026-11-09). Both issues
+  still open on 2026-11-09. v0.23.0 touches `agent/turn_facade_lease.py` (+5/-1)
+  and `tui_gateway/session_reaper.py` (+2/-2) without closing either. v0.23.0's
+  removal of the once-a-minute memory-trim freeze is a different bug (a short
+  periodic stall), not this lease loss.
   https://github.com/NousResearch/hermes-agent/issues/62823 (closed 2026-09-25) was already in this build.
 - User impact: a pending approval is withdrawn ("session turn lease lost").
   Testers send the request again (`docs/okvevo/TESTING.md`).
@@ -46,8 +49,8 @@ Draft comment for #139959 (not posted; Karan reviews first):
 
 - `settings.mcp.catalogInstallTimeout` (`apps/desktop/src/app/capabilities/mcp/install-catalog-entry.ts`)
   and `settings.localModels.updateToast` (`apps/desktop/src/store/local-runtime-jobs.ts`)
-  are called with `translateNow` in v0.22.4 but missing from every catalog, so
-  the UI shows the raw key. Not filed.
+  are called with `translateNow` in v0.22.4 and still in v0.23.0, but missing from
+  every catalog, so the UI shows the raw key. Not filed. Re-checked 2026-11-09.
 - Found 2026-10-30 by the key guard in `apps/desktop/src/i18n/okvevo-catalog.test.ts`
   (`UPSTREAM_MISSING_KEYS`). On the sync that adds them, drop them from that set.
 

@@ -1,19 +1,19 @@
 """Workaround: identity_guidance (docs/okvevo/WORKAROUNDS.md) — DEP-3.
 
 Description: every session's stable prompt tier carries upstream's
-  ``HERMES_AGENT_HELP_GUIDANCE(_NO_SKILLS)`` ("You run on Hermes Agent (by
-  Nous Research)… hermes-agent.nousresearch.com"), so bots say Hermes/Nous
-  when asked who made them or where to get help. v0.22.4 has no supported
-  replace/suppress mechanism: no config gate, no plugin hook, and the
-  documented ``HERMES_AGENT_HELP_GUIDANCE`` env var is never read in code
-  (grep-verified 2026-11-03). This module composes the OkVevo wording from
+  ``HERMES_AGENT_HELP_GUIDANCE(_NO_SKILLS)`` ("For help with Hermes Agent
+  itself… hermes-agent.nousresearch.com/docs"; v0.22.4 also said "by Nous
+  Research"), so bots say Hermes/Nous when asked what they run on or where to
+  get help. v0.23.0 still has no supported replace/suppress mechanism: no
+  config gate, no plugin hook, and the documented ``HERMES_AGENT_HELP_GUIDANCE``
+  env var is never read in code (grep-verified 2026-11-09). This module composes the OkVevo wording from
   okvevo/config/identity.json and swaps both constants at plugin
   ``register()`` — the same attributes upstream's own tests patch
   (``tests/agent/test_system_prompt.py`` setattr on ``agent.system_prompt``).
 Bug: none filed (draft upstream proposal in docs/okvevo/WORKAROUNDS.md).
 Forwarded: no
 Applied-Upstream: no
-Last-Update: 2026-11-05
+Last-Update: 2026-11-09
 
 Toggle off (``okvevo.workarounds.identity_guidance: false``) leaves upstream's
 guidance untouched.
