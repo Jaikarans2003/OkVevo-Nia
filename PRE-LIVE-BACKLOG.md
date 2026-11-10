@@ -91,7 +91,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Risk if skipped** | Private Free artifact storage is **500 MB** shared with Packages. Staging still `upload-artifact`s DMG+zip+NSIS; after privatize the job fails or evicts other artifacts. |
 | **Scope** | `.github/workflows/okvevo-desktop-pack.yml` staging `yml_mode`, `publish-release-feed.mjs` |
 | **Fix** | Staging pack uploads installers **directly to R2** (same as production `versioned` archive under prefix `staging/`). No GitHub `upload-artifact` for installers. |
-| **Verify** | Staging pack green with no `nia-mac`/`nia-win` artifacts; `https://releases.okvevo.com/staging/latest-mac.yml` updates. |
+| **Verify** | Staging pack green with no `okvevo-mac`/`okvevo-win` artifacts; `https://releases.okvevo.com/okvevo/staging/latest-mac.yml` updates. |
 | **Notes** | Logged 2026-09-21 with Phase B. Do **not** privatize until this is closed. Production tag pack already skips installer artifacts. |
 
 ### [ ] Phase C: staging must not run full pack + ci.yaml on every push
@@ -114,7 +114,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | OkVevo-Web `src/app/nia/page.tsx`, `src/lib/nia-downloads.ts` |
 | **Fix** | `/nia` Mac/Windows buttons use stable `https://releases.okvevo.com/Nia-mac-arm64.dmg` and `Nia-win-x64.exe` (staging yaml prefixes `/staging`). Publish release overwrites those objects. |
 | **Verify** | `node --experimental-strip-types src/lib/nia-downloads.selfcheck.ts` (OkVevo-Web). Opening `/nia` shows Mac/Windows buttons without placeholder copy. |
-| **Notes** | Closed 2026-09-14 with CI/CD plan. Artifacts 404 until the first successful Publish release. |
+| **Notes** | Closed 2026-09-14 with CI/CD plan. Artifacts 404 until the first successful Publish release. 2026-11-10: names changed with the OkVevo rename; staging is `okvevo/staging/OkVevo-*`, production switch tracked in "First OkVevo Publish: switch the website's production download buttons". |
 
 ### [x] Pin packaged agent/runtime to the same release as the shell
 
@@ -470,6 +470,28 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Open `/nia` on staging: both minimums show beside the matching button. |
 | **Notes** | Logged 2026-11-09 with the v0.23.0 sync. Same minimums are in `docs/okvevo/TESTING.md`. Website not edited in the sync PR. |
 
+### [ ] PR 2: proper SemVer app version before the first client release
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | `apps/desktop/package.json` has said `0.0.0` since the upstream reset, so every staging build reads `0.0.N` and the first client release would ship a meaningless version in About, the installer name and the update feed. |
+| **Scope** | `apps/desktop/package.json` `version` (OkVevo delta, PATCHES.md), `apps/desktop/scripts/ci-desktop-version.mjs`, `.github/workflows/okvevo-desktop-production.yml` (version from the `vX.Y.Z` tag), `docs/okvevo/TESTING.md` |
+| **Fix** | PR 2: set `apps/desktop/package.json` `version` to a real SemVer, e.g. `0.1.0`, and cut the first client release as tag `v0.1.0`. Staging keeps run-number builds (`{major}.{minor}.{run_number}` → `0.1.N`, still above today's `0.0.N`, so tester feeds keep updating). Root `latest*.yml` still names the pre-rename Nia `0.18.5` (a different app id): confirm old Nia installs are not offered the OkVevo build, and that OkVevo's first production feed version only ever goes up. |
+| **Verify** | `node -p "require('./apps/desktop/package.json').version"` prints `0.1.0`; the next Desktop staging pack's `okvevo/staging/latest-mac.yml` reads `0.1.<run>`; `node apps/desktop/scripts/ci-desktop-version.mjs --from-tag v0.1.0` prints `0.1.0`. |
+| **Notes** | Logged 2026-11-10 after the v0.23.0 sync shipped staging `0.0.17`. |
+
+### [ ] First OkVevo Publish: switch the website's production download buttons to `OkVevo-*`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | `/nia` production buttons link root `Nia-mac-arm64.dmg` / `Nia-win-x64.exe`, which today serve the pre-rename Nia 0.18.5. Publish release writes root `OkVevo-mac-arm64.dmg` / `OkVevo-win-x64.exe`, so after the first OkVevo Publish the website would keep handing out the old Nia app. |
+| **Scope** | OkVevo-Web `src/lib/nia-downloads.ts` (`NIA_MAC_ARTIFACT` / `NIA_WIN_ARTIFACT`) + `nia-downloads.selfcheck.ts`, OkVevo-Web `docs/CI-CD.md` |
+| **Fix** | With PR 2's first client release: change the production names to `OkVevo-mac-arm64.dmg` / `OkVevo-win-x64.exe` and deploy OkVevo-Web right after Publish release succeeds (before that, those objects are 404). |
+| **Verify** | `curl -sI https://releases.okvevo.com/OkVevo-mac-arm64.dmg` and `…/OkVevo-win-x64.exe` → 200 with the published version; `node --experimental-strip-types src/lib/nia-downloads.selfcheck.ts` (OkVevo-Web) passes with the new names; `/nia` on www links them. |
+| **Notes** | Found 2026-11-10: root `Nia-*` = 200 (0.18.5, 2026-10-14), root `OkVevo-*` = 404. Staging buttons already use `okvevo/staging/OkVevo-*`. |
+
 ## Should fix before live (lower severity)
 
 ### [ ] Approval withdrawn after a long freeze (upstream session turn lease)
@@ -745,6 +767,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Drop the guide URL from the detail, or point it at an OkVevo help page once one exists. |
 | **Verify** | `cd apps/desktop && npx vitest run electron/update-handoff-report.test.ts` with a `downgrade_refused` receipt shows no Nous URL. |
 | **Notes** | New in v0.23.0. Only the git-checkout `hermes update` path writes `downgrade_refused`; bundled customer packs update through electron-updater, so it is dormant today (`docs/okvevo/NOUS-TOUCHPOINTS.md`). |
+
+### [ ] Redirect the retired `releases.okvevo.com/staging/Nia-*` links to the OkVevo staging files
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix |
+| **Risk if skipped** | Old links and bookmarks to `https://releases.okvevo.com/staging/Nia-mac-arm64.dmg` / `Nia-win-x64.exe` still download the pre-rename Nia 0.17.57 (2026-10-18), not the current OkVevo staging build. |
+| **Scope** | Cloudflare dashboard, `okvevo.com` zone (Karan; not reachable from the agent's Cloudflare login) |
+| **Fix** | Rules → Redirect Rules, two 302 rules (wildcard): `https://releases.okvevo.com/staging/Nia-*mac-arm64.dmg` → `https://releases.okvevo.com/okvevo/staging/OkVevo-mac-arm64.dmg`, and `https://releases.okvevo.com/staging/Nia-*win-x64.exe` → `https://releases.okvevo.com/okvevo/staging/OkVevo-win-x64.exe`. Leave `staging/latest*.yml`, zips and blockmaps (old Nia staging installs still read them; SYNC.md: leave old objects alone). |
+| **Verify** | `curl -sI https://releases.okvevo.com/staging/Nia-mac-arm64.dmg` → `302` with `location: …/okvevo/staging/OkVevo-mac-arm64.dmg`; same for the `.exe`. |
+| **Notes** | Logged 2026-11-10. Workspace rule `okvevo-nia-cicd.mdc` and OkVevo-Web `docs/CI-CD.md` now name only the `okvevo/staging/OkVevo-*` paths. |
 
 ---
 

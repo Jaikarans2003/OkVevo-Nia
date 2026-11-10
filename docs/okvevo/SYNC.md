@@ -65,6 +65,16 @@ Lint, Nix, JS Tests, …). OkVevo-Nia has no Blacksmith runners; those jobs
 queue forever. Do not KEEP-PATCH the runner labels. Required checks stay the
 OkVevo jobs on `ubuntu-latest` / `macos-latest` / `windows-latest`.
 
+### Disabled workflows (OkVevo-Nia)
+
+`gh workflow disable` state on `Jaikarans2003/OkVevo-Nia`, checked 2026-11-10 with
+`gh workflow list --all`. Re-check after every sync; a new Nous workflow that
+runs on `blacksmith-*` or publishes for Nous is disabled the same way.
+
+- Blacksmith runners (queue forever here): `ci-review-comment.yml` (CI review comment), `ci.yaml` (CI), `contributor-check.yml` (Contributor Attribution Check), `deploy-site.yml` (Deploy Site), `docker-lint.yml` (Docker / shell lint), `docker.yml` (Docker Build, Test, and Publish), `docs-site-checks.yml` (Docs Site Checks), `e2e-desktop.yml` (E2E Desktop), `history-check.yml` (History Check), `infographic-check.yml` (Infographic Check), `js-autofix.yml` (auto-fix lint issues & formatting), `js-tests.yml` (JS Tests), `label-rerun.yml` (Label rerun), `lint.yml` (Lint (ruff + ty)), `lockfile-diff.yml` (Lockfile diff), `nix.yml` (Nix flake check), `plugin-catalog-ci.yml` (Plugin Catalog CI), `profile-artifact-check.yml` (Profile Artifact Boundary), `rust-tests.yml` (Rust tests), `skills-index-freshness.yml` (Skills Index Freshness Check), `skills-index.yml` (Build Skills Index), `supply-chain-audit.yml` (Supply Chain Audit), `termux-verify.yml` (Termux verification), `tests-os.yml` (OS-specific tests), `tests.yml` (Tests), `uv-lockfile-check.yml` (uv.lock check), `windows-venv-e2e.yml` (Windows venv-holder live E2E). `plugin-catalog-ci.yml` disabled 2026-11-10 after the v0.23.0 sync (PR #76 showed it queued).
+- Nous-only jobs (Nous registries, sandboxes, installers): `install-e2e-run.yml` (Install & Update E2E (reusable)), `install-e2e.yml` (Install & Update E2E), `pm-bundle.yml` (PM Bundle), `sandbox-image.yml` (Sandbox desktop image), `windows-bundle-sdk.yml` (Windows bundle SDK).
+- Retired OkVevo / fork workflows (YAML removed, kept disabled): `desktop-pack.yml` (Desktop pack (reusable)), `desktop-preview.yml` (Desktop preview (artifacts only)), `desktop-production.yml` (Desktop production), `desktop-publish.yml` (Publish release), `desktop-staging.yml` (Desktop staging), `installer-tests.yml` (Installer tests), `nia-dep-audit.yml` (Nia dependency audit), `publish-e2e-evidence.yml` (Publish E2E evidence), `review-labels.yml` (Review labels).
+
 R2: do not mkdir prefixes or upload `.keep`. `okvevo/staging/` and
 `okvevo/stable/` appear on the first installer upload from our pack/publish
 workflows (`RELEASES_S3_*`). Leave existing `nia/` objects alone.
