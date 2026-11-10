@@ -768,23 +768,13 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `cd apps/desktop && npx vitest run electron/update-handoff-report.test.ts` with a `downgrade_refused` receipt shows no Nous URL. |
 | **Notes** | New in v0.23.0. Only the git-checkout `hermes update` path writes `downgrade_refused`; bundled customer packs update through electron-updater, so it is dormant today (`docs/okvevo/NOUS-TOUCHPOINTS.md`). |
 
-### [ ] Redirect the retired `releases.okvevo.com/staging/Nia-*` links to the OkVevo staging files
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Should fix |
-| **Risk if skipped** | Old links and bookmarks to `https://releases.okvevo.com/staging/Nia-mac-arm64.dmg` / `Nia-win-x64.exe` still download the pre-rename Nia 0.17.57 (2026-10-18), not the current OkVevo staging build. |
-| **Scope** | Cloudflare dashboard, `okvevo.com` zone (Karan; not reachable from the agent's Cloudflare login) |
-| **Fix** | Rules → Redirect Rules, two 302 rules (wildcard): `https://releases.okvevo.com/staging/Nia-*mac-arm64.dmg` → `https://releases.okvevo.com/okvevo/staging/OkVevo-mac-arm64.dmg`, and `https://releases.okvevo.com/staging/Nia-*win-x64.exe` → `https://releases.okvevo.com/okvevo/staging/OkVevo-win-x64.exe`. Leave `staging/latest*.yml`, zips and blockmaps (old Nia staging installs still read them; SYNC.md: leave old objects alone). |
-| **Verify** | `curl -sI https://releases.okvevo.com/staging/Nia-mac-arm64.dmg` → `302` with `location: …/okvevo/staging/OkVevo-mac-arm64.dmg`; same for the `.exe`. |
-| **Notes** | Logged 2026-11-10. Workspace rule `okvevo-nia-cicd.mdc` and OkVevo-Web `docs/CI-CD.md` now name only the `okvevo/staging/OkVevo-*` paths. |
-
 ---
 
 ## Closed
 
 _(Move items here when done.)_
 
+| Redirect the retired `releases.okvevo.com/staging/Nia-*` links to the OkVevo staging files | 2026-11-10 | Karan added two Cloudflare 302 Redirect Rules (`okvevo.com` zone). Verified: `staging/Nia-mac-arm64.dmg`, `Nia-win-x64.exe` and the versioned `Nia-0.17.57-*` installers → 302 to `okvevo/staging/OkVevo-mac-arm64.dmg` / `OkVevo-win-x64.exe` (200, 0.0.17); `staging/latest*.yml` and zips still 200 for old Nia installs. Known gap: a URL with a query string (`…dmg?x=1`) is not matched and still serves Nia; add a `?*` variant of each rule if that matters. Verify: `curl -sI https://releases.okvevo.com/staging/Nia-mac-arm64.dmg`. |
 | Sync Hermes v0.22.4 → v0.23.0 (was "Sync Hermes v0.22.5") | 2026-11-09 | Direct `git merge v0.23.0` on `sync/hermes-v0.23.0`, 16 conflicts resolved; Nous sign-in / usage windows / Webapp off in public builds; pins, PATCHES lists, gitleaks range moved to v0.23.0. PR: [OkVevo-Nia #76](https://github.com/Jaikarans2003/OkVevo-Nia/pull/76) (draft). Verify: `bash scripts/okvevo/check_upstream_delta.sh v0.23.0`; `scripts/run_tests.sh plugins/okvevo/tests/`; Mac + Windows pack E2E on the PR. |
 | Staging upload publishes `latest*.yml` before the installers | 2026-11-08 | Installers first, HTTPS sha512/size check, `latest*.yml` last; R2 uploads retry; Publish release checks installers before the flip and smokes with `--version`. PR: [OkVevo-Nia #75](https://github.com/Jaikarans2003/OkVevo-Nia/pull/75). Verify: `npx vitest run --project electron scripts/publish-release-feed.test.mjs scripts/smoke-release-feed.test.mjs`. |
 | Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: [OkVevo-Nia #70](https://github.com/Jaikarans2003/OkVevo-Nia/pull/70). Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |
