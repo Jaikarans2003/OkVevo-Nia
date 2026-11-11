@@ -1,0 +1,74 @@
+# Explicit --update-snapshots for OkVevo UI-CONTRACT screens on Mac + Windows.
+# Download the artifacts and commit the PNGs into the PR so visual checks are
+# active from day one. Do not merge baseline bumps without Karan seeing the diffs.
+name: OkVevo UI visual baselines
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: Write new baselines (toHaveScreenshot --update-snapshots)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: okvevo-ui-visual-baselines-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baselines:
+    name: UI contract baselines (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up the locked desktop toolchain
+        uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '["all"]'
+          test-environment: 'true'
+          prune-python-cache: true
+
+      - uses: ./.github/actions/retry
+        with:
+          command: npm ci
+
+      - name: Prepare locked Electron runtime
+        run: node scripts/build/electron-runtime.mjs --source .
+
+      - name: Build desktop + update UI-CONTRACT snapshots
+        working-directory: apps/desktop
+        shell: bash
+        env:
+          CI: 'true'
+          OPENROUTER_API_KEY: ''
+          OPENAI_API_KEY: ''
+          NOUS_API_KEY: ''
+        run: |
+          set -euo pipefail
+          npm run build
+          if [ "${{ inputs.update_snapshots }}" = "true" ]; then
+            npx playwright test e2e/okvevo-ui-contract.spec.ts --reporter=list --update-snapshots
+          else
+            npx playwright test e2e/okvevo-ui-contract.spec.ts --reporter=list
+          fi
+
+      - name: Upload per-OS baselines
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: okvevo-ui-baselines-${{ runner.os }}
+          path: |
+            apps/desktop/e2e/**/*-snapshots/**
+            apps/desktop/test-results/**
+          if-no-files-found: warn
+          retention-days: 14

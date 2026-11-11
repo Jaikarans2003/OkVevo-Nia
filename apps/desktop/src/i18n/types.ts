@@ -2965,6 +2965,7 @@ export interface Translations extends NoticeTranslations {
     commonCommands: string
     hotkeys: string
     helpFooter: string
+    disclaimer: string
     commandDescs: Record<string, string>
     hotkeyDescs: Record<string, string>
     attachUrlTitle: string

@@ -106,3 +106,17 @@ git grep -n -E 'nousresearch\.com|hermes-sandbox' vX.Y.Z -- '*.py' '*.ts' '*.tsx
 Do not edit the upstream file to delete the string. Switch it off from
 OkVevo config, `isByokChromeVisible()`, or an OkVevo plugin, then record the
 row.
+
+## UI contract (every sync and every OkVevo UI change)
+
+See `docs/okvevo/UI-CONTRACT.md`.
+
+On every upstream sync:
+
+1. Re-apply everything in `UI-CONTRACT.md`.
+2. List every new or changed upstream screen with screenshots.
+3. Brand each new screen via tokens + overrides before merging.
+4. Visual tests green, or diffs explicitly approved before baseline update.
+
+On every OkVevo UI change (yours, not only syncs): same four rules — tokens, OkVevo-owned paths / PATCHES.md, inventory row, baselines in the same PR.
+

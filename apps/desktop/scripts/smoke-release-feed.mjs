@@ -5,19 +5,30 @@
  * Resolves yml `files[].url` against the feed origin root (binaries live at
  * bucket root even when the yml was read from versions/{ver}/).
  */
-import { feedFileUrl, publicFeedOrigin, verifyYmlsOverHttp } from './publish-release-feed.mjs'
+import {
+  feedFileUrl,
+  macStableYmlRelPath,
+  publicFeedOrigin,
+  verifyYmlsOverHttp
+} from './publish-release-feed.mjs'
 
 export { feedFileUrl }
 
 export async function smokeReleaseFeed({
   origin,
-  ymlKeys = ['latest.yml', 'latest-mac.yml'],
+  ymlKeys,
   expectVersion = '',
   fetchImpl = globalThis.fetch
 } = {}) {
   const feedOrigin = (origin || publicFeedOrigin()).replace(/\/+$/, '')
+  // Prefixed OkVevo feeds also publish the Hermes Mac path the app GETs.
+  const keys =
+    ymlKeys ||
+    (/\/okvevo\/(staging|stable)$/.test(feedOrigin)
+      ? ['latest.yml', 'latest-mac.yml', macStableYmlRelPath()]
+      : ['latest.yml', 'latest-mac.yml'])
   const ymlTexts = []
-  for (const key of ymlKeys) {
+  for (const key of keys) {
     const res = await fetchImpl(feedFileUrl(feedOrigin, key), { method: 'GET' })
     if (!res || res.status !== 200) throw new Error(`GET ${feedFileUrl(feedOrigin, key)} failed`)
     ymlTexts.push(await res.text())
@@ -50,7 +61,7 @@ if (isMain) {
   const ymlKeys = flagAll('--yml', process.argv)
   smokeReleaseFeed({
     origin: flag('--origin', process.argv) || publicFeedOrigin(),
-    ymlKeys: ymlKeys.length ? ymlKeys : ['latest.yml', 'latest-mac.yml'],
+    ymlKeys: ymlKeys.length ? ymlKeys : undefined,
     expectVersion: flag('--version', process.argv)
   })
     .then(result => {

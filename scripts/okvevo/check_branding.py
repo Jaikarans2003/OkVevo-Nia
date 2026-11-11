@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DESKTOP = ROOT / "apps/desktop"
 ALLOWLIST = ROOT / "scripts/okvevo/hermes-string-allowlist.txt"
-IMAGE_EXT = re.compile(r"\.(icns|ico|png|tiff|tif|gif|svg|icon)$", re.I)
+IMAGE_EXT = re.compile(r"\.(icns|ico|png|tiff|tif|gif|svg|icon)$", re.IGNORECASE)
 HERMES = re.compile("Hermes")
 # The agent is "OkVevo agent"; "Nia" as a word is the retired name.
 NIA = re.compile(r"\bNia\b")
@@ -235,9 +235,6 @@ def source_files() -> list[Path]:
         for path in root.rglob("*"):
             if not path.is_file() or path.suffix not in SCAN_EXT:
                 continue
-            rel = path.relative_to(DESKTOP).as_posix()
-            if rel.startswith("src/i18n/"):
-                continue
             if any(part in {"node_modules", "dist", "release", "build"} for part in path.parts):
                 continue
             name = path.name
@@ -323,7 +320,13 @@ def check_literals(substrings: list[str], exact: set[str]) -> int:
         for item in scan_literals(text):
             if item["log"]:
                 continue
-            for name, word in (("Hermes", HERMES), ("Nia", NIA)):
+            # Catalog Hermes copy is rewritten by okvevoOverrides + okvevo-catalog.test.
+            # Scan i18n for retired "Nia" only (allowlist covers OkVevo-Nia slugs).
+            words = (("Nia", NIA),) if path.relative_to(DESKTOP).as_posix().startswith("src/i18n/") else (
+                ("Hermes", HERMES),
+                ("Nia", NIA),
+            )
+            for name, word in words:
                 if not body_visible(item["body"], item["quote"], substrings, exact, word):
                     continue
                 print(
@@ -362,6 +365,7 @@ def check_catalog() -> int:
     proc = subprocess.run(
         ["npx", "vitest", "run", "--project", "ui", "src/i18n/okvevo-catalog.test.ts"],
         cwd=DESKTOP,
+        check=False,
     )
     return proc.returncode
 
@@ -382,7 +386,10 @@ def check_error_overrides() -> int:
 
 
 def check_asset_spec() -> int:
-    proc = subprocess.run([sys.executable, str(ROOT / "scripts/okvevo/asset_spec.py"), "--check"])
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/okvevo/asset_spec.py"), "--check"],
+        check=False,
+    )
     return proc.returncode
 
 

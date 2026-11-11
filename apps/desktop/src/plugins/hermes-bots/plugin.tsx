@@ -142,7 +142,7 @@ export default {
     // query cache — useRoster keeps it ≤5s stale and the popover must answer
     // synchronously per keystroke. Multi-source rosters contribute their
     // precomputed @name-device handles via botHandle. The active profile is
-    // excluded (a bot doesn't @ itself); 'default' surfaces as @hermes.
+    // excluded (a bot doesn't @ itself); 'default' surfaces as @okvevo.
     ctx.register({
       id: 'mention-completions',
       area: COMPOSER_AREAS.atCompletions,
@@ -194,15 +194,23 @@ export default {
             const qualified = (tagCounts.get(tag.toLowerCase()) || 0) > 1 && profile.connectionId
             const insert = qualified ? `@${tag}@${profile.connectionId}` : `@${tag}`
             const source = profile.connectionLabel ? ` · ${profile.connectionLabel}` : ''
+
+            // Local default claims gateway twins (@default / synthetic @hermes /
+            // leftover @nia) so the merge keeps one @okvevo row. Remote rows
+            // stay unclaimed — the local gateway's same-named row is a
+            // different bot.
+            const twinHandles =
+              profile.remoteSource
+                ? undefined
+                : profile.name === 'default'
+                  ? (['@default', '@hermes', '@nia'] as const)
+                  : ([`@${profile.name}`] as const)
+
             items.push({
               insert,
               display: insert,
               meta: `Bot · ${display}${source}`,
-              // The live gateway's own `@` rows list this backend's profiles
-              // by raw name; claim ours so the popover drops that twin row.
-              // Remote rows are NOT ours to claim — the local gateway's
-              // same-named row resolves locally, not to the remote bot.
-              ...(profile.remoteSource ? {} : { handles: [`@${profile.name}`] })
+              ...(twinHandles ? { handles: [...twinHandles] } : {})
             })
           }
 
@@ -862,15 +870,18 @@ export default {
 
             // message_agent only resolves canonical identities: the relay
             // matches a roster row's handle/profile (± @connection-id), the
-            // local path a bare profile name or 'hermes'. botHandle() prefers
-            // the row's source-qualified UI alias ('default-vera'), which
-            // neither resolver accepts — annotate the canonical form instead.
+            // local path a bare profile name or 'hermes'. The UI alias for
+            // default is @okvevo (botHandle); annotate the protocol id instead.
             // The default's canonical form is 'hermes' only while no real
             // 'hermes' profile holds it; then it is 'default' itself.
             const target =
               bot.remoteSource && bot.connectionId
                 ? `${bot.name}@${bot.connectionId}`
-                : botHandle(bot.name, { hermesHandleTaken: bot.hermesHandleTaken })
+                : bot.name === 'default'
+                  ? bot.hermesHandleTaken
+                    ? 'default'
+                    : 'hermes'
+                  : bot.name
 
             // Local rows get the same annotation whenever their UI alias
             // ('default-this-device') differs from the resolvable handle —

@@ -2,7 +2,7 @@
   "name": "hermes",
   "productName": "OkVevo",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Native desktop shell for OkVevo.",
   "author": "Azonova Technologies Pvt Ltd",
   "repository": {
@@ -78,6 +78,8 @@
     "test:e2e": "npm run build && playwright test e2e/",
     "test:e2e:visual": "npm run build && WLR_BACKENDS=headless WLR_NO_HARDWARE_CURSORS=1 cage -- npx playwright test e2e/ --reporter=list",
     "test:e2e:update-snapshots": "npm run build && WLR_BACKENDS=headless WLR_NO_HARDWARE_CURSORS=1 cage -- npx playwright test e2e/ --reporter=list --update-snapshots",
+    "test:e2e:ui-contract": "npm run build && playwright test e2e/okvevo-ui-contract.spec.ts --reporter=list",
+    "test:e2e:ui-contract:update": "npm run build && playwright test e2e/okvevo-ui-contract.spec.ts --reporter=list --update-snapshots",
     "repro:short-session-hang": "node scripts/run-short-session-hang-repro.mjs"
   },
   "dependencies": {

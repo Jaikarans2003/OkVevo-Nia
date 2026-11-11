@@ -1240,11 +1240,23 @@ export function mergeMultiSourceRoster(
  *  handle is dropped when a real `hermes` profile on the same source holds it
  *  (`claimDefaultHandles`). */
 export function botHandle(name: string, bot?: Partial<RosterRow> | null): string {
-  if (bot?.handle && bot.handle !== name && !(bot.hermesHandleTaken && bot.handle === 'hermes')) {
-    return bot.handle
+  const normalized = (name || '').trim().toLowerCase()
+  const handle = bot?.handle ? String(bot.handle) : ''
+
+  if (handle && handle !== name) {
+    const handleKey = handle.toLowerCase()
+
+    // Leftover primary aliases on default are not durable UI handles — the
+    // callable display alias is always okvevo (device-qualified handles stay).
+    const stalePrimary =
+      normalized === 'default' && (handleKey === 'hermes' || handleKey === 'nia' || handleKey === 'okvevo')
+
+    if (!stalePrimary && !(bot?.hermesHandleTaken && handleKey === 'hermes')) {
+      return handle
+    }
   }
 
-  return (name || '').trim().toLowerCase() === 'default' ? 'okvevo' : name
+  return normalized === 'default' ? 'okvevo' : name
 }
 
 /** The row's own `handle` as a mention form, lowercased. A stale 'hermes'
@@ -1448,7 +1460,9 @@ export function resolveRosterMentions(
     const name = String(bot.name || '').toLowerCase()
     const forms = new Set([handle, name])
 
-    if (name === 'default') {
+    // Callable aliases for the local primary only — remote defaults keep
+    // their device handles and must not steal @okvevo / leftover @nia.
+    if (name === 'default' && !bot.remoteSource) {
       forms.add('okvevo')
       forms.add('nia')
     }

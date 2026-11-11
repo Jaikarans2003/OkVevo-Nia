@@ -19,6 +19,7 @@ import {
   isMissingObjectError,
   isPublishedVersion,
   loadCatalog,
+  macStableYmlRelPath,
   parseElectronBuilderYml,
   publishPointers,
   retainCatalog,
@@ -28,6 +29,7 @@ import {
   syncFeed,
   upsertReleasesJson,
   verifyArchivedVersion,
+  withAbsoluteInstallerUrls,
   withRetries
 } from './publish-release-feed.mjs'
 
@@ -202,6 +204,20 @@ async function runStagingSync({ serve = (key, body) => body } = {}) {
   }
 }
 
+
+test('macStableYmlRelPath matches darwinFeed(stable)', () => {
+  assert.equal(macStableYmlRelPath(), 'releases/darwin/stable/stable-mac.yml')
+})
+
+test('withAbsoluteInstallerUrls rewrites relative urls to origin root', () => {
+  const body = withAbsoluteInstallerUrls(
+    'version: 0.1.0\nfiles:\n  - url: OkVevo-0.1.0-mac-arm64.zip\npath: OkVevo-0.1.0-mac-arm64.zip\n',
+    'https://releases.okvevo.com/okvevo/staging'
+  )
+  assert.match(body, /url: https:\/\/releases\.okvevo\.com\/okvevo\/staging\/OkVevo-0\.1\.0-mac-arm64\.zip/)
+  assert.match(body, /path: https:\/\/releases\.okvevo\.com\/okvevo\/staging\/OkVevo-0\.1\.0-mac-arm64\.zip/)
+})
+
 test('staging sync uploads installers, proves them over HTTP, then latest*.yml last', async () => {
   const { version, store, events } = await runStagingSync()
   const firstGet = events.findIndex(e => String(e).startsWith('GET '))
@@ -211,7 +227,11 @@ test('staging sync uploads installers, proves them over HTTP, then latest*.yml l
   assert.ok(events.includes(`GET https://releases.okvevo.com/okvevo/staging/OkVevo-${version}-win-x64.exe`))
   assert.ok(firstGet < events.indexOf('okvevo/staging/latest-mac.yml'))
   assert.ok(firstGet < events.indexOf('okvevo/staging/latest.yml'))
+  assert.ok(firstGet < events.indexOf('okvevo/staging/releases/darwin/stable/stable-mac.yml'))
   assert.match(store['okvevo/staging/latest.yml'].toString(), new RegExp(`version: ${version}`))
+  const stableMac = store['okvevo/staging/releases/darwin/stable/stable-mac.yml'].toString()
+  assert.match(stableMac, new RegExp(`version: ${version}`))
+  assert.match(stableMac, /url: https:\/\/releases\.okvevo\.com\/okvevo\/staging\/OkVevo-/)
 })
 
 test('staging sync never uploads latest*.yml when an uploaded installer does not match it', async () => {

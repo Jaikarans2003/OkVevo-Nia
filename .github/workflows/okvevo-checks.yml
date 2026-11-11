@@ -93,10 +93,14 @@ jobs:
             e2e/okvevo/vendor-guard.unit.test.ts
           npx vitest run --project ui \
             src/plugins/hermes-bots/data.identity.test.ts \
+            src/plugins/hermes-bots/plugin.mentions.test.ts \
+            src/plugins/hermes-bots/group-rounds.primary-alias.test.ts \
+            src/plugins/hermes-bots/soul.test.ts \
             src/plugins/hermes-bots/group-chat.test.ts \
             src/plugins/hermes-bots/okvevo-groups-all-profiles.test.tsx \
             src/plugins/hermes-bots/routing.test.ts \
             src/app/settings/settings-ui-policy.test.ts \
+            src/app/chat/composer/composer-disclaimer.test.tsx \
             src/i18n/okvevo-catalog.test.ts \
             src/store/notifications.test.ts \
             src/components/boot-failure-overlay.test.tsx \
