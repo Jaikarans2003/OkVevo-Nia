@@ -348,6 +348,27 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/e2e-auth-trace.test.mjs` — strip + no-trace unit tests
 - `apps/desktop/scripts/check-no-e2e-auth.mjs` — CI gate: packed public bundle carries no e2e sign-in hook marker
 - `apps/desktop/src/plugins/hermes-bots/labels.ts` — OkVevo agent fallback name and comments (the default_agent_label hook was removed at v0.23.0)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts` — hard per-OS UI-CONTRACT visual suite (6 public screens)
+- `apps/desktop/e2e/visual-snapshot.ts` — assertContractScreenshot hard baseline helper for UI-CONTRACT
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-about-darwin.png` — UI-CONTRACT baseline (macOS)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-about-win32.png` — UI-CONTRACT baseline (Windows)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-bots-darwin.png` — UI-CONTRACT baseline (macOS)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-bots-win32.png` — UI-CONTRACT baseline (Windows)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-chat-darwin.png` — UI-CONTRACT baseline (macOS)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-chat-win32.png` — UI-CONTRACT baseline (Windows)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-model-menu-darwin.png` — UI-CONTRACT baseline (macOS)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-model-menu-win32.png` — UI-CONTRACT baseline (Windows)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-settings-darwin.png` — UI-CONTRACT baseline (macOS)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-settings-win32.png` — UI-CONTRACT baseline (Windows)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-sign-in-darwin.png` — UI-CONTRACT baseline (macOS)
+- `apps/desktop/e2e/okvevo-ui-contract.spec.ts-snapshots/contract-sign-in-win32.png` — UI-CONTRACT baseline (Windows)
+- `apps/desktop/src/app/chat/composer/composer-disclaimer.tsx` — OkVevo composer disclaimer under the dock
+- `apps/desktop/src/app/chat/composer/composer-disclaimer.test.tsx` — unit coverage for composer disclaimer
+- `apps/desktop/src/app/chat/composer/index.tsx` — mount ComposerDisclaimer below the dock
+- `apps/desktop/src/i18n/types.ts` — disclaimer copy type for OkVevo catalog
+- `apps/desktop/src/plugins/hermes-bots/plugin.tsx` — @okvevo mention claim twins (@default/@hermes/@nia)
+- `apps/desktop/src/plugins/hermes-bots/plugin.mentions.test.ts` — @okvevo mention menu tests
+- `apps/desktop/src/plugins/hermes-bots/group-rounds.primary-alias.test.ts` — @okvevo primary alias routing tests
 <!-- /okvevo-delta:apps/desktop -->
 
 ## Retired
