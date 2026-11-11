@@ -91,7 +91,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Risk if skipped** | Private Free artifact storage is **500 MB** shared with Packages. Staging still `upload-artifact`s DMG+zip+NSIS; after privatize the job fails or evicts other artifacts. |
 | **Scope** | `.github/workflows/okvevo-desktop-pack.yml` staging `yml_mode`, `publish-release-feed.mjs` |
 | **Fix** | Staging pack uploads installers **directly to R2** (same as production `versioned` archive under prefix `staging/`). No GitHub `upload-artifact` for installers. |
-| **Verify** | Staging pack green with no `nia-mac`/`nia-win` artifacts; `https://releases.okvevo.com/staging/latest-mac.yml` updates. |
+| **Verify** | Staging pack green with no `okvevo-mac`/`okvevo-win` artifacts; `https://releases.okvevo.com/okvevo/staging/latest-mac.yml` updates. |
 | **Notes** | Logged 2026-09-21 with Phase B. Do **not** privatize until this is closed. Production tag pack already skips installer artifacts. |
 
 ### [ ] Phase C: staging must not run full pack + ci.yaml on every push
@@ -114,7 +114,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | OkVevo-Web `src/app/nia/page.tsx`, `src/lib/nia-downloads.ts` |
 | **Fix** | `/nia` Mac/Windows buttons use stable `https://releases.okvevo.com/Nia-mac-arm64.dmg` and `Nia-win-x64.exe` (staging yaml prefixes `/staging`). Publish release overwrites those objects. |
 | **Verify** | `node --experimental-strip-types src/lib/nia-downloads.selfcheck.ts` (OkVevo-Web). Opening `/nia` shows Mac/Windows buttons without placeholder copy. |
-| **Notes** | Closed 2026-09-14 with CI/CD plan. Artifacts 404 until the first successful Publish release. |
+| **Notes** | Closed 2026-09-14 with CI/CD plan. Artifacts 404 until the first successful Publish release. 2026-11-10: names changed with the OkVevo rename; staging is `okvevo/staging/OkVevo-*`, production switch tracked in "First OkVevo Publish: switch the website's production download buttons". |
 
 ### [x] Pin packaged agent/runtime to the same release as the shell
 
@@ -427,7 +427,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | On a build before PR 1.4, start a chat; update in place to the current build; reopen that chat and ask "Who are you?" and "Who made you?". Answer is "OkVevo agent … made by OkVevo". |
 | **Notes** | Logged 2026-11-05 (PR 1.4). Seen on Karan's Mac: 3 of 5 stored prompts carried "You run on Nia, the OkVevo desktop agent (built by OkVevo)". SOUL.md file migration is a different store and is done. |
 
-### [ ] Unused brand locale files still say "Nia"; extend the Nia scan to `src/i18n/`
+### [x] Unused brand locale files still say "Nia"; extend the Nia scan to `src/i18n/`
 
 | Field | Value |
 |-------|-------|
@@ -436,7 +436,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | Delete `brand/locales/*.overlay.json` and `brand/locales/desktop/{en,zh,zh-hant,ja,ar}.ts`; keep `brand/locales/desktop/okvevo-overrides.ts` (imported by `apps/desktop/src/i18n/catalog.ts`). Remove the matching rows in `docs/okvevo/FORK-INVENTORY.md`. `scripts/okvevo/check_branding.py` `source_files()` (currently skips `src/i18n/`). |
 | **Fix** | PR 2: delete the unused files instead of rewriting them, drop their inventory rows, and make `check_branding.py` scan `apps/desktop/src/i18n/` for the `Nia` word too (allowlist only real slugs such as `OkVevo-Nia`). |
 | **Verify** | `rg -l "brand/locales/" apps/desktop scripts` shows only `okvevo-overrides.ts` in use; `python3 scripts/okvevo/check_branding.py` passes with `src/i18n/` in the Nia scan; temporarily adding a `"Nia"` string to `src/i18n/en.ts` makes it fail. |
-| **Notes** | Logged 2026-11-05 (PR 1.4). Verified then: only `okvevo-overrides.ts` is imported; pack copies icons from `brand/assets` only (`electron-builder.config.cjs`, `overlay-brand-assets.mjs`); shipped `src/i18n` catalogs contain no "Nia". |
+| **Notes** | Logged 2026-11-05 (PR 1.4). Verified then: only `okvevo-overrides.ts` is imported; pack copies icons from `brand/assets` only (`electron-builder.config.cjs`, `overlay-brand-assets.mjs`); shipped `src/i18n` catalogs contain no "Nia". Closed 2026-11-11 (feat/okvevo-polish-cleanup: deleted brand/locales overlays + desktop stubs; check_branding scans i18n for Nia). |
 
 ### [ ] PR 3: CI runs the full desktop UI suite; every failing test fixed or deleted
 
@@ -449,6 +449,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `cd apps/desktop && npx vitest run --project ui` exits 0 locally and in CI; `rg -n "\.skip\(|\.todo\(" apps/desktop/src` shows nothing new without a backlog row. |
 | **Notes** | Logged 2026-11-06 (PR 1.4). `src/plugins/hermes-bots/` alone: 25 of 110 files fail on clean `staging` (`410378ce66`), same with or without PR 1.4. Causes seen: missing `@novnc/novnc` (`screen-pane-*`, `screen-viewer-identity`, `screen-managed-copy`); assertions still expecting the `@hermes` handle or `hermes` profile where OkVevo shows `@okvevo` (`group-rounds`, `group-rounds.primary-alias`); `soul.test.ts` expecting `@nia`; and whole files that fail to load (all `cron-*`, `bot-row`, `bot-open-focus-identity`, `cold-bot-switch-row`, `plugin-panes`, `plugin.mentions`, `hide-bot-chats.runtime`, `reclaim-refresh-in-place`, `legacy-sdk-compat`) — root cause per file is PR 3's job. The whole UI project did not finish locally: workers for `src/lib/session-owner-routed-rpcs.test.tsx` and `src/lib/local-preview.local-target.test.ts` never terminated (vitest "Timeout terminating forks worker"), so PR 3 also fixes those hangs before the suite can gate. 2026-11-09 v0.23.0 sync: the electron + ui files around the merged code fail 8 on `staging` and 19 after the sync; the 11 new are upstream tests that assert Hermes wording or the `@hermes` handle (`data.hermes-handle`, `group-rounds.hermes-handle`, `group-transcript-speaker`, two `plugin.mentions` cases, `remote-authority-wire`, `update-handoff-report` fixed in the sync). |
 
+### [ ] PR 3: no-Nous / no-vendor guard covers every app process, not only the renderer
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | The packed E2E vendor guard (`apps/desktop/e2e/okvevo/vendor-guard.ts`) sees only renderer page requests and URLs in the Electron log tail. The Python backend (gateway, agent, tools, pricing warm, telemetry, plugin catalog) and child processes can call Nous or a paid vendor (`nousresearch.com`, `openrouter.ai`, `fal.ai`, …) and the test still passes. |
+| **Scope** | `apps/desktop/e2e/okvevo/` (`packed-chat.spec.ts`, `packed-signin-chat.spec.ts`, `vendor-guard.ts`, `gateway-mock.ts`), `.github/workflows/okvevo-desktop-pack.yml` (packed E2E steps, Mac and Windows), `docs/okvevo/VENDOR-TOUCHPOINTS.md`, `docs/okvevo/NOUS-TOUCHPOINTS.md` |
+| **Fix** | PR 3: run the packed E2E with outbound network denied except an allowlist: OkVevo domains (`*.okvevo.com`, `releases.okvevo.com`), Firebase Auth / Firestore (`identitytoolkit.googleapis.com`, `securetoken.googleapis.com`, `firestore.googleapis.com`), and the E2E mock (loopback). Enforce it for every process the app starts (Electron main + renderer, Python gateway/agent, tool subprocesses), on Mac and Windows, e.g. a deny-by-default egress proxy the whole process tree must use plus an OS firewall rule so a client that ignores proxy env cannot bypass it. Any request from any app process to Nous or a vendor host fails the test, naming the process and host. |
+| **Verify** | Packed E2E green on Mac and Windows with the egress allowlist on. Teeth check: a test-only call to `https://nousresearch.com` from the Python backend (and one to a vendor host) makes the job fail with that host in the message. |
+| **Notes** | Logged 2026-11-09 after the v0.23.0 sync (PR #76). That sync found a Nous surface the scan missed (the shared-metrics "Share with Nous" strip) and kept upstream's Nous-only model refresh options, which are inert only while no `nous` provider row exists; today's guard cannot see backend traffic either way. |
 ### [ ] www.okvevo.com download page states the new install minimums
 
 | Field | Value |
@@ -459,6 +469,41 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Fix** | Next to the Mac / Windows buttons: "macOS 13 Ventura or later" and "Windows 10 or 11, 64-bit". |
 | **Verify** | Open `/nia` on staging: both minimums show beside the matching button. |
 | **Notes** | Logged 2026-11-09 with the v0.23.0 sync. Same minimums are in `docs/okvevo/TESTING.md`. Website not edited in the sync PR. |
+
+### [x] PR 2: proper SemVer app version before the first client release
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | `apps/desktop/package.json` has said `0.0.0` since the upstream reset, so every staging build reads `0.0.N` and the first client release would ship a meaningless version in About, the installer name and the update feed. |
+| **Scope** | `apps/desktop/package.json` `version` (OkVevo delta, PATCHES.md), `apps/desktop/scripts/ci-desktop-version.mjs`, `.github/workflows/okvevo-desktop-production.yml` (version from the `vX.Y.Z` tag), `docs/okvevo/TESTING.md` |
+| **Fix** | PR 2: set `apps/desktop/package.json` `version` to a real SemVer, e.g. `0.1.0`, and cut the first client release as tag `v0.1.0`. Staging keeps run-number builds (`{major}.{minor}.{run_number}` → `0.1.N`, still above today's `0.0.N`, so tester feeds keep updating). Root `latest*.yml` still names the pre-rename Nia `0.18.5` (a different app id): confirm old Nia installs are not offered the OkVevo build, and that OkVevo's first production feed version only ever goes up. |
+| **Verify** | `node -p "require('./apps/desktop/package.json').version"` prints `0.1.0`; the next Desktop staging pack's `okvevo/staging/latest-mac.yml` reads `0.1.<run>`; `node apps/desktop/scripts/ci-desktop-version.mjs --from-tag v0.1.0` prints `0.1.0`. |
+| **Notes** | Logged 2026-11-10 after the v0.23.0 sync shipped staging `0.0.17`. Closed 2026-11-11 (feat/okvevo-polish-cleanup: apps/desktop/package.json version 0.1.0). |
+
+
+### [ ] Windows distribution (start when Karan says he is developing on Windows)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live for Windows clients |
+| **Start** | Only when you say you are developing on Windows |
+| **Risk if skipped** | Windows customers lack a signed Store path and a verified NSIS in-app update loop. |
+| **Scope** | Desktop pack/CI for Windows; website download EXE; Microsoft Store listing |
+| **Fix** | Two CI/CD builds: **(a)** unsigned website download for staging and production — NSIS, plus in-app updates via electron-updater, with an install-N → publish-N+1 upgrade test; **(b)** Microsoft Store build — MSIX, Store-signed, Store handles updates; first submission manual, then Store publishing from GitHub Actions on the release tag |
+| **Notes** | Replaces the narrower “NSIS vs App Installer” gap. Today’s stamp/pack mismatch is absorbed into this row. Do not start a follow-up polish PR for it. Not in the OkVevo polish cleanup PR. |
+
+
+### [ ] First OkVevo Publish: switch the website's production download buttons to `OkVevo-*`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | `/nia` production buttons link root `Nia-mac-arm64.dmg` / `Nia-win-x64.exe`, which today serve the pre-rename Nia 0.18.5. Publish release writes root `OkVevo-mac-arm64.dmg` / `OkVevo-win-x64.exe`, so after the first OkVevo Publish the website would keep handing out the old Nia app. |
+| **Scope** | OkVevo-Web `src/lib/nia-downloads.ts` (`NIA_MAC_ARTIFACT` / `NIA_WIN_ARTIFACT`) + `nia-downloads.selfcheck.ts`, OkVevo-Web `docs/CI-CD.md` |
+| **Fix** | With PR 2's first client release: change the production names to `OkVevo-mac-arm64.dmg` / `OkVevo-win-x64.exe` and deploy OkVevo-Web right after Publish release succeeds (before that, those objects are 404). |
+| **Verify** | `curl -sI https://releases.okvevo.com/OkVevo-mac-arm64.dmg` and `…/OkVevo-win-x64.exe` → 200 with the published version; `node --experimental-strip-types src/lib/nia-downloads.selfcheck.ts` (OkVevo-Web) passes with the new names; `/nia` on www links them. |
+| **Notes** | Found 2026-11-10: root `Nia-*` = 200 (0.18.5, 2026-10-14), root `OkVevo-*` = 404. Staging buttons already use `okvevo/staging/OkVevo-*`. |
 
 ## Should fix before live (lower severity)
 
@@ -670,7 +715,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | Fresh launch → quit → `pgrep -f hermes.*gateway` (or the gateway process name) returns nothing; a deliberately orphaned gateway is either adopted-then-restarted or reaped on next quit. |
 | **Notes** | Observed 2026-11-03 during PR 1.3 manual repro (Step 1): gateway pid 10572 kept running after quit. Reported to Karan as a side finding; not clearly upstream-intended. |
 
-### [ ] Staging updater 404 on `stable-mac.yml` (feed layout — PR 2 item 10)
+### [x] Staging updater 404 on `stable-mac.yml` (feed layout — PR 2 item 10)
 
 | Field | Value |
 |-------|-------|
@@ -679,7 +724,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | `apps/desktop/electron` updater channel/feed config; `apps/desktop/scripts/publish-release-feed.mjs`; R2 `okvevo/staging/` vs `okvevo/stable/` key layout. |
 | **Fix** | PR 2 item 10 (feed layout): staging builds must read `latest*.yml` from the staging prefix (and must not probe `stable-mac.yml`); production keeps the stable layout. |
 | **Verify** | On a packed staging build, the updater log shows a 200 on the staging `latest-mac.yml`; no `stable-mac.yml` request. |
-| **Notes** | Logged 2026-11-03 from PR 1.3 side findings (Karan: "that's PR 2 item 10"). Related to the unsigned-update rows under Hard gates. |
+| **Notes** | Logged 2026-11-03 from PR 1.3 side findings (Karan: "that's PR 2 item 10"). Related to the unsigned-update rows under Hard gates. Closed 2026-11-11 (feat/okvevo-polish-cleanup: publish dual-writes releases/darwin/stable/stable-mac.yml with absolute installer URLs; smoke GETs Hermes path). |
 
 ### [x] Staging upload publishes `latest*.yml` before the installers
 
@@ -703,7 +748,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | After a tag pack, `curl -s https://releases.okvevo.com/okvevo/stable/latest-mac.yml` still shows the previous version until Publish release runs. |
 | **Notes** | Found 2026-11-08 during PR 1.5. PR 1.5 only moved the prefix yml to be `archiveFeed`'s last write. Introduced in `464c6f8007` (2026-10-24). |
 
-### [ ] PR 2: `@okvevo` display alias for the default bot handle
+### [x] PR 2: `@okvevo` display alias for the default bot handle
 
 | Field | Value |
 |-------|-------|
@@ -712,7 +757,19 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | Desktop renderer display layer (bot handle rendering, @-mention completions in `apps/desktop/src/plugins/hermes-bots/plugin.tsx`, `resolveRosterMentions` / `mentionNameForms` in `data.ts`); internal handle stays `@hermes` (protocol identifier, allowlisted). |
 | **Fix** | Display-layer alias: render the internal `@hermes` handle as `@okvevo` (PR 1.3 plan line 71), including the mention menu row. Hide the duplicate `@default` row for the same agent in public builds (`isByokChromeVisible()` false); typing `@default` may still resolve. No wire/protocol rename. |
 | **Verify** | Bots list, group chat and the @ mention menu show one `@okvevo` row for the default agent and no `@default` row on public; a test group chat @mention of `@okvevo` (and of a named bot) still routes to the right profile (`plugin.mentions` + `group-rounds` tests, packed group-chat E2E). |
-| **Notes** | Logged 2026-11-03; scoped to PR 2 so PR 1.3 stays minimal. |
+| **Notes** | Logged 2026-11-03; scoped to PR 2 so PR 1.3 stays minimal. Closed 2026-11-11 (feat/okvevo-polish-cleanup: claim @default/@hermes/@nia twins; tests retargeted). |
+
+
+### [ ] Small-size icon: simplified monogram for 16–48 px
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix / Nice-to-have (not required before live) |
+| **Risk if skipped** | Dock / tray / Taskbar at ≤48 px show a muddy OKVEVO wordmark; brand is recognizable as the orange squircle but the letters are not legible. |
+| **Scope** | `scripts/okvevo/make_icons.sh`; `brand/assets/apps/desktop/assets/` |
+| **Fix** | Provide a simplified monogram/symbol asset for 16–48 px. Teach `make_icons.sh` to use the symbol at ≤48 px and the full wordmark above that. |
+| **Verify** | After the symbol lands: regenerate icons; at 16 / 32 / 48 px the mark is legible next to Finder/Safari (or Windows taskbar peers). |
+| **Notes** | Logged 2026-11-11 during OkVevo polish cleanup. First ship uses the full wordmark with Apple macOS icon-template margin on the 1024 canvas at all sizes. |
 
 ### [ ] Desktop typecheck and ESLint errors on staging, and neither runs in OkVevo CI
 
@@ -742,6 +799,11 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 _(Move items here when done.)_
 
+| Mac updater stable-mac.yml feed path | 2026-11-11 | feat/okvevo-polish-cleanup: publish dual-writes releases/darwin/stable/stable-mac.yml with absolute installer URLs; smoke GETs Hermes path |
+| @okvevo display alias for default bot | 2026-11-11 | feat/okvevo-polish-cleanup: claim @default/@hermes/@nia twins; tests retargeted |
+| Desktop SemVer set to 0.1.0 | 2026-11-11 | feat/okvevo-polish-cleanup: apps/desktop/package.json version 0.1.0 |
+| Unused brand locales deleted; Nia scan covers src/i18n/ | 2026-11-11 | feat/okvevo-polish-cleanup: deleted brand/locales overlays + desktop stubs; check_branding scans i18n for Nia |
+| Redirect the retired `releases.okvevo.com/staging/Nia-*` links to the OkVevo staging files | 2026-11-10 | Karan added two Cloudflare 302 Redirect Rules (`okvevo.com` zone). Verified: `staging/Nia-mac-arm64.dmg`, `Nia-win-x64.exe` and the versioned `Nia-0.17.57-*` installers → 302 to `okvevo/staging/OkVevo-mac-arm64.dmg` / `OkVevo-win-x64.exe` (200, 0.0.17); `staging/latest*.yml` and zips still 200 for old Nia installs. Re-checked 2026-11-10 after Karan switched both rules to path-based expressions: with and without `?utm=x`, stable and versioned Nia installers → 302 to the OkVevo staging files; `staging/latest-mac.yml`, `latest.yml` and the zip → 200, not redirected. The old staging feed never had `.blockmap` files (404, no `location`; its yml lists none), and production root `Nia-0.18.5-*.blockmap` → 200. Verify: `curl -sI 'https://releases.okvevo.com/staging/Nia-mac-arm64.dmg?utm=x'` → 302. |
 | Sync Hermes v0.22.4 → v0.23.0 (was "Sync Hermes v0.22.5") | 2026-11-09 | Direct `git merge v0.23.0` on `sync/hermes-v0.23.0`, 16 conflicts resolved; Nous sign-in / usage windows / Webapp off in public builds; pins, PATCHES lists, gitleaks range moved to v0.23.0. PR: [OkVevo-Nia #76](https://github.com/Jaikarans2003/OkVevo-Nia/pull/76) (draft). Verify: `bash scripts/okvevo/check_upstream_delta.sh v0.23.0`; `scripts/run_tests.sh plugins/okvevo/tests/`; Mac + Windows pack E2E on the PR. |
 | Staging upload publishes `latest*.yml` before the installers | 2026-11-08 | Installers first, HTTPS sha512/size check, `latest*.yml` last; R2 uploads retry; Publish release checks installers before the flip and smokes with `--version`. PR: [OkVevo-Nia #75](https://github.com/Jaikarans2003/OkVevo-Nia/pull/75). Verify: `npx vitest run --project electron scripts/publish-release-feed.test.mjs scripts/smoke-release-feed.test.mjs`. |
 | Chat 429 says "Busy, retrying at HH:MM" from the portal `reset_at` | 2026-10-30 | Portal 429s (`in_flight_budget_exhausted`, `plan_concurrency_limit`) carry epoch `reset_at` + `Retry-After: 30` since OkVevo-Web `a654f958` (on `staging`, testing run 40293554138). `plugins/okvevo` maps (429, `reset_at`) to local-time copy with the built-in 429 flags. PR: [OkVevo-Nia #70](https://github.com/Jaikarans2003/OkVevo-Nia/pull/70). Verify: `scripts/run_tests.sh plugins/okvevo/tests/test_error_codes.py`. |

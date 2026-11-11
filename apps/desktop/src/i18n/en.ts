@@ -3378,6 +3378,7 @@ export const en: Translations = {
     commonCommands: 'Common commands',
     hotkeys: 'Hotkeys',
     helpFooter: 'opens the full panel · backspace dismisses',
+    disclaimer: 'OkVevo is an AI agent and can make mistakes. Check important info.',
     commandDescs: {
       '/help': 'Show desktop slash commands',
       '/clear': 'start a new session',

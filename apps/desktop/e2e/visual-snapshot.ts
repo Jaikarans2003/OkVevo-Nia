@@ -15,7 +15,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { type ElectronApplication, type Page, test } from '@playwright/test'
+import { type ElectronApplication, expect, type Page, test } from '@playwright/test'
 
 /** Fixed window dimensions for visual regression screenshots. */
 export const VISUAL_WINDOW_WIDTH = 1220
@@ -53,11 +53,33 @@ async function forceFixedSize(app: ElectronApplication): Promise<void> {
 }
 
 /**
- * Take a screenshot and compare it against the baseline.
- *
- * If the baseline doesn't exist yet (first run), Playwright creates it.
- * If it differs, the test logs a soft warning but does NOT fail — the diff
- * images are still generated for CI to surface.
+ * Hard OkVevo UI-contract screenshot (industry default): Playwright
+ * `toHaveScreenshot` with per-OS suffix (`-darwin` / `-win32`). Fails the
+ * test on mismatch. Mask dynamic regions via `mask`. Update baselines only
+ * with an explicit `--update-snapshots` commit.
+ */
+export async function assertContractScreenshot(
+  page: Page,
+  options: VisualSnapshotOptions & { mask?: Parameters<Page['locator']>[0][] },
+): Promise<void> {
+  const { name, fullPage = false, timeout = 30_000, app, mask = [] } = options
+  await forceFixedSize(app)
+  await page.waitForTimeout(500)
+  const snapshotName = name ? (name.endsWith('.png') ? name : `${name}.png`) : `${test.info().title}.png`
+  const maskLocators = mask.map(sel => page.locator(String(sel)))
+  await expect(page).toHaveScreenshot(snapshotName, {
+    animations: 'disabled',
+    caret: 'hide',
+    fullPage,
+    maxDiffPixelRatio: 0.01,
+    mask: maskLocators,
+    timeout,
+  })
+}
+
+/**
+ * Soft visual snapshot (legacy): logs diffs without failing. Prefer
+ * `assertContractScreenshot` for OkVevo UI-CONTRACT screens.
  */
 export async function expectVisualSnapshot(
   page: Page,
@@ -86,16 +108,19 @@ export async function expectVisualSnapshot(
     // Also write to the output dir so CI artifacts include the screenshot.
     fs.writeFileSync(info.outputPath(`${outputName}-actual.png`), actual)
     console.log(`[visual-baseline] updated ${baselinePath}`)
+
     return
   }
 
   if (!fs.existsSync(baselinePath)) {
     fs.writeFileSync(info.outputPath(`${outputName}-actual.png`), actual)
     console.log(`[visual-diff] ${name ?? '(unnamed)'} — no baseline available`)
+
     return
   }
 
   const expected = fs.readFileSync(baselinePath)
+
   const comparison = await app.evaluate(
     ({ nativeImage }, images) => {
       const actualImage = nativeImage.createFromBuffer(Buffer.from(images.actual, 'base64'))
@@ -123,6 +148,7 @@ export async function expectVisualSnapshot(
           mismatched++
           diffPixels[i + 2] = 255
         }
+
         diffPixels[i + 3] = 255
       }
 

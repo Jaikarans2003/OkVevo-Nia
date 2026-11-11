@@ -12,9 +12,31 @@
  */
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
+const { darwinFeed } = createRequire(import.meta.url)('../update-feed.cjs')
+
+/** Hermes Mac updater path — keep upload and smoke on the same helper. */
+export function macStableFeed() {
+  return darwinFeed('stable')
+}
+
+export function macStableYmlRelPath() {
+  const feed = macStableFeed()
+  return `${feed.directory}/${feed.fileName}`
+}
+
+/** Rewrite relative installer urls/path to absolute origin-root URLs. */
+export function withAbsoluteInstallerUrls(ymlText, origin) {
+  const base = String(origin || '').replace(/\/+$/, '')
+  if (!base) throw new Error('withAbsoluteInstallerUrls requires origin')
+  return String(ymlText || '')
+    .replace(/^(\s*-\s*url:\s+)(?!https?:\/\/)(\S+)/gm, (_, prefix, name) => `${prefix}${base}/${name.replace(/^\/+/, '')}`)
+    .replace(/^(path:\s+)(?!https?:\/\/)(\S+)/m, (_, prefix, name) => `${prefix}${base}/${name.replace(/^\/+/, '')}`)
+}
 
 export const STABLE_MAC_NAME = 'OkVevo-mac-arm64.dmg'
 export const STABLE_WIN_NAME = 'OkVevo-win-x64.exe'
@@ -693,6 +715,18 @@ export function publishPointers({
         toKey: feedKey(prefix, STABLE_WIN_NAME),
         extra: ['--cache-control', CACHE_CONTROL_NO_STORE]
       })
+      const prefixOrigin = `${publicFeedOrigin(env)}/${String(prefix).replace(/\/+$/, '')}`
+      const macAbs = withAbsoluteInstallerUrls(macYml, prefixOrigin)
+      const macStableLocal = path.join(ownedTmp, 'stable-mac.yml')
+      fs.writeFileSync(macStableLocal, macAbs)
+      cpLocalToS3({
+        aws,
+        env,
+        src: macStableLocal,
+        bucket,
+        key: feedKey(prefix, macStableYmlRelPath()),
+        extra: ['--content-type', 'text/yaml', '--cache-control', CACHE_CONTROL_NO_STORE]
+      })
       copyS3({
         aws,
         env,
@@ -771,21 +805,32 @@ export async function syncFeed({
     )
   }
 
+  const feedOrigin = `${publicFeedOrigin(env)}/${destPrefix}`.replace(/\/+$/, '')
+  const macYmlAbsolute = withAbsoluteInstallerUrls(macYml, feedOrigin)
   // Staging artifacts carry no blockmaps; the updater falls back to a full download.
   await verifyYmlsOverHttp({
-    origin: `${publicFeedOrigin(env)}/${destPrefix}`,
+    origin: feedOrigin,
     ymlTexts: [macYml, winYml],
     fetchImpl,
     requireBlockmaps: false
   })
 
-  for (const name of ymlNames) {
+  const macStableRel = macStableYmlRelPath()
+  const macStableLocal = path.join(feedDir, path.basename(macStableRel))
+  fs.writeFileSync(macStableLocal, macYmlAbsolute)
+
+  // Installers already verified — ymls last (Hermes Mac path + dual-write latest*).
+  for (const [localPath, destName] of [
+    [macStableLocal, macStableRel],
+    [path.join(feedDir, 'latest-mac.yml'), 'latest-mac.yml'],
+    [path.join(feedDir, 'latest.yml'), 'latest.yml']
+  ]) {
     aws(
       [
         's3',
         'cp',
-        path.join(feedDir, name),
-        s3Uri(bucket, `${destPrefix}${name}`),
+        localPath,
+        s3Uri(bucket, `${destPrefix}${destName}`),
         '--content-type',
         'text/yaml',
         '--cache-control',
@@ -794,6 +839,14 @@ export async function syncFeed({
       env
     )
   }
+
+  // Prove the Mac app-request URL itself (absolute installer urls already in body).
+  await verifyYmlsOverHttp({
+    origin: feedOrigin,
+    ymlTexts: [macYmlAbsolute],
+    fetchImpl,
+    requireBlockmaps: false
+  })
 }
 
 function flag(name, argv) {

@@ -1,6 +1,6 @@
 # OkVevo manual test checklist
 
-Run on a **fresh packaged staging build**, Mac **and** Windows. Quit and uninstall Nia first. The new `appId` (`com.okvevo.app`) installs **beside** Nia, not over it. Never run both at once — they share `~/.hermes`.
+Run on a **fresh packaged staging build**, Mac **and** Windows. Quit and remove any older OkVevo / retired Nia install first if both would share `~/.hermes`. The `appId` is `com.okvevo.app`. Never run two desktop agents against the same `~/.hermes` at once.
 
 Install minimums since the Hermes v0.23.0 sync (Electron 44): **macOS 13 Ventura or later** and **64-bit Windows** (10 or 11). Older macOS and 32-bit Windows do not launch; do not file those as bugs.
 
@@ -21,7 +21,7 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 | 11 | Tester upgrade | Sessions, memory, bots intact after OkVevo install; config migration backed up (`*.okvevo-migrate.bak`) + logged (root + every `~/.hermes/profiles/*`) |
 | 12 | Mac permissions | Re-grant microphone, screen-recording and accessibility to the new app |
 | 13 | Windows extras | SmartScreen "More info → Run anyway"; username with a space; PowerShell tasks |
-| 14 | Auto-update | Staging build N updates to N+1 (unsigned Mac in-app update will not swap — re-download the DMG) |
+| 14 | Auto-update | Staging build N updates to N+1. **Mac in-app update works only after signing/notarize**; unsigned staging must re-download the DMG (Gatekeeper: right-click → Open). Windows may show SmartScreen / signature errors on unsigned in-app update — install the EXE over. |
 | 15 | Fresh chat | On a **fresh install**, sign in and send a message on the default chat **immediately — before creating any bot and without restarting the app**. A reply appears. `~/.hermes/config.yaml` has `model.provider: okvevo`, `model.default: okvevo/auto-cost`, and every `auxiliary.*.provider` is `main`. **Interim workaround until PR 1.3 ships:** if the first reply fails with "No usable credentials found for provider 'okvevo'", **create any bot once** (Bots → Create Bot), then retry — that writes the missing credential row. Quit/reopen does **not** fix it |
 | 16 | Default bot | Open Bots. The default agent opens and answers |
 | 17 | Model picker | The public picker shows one OkVevo row. Auto Cost Effective and Auto Intelligence both reply. Picking a specific model sends that model id. No OpenRouter, MoA, Add custom model, or Add provider |
@@ -77,3 +77,5 @@ Required merge checks are only the OkVevo jobs: Drift + branding + OkVevo plugin
 ## R2 prefixes
 
 Do not create `okvevo/staging/` or `okvevo/stable/` by hand or with `.keep` objects. Object storage has no folders; the first upload from the staging pack (`okvevo/staging`) or the production archive/publish (`okvevo/stable`, plus the existing bucket-root copies) creates those key prefixes. Do not delete or move any `nia/` objects.
+| 21 | Composer disclaimer | Below the dock (not popped out): "OkVevo is an AI agent and can make mistakes. Check important info." |
+| 22 | @okvevo mention | In a chat with another bot focused, `@` menu shows one `@okvevo` row for the default agent (no `@default` / `@hermes` twin on public). Typing `@okvevo` or `@default` still resolves. |

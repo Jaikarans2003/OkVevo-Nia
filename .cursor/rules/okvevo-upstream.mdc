@@ -20,3 +20,13 @@ Push only the `okvevo` remote. Never `origin`.
 - One sync per PR into `staging`. Merge only when the OkVevo parity + desktop E2E suite, `check_branding.py`, the Nous-diff scan, `check_vendor_keys.py`, and the vendor-host guard are green.
 - Every sync reads `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md` and `docs/okvevo/WORKAROUNDS.md`, runs each workaround's behavior test with its toggle off, and recommends removal when Hermes passes. Karan decides.
 - Never start a sync inside a feature PR.
+
+## UI contract (syncs and OkVevo UI changes)
+
+Follow `docs/okvevo/UI-CONTRACT.md` and `docs/okvevo/SYNC.md`:
+
+1. Use design tokens (no hard-coded colors/fonts).
+2. Prefer OkVevo-owned files or overrides; upstream edits go in `PATCHES.md` with a reason.
+3. Add or update the element row in `UI-CONTRACT.md`.
+4. Update per-OS screenshot baselines in the same PR (`--update-snapshots`); show the diff for approval.
+
