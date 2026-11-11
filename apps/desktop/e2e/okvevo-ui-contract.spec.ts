@@ -25,6 +25,10 @@ const MASK = [
 ]
 
 test.describe('OkVevo UI contract (public screens)', () => {
+  // Boot + six screens on cold CI runners (Mac/Windows) needs headroom past
+  // Playwright's 90s default — waitForAppReady alone allows 120s.
+  test.describe.configure({ timeout: 180_000 })
+
   test.describe('signed-in shell', () => {
     let fixture: MockBackendFixture | null = null
 

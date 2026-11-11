@@ -20,7 +20,6 @@
  * Prerequisite: `npm run build` must have been run so that `dist/` exists.
  */
 
-import { spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -222,6 +221,11 @@ export function buildAppEnv(sandbox: Sandbox, extra: Record<string, string> = {}
     HERMES_DESKTOP_ISOLATED_BACKEND: '1',
     HOME: sandbox.root,
     HERMES_DESKTOP_HERMES_ROOT: REPO_ROOT,
+    // setup-pm exports an install-scoped interpreter as HERMES_E2E_PYTHON.
+    // Map it explicitly: sandbox strip drops bare HERMES_*, and without this
+    // override Mac/Windows CI fall through to bootstrap-needed (install overlay)
+    // because checkout .venv is absent.
+    ...(process.env.HERMES_E2E_PYTHON ? { HERMES_DESKTOP_PYTHON: process.env.HERMES_E2E_PYTHON } : {}),
     HERMES_DESKTOP_APP_NAME: `HermesE2E-${Date.now()}`,
     // `app.close()` in teardown must exit even when a spec leaves a turn
     // mid-flight — otherwise the quit confirmation waits on a click that no
@@ -264,31 +268,11 @@ function assertDistBuilt(): void {
 }
 
 /**
- * Find the Electron binary. In the nix devshell, `electron` is on PATH.
- * As a fallback, use the node_modules/.bin/electron from the desktop package.
+ * Find the Electron binary (desktop package first, then repo root, then PATH).
+ * Uses resolveElectronBinary so Windows gets `electron.exe` / `where`.
  */
 export function findElectron(): string {
-  // In dev mode, we use the `electron` binary directly (not the packaged app).
-  // The dev:electron script in package.json does exactly this: `electron .`
-  // after building. We replicate that here.
-  const localElectron = path.join(REPO_ROOT, 'node_modules', 'electron', 'dist', 'electron')
-
-  if (fs.existsSync(localElectron)) {
-    return localElectron
-  }
-
-  // Fall back to PATH
-  const result = spawnSync('which', ['electron'], {
-    encoding: 'utf8',
-  })
-
-  if (result.status === 0 && result.stdout.trim()) {
-    return result.stdout.trim()
-  }
-
-  throw new Error(
-    'Electron binary not found. Run "npm install" from the repo root to install devDependencies.',
-  )
+  return resolveElectronBinary([DESKTOP_ROOT, REPO_ROOT])
 }
 
 /**

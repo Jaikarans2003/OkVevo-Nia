@@ -39,6 +39,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up the locked desktop toolchain
+        id: pm
         uses: ./.github/actions/setup-pm
         with:
           toolchain: all
@@ -58,6 +59,8 @@ jobs:
         shell: bash
         env:
           CI: 'true'
+          # setup-pm install-scoped interpreter → fixtures map to HERMES_DESKTOP_PYTHON
+          HERMES_E2E_PYTHON: ${{ steps.pm.outputs.python-path }}
           OPENROUTER_API_KEY: ''
           OPENAI_API_KEY: ''
           NOUS_API_KEY: ''
