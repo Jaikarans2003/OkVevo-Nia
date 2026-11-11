@@ -51,8 +51,13 @@ balances, avatars, version strings; animations off; `maxDiffPixelRatio` ≤ 0.01
 
 Screens: **chat**, **bots**, **model menu**, **settings**, **About**, **sign-in**.
 
+Public sign-in is the unsigned empty intro (`Hi, I'm OkVevo`) — Hermes provider
+onboarding is hidden when BYOK chrome is off. Packed portal OAuth is covered by
+`e2e/okvevo/packed-signin-chat.spec.ts`.
+
 Spec: `apps/desktop/e2e/okvevo-ui-contract.spec.ts` (+ existing boot/chat/onboarding
-snapshots). Baselines committed under `e2e/**/*-snapshots/`.
+snapshots). Baselines committed under `e2e/okvevo-ui-contract.spec.ts-snapshots/`
+(`-darwin` / `-win32`).
 
 ## On every upstream sync
 

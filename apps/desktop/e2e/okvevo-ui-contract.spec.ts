@@ -11,8 +11,7 @@ import {
   type NoProviderFixture,
   setupMockBackend,
   setupNoProvider,
-  waitForAppReady,
-  waitForOnboarding
+  waitForAppReady
 } from './fixtures'
 import { expect, test } from './test'
 import { assertContractScreenshot } from './visual-snapshot'
@@ -103,7 +102,9 @@ test.describe('OkVevo UI contract (public screens)', () => {
 
     test('sign-in', async () => {
       fixture = await setupNoProvider()
-      await waitForOnboarding(fixture.page, 90_000)
+      // Public OkVevo skips Hermes provider onboarding (BYOK chrome hidden).
+      // The unsigned empty intro ("Hi, I'm OkVevo") is the contract sign-in surface.
+      await fixture.page.getByText(/Hi,\s*I'm OkVevo/i).waitFor({ state: 'visible', timeout: 90_000 })
       await assertContractScreenshot(fixture.page, {
         name: 'contract-sign-in',
         app: fixture.app,
