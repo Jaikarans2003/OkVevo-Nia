@@ -4,6 +4,14 @@
 name: OkVevo UI visual baselines
 
 on:
+  # PR head workflows run for pull_request (file need not be on default branch).
+  # workflow_dispatch works once this file is on the default branch.
+  pull_request:
+    branches: [staging]
+    paths:
+      - 'apps/desktop/e2e/okvevo-ui-contract.spec.ts'
+      - 'apps/desktop/e2e/visual-snapshot.ts'
+      - '.github/workflows/okvevo-ui-visual-baselines.yml'
   workflow_dispatch:
     inputs:
       update_snapshots:
@@ -56,7 +64,9 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
-          if [ "${{ inputs.update_snapshots }}" = "true" ]; then
+          # PRs always refresh baselines into the artifact; dispatch respects the input.
+          UPDATE="${{ github.event_name == 'pull_request' && 'true' || inputs.update_snapshots }}"
+          if [ "$UPDATE" = "true" ]; then
             npx playwright test e2e/okvevo-ui-contract.spec.ts --reporter=list --update-snapshots
           else
             npx playwright test e2e/okvevo-ui-contract.spec.ts --reporter=list
