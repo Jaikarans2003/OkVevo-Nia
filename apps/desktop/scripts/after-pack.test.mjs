@@ -32,6 +32,8 @@ async function seedPackagedMain(context) {
     path.join(`${asarPath}.unpacked`, 'dist', 'electron-main.mjs'),
     'const re = /HERMES_(?:BACKEND|DASHBOARD)_READY[^\\n]*port=(\\d+)/m\n'
   )
+  // afterPack gates on the bundled MIT notice before any platform work.
+  await writeFile(path.join(path.dirname(asarPath), 'THIRD_PARTY_NOTICES.txt'), 'MIT\n')
 }
 
 function context(appOutDir, productFilename = 'Hermes Preview') {
@@ -83,7 +85,9 @@ it('puts the full-resolution .icns back after electron-builder packaged the laye
     await writeFile(path.join(resources, 'icon.icns'), 'actool fallback')
     await configuredHook(ctx)
     const restored = await readFile(path.join(resources, 'icon.icns'))
-    expect(restored.equals(await readFile(path.join(desktopRoot, 'assets', 'icon.icns')))).toBe(true)
+    const brandIcns = path.resolve(desktopRoot, '../../brand/assets/apps/desktop/assets/icon.icns')
+    expect(restored.equals(await readFile(brandIcns))).toBe(true)
+    expect(restored.equals(await readFile(path.join(desktopRoot, 'assets', 'icon.icns')))).toBe(false)
     expect(restored.subarray(0, 4).toString('latin1')).toBe('icns')
   } finally {
     await rm(root, { recursive: true, force: true })

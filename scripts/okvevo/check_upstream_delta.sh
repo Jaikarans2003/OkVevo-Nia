@@ -30,6 +30,8 @@ is_owned() {
     ENVIRONMENT.md) return 0 ;;
     package-lock.json) return 0 ;;
     .github/workflows/okvevo-*.yml) return 0 ;;
+    # OkVevo ships the bootstrap DMG with brand volume artwork (not Hermes).
+    .github/workflows/bootstrap-installer-build.yml) return 0 ;;
     .cursor|.cursor/*) return 0 ;;
     *) return 1 ;;
   esac

@@ -253,7 +253,10 @@ module.exports = {
   },
   nsis: {
     shortcutName: 'OkVevo',
-    uninstallDisplayName: 'OkVevo'
+    uninstallDisplayName: 'OkVevo',
+    installerIcon: '../../brand/assets/apps/desktop/assets/icon.ico',
+    uninstallerIcon: '../../brand/assets/apps/desktop/assets/icon.ico',
+    installerHeaderIcon: '../../brand/assets/apps/desktop/assets/icon.ico'
   },
   msix: {
     // A store build uses the Partner Center packaging identity (the Store

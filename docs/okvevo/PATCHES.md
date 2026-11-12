@@ -38,6 +38,7 @@ corresponding list **exactly**.
 - `apps/bootstrap-installer/src-tauri/icons/icon.ico`
 - `apps/bootstrap-installer/src-tauri/src/bootstrap.rs`
 - `apps/bootstrap-installer/src-tauri/tauri.conf.json`
+- `apps/bootstrap-installer/src/components/brand-mark.tsx` — BrandMark imports brand okvevo.png (not nous-girl)
 - `apps/bootstrap-installer/src/styles.css`
 <!-- /okvevo-delta:apps/bootstrap-installer -->
 
@@ -133,12 +134,15 @@ corresponding list **exactly**.
 - `apps/desktop/package.json`
 - `apps/desktop/product-identity.cjs`
 - `apps/desktop/resources/ffmpeg-licenses/SOURCE-OFFER.txt`
-- `apps/desktop/scripts/after-pack.mjs`
+- `apps/desktop/scripts/after-pack.mjs` — restoreLegacyMacIcon copies brand .icns via okvevo-brand-paths
+- `apps/desktop/scripts/after-pack.test.mjs` — asserts restored icon matches brand, not Hermes assets/
+- `apps/desktop/scripts/before-build.mjs` — calls overlayBrandAssets before MSIX staging
 - `apps/desktop/scripts/before-pack.mjs`
 - `apps/desktop/scripts/build-ffmpeg-macos.mjs`
 - `apps/desktop/scripts/build.mjs`
 - `apps/desktop/scripts/bundle-electron-main.mjs`
 - `apps/desktop/scripts/ci-assert-bundled-pack.mjs`
+- `apps/desktop/scripts/ci-assert-packaged-icons.mjs` — post-pack brand icon hash + asar Hermes-mark gate
 - `apps/desktop/scripts/ci-desktop-version.mjs`
 - `apps/desktop/scripts/ci-desktop-version.test.mjs`
 - `apps/desktop/scripts/ci-map-pack-env.mjs`
@@ -146,9 +150,11 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/ci-prepare-bundled-payload.sh`
 - `apps/desktop/scripts/fetch-ffmpeg.mjs`
 - `apps/desktop/scripts/notarize.mjs`
+- `apps/desktop/scripts/okvevo-brand-paths.mjs` — brand icon path helpers for pack hooks
 - `apps/desktop/scripts/okvevo-feed-urls.mjs`
 - `apps/desktop/scripts/okvevo-feed-urls.test.mjs`
-- `apps/desktop/scripts/overlay-brand-assets.mjs`
+- `apps/desktop/scripts/overlay-brand-assets.mjs` — brand/assets → tree overlay (CLI root = hermes-agent)
+- `apps/desktop/scripts/overlay-brand-assets.test.mjs` — overlay + brand≠Hermes hash guard
 - `apps/desktop/scripts/prepare-app-icon.mjs`
 - `apps/desktop/scripts/prepare-packaging-tools.mjs`
 - `apps/desktop/scripts/publish-release-feed.mjs`
@@ -159,7 +165,7 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/resolve-build-channel.test.mjs`
 - `apps/desktop/scripts/run-electron-builder.mjs`
 - `apps/desktop/scripts/run-internal-builder.mjs`
-- `apps/desktop/scripts/set-exe-identity.mjs`
+- `apps/desktop/scripts/set-exe-identity.mjs` — stamps brand .ico via okvevo-brand-paths
 - `apps/desktop/scripts/sign-windows.mjs`
 - `apps/desktop/scripts/smoke-release-feed.mjs`
 - `apps/desktop/scripts/smoke-release-feed.test.mjs`
@@ -222,6 +228,7 @@ corresponding list **exactly**.
 - `apps/desktop/src/components/assistant-ui/tool/fallback-model.test.ts`
 - `apps/desktop/src/components/boot-failure-overlay.test.tsx`
 - `apps/desktop/src/components/boot-failure-overlay.tsx`
+- `apps/desktop/src/components/brand-mark.tsx` — BrandMark imports brand okvevo.png (not nous-girl)
 - `apps/desktop/src/components/chat/intro-copy.jsonl`
 - `apps/desktop/src/components/chat/intro.test.tsx`
 - `apps/desktop/src/components/chat/intro.tsx`

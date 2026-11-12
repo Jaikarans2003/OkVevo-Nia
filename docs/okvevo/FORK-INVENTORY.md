@@ -56,8 +56,8 @@ Status: A = only in fork, M = modified vs comparator, D = only in comparator.
 
 | S | Path | Why |
 |---|---|---|
-| A | `.cursor/rules/nia-fork-deltas.mdc` | OkVevo-owned path; survives merge |
-| A | `.cursor/rules/okvevo-nia-remote.mdc` | OkVevo-owned path; survives merge |
+| A | `.cursor/rules/okvevo-fork-deltas.mdc` | OkVevo-owned path; survives merge |
+| A | `.cursor/rules/okvevo-remote.mdc` | OkVevo-owned path; survives merge |
 | A | `ENVIRONMENT.md` | OkVevo-owned path; survives merge |
 | A | `PRE-LIVE-BACKLOG.md` | OkVevo-owned path; survives merge |
 | A | `brand/assets/apps/bootstrap-installer/src-tauri/icons/128x128.png` | OkVevo-owned path; survives merge |

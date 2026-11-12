@@ -250,7 +250,7 @@ jobs:
           dmg="$RUNNER_TEMP/out/Hermes-Setup.dmg"
           # Tauri always uses the app icns as the volume icon; give the DMG the
           # same drive artwork as the desktop installer before signing.
-          scripts/bundles/set_dmg_volume_icon.sh "${dmgs[0]}" apps/desktop/packaging/dmg-volume.icns "$dmg"
+          scripts/bundles/set_dmg_volume_icon.sh "${dmgs[0]}" brand/assets/apps/desktop/packaging/dmg-volume.icns "$dmg"
           codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$dmg"
           xcrun notarytool submit "$dmg" --wait \
             --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"

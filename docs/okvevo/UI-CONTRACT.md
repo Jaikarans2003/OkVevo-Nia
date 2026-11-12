@@ -34,13 +34,13 @@ with a reason (KEEP-PATCH cap still applies).
 |---------|-------------------|------|
 | Splash / intro | `apps/desktop/src/components/chat/intro.tsx` | `intro.test.tsx`; visual: chat / boot |
 | Composer disclaimer | `apps/desktop/src/app/chat/composer/composer-disclaimer.tsx` (below dock) | `composer-disclaimer.test.tsx`; TESTING.md step 21 |
-| About | `apps/desktop/electron/okvevo-about.ts` | `electron/okvevo-about.test.ts`; TESTING.md step 1 |
+| About | `apps/desktop/electron/okvevo-about.ts`; pack stamps `HERMES_PAYLOAD_VERSION` so `PLACEHOLDER_VERSIONS` (0.0.0) stay hidden | `electron/okvevo-about.test.ts`, `app-version.test.ts`; TESTING.md step 1; pack: `ci-assert-packaged-icons.mjs` install-stamp check |
 | Model menu | `apps/desktop/src/app/shell/model-catalog-menu.tsx` | `model-catalog-menu.test.tsx`; TESTING.md step 17 |
-| Bots labels / `@okvevo` | `hermes-bots/data.ts` `botHandle`, `plugin.tsx` atCompletions | `plugin.mentions.test.ts`, `group-rounds.primary-alias.test.ts`, `data.identity.test.ts`, `soul.test.ts`; TESTING.md step 10 |
+| Bots labels / `@okvevo` | `hermes-bots/data.ts` `botHandle`, `plugin.tsx` atCompletions (cold-roster claim + twin handles) | `plugin.mentions.test.ts`, `group-rounds.primary-alias.test.ts`, `data.identity.test.ts`, `soul.test.ts`; TESTING.md step 22; packed E2E |
 | Billing / credits | portal + desktop billing UI | billing listener / portal tests; TESTING.md step 2 |
 | Sign-in | onboarding / packed sign-in | `e2e/okvevo/packed-signin-chat.spec.ts`; TESTING.md step 2 |
 | Hidden settings | `settings-ui-policy.ts` | `settings-ui-policy.test.ts`; TESTING.md step 3 |
-| Icons | `brand/assets/apps/desktop/assets/` via `scripts/okvevo/make_icons.sh` | `scripts/okvevo/asset_spec.py --check`; icon preview gate before commit |
+| Icons / BrandMark | Hooks: `before-build` → `overlayBrandAssets`; `after-pack` `restoreLegacyMacIcon` + `set-exe-identity` via `okvevo-brand-paths.mjs`; `electron-builder` mac/dmg/win/nsis → `brand/assets/…`; `brand-mark.tsx` imports brand `okvevo.png`; bootstrap DMG volume → `brand/.../packaging/dmg-volume.icns` | `asset_spec.py --check`; `overlay-brand-assets.test.mjs`; `after-pack.test.mjs`; `ci-assert-packaged-icons.mjs` after Mac+Windows pack |
 
 Cross-links: `DESKTOP-PARITY.md`, `TESTING.md`, `SYNC.md`.
 

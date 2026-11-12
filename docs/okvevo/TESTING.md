@@ -8,7 +8,7 @@ Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on p
 
 | # | Test | Pass when |
 |---|---|---|
-| 1 | Fresh install | Installer, Dock/Taskbar, window title, Start menu all say OkVevo; About shows "OkVevo by Azonova Technologies Pvt Ltd" and "Built on Hermes Agent by Nous Research." |
+| 1 | Fresh install | Installer, Dock/Taskbar, window title, Start menu all say OkVevo; About shows "OkVevo by Azonova Technologies Pvt Ltd" and "Built on Hermes Agent by Nous Research." **Icons:** DMG volume, installing overlay, Dock, Finder Get Info, About mark, and Windows taskbar/EXE must show the OkVevo mark (not Hermes nous-girl). macOS caches app icons — if an old icon appears after a fresh install, run `killall Dock` and `killall Finder` (or restart) before reporting; **Get Info on the `.app`** is the source of truth. |
 | 2 | Sign in / sign out | Works; credits shown as % of the plan grant plus purchased top-up |
 | 3 | Hidden surfaces (public build) | No API key fields, no provider picker, no Nous Portal. Internal build shows them |
 | 4 | Identity | Ask "Who are you?" and "Who made you?" on 2+ models in four chats: the **default chat**, the **default bot**, a **new bot created from the Bots UI**, and a **bot created before this build** (from an older OkVevo install). All four answer "OkVevo agent … made by OkVevo", never "Nia", "Hermes", or "Nous Research". A bot whose `SOUL.md` you edited by hand keeps your text (no rewrite, no `SOUL.md.okvevo-migrate.bak`) |

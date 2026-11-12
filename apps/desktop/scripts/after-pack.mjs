@@ -18,21 +18,23 @@ import { runPython } from '../../../scripts/build/python.mjs'
 
 import { assertPackagedBackendReadyArtifact, resolvePackagedAsarPath } from './backend-ready-artifact.mjs'
 import { batchSignAppTree } from './batch-sign-binaries.mjs'
+import { brandLegacyMacIcns, repoRootFromDesktopScripts } from './okvevo-brand-paths.mjs'
 import { rehashPayloadDigests } from './payload-digests.mjs'
 import { resolveSigningIdentity, signNestedChromium } from './sign-nested-chromium.mjs'
 import { signWheelZipMembers } from './sign-wheel-zips.mjs'
 import { sanitizeTree } from './sanitize-pe-signatures.mjs'
 
 /**
- * Put our full-resolution `assets/icon.icns` back as the bundle's legacy icon.
+ * Put OkVevo's full-resolution brand `.icns` back as the bundle's legacy icon.
  * When `mac.icon` is the Icon Composer package, electron-builder replaces the
  * bundled `icon.icns` with actool's 256px fallback; macOS <= 15 shows that
- * file, so it must be the 16→1024 artwork the generator produced.
+ * file, so it must be the 16→1024 OkVevo artwork — never the upstream Hermes
+ * blob under `apps/desktop/assets/` (docs/okvevo/PATCHES.md).
  * @param {{ appOutDir: string, packager: { appInfo: { productFilename: string } } }} context
- * @param {string} [appDir] the apps/desktop directory
+ * @param {string} [appDir] unused; kept for call-site compatibility
  */
-export async function restoreLegacyMacIcon({ appOutDir, packager }, appDir = path.resolve(import.meta.dirname, '..')) {
-  await copyFile(path.join(appDir, 'assets', 'icon.icns'), path.join(packager.getResourcesDir(appOutDir), 'icon.icns'))
+export async function restoreLegacyMacIcon({ appOutDir, packager }, _appDir = path.resolve(import.meta.dirname, '..')) {
+  await copyFile(brandLegacyMacIcns(repoRootFromDesktopScripts()), path.join(packager.getResourcesDir(appOutDir), 'icon.icns'))
 }
 
 /**

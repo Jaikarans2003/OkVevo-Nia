@@ -16,6 +16,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { appIdentity, nativeManifestTemplate, storeManifestTemplate } from '../../../scripts/msix-shared.mjs'
+import { overlayBrandAssets } from './overlay-brand-assets.mjs'
+import { repoRootFromDesktopScripts } from './okvevo-brand-paths.mjs'
 
 
 const require = createRequire(import.meta.url)
@@ -28,6 +30,10 @@ const {
 } = require('../product-identity.cjs')
 
 export default async function beforeBuild() {
+  // OkVevo hook: copy brand/assets over upstream Hermes blobs before MSIX
+  // staging and electron-builder read apps/desktop/assets (docs/okvevo/PATCHES.md).
+  const overlaid = overlayBrandAssets(repoRootFromDesktopScripts())
+  console.log(`[before-build] brand overlay: ${overlaid.copied.length} copied, ${overlaid.removed.length} removed`)
   stageMsixAssets()
   writeMsixExtensions()
   if (store) stageStoreManifest(path.join(import.meta.dirname, '..'), process.env.HERMES_PAYLOAD_TAG)
