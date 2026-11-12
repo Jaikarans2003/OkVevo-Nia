@@ -1,0 +1,51 @@
+---
+description: Track deferred must-ship-before-live work in PRE-LIVE-BACKLOG.md
+alwaysApply: true
+---
+
+# Pre-live backlog discipline
+
+The canonical backlog lives at **`PRE-LIVE-BACKLOG.md`** (git root of OkVevo-Nia).
+
+**Product pivot:** product is **OkVevo** desktop + OkVevo-Web. **Nia** is retired in user-facing text. Unsigned beta is allowed; signing is not a hard gate for that beta.
+
+## When to update it
+
+Whenever you **defer**, **scope out**, or **postpone** work that is:
+- not urgent for the current task, but
+- required before external testers or production ship (“go live”),
+
+you **must** add or extend an entry in that file **in the same session** — not only in chat or a one-off plan.
+
+## What each entry needs
+
+Use the template in the backlog file. Minimum: gate level, risk if skipped, scope (files), fix, verify command.
+
+Gate levels:
+- **Hard gate** — blocks go-live / privatize / unsafe ship; do not ship with these open.
+- **Required before live / Required before public launch** — user-visible inconsistency or incomplete product surface (includes **code signing** before public launch).
+- **Should fix / Nice-to-have** — lower severity; still document if deferred.
+
+## When closing an item
+
+1. Implement the fix.
+2. Run the entry’s **Verify** step.
+3. Mark `[x]`, add date + commit/PR to **Closed** table.
+4. Do not delete history — move to **Closed**.
+
+## Before suggesting go-live
+
+Read `PRE-LIVE-BACKLOG.md`. All **Hard gates** must be closed. Flag any open **Required before live / public launch** items explicitly; do not assume they were waived.
+
+## Current hard gates (do not forget)
+
+1. **Private `OkVevo-Nia` repo** — repo is public **for now** (interim workaround). Do **not** flip private until authenticated raw-fetch + git clone **or** bundled install.sh/snapshot path is proven with a GitHub-blocked fresh-install test (see backlog).
+2. Other RELEASE BLOCKERs listed in `PRE-LIVE-BACKLOG.md` (e.g. `manage_bot`) — read the file; do not invent a shorter list in chat.
+
+## Not a hard gate for unsigned beta
+
+- **Code signing** (Mac Developer ID + notarize, Windows Authenticode) is **Required before public launch**, not a blocker for unsigned beta while `PROD_ALLOW_UNSIGNED` is set. Follow `docs/FINISH-SIGNED-RELEASE.md`. Unset `PROD_ALLOW_UNSIGNED` before the first signed customer ship.
+
+## Known feed gap (keep listed until fixed)
+
+- Tag pack may write live `okvevo/stable/latest*.yml` before **Publish release** — see PRE-LIVE entry. Only Publish should make a version live for customers.

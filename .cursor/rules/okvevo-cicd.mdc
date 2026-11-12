@@ -1,0 +1,217 @@
+---
+description: OkVevo desktop CI/CD — feature PR → staging → main → tag + Publish release; unsigned beta OK
+alwaysApply: true
+---
+
+# OkVevo desktop CI/CD
+
+Applies to **OkVevo-Nia** only (this repo, remote `okvevo` → `Jaikarans2003/OkVevo-Nia`). Does **not** cover OkVevo-Web (see `okvevo-web-cicd.mdc`). Canonical docs: `docs/CI-CD.md`, `docs/FINISH-SIGNED-RELEASE.md`.
+
+**Product pivot:** shipped product is **OkVevo** (Mac/Windows desktop) + OkVevo-Web portal. **Nia** is retired in user-facing text. Keep internal ids and the `OkVevo-Nia` repo slug.
+
+Karan is non-technical. **Cursor does every allowed step via terminal/`gh`.** Still **ask before every git commit, push, tag, or PR merge.** Never push to `origin` (Nous). Never create GitHub Environments on this repo (Free-plan).
+
+---
+
+## Release flow (hard rule)
+
+```
+feature/fix branch
+  → PR into staging          (merge runs Desktop staging; team tests)
+  → PR staging → main
+  → Karan: annotated tag vX.Y.Z on main tip + Actions "Publish release" with that version
+  → users
+```
+
+- **Never push directly to `staging` or `main`.** Cursor opens PRs and creates tags **only after Karan’s yes**.
+- Staging app versions: **`0.1.N`** (`apps/desktop/package.json` major.minor + `github.run_number`).
+- Production versions: **SemVer tags** `vX.Y.Z` (strict; no `-beta.1`).
+
+---
+
+## Who does what
+
+### Cursor (agent) — after explicit yes
+
+1. Confirm remotes: push target is `okvevo`, not `origin`.
+2. Commit on a **feature/fix branch**; `git push okvevo HEAD`; open/update PR → `staging`.
+3. Watch runs on that PR / after merge: `gh run list --repo Jaikarans2003/OkVevo-Nia`.
+4. When asked: open PR `staging` → `main` (do **not** merge unless he says merge).
+5. After merge to `main` and yes: annotated tag on **`okvevo/main` tip**, `git push okvevo vX.Y.Z` (never `origin`).
+6. Diagnose failed Actions with `gh run view` / logs; fix on a branch + PR.
+7. Tell him the exact download URLs and which Actions run to open.
+
+### Karan (manual / console only)
+
+1. GitHub → Settings → Secrets and variables → Actions: add/edit **repository** secrets and variables (never paste values into chat for the agent to “set”).
+2. Actions → **Publish release** → Run workflow (customer ship approval).
+3. Download / install DMG or EXE on Mac and Windows; Gatekeeper / SmartScreen when unsigned.
+4. Cloudflare R2 / DNS / Cache Rules; Apple / Windows cert purchase and upload into secrets when ready.
+5. Merge PR in the GitHub UI when he prefers UI over `gh pr merge`.
+6. Unset `PROD_ALLOW_UNSIGNED` before first **signed** public launch.
+
+### Never
+
+- Push to `origin` / Nous.
+- Push directly to `staging` or `main`.
+- Print secret values, `.env`, or cert contents.
+- Tag on a random staging commit — release tags sit on **`main`**.
+- Rely on tag pack alone to “go live” for customers — **only Publish release** is the approval step (see feed truth / PRE-LIVE gap below).
+- `firebase deploy` / OkVevo-Web production from this rule’s scope.
+
+---
+
+## Production feed — what is true today
+
+| Layer | Truth |
+|-------|--------|
+| **App (baked at pack)** | `OKVEVO_UPDATE_FEED_URL` = `https://releases.okvevo.com/okvevo/stable` from `apps/desktop/scripts/okvevo-feed-urls.mjs` via `ci-map-pack-env.mjs`. Channel `latest` → reads **`latest.yml` / `latest-mac.yml`** under that prefix. |
+| **Secret name `PROD_UPDATE_FEED_URL`** | Not used as the baked URL. Mapping **hardcodes** `feedFor('production').url` (`okvevo/stable`). Do not document root as what the app requests. |
+| **Publish release** (`okvevo-desktop-publish.yml`) | Points live feed: stable installer names + `releases.json` + root `latest*.yml`, **and** the same live files under `okvevo/stable/` (including Hermes-compat `stable-mac.yml` under the prefix). Smoke checks root **and** `okvevo/stable`. |
+| **Website / human downloads** | Stable names: root `OkVevo-mac-arm64.dmg` / `OkVevo-win-x64.exe` after Publish; staging: `okvevo/staging/OkVevo-*`. |
+| **Tag pack gap** | `okvevo-desktop-production.yml` archives with `feed_prefix: okvevo/stable` and **`archiveFeed` already writes `okvevo/stable/latest*.yml`**. That can update what production apps read **before** Publish. Tracked in `PRE-LIVE-BACKLOG.md`: “Tag pack writes the live `okvevo/stable/latest*.yml` before Publish release”. Until fixed, treat Publish as the **policy** gate; do not assume tag pack is archive-only for the prefix the app uses. |
+
+**Rule for agents:** one customer updater URL — **`https://releases.okvevo.com/okvevo/stable`**. Only **Publish release** should make a version live; if tag pack still writes that live yml, keep/extend the PRE-LIVE item (do not pretend the gap is closed).
+
+---
+
+## Two feeds (mental model)
+
+| Audience | Feed URL | How installers appear |
+|----------|----------|------------------------|
+| **Team / internal testing** | `https://releases.okvevo.com/okvevo/staging` | Auto after merge to `staging` (**Desktop staging**) |
+| **Customers / real users** | `https://releases.okvevo.com/okvevo/stable` (app); root stable names + root `latest*.yml` also written by Publish | Tag pack archives versioned objects → Karan runs **Publish release** |
+
+Stable public download names:
+
+- Staging: `https://releases.okvevo.com/okvevo/staging/OkVevo-mac-arm64.dmg` and `…/OkVevo-win-x64.exe`
+- Production (after Publish): `https://releases.okvevo.com/OkVevo-mac-arm64.dmg` and `…/OkVevo-win-x64.exe`
+
+Versioned objects: `OkVevo-{ver}-mac-arm64.dmg`, `OkVevo-{ver}-win-x64.exe`, plus Mac zip (blockmaps on production); archived yml under `versions/{ver}/`.
+
+---
+
+## Safe release order (hard rule, every feed)
+
+`latest*.yml` is the “new version available” notice. It must never point at a missing or broken file.
+
+1. **Installers first.**
+2. **CI checks over public HTTPS** (version, sha512, size).
+3. **Notice last** (`latest*.yml`).
+4. **Fail closed.**
+5. **Retry uploads** (`AWS_RETRY_MODE=standard`, `AWS_MAX_ATTEMPTS=10`).
+
+Code: `syncFeed` / `verifyYmlsOverHttp` in `apps/desktop/scripts/publish-release-feed.mjs`, `smoke-release-feed.mjs`. Never put installers and `latest*.yml` in one `aws s3 sync`.
+
+---
+
+## Staging — team testing loop
+
+1. Feature/fix PR merges into `staging`.
+2. Actions: **OkVevo desktop staging** (`okvevo-desktop-staging.yml` → reusable `okvevo-desktop-pack.yml`, `pack_target: staging`, `yml_mode: staging`, `feed_prefix: okvevo/staging`, **`allow_unsigned: true`**) + product **CI** (`ci.yaml`).
+3. Version stamp: `0.1.{github.run_number}` (from `package.json` `0.1.0` + run number).
+4. Upload under **`okvevo/staging/`** including `latest*.yml` + stable names.
+5. Packaged app uses **`STAGING_*`** → testing portal (`okvevo-testing`). Sign In must hit **testing**, not www.
+
+### Unsigned staging — tell Karan
+
+- **Mac:** Gatekeeper may block; right-click → Open / Open Anyway. **In-app update will not complete on unsigned Mac** — re-download the DMG.
+- **Windows:** SmartScreen / signature errors possible on in-app update; re-download EXE.
+
+### After staging is green
+
+1. Confirm `git remote get-url --push okvevo` = OkVevo-Nia.
+2. Desktop staging run URL for that SHA.
+3. Paste the two staging download links.
+4. Remind: test Sign In on **Mac and Windows** against testing portal.
+
+---
+
+## Production — real users (two steps)
+
+Approval = **workflow_dispatch Publish release**, not merge, not Environments.
+
+### Step A — Tag pack (archive; see feed gap)
+
+1. Product work is on `main` via PR `staging` → `main`. Tags on **`okvevo/main` tip**.
+2. After yes:
+
+```bash
+git fetch okvevo main
+git rev-parse okvevo/main
+git tag -a vX.Y.Z <main-tip-sha> -m "vX.Y.Z"
+git push okvevo vX.Y.Z   # NEVER origin
+```
+
+3. **OkVevo desktop production** (`okvevo-desktop-production.yml`): `pack_target: production`, `yml_mode: versioned`, `feed_prefix: okvevo/stable`.
+4. Archives `OkVevo-{ver}-*` + blockmaps + `versions/{ver}/latest*.yml` (and today also prefix live files — PRE-LIVE).
+5. Root `releases.json` / root stable names / root `latest*.yml` stay on Publish.
+
+### Step B — Publish release (customer pointers)
+
+1. https://github.com/Jaikarans2003/OkVevo-Nia/actions → **Publish release** → Run workflow (`okvevo-desktop-publish.yml`).
+2. Input `version` = `X.Y.Z` or `vX.Y.Z`. Optional `mark_stable`.
+3. Order: stable DMG/EXE → `releases.json` → `latest*.yml` last (root + `okvevo/stable`) → public smoke.
+4. Workflow file must exist on **default branch** (`main`) or **Run workflow** is missing.
+
+### Production pack-env (fail closed)
+
+Mapped by `ci-map-pack-env.mjs` when `pack_target: production`. Missing portal/Firebase secrets → job dies before R2.
+
+| Secret / bake | Production value |
+|---------------|------------------|
+| `PROD_OKVEVO_WEB_ORIGIN` | `https://www.okvevo.com` |
+| Baked feed (not from secret) | `https://releases.okvevo.com/okvevo/stable` |
+| `PROD_VITE_OKVEVO_FIREBASE_*` (6 keys) | Firebase project **`text2video-16cbf`** |
+
+Do **not** copy `STAGING_*` into `PROD_*`. Shared: `RELEASES_S3_*`; when signing: `CSC_*`, `APPLE_API_*`, `WIN_CSC_*`.
+
+---
+
+## Unsigned production bypass (current)
+
+Unsigned **beta** is allowed when repository variable **`PROD_ALLOW_UNSIGNED`** = `1` / `true`. Staging hard-codes `allow_unsigned: true`.
+
+- Logs: `UNSIGNED PACK ALLOWED`.
+- If Apple/`WIN_CSC` secrets **are** present, sign + notarize + verify still run.
+- Remind: unsigned Mac in-app update cannot complete; Windows may show signature errors. Install from DMG/EXE URL until certs exist.
+- **Code signing is Required before public launch** (not a hard gate for unsigned beta). Unset `PROD_ALLOW_UNSIGNED` before first signed customer ship.
+
+---
+
+## Workflows (files)
+
+| File | Role |
+|------|------|
+| `okvevo-desktop-staging.yml` | Push/merge `staging` → pack to `okvevo/staging/` |
+| `okvevo-desktop-production.yml` | Tag `v*` → versioned R2 archive (+ current prefix live write gap) |
+| `okvevo-desktop-publish.yml` | `workflow_dispatch` → live pointers |
+| `okvevo-desktop-pack.yml` | Reusable pack/sign/upload |
+| `okvevo-desktop-pr-pack.yml` | PR pack smoke when used |
+| `ci.yaml` | Product tests on branch PR/push (not on tags) |
+
+---
+
+## Rollback (production)
+
+`allowDowngrade: false` in the app — same-channel numeric downgrade will not auto-install.
+
+| Situation | Action |
+|-----------|--------|
+| User has **not** updated | Publish release with older archived `version` |
+| User **already** updated | Fix-forward: higher patch tag + pack + Publish |
+| Manual | Install versioned `OkVevo-{old}-mac-arm64.dmg` / `OkVevo-{old}-win-x64.exe` |
+
+---
+
+## Agent operating rules
+
+1. Ask before commit / push / tag / merge.
+2. PRs only into `staging` / `main`; push only `okvevo`.
+3. Prefer running `git`, `gh`, curl checks yourself; give Karan numbered console steps only for secrets, Publish release UI, and machine installs.
+4. After staging merge → Desktop staging URL + staging download links.
+5. After tag push → Desktop production URL; remind Publish is still required for policy / root pointers (and until PRE-LIVE closes, prefix live yml may already have moved).
+6. After he publishes → smoke `okvevo/stable` + root stable names.
+7. Never invent GitHub Environments for OkVevo-Nia.
+8. Never print secrets.
+9. Never upload `latest*.yml` before installers pass the HTTPS check.

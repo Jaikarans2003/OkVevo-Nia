@@ -1,0 +1,73 @@
+---
+description: OkVevo-Web CI/CD — feature PR → staging → production PR → approve production deploy
+alwaysApply: true
+---
+
+# OkVevo-Web — deploy and git
+
+Applies to **OkVevo-Web** (`Jaikarans2003/OkVevo-Web`, local remotes typically `okvevo-web`). Does **not** cover OkVevo-Nia / hermes-agent.
+
+**Product pivot:** OkVevo-Web is the portal + marketing surface for the **OkVevo** product. **Nia** is the retired name in user-facing copy.
+
+Karan is non-technical. Do not leave “run firebase deploy” or “push staging” as homework without offering to do the allowed work yourself — but **git commit/push always needs his yes first**.
+
+## Ask before every OkVevo-Web commit or push
+
+**Never** commit or push OkVevo-Web automatically.
+
+1. Finish the code change.
+2. Tell Karan what would be committed and which branch the PR targets.
+3. Ask explicitly: commit? open/update which PR?
+4. Only run `git commit` / `git push` / `gh pr create` after he says yes.
+
+## How code goes live (CI/CD) — PRs only
+
+```
+feature/fix branch
+  → PR into staging          (auto-deploy testing: okvevo-testing)
+  → PR staging → production  (Actions deploy waits)
+  → Karan Approves Environment production
+  → live (text2video-16cbf)
+```
+
+- **Never push directly to `staging` or `production`.** Cursor opens PRs only after yes.
+- Do not fast-forward-merge into `production` without that yes + PR path.
+
+| Branch | Firebase project | Deploy |
+|--------|------------------|--------|
+| `staging` | `okvevo-testing` | Auto on merge/push via Actions (Environment `staging`) |
+| `production` | `text2video-16cbf` | After PR merge/push, Karan **Approve** Environment `production` in Actions |
+
+- Workflow: `.github/workflows/deploy.yml` → `apphosting` + Firestore rules/indexes + Storage.
+- YAML: `apphosting.staging.yaml` / `apphosting.production.yaml` (CI copies to `apphosting.yaml`). Keep local `apphosting.yaml` as the staging copy.
+- Do **not** connect Firebase App Hosting GitHub auto-rollout.
+- Do **not** `firebase deploy --project text2video-16cbf` from this machine unless Karan explicitly asks. Production is Actions-only.
+- Do **not** pre-run `next build` before App Hosting — Cloud Build runs `npm run build`.
+
+After a user-approved path to `production`, remind him: Actions → **Review deployments** → Approve `production` (when the run is waiting).
+
+## Local Firebase (rare — testing only)
+
+Use only when he needs a **testing** change live without waiting on Actions, or for one-shot ops. Cwd: `OkVevo-Web/`. CLI needs unsandboxed (`all`) permissions.
+
+| Change on testing | Command |
+|-------------------|---------|
+| `firestore.rules` | `firebase deploy --only firestore:rules --project okvevo-testing --non-interactive` |
+| `firestore.indexes.json` | `firebase deploy --only firestore:indexes --project okvevo-testing --non-interactive` |
+| `storage.rules` | `firebase deploy --only storage --project okvevo-testing --non-interactive` |
+
+Prefer **PR → `staging`** (after ask) for portal/App Hosting so CI matches production. Local `firebase deploy --only apphosting --project okvevo-testing` only if he explicitly wants a laptop staging App Hosting deploy.
+
+## Ops scripts (agent runs; still ask before any related git)
+
+Dry-run first, then `--apply` when dry-run looks right. Examples: `scripts/seed-topup-purchased-total.ts`, `scripts/cleanup-stale-test-subscriptions.ts`.
+
+Scheduler once per project: `./scripts/ops-billing-finish.sh --project okvevo-testing --origin <hosted.app>` (prod: `--project text2video-16cbf --origin https://www.okvevo.com`).
+
+## Do not
+
+- Commit or push OkVevo-Web without an explicit yes in that turn.
+- Push directly to `staging` or `production`.
+- Deploy production App Hosting from the laptop.
+- Print secrets, `.env`, or `.ops-billing-secrets.env` values.
+- Create GitHub Environments on OkVevo-Nia (unrelated; Free-plan note lives in OkVevo-Nia docs).

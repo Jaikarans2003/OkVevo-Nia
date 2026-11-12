@@ -7,6 +7,17 @@ and every root-to-area chain at 30k, so it loads whole on 128k+ models: long for
 
 **Never give up on the right solution.**
 
+## OkVevo product (this fork)
+
+This tree ships as the **OkVevo** desktop app (Mac/Windows) plus work that pairs with **OkVevo-Web**.
+**Nia** is the retired product name — never in user-facing text or new names. Keep internal ids:
+`~/.hermes`, `hermes` CLI, `@hermes` protocol handle, repo slug `OkVevo-Nia`.
+
+Push only remote `okvevo` (`Jaikarans2003/OkVevo-Nia`). Never push `origin` (Nous). **PRs only** into
+`staging` / `main` — no direct pushes. Production: tag `vX.Y.Z` on `main` + Actions **Publish release**.
+OkVevo memory: `CLAUDE.md`. Upstream/sync: `.cursor/rules/okvevo-upstream.mdc`, `docs/okvevo/SYNC.md`,
+`/okvevo-sync`.
+
 ## What Hermes Is
 
 Hermes is a personal AI agent that runs the same agent core across a CLI, a messaging

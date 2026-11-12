@@ -44,17 +44,6 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Verify** | `scripts/run_tests.sh plugins/okvevo/tests/` includes a manage_bot registration + slug/compose test; create-bot round-trip from chat on a packed public build. |
 | **Notes** | Logged 2026-10-22 during the upstream-reset `plugins` todo; promoted to RELEASE BLOCKER for main 2026-10-23. Exact UI vs chat failures: `docs/okvevo/TESTING.md` Known gaps. |
 
-### [ ] First tagged release must be signed (Mac notarize + Windows Authenticode)
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Hard gate |
-| **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
-| **Scope** | `.github/workflows/okvevo-desktop-staging.yml`, `okvevo-desktop-production.yml`, `okvevo-desktop-pack.yml`, `okvevo-desktop-publish.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/publish-release-feed.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
-| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Tag `vX.Y.Z` packs versioned R2 objects only; Karan runs **Publish release** to point `latest*.yml`. Unset `PROD_ALLOW_UNSIGNED` before the first signed customer ship — missing certs then fail the job on purpose. |
-| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `OKVEVO_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + tag pack green with **root `latest.yml` unchanged**; after Publish release, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
-| **Notes** | Pack/publish path landed 2026-09-21 (Phase B). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). Staging may pack **unsigned**; production uses `vars.PROD_ALLOW_UNSIGNED` until certs exist. Do not check this box until a **signed** Publish release exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
-
 ### [ ] Private repo breaks DMG first-install bootstrap
 
 | Field | Value |
@@ -71,6 +60,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 ---
 
 ## Required before live
+
+### [ ] First public launch must be signed (Mac notarize + Windows Authenticode)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before public launch (not a hard gate for unsigned beta) |
+| **Risk if skipped** | Public customers get Gatekeeper/SmartScreen friction; in-app update cannot complete on unsigned Mac; a compromised feed can ship a non-OkVevo build once signing is expected. |
+| **Scope** | `.github/workflows/okvevo-desktop-staging.yml`, `okvevo-desktop-production.yml`, `okvevo-desktop-pack.yml`, `okvevo-desktop-publish.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/publish-release-feed.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
+| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Tag `vX.Y.Z` packs versioned R2 objects; Karan runs **Publish release** to point live feeds. Unset `PROD_ALLOW_UNSIGNED` before the first signed customer ship — missing certs then fail the job on purpose. |
+| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass unsigned (feed secrets only). After signing secrets: tag pack + Publish green; production apps on `https://releases.okvevo.com/okvevo/stable` pick up the update; Mac/Windows install without publisher warnings. |
+| **Notes** | Pack/publish path landed 2026-09-21 (Phase B). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). **Unsigned beta is allowed** via `vars.PROD_ALLOW_UNSIGNED` and staging `allow_unsigned: true`. Do not check this box until a **signed** Publish release exists for public launch. App feed URL is `okvevo/stable` (not root). Demoted from Hard gate 2026-11-12 (OkVevo rules refresh). |
 
 ### [ ] Branch protection on staging and main
 

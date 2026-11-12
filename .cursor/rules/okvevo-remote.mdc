@@ -1,5 +1,5 @@
 ---
-description: Never push to upstream Hermes — only Jaikarans2003/OkVevo-Nia
+description: Never push to upstream Hermes — only Jaikarans2003/OkVevo-Nia via PRs
 alwaysApply: true
 ---
 
@@ -10,6 +10,8 @@ alwaysApply: true
 - **Allowed:** `https://github.com/Jaikarans2003/OkVevo-Nia.git`
 - **Forbidden:** `https://github.com/NousResearch/hermes-agent.git`
 
+**Product pivot:** user-facing product name is **OkVevo**. Repo slug stays `OkVevo-Nia`. Keep internal ids (`~/.hermes`, `hermes` CLI, `@hermes`).
+
 ## Git remotes (this machine)
 
 | Remote   | URL                                              | Use                          |
@@ -17,15 +19,17 @@ alwaysApply: true
 | `okvevo` | `Jaikarans2003/OkVevo-Nia.git`                   | **Only** remote for push     |
 | `origin` | `NousResearch/hermes-agent.git`                  | Fetch/reference only — **never push** |
 
-## Agent / CI must
+## Agent / CI must — PRs only
 
-- Commit and push with `git push okvevo HEAD` (or `okvevo main`) — never `git push origin`.
+- **Never push directly to `staging` or `main`.** Open a feature/fix branch → PR into `staging` (team tests) → PR `staging` → `main` → production only via tag + **Publish release** (see `okvevo-cicd.mdc`).
+- After Karan’s yes: `git push okvevo HEAD` (feature branch) and open/update the PR with `gh`. Never `git push origin`.
 - Never set upstream to `origin`, never `git push --set-upstream origin …`.
 - Never open PRs against `NousResearch/hermes-agent` from OkVevo product work unless Karan explicitly asks.
-- If `okvevo` is missing: `git remote add okvevo https://github.com/Jaikarans2003/OkVevo-Nia.git` then push there.
+- If `okvevo` is missing: `git remote add okvevo https://github.com/Jaikarans2003/OkVevo-Nia.git` then push feature branches there.
 - If unsure which remote a push would hit: run `git remote -v` and `git status -sb` first and stop if the push target is Nous.
 
 ## Do not
 
 - Push, force-push, or mirror this tree to Nous Research.
-- “Sync back” Nia/OkVevo commits to upstream Hermes without an explicit user request naming that repo.
+- “Sync back” OkVevo commits to upstream Hermes without an explicit user request naming that repo.
+- Push straight to `staging` / `main` “to save a PR.”
