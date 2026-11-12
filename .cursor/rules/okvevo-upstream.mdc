@@ -1,32 +1,74 @@
 ---
-description: OkVevo stays on upstream Hermes and does not call a paid vendor directly
+description: OkVevo stays on upstream Hermes; OkVevo-owned overrides survive every sync
 alwaysApply: true
 ---
 
 # OkVevo stays on upstream Hermes
 
-The desktop app does not call a paid or AI vendor itself. Chat, images, video, and web search go through the OkVevo portal. Allowed hosts are the ones in `docs/okvevo/VENDOR-TOUCHPOINTS.md`.
+**Product pivot:** the shipped product is the **OkVevo** desktop app (Mac/Windows) plus the **OkVevo-Web** portal. **Nia** is the retired name — never in user-facing text or new names. Keep internal ids: `~/.hermes`, `hermes` CLI, `@hermes` protocol handle, repo slug `OkVevo-Nia`.
+
+The desktop app does not call a paid or AI vendor itself. Chat, images, video, and web search go through the OkVevo portal. Allowed hosts: `docs/okvevo/VENDOR-TOUCHPOINTS.md`.
 
 First-run values live in `okvevo/config/okvevo-defaults.yaml`. Do not copy them into TypeScript.
 
 Do not edit upstream Python (`gateway/`, `agent/`, `hermes_cli/`, `providers/`) to make an OkVevo check pass. If a check fails, fix the OkVevo-owned path or rebuild the app the way upstream packs it.
 
-Push only the `okvevo` remote. Never `origin`.
+Push only the `okvevo` remote. Never `origin`. Land changes via **PRs** (see `okvevo-remote.mdc` / `okvevo-cicd.mdc`).
+
+## OkVevo-owned surface (must survive every upstream sync)
+
+Every OkVevo change (features, branding, icons, `@okvevo` display alias, About, UI) lives in:
+
+- **OkVevo-owned files** (`brand/`, `okvevo/`, `plugins/okvevo/`, `docs/okvevo/`, pack scripts under `apps/desktop/scripts/` that are OkVevo-specific), or
+- **overrides**, or
+- **tiny listed hooks** in upstream files (one-line re-apply / brand path) recorded in `docs/okvevo/PATCHES.md`.
+
+Canonical ledgers (read these — **not** `docs/fork-deltas/`):
+
+| Doc | Job |
+|-----|-----|
+| `docs/okvevo/PATCHES.md` | Upstream touch list + keep reasons |
+| `docs/okvevo/WORKAROUNDS.md` | Temporary behavior toggles |
+| `docs/okvevo/UI-CONTRACT.md` | Design tokens + element rows + baselines |
+| `docs/okvevo/SYNC.md` | Sync procedure |
+| `docs/okvevo/NOUS-TOUCHPOINTS.md` | Allowed Nous host hits |
+| `docs/okvevo/VENDOR-TOUCHPOINTS.md` | Allowed vendor hosts |
+| `/okvevo-sync` (`.cursor/commands/okvevo-sync.md`) | Agent sync checklist |
+
+Brand assets live under `brand/` (`brand/assets/`, `brand/locales/`). Pack and locale load apply them — do not commit replacement icon blobs onto upstream paths. **`brand/nia.json` is a deferred rename** to `brand/okvevo.json` (later code PR); do not invent a second brand catalog until that lands.
+
+Keep `LICENSE` / NOTICE / copyright attribution. Never strip Hermes attribution. Never rename wire/internal Hermes identifiers for fun.
 
 ## Upstream syncs (same rules as `docs/okvevo/SYNC.md`)
 
 - Sync every Hermes release, and at least every 2 weeks when no tag landed.
 - `git merge` the tag; never rebase OkVevo onto it. `git config rerere.enabled true` on the merging clone (not CI).
-- One sync per PR into `staging`. Merge only when the OkVevo parity + desktop E2E suite, `check_branding.py`, the Nous-diff scan, `check_vendor_keys.py`, and the vendor-host guard are green.
-- Every sync reads `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md` and `docs/okvevo/WORKAROUNDS.md`, runs each workaround's behavior test with its toggle off, and recommends removal when Hermes passes. Karan decides.
-- Never start a sync inside a feature PR.
+- One sync per **PR into `staging`**. Never start a sync inside a feature PR. Never blind-merge `origin/main`.
+- Do not treat Hermes Cloud / Nous billing / Skills Hub Nous origin as OkVevo product.
+
+### Guards that must pass on every sync PR
+
+Merge only when green:
+
+1. OkVevo parity + desktop E2E suite (including packed `@okvevo` E2E)
+2. `python3 scripts/okvevo/check_branding.py`
+3. Identity tests (product identity / About / no user-facing “Nia” regressions as covered by the suite)
+4. Icon artifact check (`ci-assert-packaged-icons` / packaged icon hashes)
+5. UI-CONTRACT visual baselines (per-OS; `--update-snapshots` in the same PR when UI changes)
+6. Nous-diff scan vs `NOUS-TOUCHPOINTS.md`
+7. `python3 scripts/okvevo/check_vendor_keys.py` + vendor-host guard
+
+Every sync also reads `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md` and `WORKAROUNDS.md`, runs each workaround’s behavior test with its toggle off, and recommends removal when Hermes passes. Karan decides.
 
 ## UI contract (syncs and OkVevo UI changes)
 
 Follow `docs/okvevo/UI-CONTRACT.md` and `docs/okvevo/SYNC.md`:
 
-1. Use design tokens (no hard-coded colors/fonts).
+1. Use design tokens (no hard-coded colors/fonts). Styling contracts live in tokens + `UI-CONTRACT.md` — not a separate Cursor styling rule.
 2. Prefer OkVevo-owned files or overrides; upstream edits go in `PATCHES.md` with a reason.
 3. Add or update the element row in `UI-CONTRACT.md`.
-4. Update per-OS screenshot baselines in the same PR (`--update-snapshots`); show the diff for approval.
+4. Update per-OS screenshot baselines in the same PR; show the diff for approval.
 
+## Icon / BrandMark pack clash rule
+
+On conflict in `before-build.mjs`, `after-pack.mjs`, `set-exe-identity.mjs`, `electron-builder.config.cjs` (NSIS/DMG icons), or `brand-mark.tsx`: take upstream, re-apply the OkVevo one-line hook / brand path (`okvevo-brand-paths.mjs`, `overlayBrandAssets`). Every sync PR must pass the icon artifact check, packed `@okvevo` E2E, About-version stamp, and UI-CONTRACT baselines before merge.
