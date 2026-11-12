@@ -199,6 +199,8 @@ jobs:
           fi
           echo "OKVEVO_CI_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Pack version $VERSION"
+          # Stamp install-stamp + About via write-build-stamp (hides 0.0.0 placeholders).
+          export HERMES_PAYLOAD_VERSION="$VERSION"
           # Empty CSC_LINK makes electron-builder treat cwd as a cert file.
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           node scripts/fetch-ffmpeg.mjs
@@ -214,6 +216,13 @@ jobs:
             --resources "$app/Contents/Resources" \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: Assert packaged OkVevo icons (no Hermes asar marks)
+        run: |
+          set -euo pipefail
+          app=$(ls -d apps/desktop/release/mac*/OkVevo.app | head -1)
+          node apps/desktop/scripts/ci-assert-packaged-icons.mjs \
+            --app "$app" \
+            --platform darwin
       - name: No E2E sign-in hook in public pack
         run: |
           set -euo pipefail
@@ -349,6 +358,8 @@ jobs:
           fi
           echo "OKVEVO_CI_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Pack version $VERSION"
+          # Stamp install-stamp + About via write-build-stamp (hides 0.0.0 placeholders).
+          export HERMES_PAYLOAD_VERSION="$VERSION"
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           if [ -z "${WIN_CSC_LINK:-}" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD || true; fi
           node scripts/fetch-ffmpeg.mjs
@@ -364,6 +375,13 @@ jobs:
             --resources apps/desktop/release/win-unpacked/resources \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: Assert packaged OkVevo icons (no Hermes asar marks)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/desktop/scripts/ci-assert-packaged-icons.mjs \
+            --app apps/desktop/release/win-unpacked \
+            --platform win32
       - name: No E2E sign-in hook in public pack
         shell: bash
         run: |

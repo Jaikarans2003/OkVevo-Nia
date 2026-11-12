@@ -34,6 +34,14 @@ KEEP-PATCH in `docs/okvevo/PATCHES.md` (cap 3).
   take upstream's change, then re-apply the OkVevo wording from
   `okvevo/config/identity.json`. The identity seam test
   (`plugins/okvevo/tests/test_identity.py`) must pass before merging.
+- **Icon / BrandMark pack hooks** (`apps/desktop/scripts/before-build.mjs`,
+  `after-pack.mjs` `restoreLegacyMacIcon`, `set-exe-identity.mjs`,
+  `electron-builder.config.cjs` NSIS/DMG icons, `brand-mark.tsx`): on conflict,
+  take upstream, then re-apply the OkVevo one-line hook / brand path helper
+  (`okvevo-brand-paths.mjs` / `overlayBrandAssets`). Before merge, every sync PR
+  must pass: `ci-assert-packaged-icons.mjs` (Mac + Windows), packed `@okvevo`
+  mention E2E, About-version / `HERMES_PAYLOAD_VERSION` stamp, and UI-CONTRACT
+  visual baselines.
 - `check_upstream_delta.sh` prints the patch budget (desktop / installer /
   other). A new desktop or installer entry in PATCHES.md needs a one-line
   reason: ``- `path` — why``.

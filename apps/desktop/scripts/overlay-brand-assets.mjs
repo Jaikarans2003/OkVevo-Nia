@@ -43,7 +43,8 @@ export function overlayBrandAssets(root) {
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (isMain) {
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+  // apps/desktop/scripts → hermes-agent root
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
   const result = overlayBrandAssets(root)
   console.log(`[brand] overlaid ${result.copied.length} assets, removed ${result.removed.length}`)
 }

@@ -12,6 +12,8 @@ alwaysApply: true
 
 ## Git remotes (this machine)
 
+In `hermes-agent/` the remotes are typically:
+
 | Remote   | URL                                              | Use                          |
 |----------|--------------------------------------------------|------------------------------|
 | `okvevo` | `Jaikarans2003/OkVevo-Nia.git`                   | **Only** remote for push     |

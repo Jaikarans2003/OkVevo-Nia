@@ -285,10 +285,19 @@ describe('@-mention completions', () => {
     expect(inserts).not.toContain('@renametest')
   })
 
-  it('yields nothing, and never throws, on a cold roster cache', async () => {
-    const { provide } = await contributions({ profiles: [] })
+  it('claims @okvevo on a cold empty roster cache', async () => {
+    const { provide } = await contributions({ focused: 'researcher', profiles: [] })
 
-    expect(provide('')).toEqual([])
+    expect(provide('')).toEqual([
+      {
+        insert: '@okvevo',
+        display: '@okvevo',
+        meta: 'Bot · OkVevo agent',
+        handles: ['@default', '@hermes', '@nia']
+      }
+    ])
+    expect(provide('ok')).toHaveLength(1)
+    expect(provide('zzz')).toEqual([])
   })
 
   it('never offers the bot whose chat you are already in', async () => {

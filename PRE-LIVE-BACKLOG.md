@@ -177,7 +177,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 |-------|-------|
 | **Gate** | Required before live |
 | **Risk if skipped** | A public-build user can paste an OpenRouter key (or point `base_url` at an OpenRouter proxy) and skip OkVevo credit metering on the OpenAI-wire path. Status bar also lies (`Gateway · inference unavailable`) if readiness ignores the Firebase ID token. |
-| **Scope** | Desktop: baked `NIA_BUILD_CHANNEL` (`apps/desktop/scripts/resolve-build-channel.mjs`, `isByokChromeVisible()` in [`settings-ui-policy.ts`](apps/desktop/src/app/settings/settings-ui-policy.ts)). Settings → Providers, onboarding OAuth+keys+local, Models paste/local, model picker Add provider. Python: [`agent/okvevo_gateway.py`](agent/okvevo_gateway.py), [`hermes_cli/main.py`](hermes_cli/main.py) `_has_any_provider_configured`, [`tui_gateway/methods_config.py`](tui_gateway/methods_config.py) `setup.runtime_check`. Standing doc: [`.cursor/NIA-BUILD-CHANNEL.md`](../.cursor/NIA-BUILD-CHANNEL.md). |
+| **Scope** | Desktop: baked `NIA_BUILD_CHANNEL` (`apps/desktop/scripts/resolve-build-channel.mjs`, `isByokChromeVisible()` in [`settings-ui-policy.ts`](apps/desktop/src/app/settings/settings-ui-policy.ts)). Settings → Providers, onboarding OAuth+keys+local, Models paste/local, model picker Add provider. Python: [`agent/okvevo_gateway.py`](agent/okvevo_gateway.py), [`hermes_cli/main.py`](hermes_cli/main.py) `_has_any_provider_configured`, [`tui_gateway/methods_config.py`](tui_gateway/methods_config.py) `setup.runtime_check`. Standing doc: [`.cursor/OKVEVO-BUILD-CHANNEL.md`](../.cursor/OKVEVO-BUILD-CHANNEL.md). |
 | **Fix** | Hide all BYOK chrome when the **public** channel is baked (default `pack` / `dist` / CI `v*`). No signed-in exception, no runtime env re-enable. Internal pack (`pack:internal`) keeps full pre-Phase-4 chrome even when signed in. Rewrite OpenAI-wire client to the OkVevo gateway whenever an ID token exists, except loopback (and native-adapter hosts left as the ambient gap). `setup.status` / `setup.runtime_check` treat `okvevo_signed_in()` as configured/usable. Never publish internal artifacts to `releases.okvevo.com`. |
 | **Verify** | Public pack: Providers, palette provider entries, onboarding OAuth+keys+local, Models paste, Models local/custom absent; `NIA_BUILD_CHANNEL=internal` in the installed app’s env does nothing. Internal pack beside public: every surface works signed-in. Unit: `cd apps/desktop && npx vitest run scripts/resolve-build-channel.test.mjs src/app/settings/settings-ui-policy.test.ts src/components/onboarding/index.test.tsx src/app/settings/model-settings.test.tsx`. Signed-in, no personal OpenRouter key: badge not `inference unavailable`; leftover OpenRouter/`base_url` cannot hit OpenRouter on the wire path. |
 | **Notes** | Step 0 closed 2026-09-05. UI hide was signed-in; replaced 2026-09-06 by bake-time public/internal channel (not unpackaged env, not `HERMES_DESKTOP_DEV_BYOK`). Razorpay is not a build gate. **Does not fully close BYOK** — see the ambient native-provider row below. Python rewrite + readiness landed 2026-09-05. |
@@ -506,6 +506,17 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Notes** | Found 2026-11-10: root `Nia-*` = 200 (0.18.5, 2026-10-14), root `OkVevo-*` = 404. Staging buttons already use `okvevo/staging/OkVevo-*`. |
 
 ## Should fix before live (lower severity)
+
+### [ ] Lead / orchestrator routing (Hermes v0.23.0)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix / Nice-to-have (backlog only for hotfix PR 2.1) |
+| **Risk if skipped** | Multi-bot “lead” / orchestrator UX from Hermes v0.23.0 stays unused; product still works with explicit @mentions and group chat. |
+| **Scope** | Desktop bots plugin + any upstream lead/orchestrator surfaces after v0.23.0 sync |
+| **Fix** | Product decision + OkVevo-facing wiring when prioritized; not part of the icon/@okvevo hotfix. |
+| **Verify** | Manual: lead/orchestrator flows documented in TESTING.md when implemented. |
+| **Notes** | Logged 2026-11-12 with hotfix PR 2.1 (plan: backlog only). |
 
 ### [ ] Approval withdrawn after a long freeze (upstream session turn lease)
 

@@ -30,3 +30,12 @@ Follow `docs/okvevo/UI-CONTRACT.md` and `docs/okvevo/SYNC.md`:
 3. Add or update the element row in `UI-CONTRACT.md`.
 4. Update per-OS screenshot baselines in the same PR (`--update-snapshots`); show the diff for approval.
 
+## Icon / BrandMark pack clash rule
+
+On conflict in `before-build.mjs`, `after-pack.mjs` (`restoreLegacyMacIcon`),
+`set-exe-identity.mjs`, `electron-builder.config.cjs` (NSIS/DMG icons), or
+`brand-mark.tsx`: take upstream, re-apply the OkVevo one-line hook / brand path
+(`okvevo-brand-paths.mjs`, `overlayBrandAssets`). Every sync PR must pass
+`ci-assert-packaged-icons.mjs`, packed `@okvevo` E2E, About-version stamp, and
+UI-CONTRACT baselines before merge.
+

@@ -150,11 +150,6 @@ export default {
         provide: (query: string): MentionCompletionItem[] => {
           const roster = cachedUnionRoster()
           const profiles = Array.isArray(roster?.profiles) ? roster.profiles : []
-
-          if (!profiles.length) {
-            return []
-          }
-
           const active = focusedMentionProfile()
           const q = (query || '').toLowerCase()
           const items: MentionCompletionItem[] = []
@@ -162,6 +157,27 @@ export default {
           const live = {
             name: active,
             connectionId: String(host.state.connectionId?.get?.() || host.activeConnectionId?.() || 'local')
+          }
+
+          // Cold / empty roster: still claim @okvevo so the menu is usable
+          // before profiles.list lands (twin handles retire gateway aliases).
+          if (!profiles.length) {
+            if (active === 'default') {
+              return []
+            }
+
+            if (q && !'okvevo'.startsWith(q) && !'default'.startsWith(q)) {
+              return []
+            }
+
+            return [
+              {
+                insert: '@okvevo',
+                display: '@okvevo',
+                meta: 'Bot · OkVevo agent',
+                handles: ['@default', '@hermes', '@nia']
+              }
+            ]
           }
 
           const offered = profiles.filter(profile => profile?.name && !isActiveRosterBot(profile, live))

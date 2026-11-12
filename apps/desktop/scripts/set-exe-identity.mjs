@@ -35,11 +35,12 @@
 // (after-extract.mjs) swallows the rejection so a stamp failure never fails an
 // otherwise-good build (worst case: stock icon, not a broken app).
 
-import { resolve, join } from 'node:path'
+import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 
 import { rcedit } from 'rcedit'
 
+import { brandWinIco, repoRootFromDesktopScripts } from './okvevo-brand-paths.mjs'
 import { isMain } from './utils.mjs'
 
 // A real-time file scanner (AV/EDR) holds a short exclusive handle on a freshly
@@ -74,8 +75,8 @@ async function stampExeIdentity(
     throw new Error(`target exe not found: ${exe}`)
   }
 
-  // Icon lives at apps/desktop/assets/icon.ico
-  const icon = join(desktopRoot, 'assets', 'icon.ico')
+  // OkVevo brand .ico (never the upstream Hermes apps/desktop/assets blob).
+  const icon = brandWinIco(repoRootFromDesktopScripts())
   if (!existsSync(icon)) {
     throw new Error(`icon not found: ${icon}`)
   }
