@@ -107,16 +107,21 @@ if (fs.existsSync(stampPath)) {
 
 const asar = loadAsar()
 const listed = asar.listPackage(asarPath)
-const hermesNameRe = /(^|\/)(nous-girl[^/]*|hermes[^/]*)\.(png|gif|svg|ico|icns)$/i
+// Normalize Windows asar separators so nous-girl under public\ is still caught.
+const hermesNameRe = /(^|[/\\])(nous-girl[^/\\]*|hermes[^/\\]*)\.(png|gif|svg|ico|icns)$/i
 const offenders = []
 for (const entry of listed) {
-  const rel = String(entry).replace(/^\//, '')
-  if (!hermesNameRe.test(rel)) continue
+  const rel = String(entry).replace(/^\//, '').replace(/\\/g, '/')
+  if (!hermesNameRe.test(rel) && !hermesNameRe.test(String(entry))) continue
   let buf
   try {
-    buf = asar.extractFile(asarPath, rel)
+    buf = asar.extractFile(asarPath, entry)
   } catch {
-    continue
+    try {
+      buf = asar.extractFile(asarPath, rel)
+    } catch {
+      continue
+    }
   }
   const hash = createHash('sha256').update(buf).digest('hex')
   if (bannedHashes.has(hash) || /nous-girl/i.test(rel)) {

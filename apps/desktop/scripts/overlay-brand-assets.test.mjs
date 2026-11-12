@@ -7,22 +7,32 @@ import { brandLegacyMacIcns, repoRootFromDesktopScripts } from './okvevo-brand-p
 
 const repoRoot = repoRootFromDesktopScripts()
 
-it('overlays brand icon.icns onto apps/desktop/assets', () => {
+it('overlays brand icon.icns onto apps/desktop/assets and removes Hermes marks', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'okvevo-overlay-'))
   try {
     const brandIcns = path.join(root, 'brand/assets/apps/desktop/assets/icon.icns')
     const dest = path.join(root, 'apps/desktop/assets/icon.icns')
+    const girl = path.join(root, 'apps/desktop/public/nous-girl.png')
     mkdirSync(path.dirname(brandIcns), { recursive: true })
     mkdirSync(path.dirname(dest), { recursive: true })
+    mkdirSync(path.dirname(girl), { recursive: true })
     writeFileSync(brandIcns, 'okvevo-icns')
     writeFileSync(dest, 'hermes-icns')
+    writeFileSync(girl, 'hermes-girl')
     writeFileSync(
       path.join(root, 'brand/nia.json'),
-      JSON.stringify({ assetOverlay: { root: 'brand/assets' } })
+      JSON.stringify({
+        assetOverlay: {
+          root: 'brand/assets',
+          remove: ['apps/desktop/public/nous-girl.png']
+        }
+      })
     )
     const result = overlayBrandAssets(root)
     expect(result.copied).toContain('apps/desktop/assets/icon.icns')
+    expect(result.removed).toContain('apps/desktop/public/nous-girl.png')
     expect(readFileSync(dest, 'utf8')).toBe('okvevo-icns')
+    expect(() => readFileSync(girl)).toThrow()
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

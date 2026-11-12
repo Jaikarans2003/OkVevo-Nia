@@ -11,6 +11,12 @@
     "sand": "#e3dcd6"
   },
   "assetOverlay": {
-    "root": "brand/assets"
+    "root": "brand/assets",
+    "remove": [
+      "apps/desktop/public/nous-girl.png",
+      "apps/desktop/public/nous-girl-dark.png",
+      "apps/desktop/dist/nous-girl.png",
+      "apps/desktop/dist/nous-girl-dark.png"
+    ]
   }
 }
