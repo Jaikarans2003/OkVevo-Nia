@@ -6,6 +6,9 @@
  *
  * Env: RELEASES_S3_BUCKET, RELEASES_S3_ACCESS_KEY_ID / AWS_ACCESS_KEY_ID,
  * RELEASES_S3_SECRET_ACCESS_KEY / AWS_SECRET_ACCESS_KEY, optional RELEASES_S3_ENDPOINT.
+ *
+ * Public readiness uses GET of the small .sha256 sidecar (not HEAD on the zip —
+ * some CDN/WAF paths from GitHub-hosted Windows runners never answer 200 on HEAD).
  */
 import { execFileSync } from 'node:child_process'
 import crypto from 'node:crypto'
@@ -15,6 +18,7 @@ import path from 'node:path'
 const PIN_SHA = '346fd19f3afe98a8606da4fc2984c8b411297734dba101cd91ec961fa8b2f875'
 const ZIP_NAME = 'ffmpeg-n8.1.3-16-ge0a878dd70-win64-lgpl-8.1.zip'
 const PUBLIC = `https://releases.okvevo.com/deps/ffmpeg/${ZIP_NAME}`
+const PUBLIC_SHA = `${PUBLIC}.sha256`
 const ROOT = path.resolve(import.meta.dirname, '..')
 const VENDOR = path.join(ROOT, 'resources', 'ffmpeg')
 const LOCAL_ZIP = path.join(VENDOR, '.cache', 'btbn-win64-lgpl.zip')
@@ -24,35 +28,40 @@ function sha256(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
 }
 
-function curlOk(url) {
+function sleep(ms) {
+  execFileSync(
+    process.platform === 'win32' ? 'powershell' : 'sleep',
+    process.platform === 'win32'
+      ? ['-Command', `Start-Sleep -Milliseconds ${ms}`]
+      : [String(Math.ceil(ms / 1000))],
+    { stdio: 'ignore' }
+  )
+}
+
+function publicSidecarSha() {
+  return execFileSync('curl', ['-fsSL', '--retry', '3', PUBLIC_SHA], { encoding: 'utf8' })
+    .trim()
+    .split(/\s+/)[0]
+}
+
+function mirrorLive() {
   try {
-    const code = execFileSync('curl', ['-sI', '-o', '/dev/null', '-w', '%{http_code}', url], {
-      encoding: 'utf8'
-    }).trim()
-    return code === '200'
+    return publicSidecarSha() === PIN_SHA
   } catch {
     return false
   }
 }
 
-function waitPublic(url, attempts = 12, delayMs = 5000) {
+function waitPublic(attempts = 18, delayMs = 5000) {
   for (let i = 1; i <= attempts; i++) {
-    if (curlOk(url)) return
-    console.log(`public HTTPS not ready (${i}/${attempts}); waiting ${delayMs}ms`)
-    execFileSync(
-      process.platform === 'win32' ? 'powershell' : 'sleep',
-      process.platform === 'win32'
-        ? ['-Command', `Start-Sleep -Milliseconds ${delayMs}`]
-        : [String(Math.ceil(delayMs / 1000))],
-      { stdio: 'ignore' }
-    )
+    if (mirrorLive()) {
+      console.log(`public sidecar ready sha256=${PIN_SHA}`)
+      return
+    }
+    console.log(`public sidecar not ready (${i}/${attempts}); waiting ${delayMs}ms`)
+    sleep(delayMs)
   }
-  throw new Error(`uploaded but public HTTPS still not 200 after ${attempts} attempts: ${url}`)
-}
-
-function download(url, dest) {
-  fs.mkdirSync(path.dirname(dest), { recursive: true })
-  execFileSync('curl', ['-fL', '--retry', '3', '-o', dest, url], { stdio: 'inherit' })
+  throw new Error(`uploaded but public sidecar still wrong after ${attempts} attempts: ${PUBLIC_SHA}`)
 }
 
 function awsCp(local, key, contentType) {
@@ -74,30 +83,11 @@ function awsCp(local, key, contentType) {
   execFileSync('aws', args, { stdio: 'inherit', env })
 }
 
-function publicSidecarSha() {
-  return execFileSync('curl', ['-fsSL', `${PUBLIC}.sha256`], { encoding: 'utf8' })
-    .trim()
-    .split(/\s+/)[0]
-}
-
-function verifyPublicBytes() {
-  const tmp = path.join(VENDOR, '.cache', `_probe-${ZIP_NAME}`)
-  download(PUBLIC, tmp)
-  const got = sha256(tmp)
-  fs.rmSync(tmp, { force: true })
-  if (got !== PIN_SHA) throw new Error(`public mirror SHA mismatch: got ${got}`)
-  const sidecar = publicSidecarSha()
-  if (sidecar !== PIN_SHA) throw new Error(`public sidecar SHA mismatch: got ${sidecar}`)
-  console.log(`mirror verified (bytes+sidecar): ${PUBLIC} sha256=${PIN_SHA}`)
-}
-
-if (curlOk(PUBLIC)) {
-  const sidecar = publicSidecarSha()
-  if (sidecar !== PIN_SHA) throw new Error(`public sidecar SHA mismatch: got ${sidecar}`)
+if (mirrorLive()) {
   console.log(`mirror already live; sidecar ok sha256=${PIN_SHA}`)
 } else {
   if (!fs.existsSync(LOCAL_ZIP)) {
-    throw new Error(`mirror 404 and missing local zip at ${LOCAL_ZIP} (need Actions cache restore-keys)`)
+    throw new Error(`mirror not live and missing local zip at ${LOCAL_ZIP} (need Actions cache restore-keys)`)
   }
   const localSha = sha256(LOCAL_ZIP)
   if (localSha !== PIN_SHA) throw new Error(`local zip SHA mismatch: got ${localSha}`)
@@ -105,8 +95,7 @@ if (curlOk(PUBLIC)) {
   fs.writeFileSync(sidecarPath, `${PIN_SHA}  ${ZIP_NAME}\n`)
   awsCp(LOCAL_ZIP, `deps/ffmpeg/${ZIP_NAME}`)
   awsCp(sidecarPath, `deps/ffmpeg/${ZIP_NAME}.sha256`, 'text/plain')
-  waitPublic(PUBLIC)
-  verifyPublicBytes()
+  waitPublic()
 }
 
 if (cold) {
