@@ -1,0 +1,11 @@
+# OkVevo-owned pre-commit gates. Root lefthook.yml only `extends` this file
+# (KEEP-PATCH). CI also runs check_branding.py, which includes asset_spec --check.
+pre-commit:
+  jobs:
+    - name: okvevo asset-spec
+      glob: "brand/**"
+      run: python3 scripts/okvevo/asset_spec.py --check
+
+    - name: okvevo branding
+      glob: "{brand/**,scripts/okvevo/check_branding.py,scripts/okvevo/asset_spec.py,scripts/okvevo/hermes-string-allowlist.txt,apps/desktop/package.json,apps/desktop/product-identity.cjs,apps/desktop/src/**/*.{ts,tsx,js,mjs,cjs},apps/desktop/electron/**/*.{ts,tsx,js,mjs,cjs}}"
+      run: python3 scripts/okvevo/check_branding.py

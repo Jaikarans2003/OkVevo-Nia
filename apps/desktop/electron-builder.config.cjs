@@ -14,6 +14,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const feedContract = require('./update-feed.cjs')
 const { createMacSigner } = require('./scripts/mac-sign.mjs')
+const { loadDmgLayout } = require('./scripts/okvevo-dmg-layout.mjs')
 
 const {
   light,
@@ -214,32 +215,8 @@ module.exports = {
       }
     })
   },
-  dmg: {
-    // Avoid the failing optional APFS shrink pass; keep compressed conversion.
-    shrink: false,
-    icon: '../../brand/assets/apps/desktop/assets/icon.icns',
-    title: 'OkVevo',
-    backgroundColor: '#f5f5f7',
-    iconSize: 96,
-    iconTextSize: 11,
-    window: {
-      width: 660,
-      height: 400
-    },
-    contents: [
-      {
-        x: 253,
-        y: 238,
-        type: 'file'
-      },
-      {
-        x: 512,
-        y: 235,
-        type: 'link',
-        path: '/Applications'
-      }
-    ]
-  },
+  // OkVevo DMG layout SoT: brand/.../dmg-layout.json via okvevo-dmg-layout.mjs
+  dmg: loadDmgLayout(),
   win: {
     executableName: windowsExecutableName,
     legalTrademarks: displayName,

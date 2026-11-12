@@ -768,7 +768,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 | **Scope** | Desktop renderer display layer (bot handle rendering, @-mention completions in `apps/desktop/src/plugins/hermes-bots/plugin.tsx`, `resolveRosterMentions` / `mentionNameForms` in `data.ts`); internal handle stays `@hermes` (protocol identifier, allowlisted). |
 | **Fix** | Display-layer alias: render the internal `@hermes` handle as `@okvevo` (PR 1.3 plan line 71), including the mention menu row. Hide the duplicate `@default` row for the same agent in public builds (`isByokChromeVisible()` false); typing `@default` may still resolve. No wire/protocol rename. |
 | **Verify** | Bots list, group chat and the @ mention menu show one `@okvevo` row for the default agent and no `@default` row on public; a test group chat @mention of `@okvevo` (and of a named bot) still routes to the right profile (`plugin.mentions` + `group-rounds` tests, packed group-chat E2E). |
-| **Notes** | Logged 2026-11-03; scoped to PR 2 so PR 1.3 stays minimal. Closed 2026-11-11 (feat/okvevo-polish-cleanup: claim @default/@hermes/@nia twins; tests retargeted). |
+| **Notes** | Logged 2026-11-03; scoped to PR 2 so PR 1.3 stays minimal. Closed 2026-11-11 (feat/okvevo-polish-cleanup: claim @default/@hermes/@nia twins; tests retargeted). **Honesty (Hotfix 2.2):** that close was unit-only — packed-chat/signin never opened the `@` listbox, so CI could stay green while staging still showed `@hermes`/`@default` when focused on default / cold roster. Real packed-menu gate is Hotfix 2.2 `packed-mention-menu.spec.ts` + always-emit claim in `okvevo-mention-alias.ts`. |
 
 
 ### [ ] Small-size icon: simplified monogram for 16–48 px

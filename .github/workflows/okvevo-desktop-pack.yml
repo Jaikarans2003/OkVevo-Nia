@@ -223,6 +223,8 @@ jobs:
           node apps/desktop/scripts/ci-assert-packaged-icons.mjs \
             --app "$app" \
             --platform darwin
+      - name: Assert DMG layout matches brand/
+        run: node apps/desktop/scripts/ci-assert-dmg-layout.mjs
       - name: No E2E sign-in hook in public pack
         run: |
           set -euo pipefail
@@ -382,6 +384,9 @@ jobs:
           node apps/desktop/scripts/ci-assert-packaged-icons.mjs \
             --app apps/desktop/release/win-unpacked \
             --platform win32
+      - name: Assert DMG layout matches brand/
+        shell: bash
+        run: node apps/desktop/scripts/ci-assert-dmg-layout.mjs
       - name: No E2E sign-in hook in public pack
         shell: bash
         run: |
@@ -526,6 +531,7 @@ jobs:
           export OKVEVO_E2E_EXECUTABLE="$PWD/$app/Contents/MacOS/OkVevo"
           test -f "$OKVEVO_E2E_EXECUTABLE"
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
+          npx playwright test --config e2e/okvevo/playwright.config.ts packed-mention-menu
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -613,6 +619,7 @@ jobs:
           export OKVEVO_E2E_EXECUTABLE="$PWD/release/win-unpacked/OkVevo.exe"
           test -f "$OKVEVO_E2E_EXECUTABLE"
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
+          npx playwright test --config e2e/okvevo/playwright.config.ts packed-mention-menu
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
