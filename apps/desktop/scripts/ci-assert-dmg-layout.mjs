@@ -31,7 +31,6 @@ const CONTRACT = {
   window: { width: 660, height: 400 },
   iconSize: 96,
   iconTextSize: 11,
-  backgroundColor: '#f4f2ee',
   contents: [
     { x: 180, y: 175, type: 'file' },
     { x: 480, y: 175, type: 'link', path: '/Applications' }
@@ -61,8 +60,11 @@ if (JSON.stringify(layout.window) !== JSON.stringify(CONTRACT.window)) {
 if (layout.iconSize !== CONTRACT.iconSize || layout.iconTextSize !== CONTRACT.iconTextSize) {
   fail(`iconSize/textSize drift: ${layout.iconSize}/${layout.iconTextSize}`)
 }
-if (layout.backgroundColor !== CONTRACT.backgroundColor) {
-  fail(`backgroundColor ${layout.backgroundColor} != ${CONTRACT.backgroundColor}`)
+if (layout.backgroundColor != null) {
+  fail('dmg-layout must not set backgroundColor (electron-builder rejects it with background)')
+}
+if ('backgroundColor' in resolved) {
+  fail('loadDmgLayout must not emit backgroundColor')
 }
 if (JSON.stringify(layout.contents) !== JSON.stringify(CONTRACT.contents)) {
   fail(`contents ${JSON.stringify(layout.contents)} != contract ${JSON.stringify(CONTRACT.contents)}`)
@@ -115,6 +117,9 @@ try {
   }
   if (path.resolve(dmg.background) !== path.resolve(bg1)) {
     fail(`electron-builder dmg.background ${dmg.background} != ${bg1}`)
+  }
+  if (dmg.backgroundColor != null) {
+    fail('electron-builder dmg must not set backgroundColor with background')
   }
 } catch (err) {
   fail(`could not load electron-builder.config.cjs: ${err.message}`)

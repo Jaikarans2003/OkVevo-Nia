@@ -1,17 +1,12 @@
+# OkVevo: one-line KEEP-PATCH — brand/asset-spec gates live in scripts/okvevo/lefthook.yml
+extends:
+  - scripts/okvevo/lefthook.yml
+
 pre-commit:
   jobs:
     - name: lint python
       glob: "*.py" # glob filter
       run: ruff check --config ./ruff.pre-commit.toml {staged_files}
-
-    # Catch brand/ASSET-SPEC drift before push (CI: check_branding → asset_spec --check).
-    - name: okvevo asset-spec
-      glob: "brand/**"
-      run: python3 scripts/okvevo/asset_spec.py --check
-
-    - name: okvevo branding
-      glob: "{brand/**,scripts/okvevo/check_branding.py,scripts/okvevo/asset_spec.py,scripts/okvevo/hermes-string-allowlist.txt,apps/desktop/package.json,apps/desktop/product-identity.cjs,apps/desktop/src/**/*.{ts,tsx,js,mjs,cjs},apps/desktop/electron/**/*.{ts,tsx,js,mjs,cjs}}"
-      run: python3 scripts/okvevo/check_branding.py
 
     - name: lint web
       root: web/

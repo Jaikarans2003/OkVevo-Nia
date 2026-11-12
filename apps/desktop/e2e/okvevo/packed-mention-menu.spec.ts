@@ -7,6 +7,7 @@ import { _electron, type ElectronApplication, expect, type Page, test } from '@p
 import { appLogTail, backendProcesses, coreAppEnv, createCoreSandbox, DESKTOP_ROOT, waitForInteractive } from '../core/harness'
 
 import { startGatewayMock } from './gateway-mock'
+import { assertSettledOkvevoMentionText } from './packed-mention-menu.contract'
 
 /**
  * Packed `@` menu must show one `@okvevo — OkVevo agent` row and never the
@@ -75,17 +76,14 @@ async function openMentionMenu(page: Page) {
 async function expectOkvevoMentionMenu(page: Page, label: string) {
   const listbox = page.getByRole('listbox')
   await expect(listbox).toBeVisible()
-  const text = await listbox.innerText()
-
-  expect(text, `${label}: missing @okvevo`).toMatch(/@okvevo/)
-  expect(text, `${label}: missing OkVevo agent`).toMatch(/OkVevo agent/)
-  expect(text, `${label}: gateway @hermes leaked`).not.toMatch(/@hermes\b/)
-  expect(text, `${label}: gateway @default leaked`).not.toMatch(/@default\b/)
-  expect(text, `${label}: agent profile (primary) leaked`).not.toMatch(/agent profile \(primary\)/)
-
+  // Web-first: wait out gateway spinner, then require the real default-agent row.
+  await expect(listbox.getByText(/Looking up/)).toHaveCount(0, { timeout: 30_000 })
   const okvevoRows = listbox.getByRole('button').filter({ hasText: /@okvevo/ })
-  await expect(okvevoRows, `${label}: exactly one @okvevo row`).toHaveCount(1)
+  await expect(okvevoRows, `${label}: exactly one @okvevo row`).toHaveCount(1, { timeout: 30_000 })
   await expect(okvevoRows.first()).toContainText('OkVevo agent')
+  await expect(listbox.getByRole('button').filter({ hasText: /@hermes\b/ })).toHaveCount(0)
+  await expect(listbox.getByRole('button').filter({ hasText: /@default\b/ })).toHaveCount(0)
+  assertSettledOkvevoMentionText(await listbox.innerText(), label)
 }
 
 async function openBots(page: Page) {

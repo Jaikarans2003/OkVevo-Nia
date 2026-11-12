@@ -31,12 +31,16 @@ export function loadDmgLayout(root = repoRootFromDesktopScripts(here)) {
     throw new Error(`missing DMG retina background ${retina}`)
   }
 
+  // electron-builder rejects background + backgroundColor together — image only.
+  if (raw.backgroundColor != null) {
+    throw new Error('dmg-layout must not set backgroundColor when background is set')
+  }
+
   return {
     shrink: false,
     icon: path.join(root, 'brand/assets/apps/desktop/assets/icon.icns'),
     title: 'OkVevo',
     background,
-    backgroundColor: raw.backgroundColor || '#f4f2ee',
     iconSize: raw.iconSize,
     iconTextSize: raw.iconTextSize,
     window: raw.window,

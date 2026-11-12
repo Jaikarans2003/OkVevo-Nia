@@ -29,6 +29,8 @@ is_owned() {
     PRE-LIVE-BACKLOG.md) return 0 ;;
     ENVIRONMENT.md) return 0 ;;
     package-lock.json) return 0 ;;
+    # One-line KEEP-PATCH: extends scripts/okvevo/lefthook.yml (brand gates).
+    lefthook.yml) return 0 ;;
     .github/workflows/okvevo-*.yml) return 0 ;;
     # OkVevo ships the bootstrap DMG with brand volume artwork (not Hermes).
     .github/workflows/bootstrap-installer-build.yml) return 0 ;;
