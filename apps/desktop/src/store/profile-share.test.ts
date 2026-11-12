@@ -20,7 +20,7 @@ vi.mock('@/hermes', () => ({
   setApiRequestProfile: vi.fn()
 }))
 vi.mock('@/lib/query-client', () => ({ invalidateProfileScopedQueries: vi.fn() }))
-vi.mock('@/store/starmap', () => ({ resetStarmapGraph: vi.fn() }))
+vi.mock('@/store/starmap', () => ({ reloadOpenStarmapGraph: vi.fn(), resetStarmapGraph: vi.fn() }))
 
 const { applyDesktopOverlay, buildDesktopOverlay, exportProfileBundle } = await import('./profile-share')
 const { $profileColors, setProfileColor } = await import('./profile')
@@ -50,28 +50,28 @@ afterEach(() => {
 
 describe('buildDesktopOverlay', () => {
   it('snapshots skin, mode, rail color, and the layout tree for the profile', () => {
-    skinPref.assign('glam', 'nia')
+    skinPref.assign('glam', 'okvevo')
     modePref.assign('glam', 'dark')
     setProfileColor('glam', '#e91e63')
 
     const overlay = buildDesktopOverlay('glam')
 
     expect(overlay.version).toBe(1)
-    expect(overlay.skin).toBe('nia')
+    expect(overlay.skin).toBe('okvevo')
     expect(overlay.mode).toBe('dark')
     expect(overlay.profileColor).toBe('#e91e63')
     // Built-in skin → no bundled theme definitions.
     expect(overlay.themes).toBeUndefined()
   })
 
-  it('bundles the full definition of a non-built-in skin', () => {
+  it('pins a non-built-in skin to the locked OkVevo theme', () => {
     $userThemes.set({ 'rose-quartz': roseTheme })
     skinPref.assign('glam', 'rose-quartz')
 
     const overlay = buildDesktopOverlay('glam')
 
-    expect(overlay.skin).toBe('rose-quartz')
-    expect(overlay.themes).toEqual({ 'rose-quartz': roseTheme })
+    expect(overlay.skin).toBe('okvevo')
+    expect(overlay.themes).toBeUndefined()
   })
 })
 
@@ -86,7 +86,7 @@ describe('applyDesktopOverlay', () => {
     })
 
     expect($userThemes.get()['rose-quartz']).toEqual(roseTheme)
-    expect(skinPref.resolve('glam-copy')).toBe('rose-quartz')
+    expect(skinPref.resolve('glam-copy')).toBe('okvevo')
     expect(modePref.resolve('glam-copy')).toBe('dark')
     expect($profileColors.get()['glam-copy']).toBe('#e91e63')
   })
@@ -110,9 +110,80 @@ describe('applyDesktopOverlay', () => {
   })
 })
 
+describe('runExportProfileFlow', () => {
+  // The browser Webapp bridge has no save dialog: Export must say so, not do nothing.
+  it('explains itself in the browser Webapp instead of silently returning', async () => {
+    const { installBrowserDesktopBridge } = await import('@/lib/browser-desktop-bridge')
+    const { clearWebappSession, seedWebappSession } = await import('@/test/webapp-session')
+    const { runExportProfileFlow } = await import('./profile-share')
+    const { $notifications } = await import('./notifications')
+    seedWebappSession('served-token')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}')))
+
+    try {
+      expect(installBrowserDesktopBridge()).toBe(true)
+      expect(window.hermesDesktop.selectSavePath).toBeUndefined()
+      await expect(runExportProfileFlow('glam')).resolves.toBeNull()
+      expect(exportProfileArchive).not.toHaveBeenCalled()
+      expect($notifications.get().at(-1)).toMatchObject({ kind: 'error', title: 'Failed to export profile' })
+      expect($notifications.get().at(-1)?.message).toContain('hermes profile export glam')
+    } finally {
+      clearWebappSession()
+      Reflect.deleteProperty(window, 'hermesDesktop')
+      document.documentElement.removeAttribute('data-hermes-desktop-host')
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('importProfileBundle', () => {
+  const folderKey = (profile: string) => `hermes:browser:default-project-dir:${JSON.stringify(['/hermes', profile])}`
+  const startupKey = 'hermes:webapp:default-profile:/hermes'
+
+  function seedLeftovers() {
+    window.localStorage.setItem(folderKey('imported'), '/srv/deleted-imported')
+    window.localStorage.setItem(folderKey('other'), '/srv/other')
+    window.localStorage.setItem(startupKey, JSON.stringify({ connectionId: null, profile: 'imported' }))
+  }
+
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-hermes-desktop-host')
+    Reflect.deleteProperty(window, '__HERMES_BASE_PATH__')
+  })
+
+  // An import never lands on a live profile's name, so prefs stored under it were left by a deleted one.
+  it('drops what a deleted profile of the same name left, only once the import succeeded', async () => {
+    const { importProfileBundle } = await import('./profile-share')
+    const { importProfileArchive } = await import('@/hermes')
+    document.documentElement.dataset.hermesDesktopHost = 'browser'
+    Object.assign(window, { __HERMES_BASE_PATH__: '/hermes' })
+    seedLeftovers()
+    vi.mocked(importProfileArchive).mockRejectedValueOnce(new Error('bad archive'))
+
+    await expect(importProfileBundle('/tmp/in.tar.gz')).rejects.toThrow('bad archive')
+    expect(window.localStorage.getItem(folderKey('imported'))).toBe('/srv/deleted-imported')
+    expect(window.localStorage.getItem(startupKey)).not.toBeNull()
+
+    await expect(importProfileBundle('/tmp/in.tar.gz')).resolves.toBe('imported')
+    expect(window.localStorage.getItem(folderKey('imported'))).toBeNull()
+    expect(window.localStorage.getItem(startupKey)).toBeNull()
+    expect(window.localStorage.getItem(folderKey('other'))).toBe('/srv/other')
+  })
+
+  it('keeps browser prefs in native Desktop', async () => {
+    const { importProfileBundle } = await import('./profile-share')
+    Object.assign(window, { __HERMES_BASE_PATH__: '/hermes' })
+    seedLeftovers()
+
+    await expect(importProfileBundle('/tmp/in.tar.gz')).resolves.toBe('imported')
+    expect(window.localStorage.getItem(folderKey('imported'))).toBe('/srv/deleted-imported')
+    expect(window.localStorage.getItem(startupKey)).not.toBeNull()
+  })
+})
+
 describe('exportProfileBundle', () => {
   it('stages desktop.json into the archive through extra_files', async () => {
-    skinPref.assign('glam', 'nia')
+    skinPref.assign('glam', 'okvevo')
 
     const archive = await exportProfileBundle('glam', '/tmp/glam.tar.gz')
 
@@ -120,7 +191,7 @@ describe('exportProfileBundle', () => {
     const call = vi.mocked(exportProfileArchive).mock.calls[0]
     expect(call[0]).toBe('glam')
     const overlay = JSON.parse(call[1]?.extraFiles?.['desktop.json'] ?? '{}') as ProfileDesktopOverlay
-    expect(overlay.skin).toBe('nia')
+    expect(overlay.skin).toBe('okvevo')
     expect(call[1]?.output).toBe('/tmp/glam.tar.gz')
   })
 })

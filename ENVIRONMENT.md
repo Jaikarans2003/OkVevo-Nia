@@ -96,7 +96,7 @@ LLM provider keys for **desktop BYOK** (`OPENROUTER_API_KEY`, Fireworks, etc.) s
 |-----|-------|------|-----------|
 | `https://releases.okvevo.com` | `apps/desktop/electron/binary-updater.ts` | electron-updater **default** feed. Staging packs bake `NIA_UPDATE_FEED_URL` (`…/staging`). Runtime `NIA_UPDATE_CHANNEL` defaults to `latest` (production no longer publishes `internal.yml`). | Pack-env + `setFeedURL({ channel })`. |
 | `https://www.okvevo.com` | `apps/desktop/src/app/settings/about-settings.tsx` | Get installer / release notes | Leave (marketing). |
-| `https://releases.okvevo.com/Nia-mac-arm64.dmg` | OkVevo-Web `src/lib/nia-downloads.ts` | Download CTAs (stable names; Publish release overwrites) | Staging yaml uses `/staging` prefix |
+| `https://releases.okvevo.com/OkVevo-mac-arm64.dmg` (production, after the first OkVevo Publish) / `https://releases.okvevo.com/okvevo/staging/OkVevo-mac-arm64.dmg` (staging) | OkVevo-Web `src/lib/nia-downloads.ts` | Download CTAs (stable names; Publish release / staging pack overwrite) | Production buttons still link root `Nia-*` (pre-rename 0.18.5) until the first Publish (PRE-LIVE-BACKLOG). `/staging/Nia-*` is retired. |
 | `Jaikarans2003/OkVevo-Nia` raw/git URLs | unpackaged / legacy bootstrap only | Packaged apps use extraResources snapshot | Phase C |
 
 ---

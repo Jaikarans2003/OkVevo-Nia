@@ -1,5 +1,5 @@
 /**
- * Nia desktop settings lockdown — which controls stay visible, and the
+ * OkVevo desktop settings lockdown — which controls stay visible, and the
  * values forced on every launch so a leftover localStorage/config.yaml
  * cannot keep a hidden pref off-default.
  */
@@ -72,7 +72,8 @@ export const PUBLIC_HIDDEN_SETTINGS_VIEWS = new Set<SettingsView>([
   'keybinds',
   'keys',
   'plugins',
-  'providers'
+  'providers',
+  'web-access'
 ])
 
 /** Tools & Keys env rows hidden on public (filter keys, not the whole tab). */
@@ -106,6 +107,7 @@ const LOCKED_VOICE_SHORTCUT = IS_MAC ? 'ctrl+b' : 'ctrl+space'
 export const PUBLIC_HIDDEN_CONFIG_KEYS = new Set([
   'command_allowlist',
   'security.redact_secrets',
+  'voice.record_key',
   ...PUBLIC_HIDDEN_ADVANCED_KEYS,
   ...PUBLIC_HIDDEN_VOICE_KEYS
 ])
@@ -141,6 +143,53 @@ export function isAppearanceSettingVisible(id: string): boolean {
   }
 
   return isByokChromeVisible() || !PUBLIC_HIDDEN_APPEARANCE_SETTING_IDS.has(id)
+}
+
+const STANDALONE_SETTINGS_VIEWS = [
+  'providers',
+  'gateway',
+  'connections',
+  'keybinds',
+  'keys',
+  'vault',
+  'notifications',
+  'billing',
+  'sessions',
+  'plugins',
+  'about'
+] as const
+
+const PROVIDER_SUBVIEWS = ['pview:accounts', 'pview:keys', 'pview:custom-endpoints', 'pview:local'] as const
+
+/** Every settings route this build knows about. A new upstream section shows up here. */
+export function settingsRouteInventory(): string[] {
+  return [
+    ...SECTIONS.map(section => `config:${section.id}`),
+    ...STANDALONE_SETTINGS_VIEWS,
+    ...PROVIDER_SUBVIEWS
+  ]
+}
+
+export const PUBLIC_SETTINGS_ALLOWLIST = [
+  'config:safety',
+  'config:browser',
+  'config:voice',
+  'config:advanced',
+  'vault',
+  'notifications',
+  'billing',
+  'sessions',
+  'about'
+] as const
+
+export function visibleSettingsRoutes(): string[] {
+  return settingsRouteInventory().filter(route => {
+    if (route.startsWith('pview:')) {
+      return isSettingsViewVisible('providers')
+    }
+
+    return isSettingsViewVisible(route as SettingsView)
+  })
 }
 
 export function isSettingsViewVisible(view: SettingsView): boolean {
@@ -242,14 +291,20 @@ function persistLockedYamlPrefs(): void {
         .trim()
         .toLowerCase()
 
-      if (!wakePhrase || wakePhrase === 'hey hermes' || wakePhrase === 'hey nia') {
+      if (
+        !wakePhrase ||
+        wakePhrase === 'hey hermes' ||
+        wakePhrase === 'hey nia' ||
+        wakePhrase === 'ok nia' ||
+        wakePhrase === 'ok okvevo'
+      ) {
         if (getNested(config, 'wake_word.provider') !== 'sherpa') {
           config = setNested(config, 'wake_word.provider', 'sherpa')
           changed = true
         }
 
-        if (String(getNested(config, 'wake_word.phrase') ?? '') !== 'ok nia') {
-          config = setNested(config, 'wake_word.phrase', 'ok nia')
+        if (String(getNested(config, 'wake_word.phrase') ?? '') !== 'ok okvevo') {
+          config = setNested(config, 'wake_word.phrase', 'ok okvevo')
           changed = true
         }
       }

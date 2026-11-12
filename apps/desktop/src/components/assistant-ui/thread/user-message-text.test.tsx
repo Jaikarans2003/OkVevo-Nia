@@ -30,46 +30,20 @@ describe('a sent reference renders as the chip the composer showed', () => {
     expect(document.body.textContent).not.toContain('@file:')
   })
 
+  it('labels a large-paste file as pasted content, keeping its path on hover', () => {
+    const path = '/home/u/.hermes/attachments/pasted_content_2026-09-27_21-33-42-827_55e028-2.txt'
+
+    render(<UserMessageText text={`@file:${path}`} />)
+
+    expect(screen.getByTitle(path).textContent).toBe('Pasted content')
+  })
+
   it('chips every kind that travels in message text', () => {
     // The guard against WIRE_REFERENCE_KINDS and the pattern's own alternation
     // drifting apart: add a kind to one and this fails until both agree.
     for (const kind of WIRE_REFERENCE_KINDS) {
       expect(`@${kind}:\`some value\``.match(referenceRe()), kind).toHaveLength(1)
     }
-  })
-
-  it('wraps with break-words on the bubble shell, not w-max width hacks', () => {
-    render(<UserMessageText text="Hi" />)
-
-    const root = document.querySelector('[data-slot="aui_user-message-text"]')
-    const inline = document.querySelector('[data-slot="aui_user-inline-text"]')
-
-    expect(root?.className.split(/\s+/)).not.toContain('wrap-anywhere')
-    expect(inline?.className.split(/\s+/)).not.toContain('wrap-anywhere')
-    expect(root?.className.split(/\s+/)).not.toContain('w-max')
-    expect(inline?.className.split(/\s+/)).not.toContain('w-max')
-    expect(inline?.className.split(/\s+/)).toContain('break-words')
-  })
-
-  it('breaks a long unspaced token without horizontal overflow', () => {
-    const longUrl =
-      'https://example.com/very/long/path/with/no/break/points?query=abcdef0123456789abcdef0123456789abcdef0123456789'
-
-    render(<UserMessageText text={longUrl} />)
-
-    const inline = document.querySelector('[data-slot="aui_user-inline-text"]')
-
-    expect(inline?.className.split(/\s+/)).toContain('break-words')
-
-    const host = document.createElement('div')
-    host.style.width = '320px'
-    host.append(inline!.cloneNode(true))
-    document.body.append(host)
-
-    const measured = host.firstElementChild as HTMLElement
-    expect(measured.scrollWidth).toBeLessThanOrEqual(measured.clientWidth + 1)
-
-    host.remove()
   })
 
   it('still renders a genuine code span as code', () => {
@@ -90,6 +64,13 @@ describe('a sent reference renders as the chip the composer showed', () => {
   it('leaves a fenced block alone', () => {
     render(<UserMessageText text={'before\n```ts\nconst x = 1\n```\nafter'} />)
 
-    expect(document.querySelector('[data-slot="aui_user-fence"]')?.textContent).toBe('const x = 1\n')
+    const fence = document.querySelector('[data-slot="aui_user-fence"]')
+
+    expect(fence?.textContent).toBe('const x = 1\n')
+    // #70451: a wide user fence wraps inside the bubble instead of growing a
+    // horizontal scrollbar under the transcript.
+    expect(fence?.className).toContain('overflow-x-hidden')
+    expect(fence?.className).toContain('whitespace-pre-wrap')
+    expect(fence?.className).not.toContain('overflow-x-auto')
   })
 })

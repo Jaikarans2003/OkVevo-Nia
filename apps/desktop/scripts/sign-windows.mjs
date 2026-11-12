@@ -5,7 +5,7 @@
  * stays false). Called from afterPack / afterAllArtifactBuild.
  *
  * Local unsigned `npm run pack` skips when WIN_CSC_* are unset, unless
- * NIA_REQUIRE_WIN_SIGN=1 (tagged CI).
+ * OKVEVO_REQUIRE_WIN_SIGN=1 (tagged CI).
  */
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
@@ -58,7 +58,7 @@ async function which(bin) {
 
 export async function signWindowsFile(filePath, env = process.env) {
   if (!windowsSigningReady(env)) {
-    if (env.NIA_REQUIRE_WIN_SIGN === '1') {
+    if (env.OKVEVO_REQUIRE_WIN_SIGN === '1') {
       throw new Error('Windows Authenticode required but WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD are missing.')
     }
 
@@ -82,7 +82,7 @@ export async function signWindowsFile(filePath, env = process.env) {
         '-pass',
         password,
         '-n',
-        'Nia',
+        'OkVevo',
         '-t',
         'http://timestamp.digicert.com',
         '-in',

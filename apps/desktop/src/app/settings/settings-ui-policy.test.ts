@@ -34,7 +34,7 @@ import { $composerPopoutGesturesEnabled } from '@/store/composer-popout'
 import { $disableF12, setDisableF12 } from '@/store/disable-f12'
 import { $embedMode, setEmbedMode } from '@/store/embed-consent'
 import { $introSplash } from '@/store/intro-splash'
-import { $keepAwake, setKeepAwake } from '@/store/keep-awake'
+import { $keepAwakeMode, setKeepAwakeMode } from '@/store/keep-awake'
 import { $bindings, setBinding } from '@/store/keybinds'
 import { $fileBrowserOpen, setFileBrowserOpen } from '@/store/layout'
 import { $petInfo, setPetInfo } from '@/store/pet'
@@ -47,6 +47,7 @@ import { $toursEnabled, setToursEnabled } from '@/store/tours'
 import { $translucencyBook, GLASS_SUPPORTED } from '@/store/translucency'
 import { $vibeHeartsEnabled, setVibeHeartsEnabled } from '@/store/vibe-hearts-enabled'
 
+import { MODE_OPTIONS } from './constants'
 import {
   applyLockedDesktopPrefs,
   filterVisibleConfigKeys,
@@ -58,7 +59,10 @@ import {
   isPublicHiddenToolProvider,
   isSettingsViewVisible,
   PUBLIC_FALLBACK_SETTINGS_VIEW,
-  PUBLIC_HIDDEN_TOOL_ENV_KEYS
+  PUBLIC_HIDDEN_TOOL_ENV_KEYS,
+  PUBLIC_SETTINGS_ALLOWLIST,
+  settingsRouteInventory,
+  visibleSettingsRoutes
 } from './settings-ui-policy'
 
 const setPercent = vi.fn()
@@ -90,6 +94,7 @@ describe('settings UI policy filters', () => {
   })
 
   it('hides locked appearance deep-link ids', () => {
+    expect(MODE_OPTIONS.map(option => option.id)).toEqual(['light', 'dark', 'system'])
     expect(isAppearanceSettingVisible('appearance.language')).toBe(true)
     expect(isAppearanceSettingVisible('appearance.session-density')).toBe(true)
     expect(isAppearanceSettingVisible('appearance.tab-strip')).toBe(true)
@@ -97,6 +102,15 @@ describe('settings UI policy filters', () => {
     expect(isAppearanceSettingVisible('appearance.tool-view')).toBe(true)
     expect(isAppearanceSettingVisible('appearance.translucency')).toBe(false)
     expect(HIDDEN_APPEARANCE_SETTING_IDS.has('appearance.embeds')).toBe(true)
+  })
+
+  it('public settings routes match the allowlist and internal shows every route', () => {
+    isByokChromeVisibleMock.mockReturnValue(false)
+    expect(visibleSettingsRoutes()).toEqual([...PUBLIC_SETTINGS_ALLOWLIST])
+
+    isByokChromeVisibleMock.mockReturnValue(true)
+    expect(visibleSettingsRoutes()).toEqual(settingsRouteInventory())
+    expect(settingsRouteInventory().length).toBeGreaterThan(PUBLIC_SETTINGS_ALLOWLIST.length)
   })
 
   it('hides Model, Chat, Workspace, Memory and Appearance only on public', () => {
@@ -123,6 +137,7 @@ describe('settings UI policy filters', () => {
     isByokChromeVisibleMock.mockReturnValue(false)
 
     expect(isSettingsViewVisible('gateway')).toBe(false)
+    expect(isSettingsViewVisible('web-access')).toBe(false)
     expect(isSettingsViewVisible('connections')).toBe(false)
     expect(isSettingsViewVisible('keybinds')).toBe(false)
     expect(isSettingsViewVisible('keys')).toBe(false)
@@ -177,7 +192,7 @@ describe('settings UI policy filters', () => {
   })
 
   it('shows BYOK chrome only on the internal baked channel', () => {
-    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+    expect(isByokChromeVisible()).toBe(__OKVEVO_BUILD_CHANNEL__ === 'internal')
   })
 
   it('hides FAL/Nous image-video rows and Tavily on public', () => {
@@ -200,17 +215,17 @@ describe('settings UI policy filters', () => {
     expect(isPublicHiddenToolProvider('tts', 'ElevenLabs')).toBe(false)
   })
 
-  it('does not read process.env.NIA_BUILD_CHANNEL at runtime', () => {
-    const prev = process.env.NIA_BUILD_CHANNEL
-    process.env.NIA_BUILD_CHANNEL = 'internal'
-    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
-    process.env.NIA_BUILD_CHANNEL = 'public'
-    expect(isByokChromeVisible()).toBe(__NIA_BUILD_CHANNEL__ === 'internal')
+  it('does not read process.env.OKVEVO_BUILD_CHANNEL at runtime', () => {
+    const prev = process.env.OKVEVO_BUILD_CHANNEL
+    process.env.OKVEVO_BUILD_CHANNEL = 'internal'
+    expect(isByokChromeVisible()).toBe(__OKVEVO_BUILD_CHANNEL__ === 'internal')
+    process.env.OKVEVO_BUILD_CHANNEL = 'public'
+    expect(isByokChromeVisible()).toBe(__OKVEVO_BUILD_CHANNEL__ === 'internal')
 
     if (prev === undefined) {
-      delete process.env.NIA_BUILD_CHANNEL
+      delete process.env.OKVEVO_BUILD_CHANNEL
     } else {
-      process.env.NIA_BUILD_CHANNEL = prev
+      process.env.OKVEVO_BUILD_CHANNEL = prev
     }
   })
 })
@@ -219,7 +234,7 @@ const alreadyLockedPublicYaml = {
   tts: { provider: 'edge' },
   stt: { enabled: true, echo_transcripts: true },
   voice: { record_key: IS_MAC ? 'ctrl+b' : 'ctrl+space' },
-  wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+  wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
 }
 
 describe('applyLockedDesktopPrefs', () => {
@@ -288,11 +303,11 @@ describe('applyLockedDesktopPrefs', () => {
   })
 
   it('does not re-force Keep Computer Awake on boot, so Off stays Off', () => {
-    setKeepAwake(false)
+    setKeepAwakeMode('off')
 
     applyLockedDesktopPrefs()
 
-    expect($keepAwake.get()).toBe(false)
+    expect($keepAwakeMode.get()).toBe('off')
   })
 
   it('persists display.language=en on public when the file is not English', async () => {
@@ -340,7 +355,7 @@ describe('applyLockedDesktopPrefs', () => {
       tts: { provider: 'elevenlabs' },
       stt: { enabled: false, echo_transcripts: false },
       voice: { record_key: 'alt+v', client_direct: false },
-      wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+      wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
     })
 
     applyLockedDesktopPrefs()
@@ -351,7 +366,7 @@ describe('applyLockedDesktopPrefs', () => {
         tts: { provider: 'edge' },
         stt: { enabled: true, echo_transcripts: true },
         voice: { record_key: IS_MAC ? 'ctrl+b' : 'ctrl+space', client_direct: false },
-        wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+        wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
       })
     )
   })
@@ -363,7 +378,7 @@ describe('applyLockedDesktopPrefs', () => {
       tts: { provider: 'elevenlabs' },
       stt: { enabled: false, echo_transcripts: false },
       voice: { record_key: 'alt+v' },
-      wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+      wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
     })
 
     applyLockedDesktopPrefs()
@@ -427,8 +442,8 @@ describe('toggleStatusbarVisible channel lock', () => {
 })
 
 describe('leftover wake phrase lock', () => {
-  it.each(['hey hermes', 'hey nia', '', '  '])(
-    'rewrites leftover phrase %j to sherpa + ok nia on both channels',
+  it.each(['hey hermes', 'hey nia', 'ok nia', '', '  '])(
+    'rewrites leftover phrase %j to sherpa + ok okvevo on both channels',
     async phrase => {
       getHermesConfigRecord.mockResolvedValue({
         wake_word: { provider: 'openwakeword', phrase }
@@ -438,7 +453,7 @@ describe('leftover wake phrase lock', () => {
 
       await vi.waitFor(() =>
         expect(saveHermesConfig).toHaveBeenCalledWith({
-          wake_word: { provider: 'sherpa', phrase: 'ok nia' }
+          wake_word: { provider: 'sherpa', phrase: 'ok okvevo' }
         })
       )
     }

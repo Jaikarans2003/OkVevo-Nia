@@ -1,65 +1,45 @@
 /**
- * Public GET smoke for the production electron-updater feed.
+ * Public GET smoke for the electron-updater feed: each yml's version, and every
+ * listed installer answers HTTP 200 with the yml's sha512 and size.
  *
  * Resolves yml `files[].url` against the feed origin root (binaries live at
  * bucket root even when the yml was read from versions/{ver}/).
  */
 import {
-  assertYmlArtifacts,
-  parseElectronBuilderYml,
+  feedFileUrl,
+  macStableYmlRelPath,
   publicFeedOrigin,
-  siblingBlockmapName
+  verifyYmlsOverHttp
 } from './publish-release-feed.mjs'
 
-export function feedFileUrl(origin, fileUrl) {
-  const name = String(fileUrl || '')
-  if (/^https?:\/\//i.test(name)) return name
-  return `${String(origin).replace(/\/+$/, '')}/${name.replace(/^\/+/, '')}`
-}
+export { feedFileUrl }
 
 export async function smokeReleaseFeed({
   origin,
-  ymlKeys = ['latest.yml', 'latest-mac.yml'],
+  ymlKeys,
+  expectVersion = '',
   fetchImpl = globalThis.fetch
 } = {}) {
   const feedOrigin = (origin || publicFeedOrigin()).replace(/\/+$/, '')
-  const cache = new Map()
-
-  async function get(rel) {
-    const url = feedFileUrl(feedOrigin, rel)
-    if (cache.has(url)) return cache.get(url)
-    const res = await fetchImpl(url, { method: 'GET' })
-    if (!res || !res.ok) {
-      cache.set(url, null)
-      return null
-    }
-    const body = Buffer.from(await res.arrayBuffer())
-    cache.set(url, body)
-    return body
+  // Prefixed OkVevo feeds also publish the Hermes Mac path the app GETs.
+  const keys =
+    ymlKeys ||
+    (/\/okvevo\/(staging|stable)$/.test(feedOrigin)
+      ? ['latest.yml', 'latest-mac.yml', macStableYmlRelPath()]
+      : ['latest.yml', 'latest-mac.yml'])
+  const ymlTexts = []
+  for (const key of keys) {
+    const res = await fetchImpl(feedFileUrl(feedOrigin, key), { method: 'GET' })
+    if (!res || res.status !== 200) throw new Error(`GET ${feedFileUrl(feedOrigin, key)} failed`)
+    ymlTexts.push(await res.text())
   }
-
-  const parsed = []
-  for (const key of ymlKeys) {
-    const ymlBuf = await get(key)
-    if (ymlBuf == null) throw new Error(`GET ${feedFileUrl(feedOrigin, key)} failed`)
-    const ymlText = ymlBuf.toString('utf8')
-    const listed = parseElectronBuilderYml(ymlText)
-    const names = new Set(listed.urls)
-    for (const file of listed.files) names.add(file.url)
-    if (listed.path) names.add(listed.path)
-    for (const name of names) {
-      await get(name)
-      const blockmap = siblingBlockmapName(name)
-      if (blockmap) await get(blockmap)
-    }
-    parsed.push(
-      assertYmlArtifacts(ymlText, fileName => cache.get(feedFileUrl(feedOrigin, fileName)) ?? null)
-    )
+  const parsed = await verifyYmlsOverHttp({ origin: feedOrigin, ymlTexts, fetchImpl })
+  const versions = parsed.map(p => p.version)
+  if (new Set(versions).size > 1) throw new Error(`feed versions differ: ${versions.join(' != ')}`)
+  if (expectVersion && versions[0] !== expectVersion) {
+    throw new Error(`feed version ${versions[0]} != expected ${expectVersion}`)
   }
-  if (parsed.length === 2 && parsed[0].version !== parsed[1].version) {
-    throw new Error(`mac version ${parsed[1].version} != win version ${parsed[0].version}`)
-  }
-  return { origin: feedOrigin, versions: parsed.map(p => p.version) }
+  return { origin: feedOrigin, versions }
 }
 
 function flagAll(name, argv) {
@@ -78,9 +58,12 @@ function flag(name, argv) {
 const isMain = process.argv[1] && process.argv[1].endsWith('smoke-release-feed.mjs')
 
 if (isMain) {
-  const origin = flag('--origin', process.argv) || publicFeedOrigin()
   const ymlKeys = flagAll('--yml', process.argv)
-  smokeReleaseFeed({ origin, ymlKeys: ymlKeys.length ? ymlKeys : ['latest.yml', 'latest-mac.yml'] })
+  smokeReleaseFeed({
+    origin: flag('--origin', process.argv) || publicFeedOrigin(),
+    ymlKeys: ymlKeys.length ? ymlKeys : undefined,
+    expectVersion: flag('--version', process.argv)
+  })
     .then(result => {
       console.log(JSON.stringify(result))
     })

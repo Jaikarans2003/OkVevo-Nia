@@ -9,18 +9,18 @@ export const OKVEVO_ID_TOKEN_FILENAME = 'okvevo-firebase-id-token'
 export const OKVEVO_REFRESH_TOKEN_FILENAME = 'okvevo-firebase-refresh-token'
 export const PENDING_TTL_MS = 10 * 60 * 1000
 export const OKVEVO_INVALID_PORTAL_URL = 'invalid_portal_url'
-export const OKVEVO_ORIGIN_MISSING_TITLE = 'Nia is missing the OkVevo portal URL'
+export const OKVEVO_ORIGIN_MISSING_TITLE = 'Missing OkVevo portal URL'
 export const OKVEVO_ORIGIN_MISSING_ERROR =
-  "Nia is missing the OkVevo portal URL. This build's pack-env is empty or unreadable. Reinstall the official Nia app."
-export const OKVEVO_PORTAL_URL_INVALID_TITLE = 'Nia could not open OkVevo'
+  "This build's pack-env is empty or unreadable. Reinstall the official OkVevo app."
+export const OKVEVO_PORTAL_URL_INVALID_TITLE = 'Could not open OkVevo sign-in'
 export const OKVEVO_PORTAL_URL_INVALID_ERROR =
-  "Nia could not open the OkVevo sign-in page. This build's portal address is not a valid web URL. Reinstall the official Nia app."
-export const OKVEVO_SIGN_IN_TIMEOUT_TITLE = 'Nia sign-in to OkVevo timed out'
+  "This build's portal address is not a valid web URL. Reinstall the official OkVevo app."
+export const OKVEVO_SIGN_IN_TIMEOUT_TITLE = 'OkVevo sign-in timed out'
 export const OKVEVO_SIGN_IN_TIMEOUT_ERROR =
-  'Nia did not receive the OkVevo sign-in callback in time. Click Sign In in Nia and try again.'
-export const OKVEVO_SIGN_IN_FAILED_TITLE = 'Nia could not sign in to OkVevo'
+  'The sign-in callback did not arrive in time. Click Sign In and try again.'
+export const OKVEVO_SIGN_IN_FAILED_TITLE = 'Could not sign in to OkVevo'
 export const OKVEVO_SIGN_IN_FAILED_ERROR =
-  'Nia could not finish signing in to OkVevo. Click Sign In in Nia and try again.'
+  'Sign-in did not finish. Click Sign In and try again.'
 const PORTAL_PATH_RE = /^\/[A-Za-z0-9/_-]*$/
 
 export type OkvevoAuthPublic = {

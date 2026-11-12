@@ -21,7 +21,7 @@ description: "4-phase root cause debugging: understand bugs before fixing"
 | License | MIT |
 | Platforms | linux, macos, windows |
 | Tags | `debugging`, `troubleshooting`, `problem-solving`, `root-cause`, `investigation` |
-| Related skills | [`test-driven-development`](/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development), [`subagent-driven-development`](/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development) |
+| Related skills | [`test-driven-development`](../../bundled/software-development/software-development-test-driven-development.md), [`subagent-driven-development`](../../optional/software-development/software-development-subagent-driven-development.md) |
 
 ## Reference: full SKILL.md
 
@@ -377,11 +377,11 @@ If you catch yourself thinking:
 | **3. Hypothesis** | Form theory, test minimally, one variable at a time | Confirmed or new hypothesis |
 | **4. Implementation** | Create regression test, fix root cause, verify | Bug resolved, all tests pass |
 
-## Nia Integration
+## Hermes Agent Integration
 
 ### Investigation Tools
 
-Use these Nia tools during Phase 1:
+Use these Hermes tools during Phase 1:
 
 - **`search_files`** — Find error strings, trace function calls, locate patterns
 - **`read_file`** — Read source code with line numbers for precise analysis

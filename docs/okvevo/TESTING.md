@@ -1,0 +1,81 @@
+# OkVevo manual test checklist
+
+Run on a **fresh packaged staging build**, Mac **and** Windows. Quit and remove any older OkVevo / retired Nia install first if both would share `~/.hermes`. The `appId` is `com.okvevo.app`. Never run two desktop agents against the same `~/.hermes` at once.
+
+Install minimums since the Hermes v0.23.0 sync (Electron 44): **macOS 13 Ventura or later** and **64-bit Windows** (10 or 11). Older macOS and 32-bit Windows do not launch; do not file those as bugs.
+
+Report GitHub Actions minutes this PR used (macOS/Windows runners bill more on private repos).
+
+| # | Test | Pass when |
+|---|---|---|
+| 1 | Fresh install | Installer, Dock/Taskbar, window title, Start menu all say OkVevo; About shows "OkVevo by Azonova Technologies Pvt Ltd" and "Built on Hermes Agent by Nous Research." **Icons:** DMG volume, installing overlay, Dock, Finder Get Info, About mark, and Windows taskbar/EXE must show the OkVevo mark (not Hermes nous-girl). macOS caches app icons — if an old icon appears after a fresh install, run `killall Dock` and `killall Finder` (or restart) before reporting; **Get Info on the `.app`** is the source of truth. |
+| 2 | Sign in / sign out | Works; credits shown as % of the plan grant plus purchased top-up |
+| 3 | Hidden surfaces (public build) | No API key fields, no provider picker, no Nous Portal. Internal build shows them |
+| 4 | Identity | Ask "Who are you?" and "Who made you?" on 2+ models in four chats: the **default chat**, the **default bot**, a **new bot created from the Bots UI**, and a **bot created before this build** (from an older OkVevo install). All four answer "OkVevo agent … made by OkVevo", never "Nia", "Hermes", or "Nous Research". A bot whose `SOUL.md` you edited by hand keeps your text (no rewrite, no `SOUL.md.okvevo-migrate.bak`) |
+| 5 | Simple tasks (time each) | "Make an Excel file with 3 columns of sample sales data", "Write a 1-page Word doc", "Build a simple website" → correct file, finishes in one go |
+| 6 | Preview | xlsx, docx, html site, pdf, image open in preview (note any type that does not) |
+| 7 | Stream | Tool calls and paths visible; nothing replaced with "[internal details omitted]" |
+| 8 | Image, video, web search | Work; credits drop on the portal |
+| 9 | Out of credits | Clear "top up" message, not a crash |
+| 10 | Bots section (UI) | Create, edit, delete a bot from the Bots list; group chat; bot-to-bot message |
+| 11 | Tester upgrade | Sessions, memory, bots intact after OkVevo install; config migration backed up (`*.okvevo-migrate.bak`) + logged (root + every `~/.hermes/profiles/*`) |
+| 12 | Mac permissions | Re-grant microphone, screen-recording and accessibility to the new app |
+| 13 | Windows extras | SmartScreen "More info → Run anyway"; username with a space; PowerShell tasks |
+| 14 | Auto-update | Staging build N updates to N+1. **Mac in-app update works only after signing/notarize**; unsigned staging must re-download the DMG (Gatekeeper: right-click → Open). Windows may show SmartScreen / signature errors on unsigned in-app update — install the EXE over. |
+| 15 | Fresh chat | On a **fresh install**, sign in and send a message on the default chat **immediately — before creating any bot and without restarting the app**. A reply appears. `~/.hermes/config.yaml` has `model.provider: okvevo`, `model.default: okvevo/auto-cost`, and every `auxiliary.*.provider` is `main`. **Interim workaround until PR 1.3 ships:** if the first reply fails with "No usable credentials found for provider 'okvevo'", **create any bot once** (Bots → Create Bot), then retry — that writes the missing credential row. Quit/reopen does **not** fix it |
+| 16 | Default bot | Open Bots. The default agent opens and answers |
+| 17 | Model picker | The public picker shows one OkVevo row. Auto Cost Effective and Auto Intelligence both reply. Picking a specific model sends that model id. No OpenRouter, MoA, Add custom model, or Add provider |
+| 18 | New bot, no restart | Create a bot, send a message in that same launch, and get a reply. Duplicate a bot the same way. If an old receipt still fails, start a new chat |
+| 19 | Group chat | Create a group with two bots and get a reply in the room |
+| 20 | Vendor hosts | The public build does not contact `openrouter.ai` or any other host in `docs/okvevo/VENDOR-TOUCHPOINTS.md` |
+| 21 | Image inside a bot | Open a bot you created (not the default agent). Ask it to generate an image. An approval dialog appears before anything is sent. Approve it. The image shows in that bot's chat. The chat must not say "Please sign in again" or "Limited until" |
+| 22 | Image service refuses or is down | When Fal refuses a job the chat says "The image service refused this request. Your credits were returned." When Fal's account is locked it says "The image service is temporarily unavailable. Your credits were returned." Never "Please sign in again". Credits on the portal are unchanged |
+| 23 | Managed settings | Ask the agent to "switch the model provider to OpenRouter" (or run `hermes config set model.provider openrouter`). It answers "This setting is managed by OkVevo." Ask it to switch the image model to one the portal cannot price: it keeps the current model and gives the portal's reason. Hand-edit `model.provider` in `~/.hermes/config.yaml` or a bot's `config.yaml`: within about a second it reads `okvevo` again |
+| 24 | Groups after restart | Create a group while a bot (not the default) is in front. Quit, reopen with the default in front, open Bots. The group is listed and opens |
+| 25 | Busy (portal 429) | When the plan's chat slots are full the chat says "Busy, retrying at HH:MM" (your local time, about 30 s ahead), then the reply arrives on its own. Never "Limited until" an hour away. The Restart button on a restart toast reads "Restart OkVevo" |
+| 26 | Long freeze | If the app freezes for 5 s or more, `~/.hermes/logs/desktop.log` has a `main-process blocked` line with a stack. No other app or port is involved |
+
+If an approval is withdrawn after a long freeze ("session turn lease lost"), send the request again. That is upstream bug [#139959](https://github.com/NousResearch/hermes-agent/issues/139959); see `docs/okvevo/UPSTREAM-KNOWN-ISSUES.md`.
+
+## Known gaps
+
+### `manage_bot` is not on this branch
+
+The fork tool `manage_bot` (create / list / update a bot from **chat**; it never supported delete) was dropped in the upstream reset. Upstream v0.22.4 has no replacement. Port is on `PRE-LIVE-BACKLOG.md`.
+
+**Still works — Bots UI**
+
+- New bot (Create Bot → `profiles.create`)
+- Edit profile (name, SOUL, skills, look)
+- Delete bot
+- Group chat and bot-to-bot messages
+
+Those go through the desktop gateway profile RPCs, not `manage_bot`.
+
+**Fails — chat (every channel)**
+
+- "Make me a bot that…" / create a bot from chat
+- "List my bots" via the agent
+- "Change that bot's personality / role / description" from chat
+
+There is no `manage_bot` tool. A determined agent can still edit profile files with file/shell tools. That is not a supported create/list/update path.
+
+The old whole-home block (`plugins/nia-public-guard`, `pre_tool_call` on `terminal` / `read_file` / `write_file` / … targeting all of `~/.hermes`) is **gone** on this branch. Remaining blocks: credential files on every build — upstream `agent/file_safety.py` (`.env`, `auth.json`, token dirs) plus `plugins/okvevo/secrets_guard.py` (same files plus `okvevo-firebase-id-token` / `okvevo-firebase-refresh-token`, including via the terminal) — and, on public builds only, `plugins/okvevo/managed_settings_guard.py` (changes to keys in `okvevo/config/okvevo-defaults.yaml`, `hermes auth`, `hermes model --provider` other than okvevo, enabling/disabling the okvevo plugin). Reading `~/.hermes`, skills, `SOUL.md`, and memory is allowed.
+
+**Delete from chat**
+
+The old tool never had delete. Delete remains UI-only on every channel.
+
+## Upstream workflows on this PR
+
+Nous CI (CI, Tests, Lint, Nix flake check, JS Tests, …) uses **Blacksmith** runners (`blacksmith-*-ubuntu-2404`). OkVevo-Nia has no Blacksmith org. Those jobs queue forever here and succeed on Nous `v0.22.4` (`4d04303818b`) because Nous has the runners.
+
+**Action:** `gh workflow disable` on those workflows (same as other Nous-only jobs). Treat their PR runs as **cancelled by disable**. Do not KEEP-PATCH runner labels.
+
+Required merge checks are only the OkVevo jobs: Drift + branding + OkVevo plugins, Gitleaks, Desktop OkVevo suites, Assert repository is OkVevo-Nia.
+
+## R2 prefixes
+
+Do not create `okvevo/staging/` or `okvevo/stable/` by hand or with `.keep` objects. Object storage has no folders; the first upload from the staging pack (`okvevo/staging`) or the production archive/publish (`okvevo/stable`, plus the existing bucket-root copies) creates those key prefixes. Do not delete or move any `nia/` objects.
+| 21 | Composer disclaimer | Below the dock (not popped out): "OkVevo is an AI agent and can make mistakes. Check important info." |
+| 22 | @okvevo mention | In a chat with another bot focused, `@` menu shows one `@okvevo` row for the default agent (no `@default` / `@hermes` twin on public). Typing `@okvevo` or `@default` still resolves. |

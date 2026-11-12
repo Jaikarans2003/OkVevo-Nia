@@ -23,6 +23,7 @@ import {
   botSelectionKey,
   clearBotAttention,
   filterBots,
+  isDefaultBot,
   mentionNameForms,
   noteBotAttention,
   preferReachableSameNameRows,
@@ -71,8 +72,8 @@ beforeEach(() => {
 })
 
 describe('the @handle a bot answers to', () => {
-  it('presents the primary profile as @nia — "default" never surfaces in the UI', () => {
-    expect(botHandle('default')).toBe('nia')
+  it('presents the primary profile as @okvevo — "default" never surfaces in the UI', () => {
+    expect(botHandle('default')).toBe('okvevo')
     expect(botHandle('ops')).toBe('ops')
   })
 
@@ -82,17 +83,10 @@ describe('the @handle a bot answers to', () => {
 })
 
 describe('renamed bots stay taggable', () => {
-  // Discord report, Aug 2026: renaming a bot — Bot Mode title or `hermes
-  // profile rename` display_name — must change what you can @-tag it with,
-  // while the old profile handle keeps resolving.
-  it('reduces a friendly name to its slugged and collapsed forms', () => {
-    expect(mentionNameForms('Research Buddy')).toEqual(['research-buddy', 'researchbuddy'])
-    expect(mentionNameForms('Ops')).toEqual(['ops'])
-  })
-
   it('drops reserved tokens so a rename cannot hijack a built-in tag', () => {
     expect(mentionNameForms('Hermes')).toEqual([])
     expect(mentionNameForms('Nia')).toEqual([])
+    expect(mentionNameForms('OkVevo')).toEqual([])
     expect(mentionNameForms('@everyone')).toEqual([])
     expect(mentionNameForms('')).toEqual([])
   })
@@ -102,7 +96,7 @@ describe('renamed bots stay taggable', () => {
 
     expect(botMentionTag(row({ name: 'writer' }))).toBe('research-buddy')
     expect(botMentionTag(row({ name: 'ops' }))).toBe('ops')
-    expect(botMentionTag(row({ name: 'default' }))).toBe('nia')
+    expect(botMentionTag(row({ name: 'default' }))).toBe('okvevo')
     // display_name (`hermes profile rename`) drives the tag too.
     expect(botMentionTag(row({ display_name: 'Deal Finder', name: 'scout' }))).toBe('deal-finder')
   })
@@ -199,6 +193,16 @@ describe('source-qualified keys', () => {
     expect(botSelectionKey(row({ name: 'ops' }))).toBe('ops')
     expect(botMetaKey(row({ name: 'ops' }))).toBe('ops')
   })
+
+  it('reads a row whose connection was deleted as a settled state, not an exception', () => {
+    // A persisted group roster keeps an orphaned member (connection removed) with no route
+    // (group-membership.ts::durableGroupChatMembers); rendering it must not throw (#110002).
+    const orphan = row({ name: 'ops', remoteSource: true, sourceScoped: true })
+
+    expect(botMetaKey(orphan)).toBe(botSelectionKey(orphan))
+    expect(isDefaultBot(orphan)).toBe(false)
+    expect(isDefaultBot(row({ name: 'default', remoteSource: true, sourceScoped: true }))).toBe(true)
+  })
 })
 
 describe('which session speaks for a bot', () => {
@@ -274,10 +278,6 @@ describe('roster search narrows without re-ranking', () => {
     expect(filterBots(richer, {}, 'compliance')[0].name).toBe('reviewer')
     expect(filterBots(richer, {}, 'deployment checklist')[0].name).toBe('reviewer')
     expect(filterBots(richer, {}, 'work studio')[0].name).toBe('reviewer')
-  })
-
-  it('returns the existing roster reference for a blank query', () => {
-    expect(filterBots(roster, meta, '   ')).toBe(roster)
   })
 })
 

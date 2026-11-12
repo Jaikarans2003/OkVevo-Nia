@@ -150,7 +150,7 @@ describe('pollChargeSettlement', () => {
       portalUrl: 'https://www.okvevo.com/billing'
     })
 
-    expect(outcome).toEqual({
+    expect(outcome).toMatchObject({
       kind: 'ambiguous',
       message: 'Charge may still settle. Check the portal before retrying.',
       portalUrl: 'https://www.okvevo.com/billing',

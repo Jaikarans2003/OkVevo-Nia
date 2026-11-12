@@ -6,8 +6,9 @@
  * shows through:
  *
  * - 'clear' — the main process maps the lever to native window opacity
- *   (`setOpacity`), so the whole window fades, text included. macOS + Windows;
- *   `setOpacity` is a no-op on Linux.
+ *   (`setOpacity`), so the whole window fades, text included. macOS + Windows
+ *   only: Linux hides the setting, so it must never fade a Linux window, even
+ *   though Electron 44 does honour `setOpacity` there.
  * - 'glass' — the window stays fully opaque at the native level and the
  *   renderer thins its page surfaces instead, letting a platform material
  *   read as a matte blur while text keeps full contrast. macOS rides
@@ -52,7 +53,7 @@ export const GLASS_SCOPES = ['window', 'sidebar'] as const
 
 export type GlassScope = (typeof GLASS_SCOPES)[number]
 
-export const DEFAULT_GLASS_SCOPE: GlassScope = 'window'
+export const DEFAULT_GLASS_SCOPE: GlassScope = 'sidebar'
 
 /**
  * Electron `setBackgroundMaterial` values. `'auto'` is deliberately absent —
@@ -125,17 +126,19 @@ export type TranslucencyValues = Omit<TranslucencyState, 'mode'>
 export type Appearance = 'light' | 'dark'
 
 /**
- * Per-appearance defaults, per platform family. Glass ships ON at full tint.
- * Mac frost is Glare (`header`); Windows frost is Bright (`titlebar`).
+ * Glass starts at 29% tint, confined to the sidebar in both appearances.
+ * Fade stays off so the content column and text remain fully opaque.
+ * Frost keeps its platform/appearance tuning: macOS uses header/titlebar,
+ * while Windows uses under-window, the live acrylic backdrop.
  */
 const DEFAULT_VALUES: Record<'mac' | 'windows', Record<Appearance, TranslucencyValues>> = {
   mac: {
-    light: { intensity: 100, fade: 0, material: 'header', scope: 'window' },
-    dark: { intensity: 100, fade: 0, material: 'header', scope: 'window' }
+    light: { intensity: 29, fade: 0, material: 'header', scope: DEFAULT_GLASS_SCOPE },
+    dark: { intensity: 29, fade: 0, material: 'titlebar', scope: DEFAULT_GLASS_SCOPE }
   },
   windows: {
-    light: { intensity: 100, fade: 0, material: 'titlebar', scope: 'window' },
-    dark: { intensity: 100, fade: 0, material: 'titlebar', scope: 'window' }
+    light: { intensity: 29, fade: 0, material: 'under-window', scope: DEFAULT_GLASS_SCOPE },
+    dark: { intensity: 29, fade: 0, material: 'under-window', scope: DEFAULT_GLASS_SCOPE }
   }
 }
 
@@ -192,10 +195,9 @@ export function clampIntensity(value: unknown): number {
 }
 
 /**
- * Whether this OS can do ANY translucency. Clear rides `setOpacity`, which
- * Electron documents as doing nothing on Linux, and glass needs a native
- * material Linux does not have — so the whole setting is dead there and the
- * row should not be shown at all.
+ * Whether this OS offers translucency at all. Glass needs a native material
+ * Linux does not have, so Settings hides the row there — and a hidden setting
+ * must also have no effect, so both processes resolve it to off on Linux.
  */
 export function translucencySupportedOn(platform: string): boolean {
   return platform === 'darwin' || platform === 'win32'
@@ -250,7 +252,7 @@ export function normalizeMaterial(value: unknown): GlassMaterial {
   return GLASS_MATERIALS.includes(value as GlassMaterial) ? (value as GlassMaterial) : DEFAULT_GLASS_MATERIAL
 }
 
-/** Unknown or unsupported values fall back to whole-window glass. */
+/** Unknown or unsupported values fall back to sidebar glass. */
 export function normalizeScope(value: unknown): GlassScope {
   return GLASS_SCOPES.includes(value as GlassScope) ? (value as GlassScope) : DEFAULT_GLASS_SCOPE
 }
@@ -284,11 +286,8 @@ export function defaultTranslucencyState(
   glassSupported: boolean,
   isWindows: boolean
 ): TranslucencyState {
-  const values = defaultTranslucencyValues(appearance, isWindows)
-
   return {
-    ...values,
-    intensity: glassSupported ? values.intensity : 0,
+    ...defaultTranslucencyValues(appearance, isWindows),
     mode: normalizeMode(undefined, glassSupported)
   }
 }

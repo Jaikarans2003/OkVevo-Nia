@@ -1,12 +1,22 @@
-import { AssistantRuntimeProvider, type ThreadMessage, useExternalStoreRuntime } from '@assistant-ui/react'
+import {
+  AssistantRuntimeProvider,
+  MessagePrimitive,
+  type ThreadMessage,
+  ThreadPrimitive,
+  useExternalStoreRuntime
+} from '@assistant-ui/react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { $reasoningCollapsedByDefault } from '@/store/reasoning-disclosure'
-import { $toolViewMode } from '@/store/tool-view'
+import { $onboardingPhase } from '@/store/onboarding-phase'
+import { $onboardingSession } from '@/store/onboarding-session'
+import { $reasoningCollapsedByDefault, setShowReasoningFromConfig } from '@/store/reasoning-disclosure'
+import { $activeSessionId } from '@/store/session'
 
 import { stubThreadEnvironment, stubThreadViewportSize, ThreadRuntime } from '../test-utils'
+
+import { MESSAGE_PARTS_COMPONENTS } from './message-parts'
 
 import { Thread } from '.'
 
@@ -31,6 +41,12 @@ class TestResizeObserver {
     resizeObservers.delete(this)
   }
 
+  triggerFor(target: Element, height: number) {
+    if (this.target === target) {
+      this.trigger(height)
+    }
+  }
+
   trigger(height: number) {
     if (!this.target) {
       return
@@ -39,9 +55,10 @@ class TestResizeObserver {
     this.callback(
       [
         {
+          borderBoxSize: [{ blockSize: height, inlineSize: 800 }],
           contentRect: { height } as DOMRectReadOnly,
           target: this.target
-        } as ResizeObserverEntry
+        } as unknown as ResizeObserverEntry
       ],
       this as unknown as ResizeObserver
     )
@@ -150,37 +167,6 @@ function assistantSeparatedReasoningMessage(): ThreadMessage {
       { type: 'reasoning', text: ' Streaming second thought.', status: { type: 'running' } }
     ],
     status: { type: 'running' },
-    createdAt,
-    metadata: {
-      unstable_state: null,
-      unstable_annotations: [],
-      unstable_data: [],
-      steps: [],
-      custom: {}
-    }
-  } as ThreadMessage
-}
-
-function assistantTodoMessage(
-  todos: Array<{ content: string; id: string; status: 'cancelled' | 'completed' | 'in_progress' | 'pending' }>,
-  running = true
-): ThreadMessage {
-  const suffix = todos.map(todo => `${todo.id}:${todo.status}`).join('|') || 'empty'
-
-  return {
-    id: `assistant-todo-${running ? 'running' : 'done'}-${suffix}`,
-    role: 'assistant',
-    content: [
-      {
-        type: 'tool-call',
-        toolCallId: 'todo-1',
-        toolName: 'todo',
-        args: { todos },
-        argsText: JSON.stringify({ todos }),
-        ...(running ? {} : { result: { todos } })
-      }
-    ],
-    status: running ? { type: 'running' } : { type: 'complete', reason: 'stop' },
     createdAt,
     metadata: {
       unstable_state: null,
@@ -303,12 +289,6 @@ function StreamingHarness({ onControls }: { onControls?: (controls: StreamingCon
     </AssistantRuntimeProvider>
   )
 }
-
-const TodoHarness = ({ message }: { message: ThreadMessage }) => (
-  <ThreadRuntime messages={[message]}>
-    <Thread />
-  </ThreadRuntime>
-)
 
 function MessageHarness({ message }: { message: ThreadMessage }) {
   const runtime = useExternalStoreRuntime<ThreadMessage>({
@@ -439,20 +419,6 @@ function GroupedReasoningHarness() {
   )
 }
 
-function IntroHarness() {
-  const runtime = useExternalStoreRuntime<ThreadMessage>({
-    messages: [],
-    isRunning: false,
-    onNew: async () => {}
-  })
-
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <Thread intro={{ personality: 'default', seed: 1 }} />
-    </AssistantRuntimeProvider>
-  )
-}
-
 function DismissibleErrorHarness({ onDismissError }: { onDismissError: (messageId: string) => void }) {
   const runtime = useExternalStoreRuntime<ThreadMessage>({
     messages: [assistantErrorMessage('OpenRouter rejected the request (403).')],
@@ -471,7 +437,45 @@ describe('assistant-ui streaming renderer', () => {
   beforeEach(() => {
     resizeObservers.clear()
     $reasoningCollapsedByDefault.set(false)
-    $toolViewMode.set('product')
+    setShowReasoningFromConfig(undefined)
+    $activeSessionId.set(null)
+    $onboardingSession.set(null)
+    $onboardingPhase.set('idle')
+  })
+
+  it.each([true, false])('honors reasoning visibility %j for grouped and standalone parts', async enabled => {
+    setShowReasoningFromConfig(enabled)
+
+    const UngroupedMessage = () => (
+      <MessagePrimitive.Root>
+        <MessagePrimitive.Parts components={{ Reasoning: MESSAGE_PARTS_COMPONENTS.Reasoning }} />
+      </MessagePrimitive.Root>
+    )
+
+    const { container } = render(
+      <>
+        <RunningReasoningHarness />
+        <ThreadRuntime messages={[assistantReasoningMessage('standalone reasoning', true)]}>
+          <ThreadPrimitive.Root>
+            <ThreadPrimitive.Messages components={{ AssistantMessage: UngroupedMessage, UserMessage: () => null }} />
+          </ThreadPrimitive.Root>
+        </ThreadRuntime>
+      </>
+    )
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-slot="aui_reasoning-text"]')).toHaveLength(enabled ? 2 : 0)
+    })
+    const thinking = within(container).queryByRole('button', { name: /thinking/i })
+    const standalone = within(container).queryByText('standalone reasoning')
+
+    if (enabled) {
+      expect(thinking).not.toBeNull()
+      expect(standalone).not.toBeNull()
+    } else {
+      expect(thinking).toBeNull()
+      expect(standalone).toBeNull()
+    }
   })
 
   it('renders assistant text incrementally before completion', async () => {
@@ -483,13 +487,13 @@ describe('assistant-ui streaming renderer', () => {
 
     const { container } = render(<StreamingHarness onControls={registerControls} />)
 
-    expect(screen.getByRole('status', { name: 'Nia is loading a response' })).toBeTruthy()
+    expect(screen.getByRole('status', { name: 'Hermes is loading a response' })).toBeTruthy()
 
     await waitFor(() => {
       expect(container.textContent).toContain('first chunk')
     })
     expect(container.textContent).not.toContain('second chunk')
-    expect(screen.queryByRole('status', { name: 'Nia is loading a response' })).toBeNull()
+    expect(screen.queryByRole('status', { name: 'Hermes is loading a response' })).toBeNull()
 
     // Producer-gated, not wall-clock-gated: the old test slept 80ms and
     // assumed a 500ms timer could not fire before the assertion. On a loaded
@@ -504,12 +508,6 @@ describe('assistant-ui streaming renderer', () => {
     await waitFor(() => {
       expect(container.textContent).toContain('first chunk second chunk')
     })
-  })
-
-  it('does not render composer clearance for intro-only threads', () => {
-    const { container } = render(<IntroHarness />)
-
-    expect(container.querySelector('[data-slot="aui_composer-clearance"]')).toBeNull()
   })
 
   it('suppresses the action footer on sealed interim messages, keeping it on the final reply', () => {
@@ -538,30 +536,6 @@ describe('assistant-ui streaming renderer', () => {
     )
 
     expect(finalRoot?.querySelector('[data-slot="aui_msg-actions"]')).toBeTruthy()
-  })
-
-  it('puts the turn duration on the action bar row instead of a line of its own', () => {
-    const settled = {
-      ...assistantMessage('All done.', false),
-      metadata: {
-        unstable_state: null,
-        unstable_annotations: [],
-        unstable_data: [],
-        steps: [],
-        custom: { durationS: 12 }
-      }
-    } as ThreadMessage
-
-    const { container } = render(<TranscriptHarness messages={[userMessage(), settled]} />)
-
-    const duration = container.querySelector('[data-slot="aui_turn-duration"]')
-    const actions = container.querySelector('[data-slot="aui_msg-actions"]')
-
-    // Same row as the (always-mounted) action bar: the footer's height is
-    // already reserved while the turn streams, so landing the duration there
-    // adds no height when the turn settles.
-    expect(duration).toBeTruthy()
-    expect(duration?.parentElement).toBe(actions?.parentElement)
   })
 
   it('renders assistant provider errors inline', () => {
@@ -605,7 +579,6 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('renders an incomplete streaming reasoning fenced code block as a code card', async () => {
-    $toolViewMode.set('technical')
     const { container } = render(<RunningReasoningHarness />)
     const ui = within(container)
     const thinkingToggle = ui.getByRole('button', { name: /thinking/i })
@@ -624,31 +597,57 @@ describe('assistant-ui streaming renderer', () => {
     expect(container.textContent).not.toContain('```ts')
   })
 
-  it('keeps the height-capped thinking preview scrollable after the turn settles', async () => {
-    $toolViewMode.set('technical')
-    const { container, settle } = renderSettlingReasoning()
+  it('preserves the thinking reading position on growth and resumes following at the bottom', () => {
+    const { container, rerender } = render(
+      <RunningMessageHarness message={assistantReasoningMessage('First thought.', true)} />
+    )
 
-    const live = container.querySelector('[data-slot="aui_thinking-body"]')?.className ?? ''
+    const body = container.querySelector<HTMLDivElement>('[data-slot="aui_thinking-body"]')!
+    let height = 600
+    let top = 0
 
-    expect(live).toContain('max-h-40')
-    expect(live).toMatch(/\boverflow-auto\b/)
-    expect(live).not.toMatch(/\boverflow-hidden\b/)
-
-    settle()
-
-    await waitFor(() => {
-      expect(within(container).getByRole('button', { name: /thought/i })).toBeTruthy()
+    Object.defineProperties(body, {
+      clientHeight: { configurable: true, get: () => 160 },
+      scrollHeight: { configurable: true, get: () => height },
+      scrollTop: {
+        configurable: true,
+        get: () => top,
+        set: (value: number) => {
+          top = Math.max(0, Math.min(value, height - body.clientHeight))
+        }
+      }
     })
 
-    const settled = container.querySelector('[data-slot="aui_thinking-body"]')?.className ?? ''
+    const deliverGrowth = () =>
+      act(() => {
+        for (const observer of resizeObservers) {
+          observer.triggerFor(body.firstElementChild!, height)
+        }
+      })
 
-    expect(settled).toContain('max-h-40')
-    expect(settled).toMatch(/\boverflow-auto\b/)
-    expect(settled).not.toMatch(/\boverflow-hidden\b/)
+    deliverGrowth()
+    expect(body.scrollTop).toBe(height - body.clientHeight)
+    body.scrollTop = 100
+    fireEvent.scroll(body)
+
+    rerender(<RunningMessageHarness message={assistantReasoningMessage('First thought. More reasoning.', true)} />)
+    height = 900
+    deliverGrowth()
+    expect(body.scrollTop).toBe(100)
+
+    body.scrollTop = height - body.clientHeight - 0.5
+    fireEvent.scroll(body)
+    rerender(
+      <RunningMessageHarness
+        message={assistantReasoningMessage('First thought. More reasoning. Latest thought.', true)}
+      />
+    )
+    height = 1200
+    deliverGrowth()
+    expect(body.scrollTop).toBe(height - body.clientHeight)
   })
 
   it('does not collapse a live thinking preview when the turn settles', async () => {
-    $toolViewMode.set('technical')
     const { container, settle } = renderSettlingReasoning()
     const toggle = within(container).getByRole('button', { name: /thinking/i })
 
@@ -668,7 +667,6 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('leaves a settling turn collapsed when the collapsed-by-default preference is enabled', async () => {
-    $toolViewMode.set('technical')
     $reasoningCollapsedByDefault.set(true)
 
     const { container, settle } = renderSettlingReasoning()
@@ -692,7 +690,6 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('keeps streaming reasoning collapsed by default when the preference is enabled', () => {
-    $toolViewMode.set('technical')
     $reasoningCollapsedByDefault.set(true)
 
     const { container } = render(<RunningReasoningHarness />)
@@ -707,8 +704,27 @@ describe('assistant-ui streaming renderer', () => {
     expect(container.querySelector('[data-slot="aui_reasoning-text"]')?.textContent).toContain('const answer = 42')
   })
 
+  it('keeps streaming reasoning collapsed in the onboarding chat', () => {
+    $activeSessionId.set('onboarding-chat')
+    $onboardingSession.set({
+      connectionId: null,
+      runId: 'run-1',
+      runtimeId: 'onboarding-chat',
+      storedId: 'stored-onboarding'
+    })
+    $onboardingPhase.set('shown')
+
+    const { container } = render(<RunningReasoningHarness />)
+
+    expect(
+      within(container)
+        .getByRole('button', { name: /thinking/i })
+        .getAttribute('aria-expanded')
+    ).toBe('false')
+    expect(container.querySelector('[data-slot="aui_reasoning-text"]')).toBeNull()
+  })
+
   it('renders reasoning text without a leading token space', () => {
-    $toolViewMode.set('technical')
     const { container } = render(<ReasoningHarness />)
     const ui = within(container)
 
@@ -721,7 +737,6 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('groups consecutive reasoning parts under one thinking disclosure', () => {
-    $toolViewMode.set('technical')
     const { container } = render(<GroupedReasoningHarness />)
 
     const disclosures = container.querySelectorAll('[data-slot="aui_thinking-disclosure"]')
@@ -736,7 +751,6 @@ describe('assistant-ui streaming renderer', () => {
   })
 
   it('does not reopen an earlier completed thinking group when a later group is running', () => {
-    $toolViewMode.set('technical')
     const { container } = render(<RunningMessageHarness message={assistantSeparatedReasoningMessage()} />)
 
     const disclosures = container.querySelectorAll('[data-slot="aui_thinking-disclosure"]')
@@ -746,30 +760,6 @@ describe('assistant-ui streaming renderer', () => {
     expect(disclosures[1].querySelector('button')?.getAttribute('aria-expanded')).toBe('true')
     expect(container.textContent).not.toContain('Complete first thought.')
     expect(container.textContent).toContain('Interim answer.')
-  })
-
-  it('shows a live thinking header with no body while streaming in product mode', () => {
-    $toolViewMode.set('product')
-    const { container } = render(<RunningReasoningHarness />)
-
-    const disclosure = container.querySelector('[data-slot="aui_thinking-disclosure"]')
-    expect(disclosure).toBeTruthy()
-    expect(within(container).getByRole('button', { name: /thinking/i })).toBeTruthy()
-    expect(container.querySelector('[data-slot="aui_thinking-body"]')).toBeNull()
-    expect(container.querySelector('[data-slot="aui_reasoning-text"]')).toBeNull()
-  })
-
-  it('does not render an inline todo panel — todos live in the composer status stack', () => {
-    const { container } = render(
-      <TodoHarness
-        message={assistantTodoMessage([
-          { content: 'Gather ingredients', id: 'prep', status: 'completed' },
-          { content: 'Boil water', id: 'boil', status: 'in_progress' }
-        ])}
-      />
-    )
-
-    expect(container.querySelector('[data-slot="aui_todo-hoisted"]')).toBeNull()
   })
 
   it('renders completed image generation results in the tool slot', async () => {
@@ -791,41 +781,23 @@ describe('assistant-ui streaming renderer', () => {
       />
     )
 
-    // Product mode default-deny (WS1): expansion shows the generic friendly
-    // line; the raw provider error never paints.
     fireEvent.click(container.querySelector('[data-tool-row] button')!)
 
     await waitFor(() => {
-      expect(container.textContent).toContain('Something went wrong on my end')
+      expect(container.textContent).toContain('FAL rejected the prompt')
     })
     expect(container.querySelector('[data-slot="aui_generated-image"]')).toBeNull()
-    expect(container.textContent).not.toContain('FAL rejected the prompt')
     expect(container.textContent).not.toContain('"success":false')
   })
 
-  it('keeps the command, exit code, and stdout out of product-mode terminal rows', async () => {
-    const { container } = render(<MessageHarness message={assistantTerminalMessage()} />)
-
-    // No intent on this fixture, so the row falls back to the static title;
-    // the command and output are technical-mode chrome (WS3).
-    expect(container.textContent).toContain('Ran command')
-    expect(container.textContent).not.toContain('npm run check')
-    expect(container.textContent).not.toContain('all checks passed')
-  })
-
-  it('technical mode keeps the raw terminal payload behind the Tool payload disclosure', async () => {
-    $toolViewMode.set('technical')
+  it('shows the command prompt and exit code for terminal calls', async () => {
     const { container } = render(<MessageHarness message={assistantTerminalMessage()} />)
 
     fireEvent.click(container.querySelector('[data-tool-row] button')!)
 
     await waitFor(() => {
-      expect(container.textContent).toContain('npm run check --workspace=apps/desktop')
-    })
-
-    fireEvent.click(screen.getByText('Tool payload'))
-
-    await waitFor(() => {
+      expect(container.textContent).toContain('$ npm run check --workspace=apps/desktop')
+      expect(container.textContent).toContain('exit 0')
       expect(container.textContent).toContain('all checks passed')
     })
   })

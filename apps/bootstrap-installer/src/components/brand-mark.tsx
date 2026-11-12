@@ -1,13 +1,11 @@
+import okvevoMark from '../../../../brand/assets/apps/desktop/public/okvevo.png'
 import { cn } from '../lib/utils'
 
-const assetPath = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
-
-// Brand badge: Nia mark on a white tile, identical in light/dark.
-// Ported from apps/desktop's BrandMark; asset lives in this app's public/.
+// Brand badge: OkVevo mark from brand/assets (not upstream nous-girl).
 export function BrandMark({ className, ...props }: React.ComponentProps<'span'>) {
   return (
-    <span className={cn('inline-flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md', className)} {...props}>
-      <img alt="" className="size-full object-contain" src={assetPath('nia.png')} />
+    <span className={cn('inline-flex size-14 shrink-0 items-center justify-center', className)} {...props}>
+      <img alt="" className="size-full object-contain" src={okvevoMark} />
     </span>
   )
 }

@@ -19,13 +19,13 @@ describe('ComposerDisclaimer', () => {
   it('renders the disclaimer when docked', () => {
     const { container } = renderDisclaimer(true)
 
-    expect(container.querySelector('[data-slot="composer-disclaimer"]')).toBeTruthy()
-    expect(container.querySelector('[data-slot="composer-disclaimer"]')?.className).toContain(
-      COMPOSER_DISCLAIMER_CLASS.split(' ')[0]
-    )
+    const el = container.querySelector('[data-slot="composer-disclaimer"]')
+    expect(el).toBeTruthy()
+    expect(el?.className).toContain(COMPOSER_DISCLAIMER_CLASS.split(' ')[0])
+    expect(el?.textContent).toBe('OkVevo is an AI agent and can make mistakes. Check important info.')
   })
 
-  it('is absent when popped out or in splash column', () => {
+  it('is absent when popped out', () => {
     const { container } = renderDisclaimer(false)
 
     expect(container.querySelector('[data-slot="composer-disclaimer"]')).toBeNull()

@@ -1364,9 +1364,9 @@ The main pipeline above targets empirical ML papers. Other paper types require d
 
 ---
 
-## Nia Integration
+## Hermes Agent Integration
 
-This skill is designed for Nia. It uses Nia tools, delegation, scheduling, and memory for the full research lifecycle.
+This skill is designed for the Hermes agent. It uses Hermes tools, delegation, scheduling, and memory for the full research lifecycle.
 
 ### Related Skills
 

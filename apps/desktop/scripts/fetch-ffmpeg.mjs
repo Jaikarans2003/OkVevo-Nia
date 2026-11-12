@@ -2,7 +2,7 @@
 /**
  * Ensure resources/ffmpeg/<platform>-<arch>/ ships LGPL ffmpeg + ffprobe.
  *
- * - darwin: reuse an existing build; else NIA_FFMPEG_MIRROR (a mirror of this
+ * - darwin: reuse an existing build; else OKVEVO_FFMPEG_MIRROR (a mirror of this
  *   repo's own build output, <mirror>/darwin-<arch>.tar.gz + .sha256 sidecar);
  *   else build from source via build-ffmpeg-macos.mjs.
  * - win32: pinned BtbN FFmpeg-Builds "win64-lgpl" static zip (SHA-256
@@ -93,7 +93,7 @@ function fetchWindows(arch) {
 }
 
 function fetchDarwin(arch) {
-  const mirror = (process.env.NIA_FFMPEG_MIRROR || '').trim().replace(/\/+$/, '')
+  const mirror = (process.env.OKVEVO_FFMPEG_MIRROR || '').trim().replace(/\/+$/, '')
   if (mirror) {
     fs.mkdirSync(CACHE, { recursive: true })
     const tarball = path.join(CACHE, `darwin-${arch}.tar.gz`)

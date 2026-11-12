@@ -1,5 +1,5 @@
 Hermes Agent is included under the MIT License. The product copyright
-line on Nia is separate from this notice.
+line on OkVevo is separate from this notice.
 
 MIT License
 

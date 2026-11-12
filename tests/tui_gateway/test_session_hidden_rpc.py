@@ -14,7 +14,7 @@ Covers the two seams Bot Mode's "sessions are always hidden" policy leans on:
 import pytest
 
 import tui_gateway.server as srv
-import tui_gateway.methods_session  # noqa: F401  (registers the RPC methods)
+import tui_gateway.methods_session
 from hermes_state import SessionDB
 
 
@@ -60,13 +60,7 @@ def test_set_hidden_unknown_id_still_errors(db):
 
 
 def test_set_hidden_without_flag_leaves_visible_session_alone(db):
-    """Regression for #122190: a ``session.set_hidden`` call with no explicit
-    ``hidden`` flag must not hide anything. The handler used to default the
-    missing flag to True, so any caller that dropped the param (stale client,
-    profile-switch retry, typo ``hide``) silently hid the session — and
-    ``set_session_hidden`` propagates across the whole compression lineage,
-    which is exactly the "whole chain hidden=1, user never hid anything"
-    shape from the issue."""
+    """#122190: a flag-less ``session.set_hidden`` is rejected, never treated as hide."""
     _seed(db, "plain-chat")
     assert db.get_session("plain-chat")["hidden"] == 0
 
@@ -85,3 +79,16 @@ def test_session_list_include_hidden(db):
 
     all_rows = _call("session.list", {"include_hidden": True})["result"]["sessions"]
     assert {s["id"] for s in all_rows} == {"plain-chat", "bot-chat"}
+
+
+@pytest.mark.parametrize("source", ["oneshot", "kanban", "tool"])
+def test_session_list_hides_internal_sources(db, source):
+    """Finite one-shot runs (`hermes -z`, `chat -q`) and other non-conversation rows never reach the
+    human picker; interactive rows stay (#112550)."""
+    _seed(db, "plain-chat")
+    db.create_session("internal-run", source=source)
+    db._conn.execute("UPDATE sessions SET message_count = 1 WHERE id = ?", ("internal-run",))
+    db._conn.commit()
+
+    rows = _call("session.list", {})["result"]["sessions"]
+    assert {s["id"] for s in rows} == {"plain-chat"}

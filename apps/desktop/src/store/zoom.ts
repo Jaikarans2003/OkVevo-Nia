@@ -10,7 +10,7 @@
 
 import { atom } from 'nanostores'
 
-/** Locked UI scale. Keep in sync with electron/zoom.ts DEFAULT_ZOOM_LEVEL. */
+/** Locked UI scale (110%). Matches electron/zoom.ts. */
 export const LOCKED_ZOOM_PERCENT = 110
 
 export const $zoomPercent = atom<number>(LOCKED_ZOOM_PERCENT)
@@ -20,6 +20,17 @@ export function setZoomPercent(percent: number): void {
 }
 
 if (typeof window !== 'undefined' && window.hermesDesktop?.zoom) {
-  void window.hermesDesktop.zoom.get().then(({ percent }) => $zoomPercent.set(percent))
-  window.hermesDesktop.zoom.onChanged(({ percent }) => $zoomPercent.set(percent))
+  const zoom = window.hermesDesktop.zoom
+  let receivedZoomChange = false
+
+  zoom.onChanged(({ percent }) => {
+    receivedZoomChange = true
+    $zoomPercent.set(percent)
+  })
+
+  void zoom.get().then(({ percent }) => {
+    if (!receivedZoomChange) {
+      $zoomPercent.set(percent)
+    }
+  })
 }

@@ -194,7 +194,7 @@ test('a successful callback does not fire the sign-in timeout dialog', async () 
 test('exchange timeout clears only the pending sign-in that failed', async () => {
   const d = deps({
     postJson: async () => {
-      throw new Error('Timed out connecting to Nia after 15000ms')
+      throw new Error('Timed out connecting to OkVevo after 15000ms')
     }
   })
 
@@ -209,7 +209,7 @@ test('exchange timeout does not clear a newer pending sign-in', async () => {
   const d = deps({
     postJson: async () => {
       duringPost?.()
-      throw new Error('Timed out connecting to Nia after 15000ms')
+      throw new Error('Timed out connecting to OkVevo after 15000ms')
     }
   })
 

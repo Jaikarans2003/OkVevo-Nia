@@ -1,4 +1,3 @@
-import { scrubUserFacingText } from '@/lib/user-facing-error'
 import type { NativeNotificationInput } from '@/store/native-notifications'
 import { dismissNotification, type NotificationInput, type NotificationKind, notify } from '@/store/notifications'
 
@@ -25,7 +24,17 @@ export interface AgentNoticePayload {
   ttl_ms?: null | number
   key?: string
   id?: string
+  /** Full text behind a short `text` (the low-disk auto-prune question): the toast's expandable body. */
+  detail?: string
 }
+
+/** `credits.window_limit` (agent/credits_tracker.py CREDITS_WINDOW_LIMIT_KEY). */
+const WINDOW_LIMIT_KEY = 'credits.window_limit'
+/** `model.large_notice` (tui_gateway/model_switch.py LARGE_MODEL_NOTICE_KEY): switched to a Large model. */
+const LARGE_MODEL_NOTICE_KEY = 'model.large_notice'
+
+/** `credits.window.<gauge id>`: a window plan's 90% heads-up (CREDITS_WINDOW_APPROACH_PREFIX). */
+const WINDOW_APPROACH_PREFIX = 'credits.window.'
 
 const LEVEL_TO_TOAST_KIND: Record<string, NotificationKind> = {
   error: 'error',
@@ -81,6 +90,12 @@ export function noticeAccent(payload: AgentNoticePayload | undefined): string | 
     return 'var(--ui-green)'
   }
 
+  // A window plan's 90% heads-up (`credits.window.<id>`, agent/credits_tracker.py): orange, like the
+  // credits gauge past 75%. Same for the Large-model warning.
+  if (payload?.key?.startsWith(WINDOW_APPROACH_PREFIX) || payload?.key === LARGE_MODEL_NOTICE_KEY) {
+    return 'var(--ui-orange)'
+  }
+
   const frac = usageFraction(payload?.text)
 
   if (frac === null) {
@@ -112,7 +127,9 @@ export function noticeAccent(payload: AgentNoticePayload | undefined): string | 
 export function noticeToToast(payload: AgentNoticePayload | undefined): NotificationInput | null {
   const text = payload?.text?.trim()
 
-  if (!text) {
+  // A window plan's limit line is said by the refused turn's error card (same
+  // sentence, with Open billing / Retry at reset); a toast would say it twice.
+  if (!text || payload?.key === WINDOW_LIMIT_KEY) {
     return null
   }
 
@@ -124,8 +141,6 @@ export function noticeToToast(payload: AgentNoticePayload | undefined): Notifica
   // status line that reads fine, but the toast follows the title-plus-description
   // convention (Sonner/shadcn): the primary status is the message and the detail
   // drops to a muted second line, instead of inlining a `·` separator.
-  // Public builds: scrub leftover vendor names (curated copy, not raw
-  // exceptions — scrub, not default-deny).
   const [primary, meta] = splitMeta(stripGlyph(text))
 
   return {
@@ -137,8 +152,9 @@ export function noticeToToast(payload: AgentNoticePayload | undefined): Notifica
     durationMs: isTtl ? ttl : 0,
     id: payload?.key || payload?.id,
     kind: LEVEL_TO_TOAST_KIND[payload?.level ?? 'info'] ?? 'info',
-    message: scrubUserFacingText(primary),
-    meta: meta ? scrubUserFacingText(meta) : meta
+    message: primary,
+    meta,
+    ...(payload?.detail?.trim() ? { detail: payload.detail.trim() } : {})
   }
 }
 
@@ -155,6 +171,11 @@ export function splitMeta(text: string): [primary: string, meta: string | undefi
   }
 
   return [text.slice(0, at), text.slice(at + 3) || undefined]
+}
+
+/** Settings → Model's default-model apply returns the Large-model warning on its response (no session event). */
+export function showLargeModelNotice(text: string): void {
+  showAgentNotice({ key: LARGE_MODEL_NOTICE_KEY, kind: 'ttl', level: 'warn', text, ttl_ms: 8000 })
 }
 
 /** Render a `notification.show` notice as a toast (no-op when it has no text). */
@@ -176,11 +197,12 @@ export function clearAgentNotice(key: string | undefined): void {
   }
 }
 
-// Only these two credit notices are urgent enough to break through as a native
-// OS notification (when Hermes is backgrounded). The escalating usage line
+// Only these credit notices are urgent enough to break through as a native OS
+// notification (when Hermes is backgrounded): access paused, a window plan's
+// limit reached, and access restored. The escalating usage line
 // (`credits.usage`) and the grant-spent notice stay in-app toasts only — they
 // aren't worth interrupting the user's OS for.
-const NATIVE_NOTICE_KEYS = new Set(['credits.depleted', 'credits.restored'])
+const NATIVE_NOTICE_KEYS = new Set(['credits.depleted', WINDOW_LIMIT_KEY, 'credits.restored'])
 
 /**
  * Map a notice to a native OS notification input, or `null` when it isn't one of
@@ -201,7 +223,7 @@ export function nativeNoticeInput(
   }
 
   return {
-    body: scrubUserFacingText(text),
+    body: text,
     global: true,
     kind: 'credits',
     title

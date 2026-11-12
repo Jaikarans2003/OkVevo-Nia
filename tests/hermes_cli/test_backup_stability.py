@@ -56,7 +56,7 @@ def test_atomic_output_keeps_previous_file_after_failure(tmp_path) -> None:
 def test_quick_snapshot_is_published_with_manifest(tmp_path, monkeypatch) -> None:
     home = tmp_path / ".hermes"
     home.mkdir()
-    (home / "config.yaml").write_text("model: {}\n", encoding="utf-8")
+    (home / "config.yaml").write_bytes(b"model: {}\n")
     published: list[tuple[Path, Path]] = []
 
     from hermes_cli import backup
@@ -85,10 +85,15 @@ def test_quick_snapshot_is_published_with_manifest(tmp_path, monkeypatch) -> Non
     assert manifest["files"] == {"config.yaml": 10}
 
 
-
-@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+@pytest.mark.platforms("posix")  # POSIX permission bits
 def test_quick_snapshot_tree_is_owner_only_under_permissive_umask(tmp_path) -> None:
-    """Recovery snapshots must never inherit world-readable default modes."""
+    """Recovery snapshots must never inherit world-readable default modes.
+
+    A normal 0022 umask creates SQLite databases and JSON files as 0644 and
+    directories as 0755.  Quick snapshots contain session state, credentials,
+    pairing records, and cron data, so every published file must be 0600 and
+    every directory 0700 regardless of the caller's umask or source modes.
+    """
     home = tmp_path / ".hermes"
     home.mkdir()
     (home / "config.yaml").write_text("model: {}\n", encoding="utf-8")

@@ -3,7 +3,7 @@
  *
  * Production: missing Apple, Windows, or feed-upload secrets must exit 1 so
  * CI never publishes an unsigned latest.yml.
- * Unsigned: `--allow-unsigned` / NIA_ALLOW_UNSIGNED=1|true checks feed secrets only.
+ * Unsigned: `--allow-unsigned` / OKVEVO_ALLOW_UNSIGNED=1|true checks feed secrets only.
  * Local `npm run pack` does not run this.
  *
  * Usage: node scripts/require-release-secrets.mjs [--allow-unsigned]
@@ -28,7 +28,7 @@ export const REQUIRED_RELEASE_SECRETS = [...REQUIRED_SIGNING_SECRETS, ...REQUIRE
 
 export function unsignedPackAllowed(env = process.env, argv = process.argv.slice(2)) {
   if (argv.includes('--allow-unsigned')) return true
-  const v = String(env.NIA_ALLOW_UNSIGNED ?? '').trim().toLowerCase()
+  const v = String(env.OKVEVO_ALLOW_UNSIGNED ?? '').trim().toLowerCase()
   return v === '1' || v === 'true'
 }
 
@@ -39,7 +39,7 @@ export function missingReleaseSecrets(env = process.env, options = {}) {
 
 export function formatMissingReleaseSecrets(missing) {
   return [
-    'Packaged Nia releases are fail-closed: missing signing or feed secrets.',
+    'Packaged OkVevo releases are fail-closed: missing signing or feed secrets.',
     `Unset: ${missing.join(', ')}`,
     'See docs/FINISH-SIGNED-RELEASE.md and docs/CI-CD.md.'
   ].join('\n')

@@ -1,0 +1,27 @@
+# Lines are either "substring <text>" or "exact <text>".
+# substring: removed from a literal before the Hermes check.
+# exact: the whole literal is internal and stays.
+substring Built on Hermes Agent by Nous Research
+substring Hermes Agent by Nous Research
+substring X-Hermes-
+exact Hermes Agent
+exact user.name=Hermes
+# Nia scan (the agent is "OkVevo agent"):
+# reason: GitHub repo slug in install, diagnostics, and commit URLs
+substring OkVevo-Nia
+# reason: stable installer object names on releases.okvevo.com
+substring Nia-mac-arm64.dmg
+# reason: stable installer object names on releases.okvevo.com
+substring Nia-win-x64.exe
+# reason: internal PowerShell Add-Type class name, never shown; v0.23.0 windows-remote-lifecycle.test pins it
+substring HermesMarkerNoFollow
+# reason: Webapp-only messages (v0.23.0 browser-hosted Desktop). Public builds force webapp.enabled false.
+exact Hermes API paths must remain on the Webapp origin
+exact Hermes API paths must remain inside the configured base path
+substring Hermes API returned HTML for
+exact Hermes did not return a file ticket
+substring Hermes did not return a ticket for
+exact Hermes browser-hosted desktop is ready
+substring on the machine running Hermes. Run it from Hermes Desktop or the CLI on that machine.
+exact read_window_below needs the Hermes desktop app: this session is in a browser tab, which cannot see the OS windows around it.
+exact Signed out of Hermes. Sign this browser in again, then press Enter to reconnect.

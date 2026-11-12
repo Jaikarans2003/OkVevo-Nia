@@ -3,18 +3,16 @@
 One shared kwargs owner (`build_local_transcribe_kwargs`) must apply the
 three-layer fix at every local whisper call site:
 
-1. Silero VAD filter on by default except Windows (``stt.local.vad: false``
-   restores raw; win32 forces off — onnxruntime hard-crash / ECONNRESET).
+1. Silero VAD filter on by default (``stt.local.vad: false`` restores raw).
 2. ``condition_on_previous_text=False`` always.
 3. Segment confidence gate: drop segments only when the model BOTH thinks
    the window is non-speech AND decoded it with low confidence — quiet but
    real speech must survive.
 """
 
-import platform
 from types import SimpleNamespace
 
-from tools.transcription_tools import (
+from tools.transcription_local import (
     _LOGPROB_THRESHOLD_DEFAULT,
     _NO_SPEECH_PROB_THRESHOLD_DEFAULT,
     _is_hallucinated_segment,
@@ -28,21 +26,10 @@ def _seg(text, no_speech_prob=0.0, avg_logprob=-0.2):
 
 
 class TestBuildLocalTranscribeKwargs:
-    def test_vad_default_by_platform(self):
+    def test_vad_on_by_default(self):
         kwargs = build_local_transcribe_kwargs({})
-        if platform.system() == "Windows":
-            assert kwargs["vad_filter"] is False
-        else:
-            assert kwargs["vad_filter"] is True
-            assert kwargs["vad_parameters"] == {"min_silence_duration_ms": 500}
-
-    def test_windows_ignores_explicit_vad_true(self):
-        # Hard crash class — config cannot opt back in until onnxruntime is fixed.
-        kwargs = build_local_transcribe_kwargs({"local": {"vad": True}})
-        if platform.system() == "Windows":
-            assert kwargs["vad_filter"] is False
-        else:
-            assert kwargs["vad_filter"] is True
+        assert kwargs["vad_filter"] is True
+        assert kwargs["vad_parameters"] == {"min_silence_duration_ms": 500}
 
     def test_conditioning_always_off(self):
         assert build_local_transcribe_kwargs({})["condition_on_previous_text"] is False
@@ -131,11 +118,8 @@ class TestTranscribeLocalWiring:
     def test_hardened_kwargs_reach_model(self, monkeypatch):
         captured, result = self._run(monkeypatch, {})
         assert result["success"] is True
-        if platform.system() == "Windows":
-            assert captured["vad_filter"] is False
-        else:
-            assert captured["vad_filter"] is True
-            assert captured["vad_parameters"] == {"min_silence_duration_ms": 500}
+        assert captured["vad_filter"] is True
+        assert captured["vad_parameters"] == {"min_silence_duration_ms": 500}
         assert captured["condition_on_previous_text"] is False
         assert captured["no_speech_threshold"] == _NO_SPEECH_PROB_THRESHOLD_DEFAULT
         assert captured["log_prob_threshold"] == _LOGPROB_THRESHOLD_DEFAULT

@@ -1,6 +1,7 @@
-import { defineConfig } from 'vite'
 import babel from '@rolldown/plugin-babel'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+import { load as parseYaml } from 'js-yaml'
 import { resolveBuildChannel } from './scripts/resolve-build-channel.mjs'
 
 /** React Compiler preset scoped to modules that can actually contain
@@ -11,12 +12,36 @@ import { resolveBuildChannel } from './scripts/resolve-build-channel.mjs'
 function compilerPreset() {
   const preset = reactCompilerPreset()
   preset.rolldown.filter.code = /\/>|<\/|from\s*['"][^'"]*react/
+
   return preset
 }
-import tailwindcss from '@tailwindcss/vite'
-import path from 'path'
+
+/** The production renderer build memoizes this pass on disk (scripts/compiler-cache.mjs); the
+ *  lockfile and this config (the preset and its filter) pin the toolchain it keys on. The
+ *  cache lives under node_modules: ignored, and outside every freshness hash. */
+async function cachedCompilerPass(command: string) {
+  // Babel resolves the compiler preset's plugin from its cwd. Pin it here: the
+  // Webapp build runs Vite from the checkout root, which a fresh clone leaves
+  // without node_modules (its dependencies live in the private workspace).
+  return withCompilerCache(await babel({ cwd: __dirname, presets: [compilerPreset()] }), {
+    command,
+    cacheRoot: path.join(__dirname, 'node_modules/.cache/hermes-react-compiler'),
+    base: __dirname,
+    toolchain: [path.resolve(__dirname, '../../package-lock.json'), fileURLToPath(import.meta.url)]
+  })
+}
+
 import fs from 'fs'
 import { createRequire } from 'module'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+import tailwindcss from '@tailwindcss/vite'
+
+import { withCompilerCache } from './scripts/compiler-cache.mjs'
+
+// The runner loads this as ESM without the default bundler's CJS globals.
+const __dirname: string = path.dirname(fileURLToPath(import.meta.url))
 
 // `hgui` symlinks a worktree's node_modules to the main checkout. Vite realpaths
 // those before enforcing server.fs.allow, so codicon/font assets resolve outside
@@ -81,9 +106,16 @@ const emojibaseAssets = () => ({
   }) {
     server.middlewares.use('/emojibase', (req, res, next) => {
       const rel = (req.url ?? '').split('?')[0].replace(/^\/+/, '')
-      if (!emojibaseDir || !EMOJIBASE_PATH.test(rel)) return next()
+
+      if (!emojibaseDir || !EMOJIBASE_PATH.test(rel)) {
+        return next()
+      }
+
       fs.readFile(path.join(emojibaseDir, rel), (err: unknown, buf: Buffer) => {
-        if (err) return next()
+        if (err) {
+          return next()
+        }
+
         res.setHeader('Content-Type', 'application/json')
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
         res.end(buf)
@@ -91,7 +123,10 @@ const emojibaseAssets = () => ({
     })
   },
   generateBundle(this: { emitFile: (asset: { type: 'asset'; fileName: string; source: Uint8Array }) => void }) {
-    if (!emojibaseDir) return
+    if (!emojibaseDir) {
+      return
+    }
+
     for (const rel of ['en/data.json', 'en/messages.json', 'en/shortcodes/emojibase.json']) {
       this.emitFile({
         type: 'asset',
@@ -102,12 +137,30 @@ const emojibaseAssets = () => ({
   }
 })
 
+/** `okvevo.workarounds.*` from the shipped defaults (docs/okvevo/WORKAROUNDS.md). */
+function okvevoWorkarounds(): Record<string, boolean> {
+  const text = fs.readFileSync(path.resolve(__dirname, '../../okvevo/config/okvevo-defaults.yaml'), 'utf8')
+
+  const defaults = parseYaml(text) as { okvevo?: { workarounds?: Record<string, boolean> } } | null
+
+  return defaults?.okvevo?.workarounds ?? {}
+}
+
+/** `agentName` from okvevo/config/identity.json, the one place the agent's name lives. */
+function okvevoAgentName(): string {
+  const text = fs.readFileSync(path.resolve(__dirname, '../../okvevo/config/identity.json'), 'utf8')
+
+  return (JSON.parse(text) as { agentName: string }).agentName
+}
+
 export default defineConfig(({ command }) => ({
   base: './',
   define: {
-    __NIA_BUILD_CHANNEL__: JSON.stringify(resolveBuildChannel({ isDev: command === 'serve' }))
+    __OKVEVO_BUILD_CHANNEL__: JSON.stringify(resolveBuildChannel({ isDev: command === 'serve' })),
+    __OKVEVO_WORKAROUNDS__: JSON.stringify(okvevoWorkarounds()),
+    __OKVEVO_AGENT_NAME__: JSON.stringify(okvevoAgentName())
   },
-  plugins: [react(), babel({ presets: [compilerPreset()] }), tailwindcss(), emojibaseAssets()],
+  plugins: [react(), cachedCompilerPass(command), tailwindcss(), emojibaseAssets()],
   css: {
     // Pin an explicit (empty) PostCSS config. Tailwind is handled entirely by
     // `@tailwindcss/vite`, so the renderer needs no PostCSS plugins — and
@@ -122,6 +175,9 @@ export default defineConfig(({ command }) => ({
     postcss: { plugins: [] }
   },
   build: {
+    // Validate the packaged generation with metadata checks at launch, without
+    // reading every lazy vendor chunk (and triggering on-access AV scans).
+    manifest: 'renderer-manifest.json',
     // The renderer intentionally ships FEW chunks (not one, not thousands):
     //   · `codeSplitting: false` (the old setup) inlines every `lazy()` /
     //     dynamic import into the entry, so heavyweight lazy-only deps
@@ -152,15 +208,13 @@ export default defineConfig(({ command }) => ({
             // heavy groups for the same boot-path reason.
             {
               name: 'vendor-util',
-              test: /node_modules[\\/](lodash-es|es-toolkit|uuid|dayjs|d3-array|d3-color|d3-force|d3-interpolate|d3-time[^\\/]*|dompurify|stylis)[\\/]/
+              test: /node_modules[\\/](lodash-es|es-toolkit|dayjs|d3-array|d3-color|d3-force|d3-interpolate|d3-time[^\\/]*|dompurify)[\\/]/
             },
             // One chunk per heavyweight, lazy-only library family.
             // @streamdown/code lives WITH shiki because it statically imports
-            // the full shiki bundle.
-            {
-              name: 'mermaid',
-              test: /node_modules[\\/](mermaid|cytoscape|dagre|khroma|elkjs|d3|d3-[^\\/]+|@mermaid-js)[\\/]/
-            },
+            // the full shiki bundle. Pele (mermaid fences) is deliberately not
+            // grouped: `pele/lazy` keeps each diagram type in its own small
+            // chunk, and a group would merge them back into one.
             {
               name: 'shiki',
               test: /node_modules[\\/](shiki|@shikijs|react-shiki|@streamdown[\\/]code|oniguruma-to-es|oniguruma-parser|regex(-[^\\/]+)?)[\\/]/
@@ -190,14 +244,10 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       '@/debug/dev-only': debugEntry(command, process.env as Record<string, string>),
-      '@/i18n/en': path.resolve(__dirname, '../../brand/locales/desktop/en.ts'),
-      '@/i18n/ar': path.resolve(__dirname, '../../brand/locales/desktop/ar.ts'),
-      '@/i18n/ja': path.resolve(__dirname, '../../brand/locales/desktop/ja.ts'),
-      '@/i18n/zh': path.resolve(__dirname, '../../brand/locales/desktop/zh.ts'),
-      '@/i18n/zh-hant': path.resolve(__dirname, '../../brand/locales/desktop/zh-hant.ts'),
       '@': path.resolve(__dirname, './src'),
       '@hermes/plugin-sdk': path.resolve(__dirname, './src/sdk/index.ts'),
       '@hermes/shared/billing': path.resolve(__dirname, '../shared/src/billing-types.ts'),
+      '@hermes/shared/color': path.resolve(__dirname, '../shared/src/color.ts'),
       '@hermes/shared': path.resolve(__dirname, '../shared/src'),
       // The tour tool's preview surface injects driver.js's prebuilt IIFE into
       // the pane's guest page as raw source; the package's exports map doesn't
