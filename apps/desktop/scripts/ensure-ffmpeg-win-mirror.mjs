@@ -35,6 +35,21 @@ function curlOk(url) {
   }
 }
 
+function waitPublic(url, attempts = 12, delayMs = 5000) {
+  for (let i = 1; i <= attempts; i++) {
+    if (curlOk(url)) return
+    console.log(`public HTTPS not ready (${i}/${attempts}); waiting ${delayMs}ms`)
+    execFileSync(
+      process.platform === 'win32' ? 'powershell' : 'sleep',
+      process.platform === 'win32'
+        ? ['-Command', `Start-Sleep -Milliseconds ${delayMs}`]
+        : [String(Math.ceil(delayMs / 1000))],
+      { stdio: 'ignore' }
+    )
+  }
+  throw new Error(`uploaded but public HTTPS still not 200 after ${attempts} attempts: ${url}`)
+}
+
 function download(url, dest) {
   fs.mkdirSync(path.dirname(dest), { recursive: true })
   execFileSync('curl', ['-fL', '--retry', '3', '-o', dest, url], { stdio: 'inherit' })
@@ -90,7 +105,7 @@ if (curlOk(PUBLIC)) {
   fs.writeFileSync(sidecarPath, `${PIN_SHA}  ${ZIP_NAME}\n`)
   awsCp(LOCAL_ZIP, `deps/ffmpeg/${ZIP_NAME}`)
   awsCp(sidecarPath, `deps/ffmpeg/${ZIP_NAME}.sha256`, 'text/plain')
-  if (!curlOk(PUBLIC)) throw new Error('uploaded but public HTTPS still not 200')
+  waitPublic(PUBLIC)
   verifyPublicBytes()
 }
 
