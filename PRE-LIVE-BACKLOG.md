@@ -3,13 +3,21 @@
 Items here are **not urgent day-to-day**, but **must be closed before any external tester or production ship** (“go live”). They are easy to defer and expensive to rediscover — keep this file current.
 
 **Canonical repo:** `Jaikarans2003/OkVevo-Nia`  
-**Last reviewed:** 2026-10-23 (upstream reset to Hermes v0.22.4; OkVevo plugins + desktop rename; CI on `okvevo-*.yml`. Branch protection on a **private** repo needs a paid GitHub plan. `manage_bot` is a RELEASE BLOCKER for `main`.)
+**Last reviewed:** 2026-11-12 (v0.1.0 focus-group beta prep: `manage_bot` descoped; signing → Required before public launch; private-repo → Required before privatize; Publish greps open Hard gates only.)
+
+## Current priority order
+
+1. Ship v0.1.0 to production (promote staging → prod plan)
+2. PR 3: CI safety net
+3. Legal pages + website update
+4. Admin dashboard (users, credits, grants, refunds, payments, support tickets, queries)
+5. Code signing (Mac + Windows)
 
 ---
 
 ## How to use this file
 
-1. **Before go-live:** every row in **Hard gates** must be `[x]` done; **Required before live** should be `[x]` unless explicitly accepted with a dated waiver note.
+1. **Before go-live / Publish:** every row in **Hard gates** must be `[x]` done (or the section empty of open `### [ ]`). **Required before live / public launch** should be `[x]` unless explicitly accepted with a dated waiver note.
 2. **When deferring work:** if a task is out of scope for the current pass but must ship eventually, add or extend an entry here **in the same PR/session** — do not rely on chat memory or plan files alone.
 3. **When closing an item:** mark the checkbox, add `Closed:` date + commit/PR link, move to **Closed** at the bottom (keep history).
 4. **Verification:** each entry lists a concrete grep, test, or manual check — run it when claiming done.
@@ -33,40 +41,50 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Hard gates (block go-live)
 
-### [ ] RELEASE BLOCKER for main: manage_bot (create/list/update bots from chat) via plugins/okvevo
+_None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reappears under this heading._
 
-| Field | Value |
-|-------|-------|
-| **Gate** | RELEASE BLOCKER for `main` (Hard gate). Do not merge this capability gap into `main` / customer ship. Staging testers can use the Bots UI. |
-| **Risk if skipped** | Chat-driven bot create / list / update ("make me a bot that…") has no tool. Upstream v0.22.4 has no replacement. File-tool workarounds are not a product path. |
-| **Scope** | `plugins/okvevo/` (new `manage_bot.py` + `ctx.register_tool` in `__init__.py`); fork source at `pre-upstream-reset:tools/manage_bot_tool.py` (254 lines) |
-| **Fix** | Port the fork tool as a plugin-registered tool via `PluginContext.register_tool()`. Chat create/list/update only — no delete (delete stays UI-only). Re-check the v0.22.4 bot layout (`tools/bot_desktop/`, bot profiles under `~/.hermes`) before copying 2026.8 write paths. |
-| **Verify** | `scripts/run_tests.sh plugins/okvevo/tests/` includes a manage_bot registration + slug/compose test; create-bot round-trip from chat on a packed public build. |
-| **Notes** | Logged 2026-10-22 during the upstream-reset `plugins` todo; promoted to RELEASE BLOCKER for main 2026-10-23. Exact UI vs chat failures: `docs/okvevo/TESTING.md` Known gaps. |
+---
 
-### [ ] First tagged release must be signed (Mac notarize + Windows Authenticode)
-
-| Field | Value |
-|-------|-------|
-| **Gate** | Hard gate |
-| **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
-| **Scope** | `.github/workflows/okvevo-desktop-staging.yml`, `okvevo-desktop-production.yml`, `okvevo-desktop-pack.yml`, `okvevo-desktop-publish.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/publish-release-feed.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/FINISH-SIGNED-RELEASE.md`, `docs/CI-CD.md` |
-| **Fix** | Put the secrets listed in `docs/FINISH-SIGNED-RELEASE.md` / `docs/CI-CD.md` into GitHub Actions **repository** secrets. Tag `vX.Y.Z` packs versioned R2 objects only; Karan runs **Publish release** to point `latest*.yml`. Unset `PROD_ALLOW_UNSIGNED` before the first signed customer ship — missing certs then fail the job on purpose. |
-| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `OKVEVO_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + tag pack green with **root `latest.yml` unchanged**; after Publish release, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
-| **Notes** | Pack/publish path landed 2026-09-21 (Phase B). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). Staging may pack **unsigned**; production uses `vars.PROD_ALLOW_UNSIGNED` until certs exist. Do not check this box until a **signed** Publish release exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. |
+## Required before privatize
 
 ### [ ] Private repo breaks DMG first-install bootstrap
 
 | Field | Value |
 |-------|-------|
-| **Gate** | Hard gate |
+| **Gate** | Required before privatize (not a Publish / v0.1.0 beta blocker). Repo stays public for the focus-group beta. |
 | **Risk if skipped** | `raw.githubusercontent.com` does not serve private repos without a token. Packaged DMG bootstrap (`bootstrap-runner.ts` `downloadInstallScript`) and `install.sh` git clone both hit GitHub unauthenticated — same HTTP 404 as 2026-08-31 if the repo is private. First install never starts: no clone, no SOUL.md, no first chat. |
 | **Scope** | `apps/desktop/electron/bootstrap-runner.ts`, `apps/desktop/electron/packaged-snapshot.ts`, `apps/desktop/scripts/pack-agent-snapshot.mjs`, extraResources `agent-snapshot.tar.gz` + bundled `install.sh`/`install.ps1`. Product/repo policy: `Jaikarans2003/OkVevo-Nia` visibility. |
 | **Why acceptable now** | Packaged apps no longer fetch GitHub. Repo is still public until a GitHub-blocked fresh-install test passes, then privatize. |
 | **Fix** | **Bundled path (implemented 2026-09-14):** ship `install.sh`/`install.ps1` and a filtered agent snapshot in extraResources; extract on stamp change; venv + python-deps still hit PyPI. Auth/token path was not built. |
 | **Hard gate** | Do **not** flip `Jaikarans2003/OkVevo-Nia` private until a fresh `rm -rf ~/.hermes` install with GitHub blocked completes **and** the two Phase C privatize items below are closed. Public visibility remains until that test. |
-| **Verify** | 1) Packaged resources contain `agent-snapshot.tar.gz` + `install.sh`. 2) Fresh install: `rm -rf ~/.hermes`, launch, bootstrap log must **not** show `from GitHub` / `raw.githubusercontent.com`. 3) Block GitHub at the network: first install still reaches venv + Nia SOUL. Then privatize. |
-| **Notes** | **Code landed 2026-09-14.** Historical 2026-08-31 404 on raw fetch is why this gate existed. Existing `~/.hermes` git clones are replaced on stamp mismatch. **Ops remaining:** GitHub-blocked fresh-install test, then privatize. Phase C: staging still uses GitHub `upload-artifact` (500 MB private Free cap) and `ci.yaml`+pack on every staging push (2,000 min/month). |
+| **Verify** | 1) Packaged resources contain `agent-snapshot.tar.gz` + `install.sh`. 2) Fresh install: `rm -rf ~/.hermes`, launch, bootstrap log must **not** show `from GitHub` / `raw.githubusercontent.com`. 3) Block GitHub at the network: first install still reaches venv + OkVevo SOUL. Then privatize. |
+| **Notes** | **Code landed 2026-09-14.** Historical 2026-08-31 404 on raw fetch is why this gate existed. Existing `~/.hermes` git clones are replaced on stamp mismatch. **Ops remaining:** GitHub-blocked fresh-install test, then privatize. Phase C: staging still uses GitHub `upload-artifact` (500 MB private Free cap) and `ci.yaml`+pack on every staging push (2,000 min/month). Reclassified from Hard gate 2026-11-12 for unsigned focus-group beta. |
+
+---
+
+## Required before public launch
+
+### [ ] First tagged release must be signed (Mac notarize + Windows Authenticode)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before public launch (priority #5). Waived for unsigned focus-group beta while `PROD_ALLOW_UNSIGNED=1`. |
+| **Risk if skipped** | In-app update installs an unsigned binary; Gatekeeper/SmartScreen reject it, or a compromised feed can ship a non-OkVevo build. |
+| **Scope** | `.github/workflows/okvevo-desktop-staging.yml`, `okvevo-desktop-production.yml`, `okvevo-desktop-pack.yml`, `okvevo-desktop-publish.yml`, `apps/desktop/scripts/require-release-secrets.mjs`, `apps/desktop/scripts/publish-release-feed.mjs`, `apps/desktop/scripts/notarize.mjs`, `apps/desktop/scripts/sign-windows.mjs`, `docs/okvevo/CI-CD.md`, `docs/FINISH-SIGNED-RELEASE.md` (when restored) |
+| **Fix** | Put the signing secrets listed in `docs/okvevo/CI-CD.md` / `docs/FINISH-SIGNED-RELEASE.md` into GitHub Actions **repository** secrets. Tag `vX.Y.Z` packs versioned R2 objects only; Karan runs **Publish release** to point `latest*.yml`. Unset `PROD_ALLOW_UNSIGNED` before the first signed customer ship — missing certs then fail the job on purpose. |
+| **Verify** | `node apps/desktop/scripts/require-release-secrets.mjs` exits 1 with no secrets. Staging may pass `OKVEVO_ALLOW_UNSIGNED=1` (feed secrets only). After signing secrets: staging + tag pack green with **root `latest.yml` unchanged**; after Publish release, `https://releases.okvevo.com/latest-mac.yml` and `latest.yml` exist; test install picks up the update. |
+| **Notes** | Pack/publish path landed 2026-09-21 (Phase B). **Ops remaining:** signing certs (R2/DNS done 2026-09-17). Staging may pack **unsigned**; production uses `vars.PROD_ALLOW_UNSIGNED` until certs exist. Do not check this box until a **signed** Publish release exists. Feed host is `releases.okvevo.com`, not www.okvevo.com. Reclassified from Hard gate 2026-11-12. |
+
+### [ ] Legal pages (privacy, terms, refund/cancellation, contact) linked from checkout and footer
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before public launch / marketing (priority #3). Waived for v0.1.0 focus-group beta. |
+| **Risk if skipped** | Checkout and footer lack company-policy legal surfaces; public marketing / paid launch is incomplete. |
+| **Scope** | OkVevo-Web legal routes + footer/checkout links; copy decided with company policy after admin dashboard. |
+| **Fix** | Ship privacy, terms, refund/cancellation, and contact pages; link from checkout and footer. Decide exact copy after the admin dashboard exists. |
+| **Verify** | www footer + checkout link all four; pages render on production. |
+| **Notes** | Logged 2026-11-12 with promote-staging-to-prod plan. |
 
 ---
 
@@ -806,10 +824,36 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ---
 
+## Later ideas
+
+### manage_bot from chat (descoped)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Later idea — **not** Required before public launch |
+| **Status** | **Descoped — not needed; Bots UI covers create/edit/delete. Decided by Karan, 2026-11-12.** |
+| **Risk if skipped** | Chat cannot create/list/update bots; Bots UI still can. |
+| **Scope** | Was `plugins/okvevo/` port of fork `tools/manage_bot_tool.py` |
+| **Notes** | Was Hard-gate / RELEASE BLOCKER for main. Closed out of Hard gates 2026-11-12 so Publish can run. Revisit only if product asks for chat-driven bot CRUD. |
+
+### Older stable versions on `/okvevo-download`
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Later idea / Nice-to-have |
+| **Risk if skipped** | Testers who need an older build must use versioned R2 URLs by hand. |
+| **Scope** | OkVevo-Web `/okvevo-download` + `releases.json` from Publish |
+| **Fix** | Add an “Older stable versions” section fed from `https://releases.okvevo.com/releases.json`. |
+| **Verify** | Page lists prior stable versions with working download links after at least two Publishes. |
+| **Notes** | Logged 2026-11-12 with fix-forward rollback policy (ship v0.1.1 rather than downgrade). |
+
+---
+
 ## Closed
 
 _(Move items here when done.)_
 
+| manage_bot RELEASE BLOCKER (chat create/list/update) | 2026-11-12 | Descoped — Bots UI covers it; moved to Later ideas. Decided by Karan. |
 | Mac updater stable-mac.yml feed path | 2026-11-11 | feat/okvevo-polish-cleanup: publish dual-writes releases/darwin/stable/stable-mac.yml with absolute installer URLs; smoke GETs Hermes path |
 | @okvevo display alias for default bot | 2026-11-11 | feat/okvevo-polish-cleanup: claim @default/@hermes/@nia twins; tests retargeted |
 | Desktop SemVer set to 0.1.0 | 2026-11-11 | feat/okvevo-polish-cleanup: apps/desktop/package.json version 0.1.0 |
