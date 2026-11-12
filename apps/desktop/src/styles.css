@@ -4274,7 +4274,7 @@ html[data-hermes-desktop-host='browser'] [data-slot='sidebar-container'] {
 }
 
 .intro-splash-name {
-  background-image: linear-gradient(180deg, #ff8a3d 0%, #ff6d1f 42%, #ffd36a 100%);
+  background-image: linear-gradient(180deg, #ff8a3d 0%, #ff6f20 42%, #ffd36a 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -4288,7 +4288,7 @@ html[data-hermes-desktop-host='browser'] [data-slot='sidebar-container'] {
 }
 
 .intro-splash-caret {
-  background: #ff6d1f;
+  background: #ff6f20;
   box-shadow: none;
   animation: intro-splash-caret-blink 0.55s steps(1, end) infinite;
 }

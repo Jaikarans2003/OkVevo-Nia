@@ -71,6 +71,7 @@ import { groupWorkspaceOwnerKey } from './group-membership'
 import { annotateOrphanedGroupChatMembers } from './hygiene'
 import { BOTS_LOCALES } from './i18n'
 import { displayName } from './labels'
+import { okvevoDefaultMentionClaim } from './okvevo-mention-alias'
 import { startBotRelay, stopBotRelay } from './relay'
 import { $activityToasts } from './roster-actions'
 import {
@@ -152,35 +153,38 @@ export default {
           const profiles = Array.isArray(roster?.profiles) ? roster.profiles : []
           const active = focusedMentionProfile()
           const q = (query || '').toLowerCase()
+          // Always claim @okvevo (incl. focused-default / cold roster) so merge
+          // drops gateway @hermes/@default twins — see okvevo-mention-alias.ts.
           const items: MentionCompletionItem[] = []
+          const claim = okvevoDefaultMentionClaim(query)
+
+          if (claim) {
+            items.push(claim)
+          }
+
+          if (!profiles.length) {
+            return items
+          }
 
           const live = {
             name: active,
             connectionId: String(host.state.connectionId?.get?.() || host.activeConnectionId?.() || 'local')
           }
 
-          // Cold / empty roster: still claim @okvevo so the menu is usable
-          // before profiles.list lands (twin handles retire gateway aliases).
-          if (!profiles.length) {
-            if (active === 'default') {
-              return []
+          // Untagged local default is owned by okvevoDefaultMentionClaim. A
+          // renamed default (e.g. title → @lucy) still lists under its slug.
+          const offered = profiles.filter(profile => {
+            if (!profile?.name || isActiveRosterBot(profile, live)) {
+              return false
             }
 
-            if (q && !'okvevo'.startsWith(q) && !'default'.startsWith(q)) {
-              return []
+            if (!profile.remoteSource && profile.name === 'default' && botMentionTag(profile) === 'okvevo') {
+              return false
             }
 
-            return [
-              {
-                insert: '@okvevo',
-                display: '@okvevo',
-                meta: 'Bot · OkVevo agent',
-                handles: ['@default', '@hermes', '@nia']
-              }
-            ]
-          }
+            return true
+          })
 
-          const offered = profiles.filter(profile => profile?.name && !isActiveRosterBot(profile, live))
           // Two rows tagging alike (two remote defaults both titled "CoS Bot")
           // cannot share a bare tag — it would resolve to neither. Pin the
           // ambiguous ones to their connection (#103731).
@@ -211,16 +215,10 @@ export default {
             const insert = qualified ? `@${tag}@${profile.connectionId}` : `@${tag}`
             const source = profile.connectionLabel ? ` · ${profile.connectionLabel}` : ''
 
-            // Local default claims gateway twins (@default / synthetic @hermes /
-            // leftover @nia) so the merge keeps one @okvevo row. Remote rows
-            // stay unclaimed — the local gateway's same-named row is a
-            // different bot.
-            const twinHandles =
-              profile.remoteSource
-                ? undefined
-                : profile.name === 'default'
-                  ? (['@default', '@hermes', '@nia'] as const)
-                  : ([`@${profile.name}`] as const)
+            // Local rows claim the raw profile name so the merge drops the
+            // gateway twin. Default's @hermes/@nia/@default sit on the
+            // always-emitted @okvevo claim. Remote rows stay unclaimed.
+            const twinHandles = profile.remoteSource ? undefined : ([`@${profile.name}`] as const)
 
             items.push({
               insert,

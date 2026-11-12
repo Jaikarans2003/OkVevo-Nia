@@ -444,6 +444,9 @@ export const slateTheme: DesktopTheme = {
   }
 }
 
+// Brand orange SoT: brand/nia.json palette.orange (asserted in presets.test.ts).
+const OKVEVO_BRAND_ORANGE = '#ff6f20'
+
 const OKVEVO_COLORS = {
   background: '#2b2b2b',
   foreground: '#e3dcd6',
@@ -453,7 +456,7 @@ const OKVEVO_COLORS = {
   mutedForeground: '#908c89',
   popover: '#333333',
   popoverForeground: '#e3dcd6',
-  primary: '#ff6d1f',
+  primary: OKVEVO_BRAND_ORANGE,
   primaryForeground: '#161616',
   secondary: '#513728',
   secondaryForeground: '#e3dcd6',
@@ -461,10 +464,10 @@ const OKVEVO_COLORS = {
   accentForeground: '#e3dcd6',
   border: '#41403f',
   input: '#2b2b2b',
-  ring: '#ff6d1f',
-  midground: '#ff6d1f',
+  ring: OKVEVO_BRAND_ORANGE,
+  midground: OKVEVO_BRAND_ORANGE,
   midgroundForeground: '#161616',
-  composerRing: '#ff6d1f',
+  composerRing: OKVEVO_BRAND_ORANGE,
   destructive: '#f85149',
   destructiveForeground: '#ffffff',
   sidebarBackground: '#252525',

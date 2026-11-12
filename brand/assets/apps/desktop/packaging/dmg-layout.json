@@ -1,0 +1,11 @@
+{
+  "window": { "width": 660, "height": 400 },
+  "iconSize": 96,
+  "iconTextSize": 11,
+  "backgroundColor": "#f4f2ee",
+  "background": "brand/assets/apps/desktop/packaging/dmg-background.png",
+  "contents": [
+    { "x": 180, "y": 175, "type": "file" },
+    { "x": 480, "y": 175, "type": "link", "path": "/Applications" }
+  ]
+}

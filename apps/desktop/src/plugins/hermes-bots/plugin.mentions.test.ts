@@ -292,7 +292,7 @@ describe('@-mention completions', () => {
       {
         insert: '@okvevo',
         display: '@okvevo',
-        meta: 'Bot · OkVevo agent',
+        meta: 'OkVevo agent',
         handles: ['@default', '@hermes', '@nia']
       }
     ])
@@ -300,12 +300,33 @@ describe('@-mention completions', () => {
     expect(provide('zzz')).toEqual([])
   })
 
-  it('never offers the bot whose chat you are already in', async () => {
+  it('still claims @okvevo when focused on default with a cold roster', async () => {
+    const { provide } = await contributions({ focused: 'default', profiles: [] })
+
+    expect(provide('')).toEqual([
+      {
+        insert: '@okvevo',
+        display: '@okvevo',
+        meta: 'OkVevo agent',
+        handles: ['@default', '@hermes', '@nia']
+      }
+    ])
+  })
+
+  it('still claims @okvevo when focused on default with a live roster', async () => {
+    const { provide } = await contributions({ focused: 'default' })
+
+    const okvevo = provide('').find(item => item.insert === '@okvevo')
+    expect(okvevo?.meta).toBe('OkVevo agent')
+    expect(okvevo?.handles).toEqual(['@default', '@hermes', '@nia'])
+  })
+
+  it('never offers the non-default bot whose chat you are already in', async () => {
     const { provide } = await contributions()
 
-    // 'default' on the LIVE connection is the active bot; only the Vera twin
-    // is a real handoff target.
-    expect(provide('').map(item => item.insert)).toEqual(['@default-vera'])
+    // Default still claims @okvevo (display alias); only the Vera twin is an
+    // extra handoff target. Self-focused non-default bots stay hidden.
+    expect(provide('').map(item => item.insert)).toEqual(['@okvevo', '@default-vera'])
   })
 
   it('narrows on the typed prefix and labels the source device', async () => {

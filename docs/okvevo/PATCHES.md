@@ -373,9 +373,16 @@ corresponding list **exactly**.
 - `apps/desktop/src/app/chat/composer/composer-disclaimer.test.tsx` — unit coverage for composer disclaimer
 - `apps/desktop/src/app/chat/composer/index.tsx` — mount ComposerDisclaimer below the dock
 - `apps/desktop/src/i18n/types.ts` — disclaimer copy type for OkVevo catalog
-- `apps/desktop/src/plugins/hermes-bots/plugin.tsx` — @okvevo mention claim twins (@default/@hermes/@nia)
-- `apps/desktop/src/plugins/hermes-bots/plugin.mentions.test.ts` — @okvevo mention menu tests
+- `apps/desktop/src/app/chat/composer/hooks/use-at-completions-contrib.test.tsx` — @ merge / twin-claim unit coverage (Hotfix 2.2 @okvevo)
+- `apps/desktop/src/plugins/hermes-bots/plugin.tsx` — one-line hook → okvevo-mention-alias always-claim (@okvevo + twins)
+- `apps/desktop/src/plugins/hermes-bots/plugin.mentions.test.ts` — @okvevo mention menu tests (incl. focused-default)
 - `apps/desktop/src/plugins/hermes-bots/group-rounds.primary-alias.test.ts` — @okvevo primary alias routing tests
+- `apps/desktop/src/plugins/hermes-bots/okvevo-mention-alias.ts` — OkVevo-owned always-emit @okvevo claim
+- `apps/desktop/src/plugins/hermes-bots/okvevo-mention-alias.test.ts` — unit for always-emit claim
+- `apps/desktop/e2e/okvevo/packed-mention-menu.spec.ts` — packed @ menu Mac+Win gate
+- `apps/desktop/scripts/okvevo-dmg-layout.mjs` — DMG layout SoT reader for electron-builder
+- `apps/desktop/scripts/ci-assert-dmg-layout.mjs` — CI assert dmg-layout.json ↔ builder + PNG sizes
+- `apps/desktop/src/themes/presets.ts` — brand orange `#ff6f20` from brand/nia.json SoT
 <!-- /okvevo-delta:apps/desktop -->
 
 ## Retired
