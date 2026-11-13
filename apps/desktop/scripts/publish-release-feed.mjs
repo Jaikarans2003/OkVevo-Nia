@@ -14,16 +14,11 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import fs from 'node:fs'
+import http from 'node:http'
+import https from 'node:https'
 import os from 'node:os'
 import path from 'node:path'
-import { Agent, fetch as undiciFetch } from 'undici'
-
-/** Multi-GB installer GETs; undici's default bodyTimeout aborts mid-stream ("terminated"). */
-const longBodyAgent = new Agent({
-  connectTimeout: 60_000,
-  headersTimeout: 600_000,
-  bodyTimeout: 0
-})
+import { URL } from 'node:url'
 
 const { darwinFeed } = createRequire(import.meta.url)('../update-feed.cjs')
 
@@ -495,17 +490,54 @@ export function feedFileUrl(origin, fileUrl) {
   return `${String(origin).replace(/\/+$/, '')}/${name.replace(/^\/+/, '')}`
 }
 
+/**
+ * Stream-hash via node:https (no undici bodyTimeout). Publish CI does not
+ * npm-install; bare `import 'undici'` fails there. Null unless HTTP 200.
+ */
+function digestViaNodeHttp(url) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const lib = parsed.protocol === 'http:' ? http : https
+    const req = lib.get(
+      parsed,
+      { timeout: 0 },
+      res => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume()
+          digestViaNodeHttp(new URL(res.headers.location, parsed).href).then(resolve, reject)
+          return
+        }
+        if (res.statusCode !== 200) {
+          res.resume()
+          resolve(null)
+          return
+        }
+        const hash = createHash('sha512')
+        let size = 0
+        res.on('data', chunk => {
+          hash.update(chunk)
+          size += chunk.length
+        })
+        res.on('end', () => resolve({ sha512: hash.digest('base64'), size }))
+        res.on('error', reject)
+      }
+    )
+    req.on('timeout', () => {
+      req.destroy(new Error('socket timeout'))
+    })
+    req.on('error', reject)
+  })
+}
+
 /** Streams the body so 1.5 GB installers never sit in memory. Null unless HTTP 200. */
 export async function fetchDigest(url, fetchImpl = globalThis.fetch, { attempts = 3 } = {}) {
-  const useLongBody = fetchImpl === globalThis.fetch
-  const get = (u) =>
-    useLongBody
-      ? undiciFetch(u, { method: 'GET', dispatcher: longBodyAgent })
-      : fetchImpl(u, { method: 'GET' })
   let lastErr
   for (let i = 1; i <= attempts; i++) {
     try {
-      const res = await get(url)
+      if (fetchImpl === globalThis.fetch) {
+        return await digestViaNodeHttp(url)
+      }
+      const res = await fetchImpl(url, { method: 'GET' })
       if (!res || res.status !== 200) return null
       const hash = createHash('sha512')
       let size = 0
