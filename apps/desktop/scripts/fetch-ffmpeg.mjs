@@ -5,9 +5,10 @@
  * - darwin: reuse an existing build; else OKVEVO_FFMPEG_MIRROR (a mirror of this
  *   repo's own build output, <mirror>/darwin-<arch>.tar.gz + .sha256 sidecar);
  *   else build from source via build-ffmpeg-macos.mjs.
- * - win32: pinned BtbN FFmpeg-Builds "win64-lgpl" static zip (SHA-256
- *   verified). Asserted free of GPL encoders; h264_mf (Media Foundation) is
- *   the hardware H.264 path.
+ * - win32: OKVEVO_FFMPEG_MIRROR (or the OkVevo R2 default under deps/ffmpeg/)
+ *   serves the pinned BtbN win64-lgpl zip + .sha256 sidecar. BTBN.url stays the
+ *   upstream pin record — do not rewrite it to R2. SHA-256 is fail-closed;
+ *   Actions cache is speed only.
  *
  * When the target binaries can execute on this host, the script verifies the
  * build configuration (--enable-gpl / --enable-nonfree / libx264 / libx265
@@ -21,8 +22,12 @@ import path from 'node:path'
 
 const BTBN = {
   url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-09-14-16/ffmpeg-n8.1.3-16-ge0a878dd70-win64-lgpl-8.1.zip',
-  sha256: '346fd19f3afe98a8606da4fc2984c8b411297734dba101cd91ec961fa8b2f875'
+  sha256: '346fd19f3afe98a8606da4fc2984c8b411297734dba101cd91ec961fa8b2f875',
+  zipName: 'ffmpeg-n8.1.3-16-ge0a878dd70-win64-lgpl-8.1.zip'
 }
+
+/** OkVevo-owned Windows primary (pack env may override via OKVEVO_FFMPEG_MIRROR). */
+const OKVEVO_WIN_FFMPEG_MIRROR = 'https://releases.okvevo.com/deps/ffmpeg'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const VENDOR = path.join(ROOT, 'resources', 'ffmpeg')
@@ -62,16 +67,39 @@ function verifyNative(ffmpeg, platform) {
   console.log(`verified ${ffmpeg}: LGPL-only, ${hardware} present`)
 }
 
+function windowsMirrorBase() {
+  const fromEnv = (process.env.OKVEVO_FFMPEG_MIRROR || '').trim().replace(/\/+$/, '')
+  return fromEnv || OKVEVO_WIN_FFMPEG_MIRROR
+}
+
+function readSidecarSha(sidecarPath) {
+  if (!fs.existsSync(sidecarPath)) return null
+  const expected = fs.readFileSync(sidecarPath, 'utf8').trim().split(/\s+/)[0]
+  return /^[a-f0-9]{64}$/i.test(expected) ? expected.toLowerCase() : null
+}
+
 function fetchWindows(arch) {
   if (arch !== 'x64') throw new Error(`no LGPL Windows build pinned for ${arch}`)
   fs.mkdirSync(CACHE, { recursive: true })
   const zip = path.join(CACHE, 'btbn-win64-lgpl.zip')
-  if (!fs.existsSync(zip) || sha256(zip) !== BTBN.sha256) {
-    run('curl', ['-fL', '--retry', '3', '-o', zip, BTBN.url])
+  const sidecar = `${zip}.sha256`
+  const mirror = windowsMirrorBase()
+  const url = `${mirror}/${BTBN.zipName}`
+  // Pin is BTBN.sha256; sidecar (when present) must agree. Network sidecar only on cold fetch.
+  let expected = readSidecarSha(sidecar) || BTBN.sha256
+  if (!fs.existsSync(zip) || sha256(zip) !== expected) {
+    // OkVevo: primary URL is R2 via OKVEVO_FFMPEG_MIRROR / OKVEVO_WIN_FFMPEG_MIRROR — keep BTBN.url as pin only.
+    run('curl', ['-fL', '--retry', '3', '-o', zip, url])
+    try {
+      run('curl', ['-fL', '--retry', '3', '-o', sidecar, `${mirror}/${BTBN.zipName}.sha256`])
+      expected = readSidecarSha(sidecar) || BTBN.sha256
+    } catch {
+      expected = BTBN.sha256
+    }
     const actual = sha256(zip)
-    if (actual !== BTBN.sha256) {
+    if (actual !== expected) {
       fs.rmSync(zip, { force: true })
-      throw new Error(`BtbN zip checksum mismatch: got ${actual}`)
+      throw new Error(`Windows ffmpeg zip checksum mismatch: got ${actual}, want ${expected}`)
     }
   }
   const { dir, ffmpeg, ffprobe } = binaries('win32', arch)

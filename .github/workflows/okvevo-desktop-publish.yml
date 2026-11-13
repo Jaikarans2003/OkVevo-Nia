@@ -60,10 +60,30 @@ jobs:
             exit 1
           fi
 
-      - name: manage_bot still blocks production publish
+      - name: Refuse publish when Hard gates are still open
         run: |
           set -euo pipefail
-          grep -q '\[ \] RELEASE BLOCKER for main: manage_bot' PRE-LIVE-BACKLOG.md && { echo "::error::manage_bot is still a RELEASE BLOCKER for main"; exit 1; }
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          text = Path("PRE-LIVE-BACKLOG.md").read_text(encoding="utf-8")
+          start = text.find("## Hard gates (block go-live)")
+          if start < 0:
+              print("::error::Missing ## Hard gates (block go-live) in PRE-LIVE-BACKLOG.md")
+              sys.exit(1)
+          rest = text[start:]
+          nxt = re.search(r"\n## (?!Hard gates)", rest)
+          section = rest[: nxt.start()] if nxt else rest
+          opens = re.findall(r"^### \[ \] .+", section, re.M)
+          if opens:
+              print("::error::Open Hard gate(s) remain — refuse Publish:")
+              for row in opens:
+                  print(row)
+              sys.exit(1)
+          print("Hard gates: none open")
+          PY
 
       # latest*.yml flips only after every archived installer answers HTTP 200
       # with the archived yml's version, sha512 and size.

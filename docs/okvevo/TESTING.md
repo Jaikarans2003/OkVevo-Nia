@@ -39,26 +39,26 @@ If an approval is withdrawn after a long freeze ("session turn lease lost"), sen
 
 ## Known gaps
 
-### `manage_bot` is not on this branch
+### `manage_bot` from chat — descoped
 
-The fork tool `manage_bot` (create / list / update a bot from **chat**; it never supported delete) was dropped in the upstream reset. Upstream v0.22.4 has no replacement. Port is on `PRE-LIVE-BACKLOG.md`.
+Chat-driven bot create / list / update (`manage_bot`) is **not** a product path. **Descoped 2026-11-12** — Bots UI covers create / edit / delete. See `PRE-LIVE-BACKLOG.md` Later ideas.
 
-**Still works — Bots UI**
+**Supported — Bots UI**
 
 - New bot (Create Bot → `profiles.create`)
 - Edit profile (name, SOUL, skills, look)
 - Delete bot
 - Group chat and bot-to-bot messages
 
-Those go through the desktop gateway profile RPCs, not `manage_bot`.
+Those go through the desktop gateway profile RPCs.
 
-**Fails — chat (every channel)**
+**Not supported — chat**
 
 - "Make me a bot that…" / create a bot from chat
 - "List my bots" via the agent
 - "Change that bot's personality / role / description" from chat
 
-There is no `manage_bot` tool. A determined agent can still edit profile files with file/shell tools. That is not a supported create/list/update path.
+There is no `manage_bot` tool by design for v0.1.0.
 
 The old whole-home block (`plugins/nia-public-guard`, `pre_tool_call` on `terminal` / `read_file` / `write_file` / … targeting all of `~/.hermes`) is **gone** on this branch. Remaining blocks: credential files on every build — upstream `agent/file_safety.py` (`.env`, `auth.json`, token dirs) plus `plugins/okvevo/secrets_guard.py` (same files plus `okvevo-firebase-id-token` / `okvevo-firebase-refresh-token`, including via the terminal) — and, on public builds only, `plugins/okvevo/managed_settings_guard.py` (changes to keys in `okvevo/config/okvevo-defaults.yaml`, `hermes auth`, `hermes model --provider` other than okvevo, enabling/disabling the okvevo plugin). Reading `~/.hermes`, skills, `SOUL.md`, and memory is allowed.
 

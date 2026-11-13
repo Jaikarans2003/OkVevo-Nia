@@ -151,7 +151,9 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/ci-map-pack-env.mjs`
 - `apps/desktop/scripts/ci-map-pack-env.test.mjs`
 - `apps/desktop/scripts/ci-prepare-bundled-payload.sh`
-- `apps/desktop/scripts/fetch-ffmpeg.mjs`
+- `apps/desktop/scripts/ensure-ffmpeg-win-mirror.mjs` — seed/verify R2 `deps/ffmpeg/` zip + optional cold wipe before pack fetch
+- `apps/desktop/scripts/fetch-ffmpeg.mjs` — Windows primary via `OKVEVO_FFMPEG_MIRROR` / `OKVEVO_WIN_FFMPEG_MIRROR` (R2 `deps/ffmpeg/`); keep `BTBN.url` as upstream pin only (do not rewrite to R2)
+- `apps/desktop/scripts/fetch-ffmpeg-win-mirror.selfcheck.mjs` — assert Windows mirror override does not rewrite `BTBN.url`
 - `apps/desktop/scripts/notarize.mjs`
 - `apps/desktop/scripts/okvevo-brand-paths.mjs` — brand icon path helpers for pack hooks
 - `apps/desktop/scripts/okvevo-feed-urls.mjs`
