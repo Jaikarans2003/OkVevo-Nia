@@ -20,6 +20,7 @@ import {
   isPublishedVersion,
   loadCatalog,
   macStableYmlRelPath,
+  objectExists,
   parseElectronBuilderYml,
   publishPointers,
   retainCatalog,
@@ -50,6 +51,13 @@ function cacheControlOf(args) {
 
 function createMemoryAws(store) {
   return args => {
+    if (args[0] === 's3api' && args[1] === 'head-object') {
+      const key = args[args.indexOf('--key') + 1]
+      if (!Object.prototype.hasOwnProperty.call(store, key)) {
+        throw new Error(`Not Found ${key}`)
+      }
+      return ''
+    }
     if (args[0] !== 's3' || args[1] !== 'cp') {
       throw new Error(`unexpected aws ${args.join(' ')}`)
     }
@@ -147,6 +155,13 @@ test('parse yml version, path, and files', () => {
   assert.equal(s3Uri('bucket', 'staging/latest.yml'), 's3://bucket/staging/latest.yml')
   assert.equal(siblingBlockmapName('OkVevo-0.17.42-mac-arm64.zip'), 'OkVevo-0.17.42-mac-arm64.zip.blockmap')
   assert.equal(siblingBlockmapName('a.zip.blockmap'), '')
+})
+
+test('objectExists uses head-object (no download) for binary blockmaps', () => {
+  const store = { 'OkVevo-0.1.0-mac-arm64.zip.blockmap': Buffer.from([0x1f, 0x8b, 0x08]) }
+  const aws = createMemoryAws(store)
+  assert.equal(objectExists({ bucket: 'releases', key: 'OkVevo-0.1.0-mac-arm64.zip.blockmap', aws }), true)
+  assert.equal(objectExists({ bucket: 'releases', key: 'missing.blockmap', aws }), false)
 })
 
 test('writeUpdaterYml builds electron-updater files from packed artifacts', () => {
