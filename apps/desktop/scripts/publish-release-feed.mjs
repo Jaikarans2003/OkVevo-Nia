@@ -207,6 +207,19 @@ export function getTextObject({ bucket, key, aws, env }) {
   }
 }
 
+/** Existence only — do not download. Blockmaps are gzip binaries; `s3 cp … -`
+ *  with utf8 encoding blows past Node's default maxBuffer and fails Publish. */
+export function objectExists({ bucket, key, aws, env }) {
+  const b = String(bucket || '').replace(/^s3:\/\//, '').replace(/\/+$/, '')
+  try {
+    aws(['s3api', 'head-object', '--bucket', b, '--key', String(key || '').replace(/^\/+/, '')], env)
+    return true
+  } catch (err) {
+    if (isMissingObjectError(err)) return false
+    throw err
+  }
+}
+
 export function loadCatalog(raw) {
   if (raw == null || String(raw).trim() === '') return []
   const parsed = JSON.parse(raw)
@@ -688,7 +701,7 @@ export function publishPointers({
           extra: ['--cache-control', CACHE_CONTROL_IMMUTABLE]
         })
         const blockmap = siblingBlockmapName(name)
-        if (blockmap && getTextObject({ bucket, key: blockmap, aws, env }) != null) {
+        if (blockmap && objectExists({ bucket, key: blockmap, aws, env })) {
           copyS3({
             aws,
             env,
