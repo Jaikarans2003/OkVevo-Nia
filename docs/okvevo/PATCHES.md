@@ -6,7 +6,9 @@ Pinned upstream tag: **v0.23.0**.
 
 ## Active
 
-None. Count = **0**.
+Count = **1**.
+
+- `lefthook.yml` — `extends: [scripts/okvevo/lefthook.yml]` only; OkVevo brand/asset-spec pre-commit gates stay OkVevo-owned
 
 Identity uses generated `SOUL.md` (`scripts/okvevo/make_soul.py`) plus
 `agent.platform_hints.desktop.append`. LLM routing, credits, and media live in
@@ -20,6 +22,7 @@ URL to `Jaikarans2003/OkVevo-Nia`.
 Root `package-lock.json` is allowed to differ from the tag so the
 `apps/desktop` workspace can install `firebase` (billing listener). That is a
 packaging lockfile delta, not a Python KEEP-PATCH. Drift skips this one file.
+`lefthook.yml` is the Active KEEP-PATCH above (also skipped by drift `is_owned`).
 
 ## UI/packaging deltas
 
@@ -148,7 +151,9 @@ corresponding list **exactly**.
 - `apps/desktop/scripts/ci-map-pack-env.mjs`
 - `apps/desktop/scripts/ci-map-pack-env.test.mjs`
 - `apps/desktop/scripts/ci-prepare-bundled-payload.sh`
-- `apps/desktop/scripts/fetch-ffmpeg.mjs`
+- `apps/desktop/scripts/ensure-ffmpeg-win-mirror.mjs` — seed/verify R2 `deps/ffmpeg/` zip + optional cold wipe before pack fetch
+- `apps/desktop/scripts/fetch-ffmpeg.mjs` — Windows primary via `OKVEVO_FFMPEG_MIRROR` / `OKVEVO_WIN_FFMPEG_MIRROR` (R2 `deps/ffmpeg/`); keep `BTBN.url` as upstream pin only (do not rewrite to R2)
+- `apps/desktop/scripts/fetch-ffmpeg-win-mirror.selfcheck.mjs` — assert Windows mirror override does not rewrite `BTBN.url`
 - `apps/desktop/scripts/notarize.mjs`
 - `apps/desktop/scripts/okvevo-brand-paths.mjs` — brand icon path helpers for pack hooks
 - `apps/desktop/scripts/okvevo-feed-urls.mjs`
@@ -373,9 +378,18 @@ corresponding list **exactly**.
 - `apps/desktop/src/app/chat/composer/composer-disclaimer.test.tsx` — unit coverage for composer disclaimer
 - `apps/desktop/src/app/chat/composer/index.tsx` — mount ComposerDisclaimer below the dock
 - `apps/desktop/src/i18n/types.ts` — disclaimer copy type for OkVevo catalog
-- `apps/desktop/src/plugins/hermes-bots/plugin.tsx` — @okvevo mention claim twins (@default/@hermes/@nia)
-- `apps/desktop/src/plugins/hermes-bots/plugin.mentions.test.ts` — @okvevo mention menu tests
+- `apps/desktop/src/app/chat/composer/hooks/use-at-completions-contrib.test.tsx` — @ merge / twin-claim unit coverage (Hotfix 2.2 @okvevo)
+- `apps/desktop/src/plugins/hermes-bots/plugin.tsx` — one-line hook → okvevo-mention-alias always-claim (@okvevo + twins)
+- `apps/desktop/src/plugins/hermes-bots/plugin.mentions.test.ts` — @okvevo mention menu tests (incl. focused-default)
 - `apps/desktop/src/plugins/hermes-bots/group-rounds.primary-alias.test.ts` — @okvevo primary alias routing tests
+- `apps/desktop/src/plugins/hermes-bots/okvevo-mention-alias.ts` — OkVevo-owned always-emit @okvevo claim
+- `apps/desktop/src/plugins/hermes-bots/okvevo-mention-alias.test.ts` — unit for always-emit claim
+- `apps/desktop/e2e/okvevo/packed-mention-menu.contract.ts` — settled @ menu text contract for packed E2E
+- `apps/desktop/e2e/okvevo/packed-mention-menu.contract.unit.test.ts` — test-the-test: fails without @okvevo / while Looking up…
+- `apps/desktop/e2e/okvevo/packed-mention-menu.spec.ts` — packed @ menu Mac+Win gate
+- `apps/desktop/scripts/okvevo-dmg-layout.mjs` — DMG layout SoT reader for electron-builder
+- `apps/desktop/scripts/ci-assert-dmg-layout.mjs` — CI assert dmg-layout.json ↔ builder + PNG sizes
+- `apps/desktop/src/themes/presets.ts` — brand orange `#ff6f20` from brand/nia.json SoT
 <!-- /okvevo-delta:apps/desktop -->
 
 ## Retired

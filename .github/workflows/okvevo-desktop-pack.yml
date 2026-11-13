@@ -223,6 +223,8 @@ jobs:
           node apps/desktop/scripts/ci-assert-packaged-icons.mjs \
             --app "$app" \
             --platform darwin
+      - name: Assert DMG layout matches brand/
+        run: node apps/desktop/scripts/ci-assert-dmg-layout.mjs
       - name: No E2E sign-in hook in public pack
         run: |
           set -euo pipefail
@@ -339,7 +341,20 @@ jobs:
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
-          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
+          # cold1: force cache miss so ensure+fetch prove the R2 mirror path.
+          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}-cold1
+          restore-keys: |
+            lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Seed/verify Windows FFmpeg R2 mirror (cold fetch)
+        working-directory: apps/desktop
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: node scripts/ensure-ffmpeg-win-mirror.mjs --cold
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         shell: bash
@@ -382,6 +397,9 @@ jobs:
           node apps/desktop/scripts/ci-assert-packaged-icons.mjs \
             --app apps/desktop/release/win-unpacked \
             --platform win32
+      - name: Assert DMG layout matches brand/
+        shell: bash
+        run: node apps/desktop/scripts/ci-assert-dmg-layout.mjs
       - name: No E2E sign-in hook in public pack
         shell: bash
         run: |
@@ -526,6 +544,7 @@ jobs:
           export OKVEVO_E2E_EXECUTABLE="$PWD/$app/Contents/MacOS/OkVevo"
           test -f "$OKVEVO_E2E_EXECUTABLE"
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
+          npx playwright test --config e2e/okvevo/playwright.config.ts packed-mention-menu
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -585,7 +604,19 @@ jobs:
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
-          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
+          key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}-cold1
+          restore-keys: |
+            lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Seed/verify Windows FFmpeg R2 mirror (cold fetch)
+        working-directory: apps/desktop
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.RELEASES_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.RELEASES_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
+          RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
+        run: node scripts/ensure-ffmpeg-win-mirror.mjs --cold
       - name: Stamp version and pack (E2E sign-in variant, unpacked only)
         working-directory: apps/desktop
         shell: bash
@@ -613,6 +644,7 @@ jobs:
           export OKVEVO_E2E_EXECUTABLE="$PWD/release/win-unpacked/OkVevo.exe"
           test -f "$OKVEVO_E2E_EXECUTABLE"
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
+          npx playwright test --config e2e/okvevo/playwright.config.ts packed-mention-menu
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

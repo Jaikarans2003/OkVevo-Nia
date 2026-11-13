@@ -114,6 +114,29 @@ describe('contributed @ completion sources', () => {
     expect(rows.some(label => label.toLowerCase() === '@default')).toBe(true)
   })
 
+  it('keeps only @okvevo when the source claims gateway @hermes/@default twins', async () => {
+    vi.useFakeTimers()
+    addSource('okvevo', q =>
+      !q || 'okvevo'.startsWith(q) || 'default'.startsWith(q) || 'hermes'.startsWith(q)
+        ? [{ insert: '@okvevo', display: '@okvevo', meta: 'OkVevo agent', handles: ['@default', '@hermes', '@nia'] }]
+        : []
+    )
+
+    const gateway = gatewayStub([
+      { text: '@hermes', display: '@hermes', meta: 'agent profile (primary)' },
+      { text: '@default', display: '@default', meta: 'agent profile' },
+      { text: '@file:src/notes.md', display: 'notes.md', meta: 'file' }
+    ])
+
+    const { result } = renderHook(() => useAtCompletions({ gateway: gateway as never, sessionId: 's1', cwd: '/repo' }))
+
+    const rows = await searchAndRead(result, '')
+    expect(rows.filter(label => label.toLowerCase() === '@okvevo')).toEqual(['@okvevo'])
+    expect(rows.some(label => label.toLowerCase() === '@hermes')).toBe(false)
+    expect(rows.some(label => label.toLowerCase() === '@default')).toBe(false)
+    expect(rows.some(label => label.includes('notes.md'))).toBe(true)
+  })
+
   it('keeps a same-named gateway row that no source claims', async () => {
     vi.useFakeTimers()
     // The claim is per-identity: a remote bot listed under its title slug

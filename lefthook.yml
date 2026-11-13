@@ -1,3 +1,7 @@
+# OkVevo: one-line KEEP-PATCH — brand/asset-spec gates live in scripts/okvevo/lefthook.yml
+extends:
+  - scripts/okvevo/lefthook.yml
+
 pre-commit:
   jobs:
     - name: lint python

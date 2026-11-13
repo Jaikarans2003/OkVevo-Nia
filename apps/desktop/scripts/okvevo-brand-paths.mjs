@@ -33,6 +33,18 @@ export function brandDmgVolumeIcns(root = repoRootFromDesktopScripts()) {
   return path.join(root, 'brand/assets/apps/desktop/packaging/dmg-volume.icns')
 }
 
+export function brandDmgLayoutJson(root = repoRootFromDesktopScripts()) {
+  return path.join(root, 'brand/assets/apps/desktop/packaging/dmg-layout.json')
+}
+
+export function brandDmgBackground(root = repoRootFromDesktopScripts()) {
+  return path.join(root, 'brand/assets/apps/desktop/packaging/dmg-background.png')
+}
+
+export function brandDmgBackground2x(root = repoRootFromDesktopScripts()) {
+  return path.join(root, 'brand/assets/apps/desktop/packaging/dmg-background@2x.png')
+}
+
 export function brandPublicOkvevoPng(root = repoRootFromDesktopScripts()) {
   return path.join(root, 'brand/assets/apps/desktop/public/okvevo.png')
 }

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { BUILTIN_THEME_LIST, BUILTIN_THEMES, DEFAULT_SKIN_NAME, DEFAULT_TYPOGRAPHY, nousTheme, okvevoTheme } from './presets'
@@ -72,8 +75,20 @@ describe('okvevo locked theme', () => {
   it('carries the locked palette, dark-only', () => {
     expect(okvevoTheme.colors.background).toBe('#2b2b2b')
     expect(okvevoTheme.colors.foreground).toBe('#e3dcd6')
-    expect(okvevoTheme.colors.primary).toBe('#ff6d1f')
+    expect(okvevoTheme.colors.primary).toBe('#ff6f20')
     expect(okvevoTheme.darkColors).toEqual(okvevoTheme.colors)
+  })
+
+  it('matches brand/nia.json palette.orange (single SoT)', () => {
+    const brand = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../brand/nia.json'), 'utf8')) as {
+      palette: { orange: string }
+    }
+
+    expect(brand.palette.orange).toBe('#ff6f20')
+    expect(okvevoTheme.colors.primary).toBe(brand.palette.orange)
+    expect(okvevoTheme.colors.ring).toBe(brand.palette.orange)
+    expect(okvevoTheme.colors.midground).toBe(brand.palette.orange)
+    expect(okvevoTheme.colors.composerRing).toBe(brand.palette.orange)
   })
 
   it('leads every stack with Ubuntu', () => {

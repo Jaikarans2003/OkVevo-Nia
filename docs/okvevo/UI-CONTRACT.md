@@ -9,6 +9,7 @@ and live in git; update only with an explicit `--update-snapshots` commit.
 | Token class | Owner |
 |-------------|--------|
 | Colors, theme CSS variables | `apps/desktop/src/themes/presets.ts` (+ shared palettes) |
+| Brand palette orange | `brand/nia.json` `palette.orange` = `#ff6f20` — desktop presets must match (no second orange) |
 | Product / agent names | `okvevo/config/identity.json` |
 | Logo / icon paths | `brand/` asset overlay (`brand/assets/…`, `brand/nia.json`) |
 | User-facing copy overrides | `brand/locales/desktop/okvevo-overrides.ts` (merged in `apps/desktop/src/i18n/catalog.ts`) |
@@ -36,11 +37,13 @@ with a reason (KEEP-PATCH cap still applies).
 | Composer disclaimer | `apps/desktop/src/app/chat/composer/composer-disclaimer.tsx` (below dock) | `composer-disclaimer.test.tsx`; TESTING.md step 21 |
 | About | `apps/desktop/electron/okvevo-about.ts`; pack stamps `HERMES_PAYLOAD_VERSION` so `PLACEHOLDER_VERSIONS` (0.0.0) stay hidden | `electron/okvevo-about.test.ts`, `app-version.test.ts`; TESTING.md step 1; pack: `ci-assert-packaged-icons.mjs` install-stamp check |
 | Model menu | `apps/desktop/src/app/shell/model-catalog-menu.tsx` | `model-catalog-menu.test.tsx`; TESTING.md step 17 |
-| Bots labels / `@okvevo` | `hermes-bots/data.ts` `botHandle`, `plugin.tsx` atCompletions (cold-roster claim + twin handles) | `plugin.mentions.test.ts`, `group-rounds.primary-alias.test.ts`, `data.identity.test.ts`, `soul.test.ts`; TESTING.md step 22; packed E2E |
+| Bots labels / `@okvevo` | `hermes-bots/okvevo-mention-alias.ts` + `plugin.tsx` always claims `@okvevo` (+ twins); merge drops gateway `@hermes`/`@default` | packed `e2e/okvevo/packed-mention-menu.spec.ts` (Mac+Win); `plugin.mentions.test.ts`, `use-at-completions-contrib.test.tsx`, `group-rounds.primary-alias.test.ts`, `data.identity.test.ts`; TESTING.md step 22 |
 | Billing / credits | portal + desktop billing UI | billing listener / portal tests; TESTING.md step 2 |
 | Sign-in | onboarding / packed sign-in | `e2e/okvevo/packed-signin-chat.spec.ts`; TESTING.md step 2 |
 | Hidden settings | `settings-ui-policy.ts` | `settings-ui-policy.test.ts`; TESTING.md step 3 |
 | Icons / BrandMark | Hooks: `before-build` → `overlayBrandAssets`; `after-pack` `restoreLegacyMacIcon` + `set-exe-identity` via `okvevo-brand-paths.mjs`; `electron-builder` mac/dmg/win/nsis → `brand/assets/…`; `brand-mark.tsx` imports brand `okvevo.png`; bootstrap DMG volume → `brand/.../packaging/dmg-volume.icns` | `asset_spec.py --check`; `overlay-brand-assets.test.mjs`; `after-pack.test.mjs`; `ci-assert-packaged-icons.mjs` after Mac+Windows pack |
+| DMG Finder window | `dmg-layout.json` → `okvevo-dmg-layout.mjs` → electron-builder `dmg`; watercolor 1x+2x under `brand/.../packaging/` | `ci-assert-dmg-layout.mjs`; TESTING.md DMG light+dark mount |
+| Brand orange | `brand/nia.json` `palette.orange` = `#ff6f20`; desktop presets match | `presets.test.ts` ↔ brand palette assert |
 
 Cross-links: `DESKTOP-PARITY.md`, `TESTING.md`, `SYNC.md`.
 

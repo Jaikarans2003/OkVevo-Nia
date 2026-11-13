@@ -1,6 +1,6 @@
 # Desktop parity — pre-upstream-reset vs this branch
 
-Compared `pre-upstream-reset` (`91d272a0cc0`, this repo only) with the current desktop tree. Status is behavior. `manage_bot` is the stopped row.
+Compared `pre-upstream-reset` (`91d272a0cc0`, this repo only) with the current desktop tree. Status is behavior. `manage_bot` from chat is **descoped** (Bots UI covers create/edit/delete).
 
 | Feature | Old file(s) | New file(s) | Status | Test |
 | --- | --- | --- | --- | --- |
@@ -13,11 +13,12 @@ Compared `pre-upstream-reset` (`91d272a0cc0`, this repo only) with the current d
 | Chat reply on the default profile | composer + OkVevo provider | `okvevo/config/okvevo-defaults.yaml`, `electron/okvevo-config-migration.ts` | present | `electron/okvevo-config-migration.test.ts`. Packed: `e2e/okvevo/packed-chat.spec.ts` (default bot reply, no `openrouter.ai`). Manual: TESTING.md step 15 |
 | Default bot opens and answers | Bots roster | same migration; packed E2E | present | `e2e/okvevo/packed-chat.spec.ts`. Manual: TESTING.md step 16 |
 | Bots UI: create, edit, delete, group, bot-to-bot | desktop bots plugin | `apps/desktop/src/plugins/hermes-bots/`, `plugins/okvevo` token file | present | A bot that is already running keeps replying after the mock rejects the old token, with no "Limited until": `e2e/okvevo/packed-chat.spec.ts`. Image submit after a 401 refreshes once: `plugins/okvevo/tests/test_token_refresh.py`. Manual image approval inside a bot: TESTING.md step 21. Also `data.identity.test.ts`, `group-chat.test.ts`, `routing.test.ts`. Manual: TESTING.md step 10 and 18 |
-| `manage_bot` from chat | old fork tool | not ported | missing | Stopped. TESTING.md “manage_bot is not on this branch”. Open RELEASE BLOCKER in `PRE-LIVE-BACKLOG.md`. Publish workflow greps that checkbox |
+| `manage_bot` from chat | old fork tool | not ported | descoped | Bots UI covers create/edit/delete. Descoped 2026-11-12 (Karan). Later ideas in `PRE-LIVE-BACKLOG.md`. Publish fails on any open Hard gate `### [ ]` |
 | Theme, zoom, wake locks, intro gif, onboarding | locked prefs, intro | `settings-ui-policy.ts`, `src/components/chat/intro.tsx` | present | `settings-ui-policy.test.ts` (`applyLockedDesktopPrefs`, wake lock). `src/components/chat/intro.test.tsx` |
 | Image, video, and web search through the portal | `plugins/okvevo` | `plugins/okvevo/` | present | `plugins/okvevo/tests/test_media_providers.py`, `test_web_provider.py`. Manual: TESTING.md step 8 |
 | Auto-update feed URL | was missing after the reset | `apps/desktop/scripts/okvevo-feed-urls.mjs`, `electron/okvevo-feed.ts` | present | `scripts/okvevo-feed-urls.test.mjs`, `electron/okvevo-feed.test.ts`, `scripts/publish-release-feed.test.mjs`. Pack asserts the baked URL equals `https://releases.okvevo.com/` plus the uploaded folder. Manual: TESTING.md step 14 |
 | About: company line and Hermes attribution | About panel | `apps/desktop/electron/okvevo-about.ts`, `electron/main.ts` | present | `electron/okvevo-about.test.ts`. Manual: TESTING.md step 1 |
 | Composer disclaimer below dock | chat composer | `apps/desktop/src/app/chat/composer/composer-disclaimer.tsx` | present | `composer-disclaimer.test.tsx`. Manual: TESTING.md step 21 |
-| `@okvevo` default mention alias | bots plugin | `hermes-bots/plugin.tsx` atCompletions + `data.ts` botHandle | present | `plugin.mentions.test.ts`, `group-rounds.primary-alias.test.ts`, `soul.test.ts`, `data.identity.test.ts`. Manual: TESTING.md step 22 |
+| `@okvevo` default mention alias | bots plugin | `hermes-bots/okvevo-mention-alias.ts` + `plugin.tsx` always-claim + `data.ts` botHandle | present | `packed-mention-menu.spec.ts` (Mac+Win), `plugin.mentions.test.ts`, `use-at-completions-contrib.test.tsx`, `group-rounds.primary-alias.test.ts`, `soul.test.ts`, `data.identity.test.ts`. Manual: TESTING.md step 22 |
+| DMG watercolor layout | pack | `dmg-layout.json` → `okvevo-dmg-layout.mjs` → electron-builder `dmg` | present | `ci-assert-dmg-layout.mjs`. Manual: TESTING.md step 23 (light+dark) |
 | Bundled agent inside the app | stamp `payload: bundled` | `okvevo-desktop-pack.yml` prepare step, `ci-assert-bundled-pack.mjs` | present | Pack fails unless `install-stamp.json` says `bundled` and `Resources/agent-payload` exists. Manual fresh-DMG chat is TESTING.md step 1 |
