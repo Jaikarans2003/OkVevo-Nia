@@ -31,7 +31,16 @@ export function mappedPackEnv(packTarget, env = process.env) {
     throw new Error(`pack_target must be staging or production, got ${JSON.stringify(packTarget)}`)
   }
 
-  const out = { OKVEVO_UPDATE_CHANNEL: 'latest', OKVEVO_UPDATE_FEED_URL: feedFor(packTarget).url }
+  const out = {
+    OKVEVO_UPDATE_CHANNEL: 'latest',
+    OKVEVO_UPDATE_FEED_URL: feedFor(packTarget).url,
+    // electron-builder.config.cjs: without this, publish falls back to GitHub
+    // Releases. Actions always injects GITHUB_TOKEN, so a Windows pack on a
+    // tag can POST /releases (403) even with `--publish never`. Generic + R2
+    // makes PublishManager.scheduleUpload a no-op; installers still go via
+    // publish-release-feed.mjs → R2.
+    CLOUDFLARE_R2_PUBLIC_URL: 'https://releases.okvevo.com'
+  }
   for (const [dest, suffix] of MAPPED_KEYS) {
     out[dest] = String(env[`${prefix}_${suffix}`] ?? '').trim()
   }
