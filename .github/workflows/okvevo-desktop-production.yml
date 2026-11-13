@@ -49,12 +49,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Pack version $VERSION"
 
-  tests:
-    needs: require-tag
-    uses: ./.github/workflows/js-tests.yml
-
+  # Do not call js-tests.yml here: it pins blacksmith-32vcpu-ubuntu-2404 and
+  # that runner never picked up v0.1.0 (queued >90m). OkVevo checks + PR pack
+  # already gate main; tag pack only archives. Restore Blacksmith when healthy.
   pack:
-    needs: [require-tag, tests]
+    needs: [require-tag]
     uses: ./.github/workflows/okvevo-desktop-pack.yml
     with:
       pack_target: production
