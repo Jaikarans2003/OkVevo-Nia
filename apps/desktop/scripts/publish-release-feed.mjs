@@ -16,6 +16,14 @@ import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { Agent, fetch as undiciFetch } from 'undici'
+
+/** Multi-GB installer GETs; undici's default bodyTimeout aborts mid-stream ("terminated"). */
+const longBodyAgent = new Agent({
+  connectTimeout: 60_000,
+  headersTimeout: 600_000,
+  bodyTimeout: 0
+})
 
 const { darwinFeed } = createRequire(import.meta.url)('../update-feed.cjs')
 
@@ -488,16 +496,30 @@ export function feedFileUrl(origin, fileUrl) {
 }
 
 /** Streams the body so 1.5 GB installers never sit in memory. Null unless HTTP 200. */
-export async function fetchDigest(url, fetchImpl = globalThis.fetch) {
-  const res = await fetchImpl(url, { method: 'GET' })
-  if (!res || res.status !== 200) return null
-  const hash = createHash('sha512')
-  let size = 0
-  for await (const chunk of res.body) {
-    hash.update(chunk)
-    size += chunk.length
+export async function fetchDigest(url, fetchImpl = globalThis.fetch, { attempts = 3 } = {}) {
+  const useLongBody = fetchImpl === globalThis.fetch
+  const get = (u) =>
+    useLongBody
+      ? undiciFetch(u, { method: 'GET', dispatcher: longBodyAgent })
+      : fetchImpl(u, { method: 'GET' })
+  let lastErr
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const res = await get(url)
+      if (!res || res.status !== 200) return null
+      const hash = createHash('sha512')
+      let size = 0
+      for await (const chunk of res.body) {
+        hash.update(chunk)
+        size += chunk.length
+      }
+      return { sha512: hash.digest('base64'), size }
+    } catch (err) {
+      lastErr = err
+      console.error(`fetchDigest ${i}/${attempts} ${url}: ${err instanceof Error ? err.message : err}`)
+    }
   }
-  return { sha512: hash.digest('base64'), size }
+  throw lastErr
 }
 
 /** Every file a yml lists must answer HTTP 200 at `origin` with the yml's sha512 and size. */
@@ -530,6 +552,44 @@ function tryObjectToBuffer(opts) {
   }
 }
 
+/** Hash a local file in chunks — avoid buffering multi-GB installers. */
+export function hashFileSync(filePath) {
+  const hash = createHash('sha512')
+  const fd = fs.openSync(filePath, 'r')
+  const buf = Buffer.alloc(8 * 1024 * 1024)
+  let size = 0
+  try {
+    for (;;) {
+      const n = fs.readSync(fd, buf, 0, buf.length, null)
+      if (n === 0) break
+      hash.update(n === buf.length ? buf : buf.subarray(0, n))
+      size += n
+    }
+  } finally {
+    fs.closeSync(fd)
+  }
+  return { sha512: hash.digest('base64'), size }
+}
+
+function tryObjectDigest({ bucket, key, aws, env, tmpDir }) {
+  const dest = path.join(tmpDir, key.replace(/[/\\]/g, '_'))
+  try {
+    aws(['s3', 'cp', s3Uri(bucket, key), dest], env)
+  } catch (err) {
+    if (isMissingObjectError(err)) return null
+    throw err
+  }
+  try {
+    return hashFileSync(dest)
+  } finally {
+    try {
+      fs.unlinkSync(dest)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 export function verifyArchivedVersion({
   bucket,
   version,
@@ -539,10 +599,7 @@ export function verifyArchivedVersion({
 }) {
   const ownedTmp = tmpDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nia-verify-'))
   try {
-    const readFile = name => {
-      const buf = tryObjectToBuffer({ bucket, key: name, aws, env, tmpDir: ownedTmp })
-      return buf == null ? null : fileDigest(buf)
-    }
+    const readFile = name => tryObjectDigest({ bucket, key: name, aws, env, tmpDir: ownedTmp })
     const parsed = []
     for (const name of ['latest.yml', 'latest-mac.yml']) {
       const key = `versions/${version}/${name}`

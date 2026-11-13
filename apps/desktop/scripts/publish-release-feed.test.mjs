@@ -20,6 +20,8 @@ import {
   isPublishedVersion,
   loadCatalog,
   macStableYmlRelPath,
+  fetchDigest,
+  hashFileSync,
   objectExists,
   parseElectronBuilderYml,
   publishPointers,
@@ -162,6 +164,36 @@ test('objectExists uses head-object (no download) for binary blockmaps', () => {
   const aws = createMemoryAws(store)
   assert.equal(objectExists({ bucket: 'releases', key: 'OkVevo-0.1.0-mac-arm64.zip.blockmap', aws }), true)
   assert.equal(objectExists({ bucket: 'releases', key: 'missing.blockmap', aws }), false)
+})
+
+test('hashFileSync matches sha512Base64 for chunked reads', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-hash-'))
+  const file = path.join(dir, 'blob')
+  const body = Buffer.alloc(9 * 1024 * 1024, 0x5a)
+  fs.writeFileSync(file, body)
+  const got = hashFileSync(file)
+  assert.equal(got.size, body.length)
+  assert.equal(got.sha512, sha512Base64(body))
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('fetchDigest retries then succeeds', async () => {
+  const body = Buffer.from('installer-bytes')
+  let calls = 0
+  const fetchImpl = async () => {
+    calls += 1
+    if (calls < 3) throw new Error('terminated')
+    return {
+      status: 200,
+      body: (async function* () {
+        yield body
+      })()
+    }
+  }
+  const got = await fetchDigest('https://example.test/OkVevo.exe', fetchImpl, { attempts: 3 })
+  assert.equal(calls, 3)
+  assert.equal(got.size, body.length)
+  assert.equal(got.sha512, sha512Base64(body))
 })
 
 test('writeUpdaterYml builds electron-updater files from packed artifacts', () => {
