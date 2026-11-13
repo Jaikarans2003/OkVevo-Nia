@@ -203,6 +203,10 @@ jobs:
           export HERMES_PAYLOAD_VERSION="$VERSION"
           # Empty CSC_LINK makes electron-builder treat cwd as a cert file.
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
+          # Actions always sets GITHUB_TOKEN; with publish:github that can POST
+          # /releases on tag packs. ci-map-pack-env sets CLOUDFLARE_R2_PUBLIC_URL
+          # (generic); strip tokens so a misconfig cannot hit GitHub Releases.
+          unset GH_TOKEN GITHUB_TOKEN || true
           node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --mac dmg zip --publish never \
@@ -377,6 +381,8 @@ jobs:
           export HERMES_PAYLOAD_VERSION="$VERSION"
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           if [ -z "${WIN_CSC_LINK:-}" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD || true; fi
+          # See mac pack step: no GitHub Releases from electron-builder.
+          unset GH_TOKEN GITHUB_TOKEN || true
           node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --win nsis --publish never \
@@ -532,6 +538,7 @@ jobs:
           VERSION=$(node scripts/ci-desktop-version.mjs "$PKG_VER" "$GITHUB_RUN_NUMBER")
           echo "E2E pack version $VERSION"
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
+          unset GH_TOKEN GITHUB_TOKEN || true
           node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --dir --publish never \
@@ -632,6 +639,7 @@ jobs:
           echo "E2E pack version $VERSION"
           if [ -z "${CSC_LINK:-}" ]; then unset CSC_LINK CSC_KEY_PASSWORD || true; fi
           if [ -z "${WIN_CSC_LINK:-}" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD || true; fi
+          unset GH_TOKEN GITHUB_TOKEN || true
           node scripts/fetch-ffmpeg.mjs
           npm run build
           npm run builder -- --dir --publish never \

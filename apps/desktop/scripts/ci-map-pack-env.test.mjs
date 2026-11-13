@@ -18,6 +18,7 @@ test('staging maps STAGING_ prefix and defaults channel latest', () => {
   assert.equal(mapped.OKVEVO_WEB_ORIGIN, 'https://test.example/')
   assert.equal(mapped.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/okvevo/staging')
   assert.equal(mapped.OKVEVO_UPDATE_CHANNEL, 'latest')
+  assert.equal(mapped.CLOUDFLARE_R2_PUBLIC_URL, 'https://releases.okvevo.com')
   assert.equal(mapped.VITE_OKVEVO_FIREBASE_PROJECT_ID, 'okvevo-testing')
 })
 
@@ -29,6 +30,7 @@ test('production maps PROD_ and ignores staging', () => {
   })
   assert.equal(mapped.OKVEVO_WEB_ORIGIN, 'https://www.okvevo.com')
   assert.equal(mapped.OKVEVO_UPDATE_FEED_URL, 'https://releases.okvevo.com/okvevo/stable')
+  assert.equal(mapped.CLOUDFLARE_R2_PUBLIC_URL, 'https://releases.okvevo.com')
 })
 
 test('rejects unknown target', () => {
