@@ -299,7 +299,7 @@ Grouped (path, status, count):
 | A | `apps/desktop/src/lib/okvevo-billing-listener.selfcheck.ts` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | A | `apps/desktop/src/lib/okvevo-billing-listener.test.ts` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | A | `apps/desktop/src/lib/okvevo-billing-listener.ts` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
-| A | `apps/desktop/src/lib/okvevo-firebase.ts` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
+| A | `apps/desktop/src/lib/okvevo-billing-listener.ts` (HTTP summary; no Firebase client) | OkVevo desktop delta; re-apply on upstream desktop |
 | A | `apps/desktop/src/lib/provider-branding.test.ts` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | A | `apps/desktop/src/lib/provider-branding.ts` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |
 | A | `apps/desktop/src/lib/user-facing-error.ts` | OkVevo desktop delta; re-apply on upstream desktop (commit 3) |

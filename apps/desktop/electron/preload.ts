@@ -604,7 +604,7 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   startOkvevoSignIn: () => ipcRenderer.invoke('hermes:okvevo-auth:start'),
   resetOkvevoCredentialCooldown: () => ipcRenderer.invoke('hermes:okvevo:reset-credential-cooldown'),
   openOkvevoPortal: (portalPath: string) => ipcRenderer.invoke('hermes:okvevo-auth:open-portal', portalPath),
-  getOkvevoCustomToken: () => ipcRenderer.invoke('hermes:okvevo-auth:custom-token'),
+  getOkvevoBilling: () => ipcRenderer.invoke('hermes:okvevo-billing:get'),
   signOutOkvevo: () => ipcRenderer.invoke('hermes:okvevo-auth:sign-out'),
   getOkvevoAuth: () => ipcRenderer.invoke('hermes:okvevo-auth:get'),
   // okvevo-e2e-auth:begin
