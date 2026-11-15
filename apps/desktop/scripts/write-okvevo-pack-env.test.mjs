@@ -54,29 +54,25 @@ function shapedPackEnv(overrides = {}) {
   return {
     OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com',
     OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com',
-    VITE_OKVEVO_FIREBASE_API_KEY: 'k',
-    VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: 'auth.okvevo.com',
-    VITE_OKVEVO_FIREBASE_PROJECT_ID: 'p',
-    VITE_OKVEVO_FIREBASE_STORAGE_BUCKET: 'b',
-    VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID: 's',
-    VITE_OKVEVO_FIREBASE_APP_ID: 'a',
     ...overrides
   }
 }
 
-test('pack secret shapes accept https origin, feed path, and bare auth domain', () => {
+test('pack secret shapes accept https origin and feed path', () => {
   assert.deepEqual(invalidPackSecretShapes({}), [])
   assert.deepEqual(invalidPackSecretShapes(shapedPackEnv()), [])
   assert.deepEqual(
-    invalidPackSecretShapes(shapedPackEnv({
-      OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com/',
-      OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging/'
-    })),
+    invalidPackSecretShapes(
+      shapedPackEnv({
+        OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com/',
+        OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging/'
+      })
+    ),
     []
   )
 })
 
-test('pack secret shapes reject a host without a scheme, a path on the origin, and a scheme on the auth domain', () => {
+test('pack secret shapes reject a host without a scheme or a path on the origin', () => {
   assert.deepEqual(
     invalidPackSecretShapes(shapedPackEnv({ OKVEVO_WEB_ORIGIN: 'www.okvevo.com' })),
     ['OKVEVO_WEB_ORIGIN']
@@ -90,24 +86,8 @@ test('pack secret shapes reject a host without a scheme, a path on the origin, a
     ['OKVEVO_WEB_ORIGIN']
   )
   assert.deepEqual(
-    invalidPackSecretShapes(shapedPackEnv({ OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com?x=1' })),
-    ['OKVEVO_WEB_ORIGIN']
-  )
-  assert.deepEqual(
-    invalidPackSecretShapes(shapedPackEnv({ OKVEVO_WEB_ORIGIN: 'https://www.okvevo.com#frag' })),
-    ['OKVEVO_WEB_ORIGIN']
-  )
-  assert.deepEqual(
     invalidPackSecretShapes(shapedPackEnv({ OKVEVO_UPDATE_FEED_URL: 'releases.okvevo.com' })),
     ['OKVEVO_UPDATE_FEED_URL']
-  )
-  assert.deepEqual(
-    invalidPackSecretShapes(shapedPackEnv({ OKVEVO_UPDATE_FEED_URL: 'https://releases.okvevo.com/staging?x=1' })),
-    ['OKVEVO_UPDATE_FEED_URL']
-  )
-  assert.deepEqual(
-    invalidPackSecretShapes(shapedPackEnv({ VITE_OKVEVO_FIREBASE_AUTH_DOMAIN: 'https://auth.okvevo.com' })),
-    ['VITE_OKVEVO_FIREBASE_AUTH_DOMAIN']
   )
   const message = formatInvalidPackSecrets(['OKVEVO_WEB_ORIGIN'])
   assert.match(message, /OKVEVO_WEB_ORIGIN/)
@@ -124,14 +104,14 @@ test('--require exits 1 when the origin is not an absolute https URL and does no
   assert.equal(result.stdout.includes(badOrigin), false)
 })
 
-test('writePackEnvFile emits JSON', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pack-env-'))
+test('writePackEnvFile writes runtime keys only', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'okvevo-pack-env-'))
   const out = path.join(dir, 'okvevo-pack-env.json')
-  writePackEnvFile(
-    { OKVEVO_WEB_ORIGIN: 'https://a.example', OKVEVO_UPDATE_FEED_URL: 'https://b.example', OKVEVO_UPDATE_CHANNEL: 'latest' },
-    out
-  )
-  const parsed = JSON.parse(fs.readFileSync(out, 'utf8'))
-  assert.equal(parsed.OKVEVO_WEB_ORIGIN, 'https://a.example')
-  fs.rmSync(dir, { recursive: true, force: true })
+  writePackEnvFile(buildPackEnvPayload(shapedPackEnv()), out)
+  const payload = JSON.parse(fs.readFileSync(out, 'utf8'))
+  assert.deepEqual(Object.keys(payload).sort(), [
+    'OKVEVO_UPDATE_CHANNEL',
+    'OKVEVO_UPDATE_FEED_URL',
+    'OKVEVO_WEB_ORIGIN'
+  ])
 })

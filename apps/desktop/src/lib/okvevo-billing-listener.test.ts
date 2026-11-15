@@ -1,94 +1,72 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  additionalRemainingPct,
-  billingViewFromUserData,
+  billingViewFromSummary,
   formatOkvevoBillingDescription,
-  formatPctLabel,
-  formatRemainingPct,
-  periodRemainingDisplay,
-  remainingPct
+  formatPctLabel
 } from './okvevo-billing-listener'
 
 describe('okvevo billing display', () => {
-  it('remainingPct floors to two decimals, never rounds, and stays percent-only', () => {
-    expect(remainingPct(20000, 10000)).toBe(50)
-    expect(remainingPct(0, 10000)).toBe(0)
-    expect(remainingPct(20000, 19931)).toBe(99.65)
-    expect(formatRemainingPct(20000, 19931)).toBe('99.65%')
+  it('formatPctLabel trims trailing zeros', () => {
     expect(formatPctLabel(87.5)).toBe('87.5%')
     expect(formatPctLabel(50)).toBe('50%')
     expect(formatPctLabel(100)).toBe('100%')
+    expect(formatPctLabel(99.65)).toBe('99.65%')
   })
 
-  it('plan remaining uses cycle grant total, not leftover or latest creditsIncluded', () => {
-    expect(remainingPct(20000, 10000, 20000)).toBe(50)
-    expect(remainingPct(60000, 70000, 80000)).toBe(87.5)
-    expect(remainingPct(60000, 70000, 80000)).not.toBe(50)
-    expect(remainingPct(60000, 70000, 80000)).not.toBe(100)
-    expect(remainingPct(60000, 80000, 80000)).toBe(100)
-    expect(remainingPct(60000, 79886, 80000)).toBe(99.85)
-    expect(remainingPct(60000, 79886, 80000)).not.toBe(100)
-    expect(remainingPct(60000, 59999, 60000)).toBe(99.99)
-  })
-
-  it('additionalRemainingPct uses purchased total as the denominator', () => {
-    expect(additionalRemainingPct(5000, 10000)).toBe(50)
-    expect(additionalRemainingPct(5000, 0)).toBe(100)
-    expect(additionalRemainingPct(0, 0)).toBe(0)
-  })
-
-  it('periodRemainingDisplay never includes raw allocation when creditsIncluded > 0', () => {
-    const line = periodRemainingDisplay(20000, 10000)
-
-    expect(line).toBe('50%')
-    expect(line).not.toContain('10000')
-    expect(line).not.toContain('20000')
-  })
-
-  it('formatOkvevoBillingDescription uses % for period remaining', () => {
+  it('formatOkvevoBillingDescription uses % only', () => {
     const line = formatOkvevoBillingDescription({
       planName: 'Starter',
       planStatus: 'active',
       remainingPct: 50,
       additionalPct: 40,
       currentPeriodEnd: null,
-      cancelAtPeriodEnd: false
+      cancelAtPeriodEnd: false,
+      entitled: true,
+      additionalNextExpiry: null,
+      canPurchase: true,
+      fundedBy: null
     })
 
     expect(line).toBe('Starter · remaining 50% · additional 40%')
-    expect(line).not.toMatch(/\b10000\b/)
     expect(line).not.toMatch(/credits/)
   })
 
-  it('billingViewFromUserData never surfaces raw balances', () => {
-    const view = billingViewFromUserData({
+  it('billingViewFromSummary maps server percentages and never needs raw balances', () => {
+    const view = billingViewFromSummary({
       planName: 'Pro',
-      planStatus: 'active',
-      creditsIncluded: 60000,
-      allocationBalance: 30000,
-      topUpBalance: 5000,
-      topUpPurchasedTotal: 10000,
-      cancelAtPeriodEnd: false
+      status: 'active',
+      remainingPct: 50,
+      additionalPct: 50,
+      periodEnd: '2030-01-01T00:00:00.000Z',
+      cancelAtPeriodEnd: false,
+      entitled: true,
+      additionalNextExpiry: null,
+      canPurchase: true,
+      fundedBy: null
     })
 
     expect(view.remainingPct).toBe(50)
     expect(view.additionalPct).toBe(50)
-    expect(formatOkvevoBillingDescription(view)).not.toMatch(/30000|5000|10000|credits/)
+    expect(view.planStatus).toBe('active')
+    expect(view.currentPeriodEnd?.toISOString()).toBe('2030-01-01T00:00:00.000Z')
+    expect(view.entitled).toBe(true)
+    expect(formatOkvevoBillingDescription(view)).not.toMatch(/allocation|topUp|credits/i)
   })
 
-  it('billingViewFromUserData uses allocationGrantedTotal for stacked UPI grants', () => {
-    const view = billingViewFromUserData({
-      planName: 'Pro',
-      planStatus: 'active',
-      creditsIncluded: 60000,
-      allocationBalance: 70000,
-      allocationGrantedTotal: 80000,
-      topUpBalance: 0,
-      cancelAtPeriodEnd: false
+  it('billingViewFromSummary treats ended status and canPurchase=false', () => {
+    const view = billingViewFromSummary({
+      status: 'ended',
+      remainingPct: 10,
+      additionalPct: 0,
+      entitled: false,
+      canPurchase: false,
+      fundedBy: 'Acme'
     })
 
-    expect(view.remainingPct).toBe(87.5)
-    expect(formatPctLabel(view.remainingPct)).toBe('87.5%')
+    expect(view.planStatus).toBe('ended')
+    expect(view.entitled).toBe(false)
+    expect(view.canPurchase).toBe(false)
+    expect(view.fundedBy).toBe('Acme')
   })
 })

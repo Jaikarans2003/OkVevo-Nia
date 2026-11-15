@@ -5,8 +5,8 @@
  * dotenv and a non-empty pack value always overwrites process.env (home
  * ~/.hermes/.env / shell / whitespace). Empty pack values skip (fail closed).
  *
- * `--require` (CI): fail closed if origin, feed URL, or Vite Firebase keys
- * are missing or not well-formed — same posture as require-release-secrets.mjs.
+ * `--require` (CI): fail closed if origin or feed URL are missing or not
+ * well-formed — same posture as require-release-secrets.mjs.
  * Error text names the keys only. It does not print secret values.
  *
  * Local `npm run build` without --require writes whatever is present so
@@ -21,16 +21,7 @@ const DESKTOP_ROOT = resolve(import.meta.dirname, '..')
 const OUT_DIR = join(DESKTOP_ROOT, 'build')
 export const PACK_ENV_FILE = join(OUT_DIR, 'okvevo-pack-env.json')
 
-export const REQUIRED_PACK_SECRETS = [
-  'OKVEVO_WEB_ORIGIN',
-  'OKVEVO_UPDATE_FEED_URL',
-  'VITE_OKVEVO_FIREBASE_API_KEY',
-  'VITE_OKVEVO_FIREBASE_AUTH_DOMAIN',
-  'VITE_OKVEVO_FIREBASE_PROJECT_ID',
-  'VITE_OKVEVO_FIREBASE_STORAGE_BUCKET',
-  'VITE_OKVEVO_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_OKVEVO_FIREBASE_APP_ID'
-]
+export const REQUIRED_PACK_SECRETS = ['OKVEVO_WEB_ORIGIN', 'OKVEVO_UPDATE_FEED_URL']
 
 export const PACK_ENV_RUNTIME_KEYS = ['OKVEVO_WEB_ORIGIN', 'OKVEVO_UPDATE_FEED_URL', 'OKVEVO_UPDATE_CHANNEL']
 
@@ -40,9 +31,9 @@ export function missingPackSecrets(env = process.env) {
 
 export function formatMissingPackSecrets(missing) {
   return [
-    'Packaged OkVevo builds are fail-closed: missing portal origin, update feed, or Vite Firebase keys.',
+    'Packaged OkVevo builds are fail-closed: missing portal origin or update feed.',
     `Unset: ${missing.join(', ')}`,
-    'Set STAGING_OKVEVO_WEB_ORIGIN or PROD_OKVEVO_WEB_ORIGIN and the Firebase keys. The update feed URL comes from okvevo-feed-urls.mjs.'
+    'Set STAGING_OKVEVO_WEB_ORIGIN or PROD_OKVEVO_WEB_ORIGIN. The update feed URL comes from okvevo-feed-urls.mjs.'
   ].join('\n')
 }
 
@@ -69,15 +60,6 @@ export function isAbsoluteHttpsUrl(value) {
   return parseHttpsUrl(value) !== null
 }
 
-/** Firebase auth domain is a hostname. A scheme (https://...) is rejected. */
-export function isBareHostname(value) {
-  const host = String(value ?? '').trim()
-  if (!host || host.length > 253) return false
-  if (/[:/?#@\\\s]/.test(host)) return false
-  if (host.startsWith('.') || host.endsWith('.') || host.includes('..')) return false
-  return /^[a-z0-9.-]+$/i.test(host)
-}
-
 export function invalidPackSecretShapes(env = process.env) {
   const invalid = []
   const originRaw = String(env.OKVEVO_WEB_ORIGIN ?? '').trim()
@@ -88,20 +70,15 @@ export function invalidPackSecretShapes(env = process.env) {
   if (feedRaw && !isAbsoluteHttpsUrl(stripSlash(feedRaw))) {
     invalid.push('OKVEVO_UPDATE_FEED_URL')
   }
-  const authDomain = String(env.VITE_OKVEVO_FIREBASE_AUTH_DOMAIN ?? '').trim()
-  if (authDomain && !isBareHostname(authDomain)) {
-    invalid.push('VITE_OKVEVO_FIREBASE_AUTH_DOMAIN')
-  }
   return invalid
 }
 
 export function formatInvalidPackSecrets(invalid) {
   return [
-    'Packaged OkVevo builds are fail-closed: portal origin, update feed, or Firebase auth domain is not well-formed.',
+    'Packaged OkVevo builds are fail-closed: portal origin or update feed is not well-formed.',
     `Invalid: ${invalid.join(', ')}`,
     'OKVEVO_WEB_ORIGIN must be an absolute https URL with no path, query, or hash.',
-    'OKVEVO_UPDATE_FEED_URL must be an absolute https URL. A path is allowed.',
-    'VITE_OKVEVO_FIREBASE_AUTH_DOMAIN must be a bare hostname with no scheme.'
+    'OKVEVO_UPDATE_FEED_URL must be an absolute https URL. A path is allowed.'
   ].join('\n')
 }
 
