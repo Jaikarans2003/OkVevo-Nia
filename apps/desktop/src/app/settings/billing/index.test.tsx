@@ -27,18 +27,6 @@ vi.mock('@/lib/build-channel', () => ({
   isByokChromeVisible
 }))
 
-const billingListenerMocks = vi.hoisted(() => ({
-  subscribeOkvevoUserBilling: vi.fn()
-}))
-
-vi.mock('@/lib/okvevo-billing-listener', async importOriginal => {
-  const actual = (await importOriginal()) as Record<string, unknown>
-  return {
-    ...actual,
-    subscribeOkvevoUserBilling: billingListenerMocks.subscribeOkvevoUserBilling
-  }
-})
-
 const apiMocks = vi.hoisted(() => ({
   charge: vi.fn(),
   chargeStatus: vi.fn(),
@@ -90,24 +78,25 @@ beforeEach(() => {
   $okvevoAuth.set({ signedIn: false, uid: null, email: null, displayName: null })
   apiMocks.fetchBillingState.mockResolvedValue(okBilling(todayBillingState))
   apiMocks.fetchSubscriptionState.mockResolvedValue(okSubscription(todaySubscriptionState))
-  billingListenerMocks.subscribeOkvevoUserBilling.mockImplementation(async (_uid, _token, onData) => {
-    onData({
-      planName: 'Starter',
-      planStatus: 'active',
-      remainingPct: 50,
-      additionalPct: 40,
-      currentPeriodEnd: new Date(2026, 9, 12),
-      cancelAtPeriodEnd: false
-    })
-
-    return () => {}
-  })
   Object.defineProperty(window, 'hermesDesktop', {
     configurable: true,
     value: {
       openExternal: apiMocks.openExternal,
       openOkvevoPortal: apiMocks.openOkvevoPortal,
-      getOkvevoCustomToken: vi.fn(async () => ({ ok: true, customToken: 'tok', uid: 'user-1' }))
+      resetOkvevoCredentialCooldown: vi.fn(async () => undefined),
+      getOkvevoBilling: vi.fn(async () => ({
+        ok: true,
+        summary: {
+          planName: 'Starter',
+          status: 'active',
+          remainingPct: 50,
+          additionalPct: 40,
+          periodEnd: new Date(2026, 9, 12).toISOString(),
+          cancelAtPeriodEnd: false,
+          entitled: true,
+          canPurchase: true
+        }
+      }))
     }
   })
 })
@@ -707,18 +696,21 @@ describe('BillingSettings', () => {
   it('shows two-decimal plan remaining without rounding the bar to an integer', async () => {
     isByokChromeVisible.mockReturnValue(false)
     $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
-    billingListenerMocks.subscribeOkvevoUserBilling.mockImplementation(async (_uid, _token, onData) => {
-      onData({
-        planName: 'Pro',
-        planStatus: 'active',
-        remainingPct: 87.5,
-        additionalPct: 40,
-        currentPeriodEnd: new Date(2026, 9, 12),
-        cancelAtPeriodEnd: false
+    ;(window.hermesDesktop as { getOkvevoBilling: ReturnType<typeof vi.fn> }).getOkvevoBilling = vi.fn(
+      async () => ({
+        ok: true,
+        summary: {
+          planName: 'Pro',
+          status: 'active',
+          remainingPct: 87.5,
+          additionalPct: 40,
+          periodEnd: new Date(2026, 9, 12).toISOString(),
+          cancelAtPeriodEnd: false,
+          entitled: true,
+          canPurchase: true
+        }
       })
-
-      return () => {}
-    })
+    )
 
     renderBilling()
 
@@ -733,18 +725,21 @@ describe('BillingSettings', () => {
   it('shows Access until and hides Cancel Plan when OkVevo cancel is scheduled', async () => {
     isByokChromeVisible.mockReturnValue(false)
     $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
-    billingListenerMocks.subscribeOkvevoUserBilling.mockImplementation(async (_uid, _token, onData) => {
-      onData({
-        planName: 'Starter',
-        planStatus: 'active',
-        remainingPct: 50,
-        additionalPct: 40,
-        currentPeriodEnd: new Date(2026, 9, 12),
-        cancelAtPeriodEnd: true
+    ;(window.hermesDesktop as { getOkvevoBilling: ReturnType<typeof vi.fn> }).getOkvevoBilling = vi.fn(
+      async () => ({
+        ok: true,
+        summary: {
+          planName: 'Starter',
+          status: 'active',
+          remainingPct: 50,
+          additionalPct: 40,
+          periodEnd: new Date(2026, 9, 12).toISOString(),
+          cancelAtPeriodEnd: true,
+          entitled: true,
+          canPurchase: true
+        }
       })
-
-      return () => {}
-    })
+    )
 
     renderBilling()
 

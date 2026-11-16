@@ -73,7 +73,7 @@ Secrets are never listed. “Testing source” is where the current testing valu
 | `RAZORPAY_INR_PRO_PLAN_ID` / `RAZORPAY_INR_PRO_ANNUAL_PLAN_ID` | `env.ts` | Pro INR plan ids | yaml `value` |
 | `RAZORPAY_INR_MAX_PLAN_ID` / `RAZORPAY_INR_MAX_ANNUAL_PLAN_ID` | `env.ts` | Max INR plan ids | yaml `value` |
 | `CRON_SECRET` | `api/cron/allocation-refresh`, `api/cron/fx-drift` | Bearer for daily allocation refresh + weekly FX drift | Secret Manager / App Hosting secret |
-| `VITE_OKVEVO_FIREBASE_API_KEY` / `AUTH_DOMAIN` / `PROJECT_ID` / `APP_ID` / `STORAGE_BUCKET` / `MESSAGING_SENDER_ID` | desktop `okvevo-firebase.ts` | Renderer Firestore onSnapshot | Same values as `NEXT_PUBLIC_FIREBASE_*` (bake at Vite build) |
+| ~~`VITE_OKVEVO_FIREBASE_*`~~ | removed | Desktop billing polls `GET /api/billing/summary` via IPC; no Firebase client SDK in the pack | — |
 | `RAZORPAY_WEBHOOK_SECRET` | webhook route | HMAC verify | Secret Manager. Webhook URL must be the hosted.app origin |
 | `RAZORPAY_AFFILIATE_OFFER_ID` | create-subscription route | Affiliate offer | Razorpay test offer (optional) |
 | `ADMIN_EMAILS` | `firebase-admin.ts` | Admin claim fallback | yaml `value` |

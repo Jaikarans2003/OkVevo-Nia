@@ -12,7 +12,10 @@ export const VENDOR_HOSTS = [
   'generativelanguage.googleapis.com',
   'api.x.ai',
   'api.groq.com',
-  'nousresearch.com'
+  'nousresearch.com',
+  'firestore.googleapis.com',
+  'identitytoolkit.googleapis.com',
+  'securetoken.googleapis.com'
 ] as const
 
 export function vendorHostHit(url: string): null | string {

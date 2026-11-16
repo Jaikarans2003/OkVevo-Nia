@@ -669,9 +669,9 @@ declare global {
       startOkvevoSignIn?: () => Promise<{ ok: boolean; error?: string }>
       resetOkvevoCredentialCooldown?: () => Promise<{ ok: boolean }>
       openOkvevoPortal?: (portalPath: string) => Promise<{ ok: boolean; error?: string }>
-      getOkvevoCustomToken?: () => Promise<
-        | { ok: true; customToken: string; uid: string }
-        | { ok: false; error?: string }
+      getOkvevoBilling?: () => Promise<
+        | { ok: true; summary: Record<string, unknown> }
+        | { ok: false; error?: string; status?: number }
       >
       signOutOkvevo?: () => Promise<{
         signedIn: boolean

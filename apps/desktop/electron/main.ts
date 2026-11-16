@@ -409,6 +409,15 @@ import { isExpectedOauthNavigationAbort } from './oauth-navigation'
 import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
 import { LEGACY_OAUTH_PARTITION, resolveOauthPartition } from './oauth-partition'
 import {
+  canShowInteractiveOauthLogin,
+  mintGatewayWsTicket as mintOauthGatewayWsTicket,
+  requestWithOauthFallback,
+  retryCookie401WithLogin,
+  withoutInteractiveOauthLogin
+} from './oauth-rest-request'
+import { wireOauthSessionResponse } from './oauth-session-response'
+import { ABOUT_CREDITS, OKVEVO_COPYRIGHT } from './okvevo-about'
+import {
   buildOkvevoPortalUrl,
   hermesProtocolForDev,
   OKVEVO_INVALID_PORTAL_URL,
@@ -452,17 +461,8 @@ import {
   readFirstText,
   watchOkvevoManagedConfig
 } from './okvevo-config-migration'
-import { ABOUT_CREDITS, OKVEVO_COPYRIGHT } from './okvevo-about'
 import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, stripOkvevoApiKeyCopies } from './okvevo-env'
 import { bakedFeedUrlFromPack, resolveDesktopFeedBase } from './okvevo-feed'
-import {
-  canShowInteractiveOauthLogin,
-  mintGatewayWsTicket as mintOauthGatewayWsTicket,
-  requestWithOauthFallback,
-  retryCookie401WithLogin,
-  withoutInteractiveOauthLogin
-} from './oauth-rest-request'
-import { wireOauthSessionResponse } from './oauth-session-response'
 import { listWindowsProcesses, reapPackageRootedProcesses } from './package-process-reap'
 import {
   bundledPayload,
@@ -1329,17 +1329,21 @@ if (IS_PACKAGED) {
 
 {
   const resources = process.resourcesPath || ''
+
   const upstreamSoul = readFirstText([
     path.join(SOURCE_REPO_ROOT, 'SOUL.md'),
     resources ? path.join(resources, 'agent-payload', 'hermes-agent', 'SOUL.md') : '',
     resources ? path.join(resources, 'agent-payload', 'SOUL.md') : ''
   ])
+
   const skillsCandidates = [
     path.join(SOURCE_REPO_ROOT, 'okvevo', 'skills'),
     resources ? path.join(resources, 'agent-payload', 'hermes-agent', 'okvevo', 'skills') : '',
     resources ? path.join(resources, 'agent-payload', 'okvevo', 'skills') : ''
   ]
+
   const skillsDir = skillsCandidates.find(candidate => candidate && fs.existsSync(candidate)) || null
+
   const defaultsPath =
     [
       path.join(SOURCE_REPO_ROOT, 'okvevo', 'config', 'okvevo-defaults.yaml'),
@@ -7696,6 +7700,7 @@ if (typeof __OKVEVO_E2E_AUTH__ !== 'undefined' && __OKVEVO_E2E_AUTH__) {
       const deps = _okvevoAuthFlowDeps()
       deps.setPending({ state, exp: Date.now() + 10 * 60 * 1000 })
       await _finishOkvevoAuthCallback(code, state)
+
       return { ok: true }
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
@@ -16814,6 +16819,7 @@ const streamThrottle = createStreamThrottle(undefined, undefined, {
   // normal idle throttling contract.
   keepFullscreenPainting: process.platform === 'linux' && linuxOzoneBackend(process.env, process.argv) === 'wayland'
 })
+
 registerStreamWorkClock(ipcMain, sender => BrowserWindow.fromWebContents(sender))
 
 function isAnyTurnInFlight() {
@@ -16840,9 +16846,11 @@ ipcMain.on('hermes:active-work', (event, payload) => {
       event.sender.off('destroyed', forget)
       event.sender.off('render-process-gone', forget)
       activeWorkByWebContents.delete(id)
+
       if (owner) {
         streamThrottle.setVoiceActive(owner, false)
       }
+
       updateStreamThrottleFromActiveWork()
     }
 
@@ -16856,9 +16864,11 @@ ipcMain.on('hermes:active-work', (event, payload) => {
   const work = normalizeActiveWork(payload)
   activeWorkByWebContents.set(id, work)
   lastActiveWorkSeen = work
+
   if (owner?.webContents === event.sender && event.senderFrame === event.sender.mainFrame) {
     streamThrottle.setVoiceActive(owner, payload?.voiceActive === true)
   }
+
   updateStreamThrottleFromActiveWork()
 })
 
@@ -17249,35 +17259,60 @@ ipcMain.handle('hermes:okvevo-auth:sign-out', () => {
 
 ipcMain.handle('hermes:okvevo-auth:get', () => publicOkvevoAuthSnapshot(loadOkvevoAuthSession(_okvevoAuthStoreIo())))
 
-ipcMain.handle('hermes:okvevo-auth:custom-token', async () => {
-  const session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
-
-  if (!session?.refreshToken) {
-    return { ok: false }
-  }
-
+ipcMain.handle('hermes:okvevo-billing:get', async () => {
   const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
 
   if (!origin) {
     return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
   }
 
+  const fetchSummary = async (idToken: string) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15_000)
+
+    try {
+      return await fetch(`${origin.replace(/\/$/, '')}/api/billing/summary`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+        signal: controller.signal
+      })
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   try {
-    const body = (await postJsonNoAuth(
-      `${origin.replace(/\/$/, '')}/api/auth/desktop/custom-token`,
-      { refreshToken: session.refreshToken },
-      { timeoutMs: 15_000 }
-    )) as { customToken?: string; uid?: string }
+    let session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
 
-    const customToken = typeof body.customToken === 'string' ? body.customToken : ''
-    const uid = typeof body.uid === 'string' ? body.uid : ''
-
-    if (!customToken || !uid || uid !== session.uid) {
+    if (!session?.idToken) {
       return { ok: false }
     }
 
-    return { ok: true, customToken, uid }
-  } catch {
+    let res = await fetchSummary(session.idToken)
+
+    if (res.status === 401) {
+      await refreshOkvevoAuth(_okvevoAuthFlowDeps())
+      _scheduleOkvevoRefresh()
+      session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+      if (!session?.idToken) {
+        return { ok: false }
+      }
+
+      res = await fetchSummary(session.idToken)
+    }
+
+    if (!res.ok) {
+      return { ok: false, status: res.status }
+    }
+
+    const summary = (await res.json()) as Record<string, unknown>
+
+    return { ok: true, summary }
+  } catch (error) {
+    rememberLog(
+      `[okvevo-billing] summary failed: ${error instanceof Error ? error.message : String(error)}`
+    )
+
     return { ok: false }
   }
 })

@@ -257,6 +257,46 @@ export function startGatewayMock(options: GatewayMockOptions = {}): Promise<Gate
         return
       }
 
+      if (req.method === 'GET' && url.pathname === '/api/me') {
+        writeLog(options.logPath, `GET ${url.pathname} 200`)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            user: { id: 'e2e-user', email: 'e2e@okvevo.test', displayName: 'E2E User' },
+            memberships: [],
+            hidePersonal: false,
+            upgradedOrgPublicId: null,
+            isPlatformAdmin: false
+          })
+        )
+
+        return
+      }
+
+      if (req.method === 'GET' && url.pathname === '/api/billing/summary') {
+        writeLog(options.logPath, `GET ${url.pathname} 200`)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            plan: 'starter',
+            planName: 'Starter',
+            status: 'active',
+            entitled: true,
+            remainingPct: 100,
+            additionalPct: 0,
+            additionalNextExpiry: null,
+            periodEnd: new Date(Date.now() + 864e5).toISOString(),
+            cancelAtPeriodEnd: false,
+            scheduledChange: null,
+            accountKind: 'individual',
+            canPurchase: true,
+            fundedBy: null
+          })
+        )
+
+        return
+      }
+
       if (req.method === 'POST' && url.pathname.includes('/chat/completions')) {
         const authorization = typeof req.headers.authorization === 'string' ? req.headers.authorization : undefined
         const bearer = authorization?.replace(/^Bearer\s+/i, '') ?? ''

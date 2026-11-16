@@ -19,10 +19,10 @@ Identity uses generated `SOUL.md` (`scripts/okvevo/make_soul.py`) plus
 a first-run clone. Unpackaged/dev `bootstrap-runner.ts` still swaps the GitHub
 URL to `Jaikarans2003/OkVevo-Nia`.
 
-Root `package-lock.json` is allowed to differ from the tag so the
-`apps/desktop` workspace can install `firebase` (billing listener). That is a
-packaging lockfile delta, not a Python KEEP-PATCH. Drift skips this one file.
+Root `package-lock.json` may differ from the tag for desktop packaging
+(lockfile delta, not a Python KEEP-PATCH). Drift skips this one file.
 `lefthook.yml` is the Active KEEP-PATCH above (also skipped by drift `is_owned`).
+Billing display uses portal `GET /api/billing/summary` (no Firebase client SDK).
 
 ## UI/packaging deltas
 
@@ -271,7 +271,6 @@ corresponding list **exactly**.
 - `apps/desktop/src/lib/okvevo-billing-listener.selfcheck.ts`
 - `apps/desktop/src/lib/okvevo-billing-listener.test.ts`
 - `apps/desktop/src/lib/okvevo-billing-listener.ts`
-- `apps/desktop/src/lib/okvevo-firebase.ts`
 - `apps/desktop/src/lib/plugin-catalog.ts`
 - `apps/desktop/src/lib/product.ts`
 - `apps/desktop/src/lib/provider-branding.test.ts`

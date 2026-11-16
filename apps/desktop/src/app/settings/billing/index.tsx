@@ -10,7 +10,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useI18n } from '@/i18n'
 import { isByokChromeVisible } from '@/lib/build-channel'
 import { BarChart3, CreditCard, ExternalLink, LogIn, Package, Wrench } from '@/lib/icons'
-import { formatPctLabel, type OkvevoBillingData, subscribeOkvevoUserBilling } from '@/lib/okvevo-billing-listener'
+import {
+  billingViewFromSummary,
+  formatPctLabel,
+  type OkvevoBillingData
+} from '@/lib/okvevo-billing-listener'
 import { fmtDate } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useOkvevoAuth } from '@/store/okvevo-auth'
@@ -85,10 +89,22 @@ function okvevoPlanDescription(billing: OkvevoBillingData, livePlan: boolean): s
   return `${name} · ${when} ${fmtDate.format(billing.currentPeriodEnd)}`
 }
 
-function OkvevoPortalActions({ canCancelPlan, livePlan }: { canCancelPlan: boolean; livePlan: boolean }) {
+function OkvevoPortalActions({
+  canCancelPlan,
+  livePlan,
+  canPurchase,
+  entitled
+}: {
+  canCancelPlan: boolean
+  livePlan: boolean
+  canPurchase: boolean
+  entitled: boolean
+}) {
+  const showBuy = canPurchase && (!livePlan || entitled)
+
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 @2xl:justify-end">
-      {livePlan ? (
+      {canPurchase && livePlan ? (
         <Button
           onClick={() => openOkvevoPortal('/billing/change-plan')}
           size="sm"
@@ -98,22 +114,24 @@ function OkvevoPortalActions({ canCancelPlan, livePlan }: { canCancelPlan: boole
           Change Plan
           <ExternalLink className="size-3.5" />
         </Button>
-      ) : (
+      ) : canPurchase && !livePlan ? (
         <Button onClick={() => openOkvevoPortal('/pricing')} size="sm" type="button" variant="outline">
           See plans
           <ExternalLink className="size-3.5" />
         </Button>
-      )}
-      {canCancelPlan ? (
+      ) : null}
+      {canPurchase && canCancelPlan ? (
         <Button onClick={() => openOkvevoPortal('/billing/cancel')} size="sm" type="button" variant="outline">
           Cancel Plan
           <ExternalLink className="size-3.5" />
         </Button>
       ) : null}
-      <Button onClick={() => openOkvevoPortal('/billing')} size="sm" type="button" variant="outline">
-        Add Credits
-        <ExternalLink className="size-3.5" />
-      </Button>
+      {showBuy ? (
+        <Button onClick={() => openOkvevoPortal('/billing')} size="sm" type="button" variant="outline">
+          Add Credits
+          <ExternalLink className="size-3.5" />
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -159,60 +177,62 @@ function OkvevoAccountChrome() {
     }
 
     let cancelled = false
-    let unsubscribe: (() => void) | undefined
+    let previousAdditional = -1
+    let timer: ReturnType<typeof setInterval> | null = null
 
-    setBillingState('loading')
-
-    void (async () => {
-      const tokenResult = await window.hermesDesktop?.getOkvevoCustomToken?.()
-
-      if (cancelled) {
-        return
-      }
-
-      if (!tokenResult?.ok || !tokenResult.customToken || tokenResult.uid !== auth.uid) {
-        setBilling(null)
-        setBillingState('error')
-
-        return
-      }
-
+    const pull = async () => {
       try {
-        let previousAdditional = -1
+        const result = await window.hermesDesktop?.getOkvevoBilling?.()
 
-        unsubscribe = await subscribeOkvevoUserBilling(
-          auth.uid!,
-          tokenResult.customToken,
-          data => {
-            if (previousAdditional >= 0 && data.additionalPct > previousAdditional) {
-              void window.hermesDesktop?.resetOkvevoCredentialCooldown?.()
-            }
+        if (cancelled) {
+          return
+        }
 
-            previousAdditional = data.additionalPct
+        if (!result?.ok || !result.summary) {
+          setBilling(null)
+          setBillingState('error')
 
-            if (!cancelled) {
-              setBilling(data)
-              setBillingState('live')
-            }
-          },
-          () => {
-            if (!cancelled) {
-              setBilling(null)
-              setBillingState('error')
-            }
-          }
-        )
+          return
+        }
+
+        const data = billingViewFromSummary(result.summary as Record<string, unknown>)
+
+        if (previousAdditional >= 0 && data.additionalPct > previousAdditional) {
+          void window.hermesDesktop?.resetOkvevoCredentialCooldown?.()
+        }
+
+        previousAdditional = data.additionalPct
+        setBilling(data)
+        setBillingState('live')
       } catch {
         if (!cancelled) {
           setBilling(null)
           setBillingState('error')
         }
       }
-    })()
+    }
+
+    setBillingState('loading')
+    void pull()
+    timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return
+      }
+
+      void pull()
+    }, 30_000)
+
+    const onFocus = () => void pull()
+    window.addEventListener('focus', onFocus)
 
     return () => {
       cancelled = true
-      unsubscribe?.()
+
+      if (timer) {
+        clearInterval(timer)
+      }
+
+      window.removeEventListener('focus', onFocus)
     }
   }, [auth.signedIn, auth.uid])
 
@@ -280,11 +300,18 @@ function OkvevoAccountChrome() {
       {auth.signedIn ? (
         <ListRow
           action={
-            <OkvevoPortalActions canCancelPlan={Boolean(canCancelPlan)} livePlan={livePlan} />
+            <OkvevoPortalActions
+              canCancelPlan={Boolean(canCancelPlan)}
+              canPurchase={liveSnapshot?.canPurchase !== false}
+              entitled={liveSnapshot?.entitled !== false}
+              livePlan={livePlan}
+            />
           }
           description={
             liveSnapshot
-              ? okvevoPlanDescription(liveSnapshot, livePlan)
+              ? liveSnapshot.canPurchase === false && liveSnapshot.fundedBy
+                ? `Credits are provided by ${liveSnapshot.fundedBy}. Ask your organisation admin for more.`
+                : okvevoPlanDescription(liveSnapshot, livePlan)
               : billingState === 'error'
                 ? 'Open the portal to manage your plan.'
                 : 'Plan details appear once billing is live.'
@@ -296,6 +323,12 @@ function OkvevoAccountChrome() {
         <>
           <OkvevoUsageRow label="Plan remaining" pct={liveSnapshot.remainingPct} />
           <OkvevoUsageRow label="Additional remaining" pct={liveSnapshot.additionalPct} />
+          {liveSnapshot.additionalNextExpiry ? (
+            <ListRow
+              description={`Additional credits expire ${fmtDate.format(liveSnapshot.additionalNextExpiry)}`}
+              title="Additional credit expiry"
+            />
+          ) : null}
         </>
       ) : null}
     </SettingsSection>

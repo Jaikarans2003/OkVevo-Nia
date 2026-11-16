@@ -7,7 +7,7 @@ host itself.
 Allowed besides the portal origin baked into the pack (`OKVEVO_WEB_ORIGIN`):
 
 - `okvevo.com` and `releases.okvevo.com`
-- Firebase Auth and Firestore for the pack's Firebase project
+- Firebase Auth only via the portal (`/api/auth/desktop/*`); no Firestore or Firebase client SDK in the pack
 
 Anything else in the table is not a host the public build may call.
 
