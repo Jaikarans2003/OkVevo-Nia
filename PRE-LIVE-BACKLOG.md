@@ -253,7 +253,7 @@ _None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reapp
 | **Scope** | Firebase project hosting App Hosting; Cloud Scheduler job; `CRON_SECRET` in App Hosting env |
 | **Fix** | Daily ~00:10 UTC HTTPS POST to `/api/cron/allocation-refresh` with `Authorization: Bearer CRON_SECRET`. Deploy composite index `planStatus + nextAllocationDate`. |
 | **Verify** | Manual POST with secret refreshes a due yearly test user; without secret → 401. |
-| **Notes** | Closed 2026-09-11: `nia-allocation-refresh` ENABLED `10 0 * * *` Etc/UTC; secrets in SM; index READY; Scheduler run-now → Cloud Logging HTTP 200. See `.cursor/plans/ops_billing_rollout_875b8a3c.plan.md`. |
+| **Notes** | Closed 2026-09-11 as `nia-allocation-refresh`; renamed 2026-11-16 to `okvevo-allocation-refresh` (same `10 0 * * *` Etc/UTC). Secrets in SM; Scheduler force-run → HTTP 200. See `.cursor/plans/ops_billing_rollout_875b8a3c.plan.md`. |
 
 ### [ ] Razorpay Dashboard: subscribe `subscription.updated`
 
@@ -876,7 +876,7 @@ _(Move items here when done.)_
 | Pin packaged agent/runtime to the same release as the shell | 2026-09-14 | extraResources snapshot + stamp re-extract. Vitest `packaged-snapshot` / `pack-agent-snapshot` / bundled installer. |
 | CI must inject OKVEVO_WEB_ORIGIN before the first signed release | 2026-09-14 | `okvevo-pack-env.json` + `STAGING_*`/`PROD_*` secrets. Vitest `write-okvevo-pack-env` / `okvevo-env`. **2026-09-18: fill-unset was wrong; non-empty pack keys overwrite.** |
 | Connect GitHub repo to App Hosting backend `okvevo-web` | 2026-09-14 | **Won't-do.** Replaced by OkVevo-Web Actions `deploy.yml` (no Firebase GitHub auto-rollout). |
-| Wire Cloud Scheduler → `/api/cron/allocation-refresh` | 2026-09-11 | `nia-allocation-refresh` ENABLED; SM secrets + grantaccess; local apphosting deploy; Scheduler run-now → HTTP 200. Plan: `ops_billing_rollout_875b8a3c`. |
+| Wire Cloud Scheduler → `/api/cron/allocation-refresh` | 2026-09-11 | Originally `nia-allocation-refresh`; renamed 2026-11-16 to `okvevo-allocation-refresh`. SM secrets + grantaccess; force-run → HTTP 200. Plan: `ops_billing_rollout_875b8a3c`. |
 | Razorpay two-bucket SoT (allocation + topUp) + webhook/cron writers | 2026-09-11 | pending commit. Selfchecks: `credits.selfcheck`, `reserve.selfcheck` (FIFO 100+50 spend 120→0+30; Jan 31→Feb 28). Desktop vitest `okvevo-billing-listener.test.ts`. Ops cron/secrets closed same day — see Scheduler row above. |
 | Settings → Gateway / OS keychain toggle | 2026-09-07 | pending commit. Public hides the whole Gateways tab (nav, palette, `?tab=gateway` / `connections` bounce to Appearance). Internal keeps the OS keychain toggle. |
 | Next.js 16.3 vs App Hosting Cloud Build adapter | 2026-09-05 | pending commit. `okvevo-web` live at `https://okvevo-web--okvevo-testing.us-central1.hosted.app`. Adapter compiled Next **16.3.3**. First Cloud Build fail was Razorpay module-load, not the adapter. |
