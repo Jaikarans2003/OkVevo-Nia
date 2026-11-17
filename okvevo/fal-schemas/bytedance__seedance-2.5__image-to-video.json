@@ -1,9 +1,9 @@
 {
   "endpoint_id": "bytedance/seedance-2.5/image-to-video",
   "source": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=bytedance/seedance-2.5/image-to-video",
-  "fetched_at": "2026-10-12T16:37:34.107Z",
+  "fetched_at": "2026-11-17T13:07:51.438Z",
   "openapi": {
-    "openapi": "3.0.4",
+    "openapi": "3.1.0",
     "info": {
       "title": "Queue OpenAPI for bytedance/seedance-2.5/image-to-video",
       "version": "1.0.0",
@@ -75,28 +75,13 @@
           ]
         },
         "Seedance25ImageToVideoInput": {
-          "x-fal-order-properties": [
-            "prompt",
-            "image_url",
-            "end_image_url",
-            "resolution",
-            "draft",
-            "duration",
-            "aspect_ratio",
-            "generate_audio",
-            "bitrate_mode",
-            "codec",
-            "end_user_id"
+          "type": "object",
+          "required": [
+            "image_url"
           ],
           "properties": {
-            "aspect_ratio": {
-              "const": "auto",
-              "description": "The aspect ratio of the generated video. Always \"auto\" for image-to-video",
-              "title": "Aspect Ratio",
-              "default": "auto",
-              "type": "string"
-            },
             "duration": {
+              "default": "auto",
               "enum": [
                 "auto",
                 "4",
@@ -128,59 +113,71 @@
                 "30"
               ],
               "description": "Duration of the video in seconds. Supports 4 to 30 seconds, or auto to let the model decide based on the prompt.",
-              "title": "Duration",
-              "default": "auto",
-              "type": "string"
-            },
-            "resolution": {
-              "enum": [
-                "480p",
-                "720p",
-                "1080p"
-              ],
-              "description": "Video resolution - 480p for faster generation, 720p for balance, 1080p for high quality.",
-              "title": "Resolution",
-              "default": "720p",
-              "type": "string"
+              "type": "string",
+              "title": "Duration"
             },
             "draft": {
-              "description": "Generate a draft preview at 480p, overriding resolution. Returns a draft_id for completing the draft at 1080p within seven days.",
-              "title": "Draft",
               "default": false,
-              "type": "boolean"
+              "description": "Generate a draft preview at 480p, overriding resolution. Returns a draft_id for completing the draft at 1080p within 14 days.",
+              "type": "boolean",
+              "title": "Draft"
+            },
+            "aspect_ratio": {
+              "default": "auto",
+              "description": "The aspect ratio of the generated video. Always \"auto\" for image-to-video",
+              "type": "string",
+              "title": "Aspect Ratio",
+              "const": "auto"
             },
             "image_url": {
-              "description": "The URL of the starting frame image to animate. Supported formats: JPEG, PNG, WebP. Max 30 MB.",
+              "description": "The URL of the starting frame image to animate. Supported formats: JPEG, PNG, WebP, BMP, TIFF, GIF, HEIC, HEIF. Max 30 MB.",
+              "type": "string",
               "title": "Image Url",
               "examples": [
                 "https://v3b.fal.media/files/b/0a8eba37/Cqg-4Uwzyz4DELfceT1CF_a17e588773ec45b1a9e6f100a787b80b.jpg"
+              ]
+            },
+            "resolution": {
+              "default": "720p",
+              "enum": [
+                "480p",
+                "720p",
+                "1080p",
+                "4k"
               ],
-              "type": "string"
+              "description": "Video resolution - 480p for faster generation, 720p for balance, 1080p for high quality, 4k for highest quality.",
+              "type": "string",
+              "title": "Resolution"
+            },
+            "bitrate_mode": {
+              "default": "standard",
+              "enum": [
+                "standard",
+                "high"
+              ],
+              "description": "Output bitrate mode. 'high' requests a higher-quality, larger-file encode from the model; 'standard' uses the default bitrate.",
+              "type": "string",
+              "title": "Bitrate Mode",
+              "examples": [
+                "standard"
+              ]
             },
             "prompt": {
               "description": "The text prompt describing the desired motion and action for the video.",
-              "title": "Prompt",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "examples": [
                 "An octopus finds a football in the ocean and excitedly calls its octopus friends to come and play. Cut scene to an octopus football game under the sea."
               ],
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "generate_audio": {
-              "description": "Whether to generate synchronized audio for the video, including sound effects, ambient sounds, and lip-synced speech. The cost of video generation is the same regardless of whether audio is generated or not.",
-              "title": "Generate Audio",
-              "default": true,
-              "type": "boolean"
+              "title": "Prompt"
             },
             "end_image_url": {
-              "description": "The URL of the image to use as the last frame of the video. When provided, the generated video will transition from the starting image to this ending image. Supported formats: JPEG, PNG, WebP. Max 30 MB.",
-              "title": "End Image Url",
               "anyOf": [
                 {
                   "type": "string"
@@ -188,11 +185,11 @@
                 {
                   "type": "null"
                 }
-              ]
+              ],
+              "description": "The URL of the image to use as the last frame of the video. When provided, the generated video will transition from the starting image to this ending image. Supported formats: JPEG, PNG, WebP, BMP, TIFF, GIF, HEIC, HEIF. Max 30 MB.",
+              "title": "End Image Url"
             },
             "end_user_id": {
-              "description": "The unique user ID of the end user.",
-              "title": "End User Id",
               "anyOf": [
                 {
                   "type": "string"
@@ -200,51 +197,75 @@
                 {
                   "type": "null"
                 }
-              ]
+              ],
+              "description": "The unique user ID of the end user.",
+              "title": "End User Id"
             },
             "codec": {
+              "default": "auto",
               "enum": [
                 "auto",
                 "H264",
                 "H265"
               ],
               "description": "'auto' retains default video codec behaviour; 'H264' uses H.264; 'H265' uses H.265.",
+              "type": "string",
               "title": "Codec",
-              "default": "auto",
               "examples": [
                 "auto",
                 "H264",
                 "H265"
-              ],
-              "type": "string"
+              ]
             },
-            "bitrate_mode": {
-              "enum": [
-                "standard",
-                "high"
-              ],
-              "description": "Output bitrate mode. 'high' requests a higher-quality, larger-file encode from the model; 'standard' uses the default bitrate.",
-              "title": "Bitrate Mode",
-              "default": "standard",
-              "examples": [
-                "standard"
-              ],
-              "type": "string"
+            "generate_audio": {
+              "default": true,
+              "description": "Whether to generate synchronized audio for the video, including sound effects, ambient sounds, and lip-synced speech. The cost of video generation is the same regardless of whether audio is generated or not.",
+              "type": "boolean",
+              "title": "Generate Audio"
             }
           },
-          "required": [
-            "image_url"
-          ],
           "title": "Seedance2I2VInput",
-          "type": "object"
+          "x-fal-order-properties": [
+            "prompt",
+            "image_url",
+            "end_image_url",
+            "resolution",
+            "draft",
+            "duration",
+            "aspect_ratio",
+            "generate_audio",
+            "bitrate_mode",
+            "codec",
+            "end_user_id"
+          ]
         },
         "Seedance25ImageToVideoOutput": {
-          "x-fal-order-properties": [
+          "type": "object",
+          "required": [
             "video",
-            "seed",
-            "draft_id"
+            "seed"
           ],
           "properties": {
+            "seed": {
+              "description": "The seed used for generation.",
+              "type": "integer",
+              "title": "Seed",
+              "examples": [
+                42
+              ]
+            },
+            "draft_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The draft ID, or null when draft mode is disabled. Complete this draft within 14 days (7 days for US drafts) using the same account.",
+              "title": "Draft Id"
+            },
             "video": {
               "description": "The generated video file.",
               "examples": [
@@ -253,84 +274,22 @@
                 }
               ],
               "$ref": "#/components/schemas/File"
-            },
-            "seed": {
-              "description": "The seed used for generation.",
-              "title": "Seed",
-              "examples": [
-                42
-              ],
-              "type": "integer"
-            },
-            "draft_id": {
-              "description": "The draft ID, or null when draft mode is disabled. Complete this draft within seven days using the same account.",
-              "title": "Draft Id",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
-          "required": [
-            "video",
-            "seed"
-          ],
           "title": "Seedance2VideoOutput",
-          "type": "object"
+          "x-fal-order-properties": [
+            "video",
+            "seed",
+            "draft_id"
+          ]
         },
         "File": {
-          "x-fal-order-properties": [
-            "url",
-            "content_type",
-            "file_name",
-            "file_size"
+          "type": "object",
+          "required": [
+            "url"
           ],
           "properties": {
-            "url": {
-              "description": "The URL where the file can be downloaded from.",
-              "title": "Url",
-              "type": "string"
-            },
-            "content_type": {
-              "description": "The mime type of the file.",
-              "title": "Content Type",
-              "examples": [
-                "image/png"
-              ],
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "file_name": {
-              "description": "The name of the file. It will be auto-generated if not provided.",
-              "title": "File Name",
-              "examples": [
-                "z9RV14K95DvU.png"
-              ],
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "file_size": {
-              "description": "The size of the file in bytes.",
-              "title": "File Size",
-              "examples": [
-                4404019
-              ],
               "anyOf": [
                 {
                   "type": "integer"
@@ -338,14 +297,56 @@
                 {
                   "type": "null"
                 }
-              ]
+              ],
+              "examples": [
+                4404019
+              ],
+              "title": "File Size",
+              "description": "The size of the file in bytes."
+            },
+            "content_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                "image/png"
+              ],
+              "title": "Content Type",
+              "description": "The mime type of the file."
+            },
+            "file_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                "z9RV14K95DvU.png"
+              ],
+              "title": "File Name",
+              "description": "The name of the file. It will be auto-generated if not provided."
+            },
+            "url": {
+              "description": "The URL where the file can be downloaded from.",
+              "type": "string",
+              "title": "Url"
             }
           },
-          "required": [
-            "url"
-          ],
           "title": "File",
-          "type": "object"
+          "x-fal-order-properties": [
+            "url",
+            "content_type",
+            "file_name",
+            "file_size"
+          ]
         }
       }
     },
