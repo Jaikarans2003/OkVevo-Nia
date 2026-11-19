@@ -168,10 +168,20 @@ function OkvevoAccountChrome() {
   const [billing, setBilling] = useState<OkvevoBillingData | null>(null)
   const [billingState, setBillingState] = useState<'idle' | 'loading' | 'live' | 'error'>('idle')
 
+  const [memberships, setMemberships] = useState<
+    Array<{ orgPublicId: string; name: string; kind: string; role: string }>
+  >([])
+
+  const [hidePersonal, setHidePersonal] = useState(false)
+  const [activeOrg, setActiveOrg] = useState<string | null>(null)
+
   useEffect(() => {
     if (!auth.signedIn || !auth.uid) {
       setBilling(null)
       setBillingState('idle')
+      setMemberships([])
+      setHidePersonal(false)
+      setActiveOrg(null)
 
       return
     }
@@ -179,6 +189,22 @@ function OkvevoAccountChrome() {
     let cancelled = false
     let previousAdditional = -1
     let timer: ReturnType<typeof setInterval> | null = null
+
+    const pullMe = async () => {
+      try {
+        const result = await window.hermesDesktop?.getOkvevoMe?.()
+
+        if (cancelled || !result?.ok || !result.me) {
+          return
+        }
+
+        setHidePersonal(result.me.hidePersonal === true)
+        setMemberships(Array.isArray(result.me.memberships) ? result.me.memberships : [])
+        setActiveOrg(result.orgPublicId ?? null)
+      } catch {
+        /* billing poll still runs */
+      }
+    }
 
     const pull = async () => {
       try {
@@ -213,6 +239,7 @@ function OkvevoAccountChrome() {
     }
 
     setBillingState('loading')
+    void pullMe()
     void pull()
     timer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
@@ -222,7 +249,11 @@ function OkvevoAccountChrome() {
       void pull()
     }, 30_000)
 
-    const onFocus = () => void pull()
+    const onFocus = () => {
+      void pullMe()
+      void pull()
+    }
+
     window.addEventListener('focus', onFocus)
 
     return () => {
@@ -239,6 +270,27 @@ function OkvevoAccountChrome() {
   const liveSnapshot = billingState === 'live' ? billing : null
   const livePlan = Boolean(liveSnapshot && isLiveOkvevoPlan(liveSnapshot.planStatus))
   const canCancelPlan = liveSnapshot?.planStatus === 'active' && !liveSnapshot.cancelAtPeriodEnd
+  const showOrgPicker = auth.signedIn && (memberships.length > 0 || !hidePersonal)
+
+  const onOrgChange = async (value: string) => {
+    const next = value === '' ? null : value
+    await window.hermesDesktop?.setOkvevoOrg?.(next)
+    setActiveOrg(next)
+    setBillingState('loading')
+
+    try {
+      const result = await window.hermesDesktop?.getOkvevoBilling?.()
+
+      if (result?.ok && result.summary) {
+        setBilling(billingViewFromSummary(result.summary as Record<string, unknown>))
+        setBillingState('live')
+      } else {
+        setBillingState('error')
+      }
+    } catch {
+      setBillingState('error')
+    }
+  }
 
   const accountDescription = (() => {
     if (!auth.signedIn) {
@@ -297,6 +349,27 @@ function OkvevoAccountChrome() {
         description={accountDescription}
         title={auth.signedIn ? auth.email || 'Signed in' : 'Not signed in'}
       />
+      {showOrgPicker ? (
+        <ListRow
+          action={
+            <select
+              aria-label="Use credits from"
+              className="max-w-[220px] rounded-md border border-(--ui-border) bg-transparent px-2 py-1 text-sm"
+              onChange={(e) => void onOrgChange(e.target.value)}
+              value={activeOrg ?? ''}
+            >
+              {!hidePersonal ? <option value="">Personal</option> : null}
+              {memberships.map((m) => (
+                <option key={m.orgPublicId} value={m.orgPublicId}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          }
+          description="Chat, media, and billing use this account’s wallet."
+          title="Use credits from"
+        />
+      ) : null}
       {auth.signedIn ? (
         <ListRow
           action={

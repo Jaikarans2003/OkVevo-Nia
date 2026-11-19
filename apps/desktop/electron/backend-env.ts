@@ -255,12 +255,14 @@ function buildDesktopBackendEnv({
   const inherited = storeFirstPath(currentEnv?.[key] || '', { currentEnv, platform, homedir })
   // OkVevo: bundled ffmpeg must win resolution over anything on the user's PATH.
   const toolsDir = bundledToolsDir === undefined ? bundledFfmpegDir({ platform, pathModule }) : bundledToolsDir
+
   // OkVevo: the backend plugins (plugins/okvevo*) read the portal origin, the
   // rotating Firebase id-token file, and the build channel from these env vars.
   const hermesHomeRoot = normalizeHermesHomeRoot(
     resolveDesktopHermesHome({ home: homedir, env: currentEnv, platform }),
     { pathModule, homedir }
   )
+
   const okvevoEnv: Record<string, string> = {
     OKVEVO_WEB_ORIGIN: resolveOkvevoWebOrigin(currentEnv, {
       devServer: Boolean(currentEnv?.HERMES_DESKTOP_DEV_SERVER)
@@ -275,6 +277,7 @@ function buildDesktopBackendEnv({
   if (hermesHomeRoot) {
     okvevoEnv.OKVEVO_FIREBASE_ID_TOKEN_FILE = pathModule.join(hermesHomeRoot, 'okvevo-firebase-id-token')
     okvevoEnv.OKVEVO_FIREBASE_REFRESH_TOKEN_FILE = pathModule.join(hermesHomeRoot, 'okvevo-firebase-refresh-token')
+    okvevoEnv.OKVEVO_ORG_FILE = pathModule.join(hermesHomeRoot, 'okvevo-org')
   }
 
   return {

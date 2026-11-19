@@ -7,6 +7,8 @@ export const AUTH_CALLBACK_KIND = 'auth-callback'
 export const OKVEVO_ID_TOKEN_FILENAME = 'okvevo-firebase-id-token'
 /** Sibling of the ID token file; Python refreshes the JWT from this during long polls. */
 export const OKVEVO_REFRESH_TOKEN_FILENAME = 'okvevo-firebase-refresh-token'
+/** Active org public_id for X-OkVevo-Org (empty file / missing = Personal). */
+export const OKVEVO_ORG_FILENAME = 'okvevo-org'
 export const PENDING_TTL_MS = 10 * 60 * 1000
 export const OKVEVO_INVALID_PORTAL_URL = 'invalid_portal_url'
 export const OKVEVO_ORIGIN_MISSING_TITLE = 'Missing OkVevo portal URL'
@@ -156,6 +158,13 @@ export function okvevoRefreshTokenFilePath(
   pathJoin: (...parts: string[]) => string = (...parts) => parts.join('/')
 ): string {
   return pathJoin(hermesHome, OKVEVO_REFRESH_TOKEN_FILENAME)
+}
+
+export function okvevoOrgFilePath(
+  hermesHome: string,
+  pathJoin: (...parts: string[]) => string = (...parts) => parts.join('/')
+): string {
+  return pathJoin(hermesHome, OKVEVO_ORG_FILENAME)
 }
 
 export function sessionFromTokenResponse(

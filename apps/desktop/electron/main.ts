@@ -430,6 +430,7 @@ import {
   OKVEVO_SIGN_IN_TIMEOUT_ERROR,
   OKVEVO_SIGN_IN_TIMEOUT_TITLE,
   okvevoIdTokenFilePath,
+  okvevoOrgFilePath,
   okvevoRefreshTokenFilePath,
   parseHermesAuthCallback,
   publicOkvevoAuthSnapshot,
@@ -7501,6 +7502,52 @@ function _okvevoIdTokenPath() {
 
 function _okvevoRefreshTokenPath() {
   return okvevoRefreshTokenFilePath(HERMES_HOME, (...parts) => path.join(...parts))
+}
+
+function _okvevoOrgPath() {
+  return okvevoOrgFilePath(HERMES_HOME, (...parts) => path.join(...parts))
+}
+
+function _okvevoActiveOrgStorePath() {
+  return path.join(app.getPath('userData'), 'okvevo-active-org.json')
+}
+
+function _readActiveOrgPublicId(): string | null {
+  try {
+    const raw = fs.readFileSync(_okvevoActiveOrgStorePath(), 'utf8')
+    const parsed = JSON.parse(raw) as { orgPublicId?: unknown }
+    const id = typeof parsed.orgPublicId === 'string' ? parsed.orgPublicId.trim() : ''
+
+    return id || null
+  } catch {
+    return null
+  }
+}
+
+function _writeActiveOrgPublicId(orgPublicId: string | null) {
+  const target = _okvevoOrgPath()
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+
+  if (orgPublicId) {
+    writeSecretFileAtomic(target, orgPublicId, { encoding: 'utf8' })
+  } else {
+    try {
+      fs.rmSync(target, { force: true })
+    } catch {
+      /* ignore */
+    }
+  }
+
+  try {
+    writeFileAtomic(
+      _okvevoActiveOrgStorePath(),
+      JSON.stringify({ orgPublicId: orgPublicId || null }, null, 2)
+    )
+  } catch (error) {
+    rememberLog(
+      `[okvevo-org] persist failed: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
 }
 
 function _writeOkvevoIdTokenFile(idToken: string) {
@@ -17254,10 +17301,93 @@ ipcMain.handle('hermes:okvevo-auth:sign-out', () => {
     _okvevoRefreshTimer = null
   }
 
+  _writeActiveOrgPublicId(null)
+
   return signOutOkvevo(_okvevoAuthFlowDeps())
 })
 
 ipcMain.handle('hermes:okvevo-auth:get', () => publicOkvevoAuthSnapshot(loadOkvevoAuthSession(_okvevoAuthStoreIo())))
+
+ipcMain.handle('hermes:okvevo-org:get', () => ({ orgPublicId: _readActiveOrgPublicId() }))
+
+ipcMain.handle('hermes:okvevo-org:set', (_event, orgPublicId: unknown) => {
+  const next =
+    typeof orgPublicId === 'string' && orgPublicId.trim() ? orgPublicId.trim() : null
+
+  _writeActiveOrgPublicId(next)
+
+  return { orgPublicId: next }
+})
+
+ipcMain.handle('hermes:okvevo-me:get', async () => {
+  const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
+
+  if (!origin) {
+    return { ok: false, error: OKVEVO_ORIGIN_MISSING_ERROR }
+  }
+
+  try {
+    let session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+    if (!session?.idToken) {
+      return { ok: false }
+    }
+
+    const fetchMe = async (idToken: string) => {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 15_000)
+
+      try {
+        return await fetch(`${origin.replace(/\/$/, '')}/api/me`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+          signal: controller.signal
+        })
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+
+    let res = await fetchMe(session.idToken)
+
+    if (res.status === 401) {
+      await refreshOkvevoAuth(_okvevoAuthFlowDeps())
+      _scheduleOkvevoRefresh()
+      session = loadOkvevoAuthSession(_okvevoAuthStoreIo())
+
+      if (!session?.idToken) {
+        return { ok: false }
+      }
+
+      res = await fetchMe(session.idToken)
+    }
+
+    if (!res.ok) {
+      return { ok: false, error: `me_http_${res.status}` }
+    }
+
+    const data = await res.json()
+
+    // Drop Personal choice when hidePersonal flipped on.
+    if (data && typeof data === 'object' && (data as { hidePersonal?: unknown }).hidePersonal === true) {
+      const current = _readActiveOrgPublicId()
+
+      if (!current) {
+        const upgraded = (data as { upgradedOrgPublicId?: unknown }).upgradedOrgPublicId
+
+        if (typeof upgraded === 'string' && upgraded.trim()) {
+          _writeActiveOrgPublicId(upgraded.trim())
+        }
+      }
+    }
+
+    return { ok: true, me: data, orgPublicId: _readActiveOrgPublicId() }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+})
 
 ipcMain.handle('hermes:okvevo-billing:get', async () => {
   const origin = resolveOkvevoWebOrigin(process.env, { devServer: Boolean(DEV_SERVER) })
@@ -17269,10 +17399,16 @@ ipcMain.handle('hermes:okvevo-billing:get', async () => {
   const fetchSummary = async (idToken: string) => {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 15_000)
+    const headers: Record<string, string> = { Authorization: `Bearer ${idToken}` }
+    const org = _readActiveOrgPublicId()
+
+    if (org) {
+      headers['X-OkVevo-Org'] = org
+    }
 
     try {
       return await fetch(`${origin.replace(/\/$/, '')}/api/billing/summary`, {
-        headers: { Authorization: `Bearer ${idToken}` },
+        headers,
         signal: controller.signal
       })
     } finally {
