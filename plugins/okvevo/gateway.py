@@ -45,6 +45,36 @@ def _okvevo_id_token_path() -> Optional[str]:
     return path or None
 
 
+def read_okvevo_org_public_id() -> Optional[str]:
+    """Active org public_id for X-OkVevo-Org. Re-read per request like the token file."""
+    path = (os.environ.get("OKVEVO_ORG_FILE") or "").strip()
+    if not path:
+        # Sibling of the ID token file when Electron wrote okvevo-org under HERMES_HOME.
+        id_path = _okvevo_id_token_path()
+        if not id_path:
+            return None
+        from pathlib import Path
+
+        path = str(Path(id_path).with_name("okvevo-org"))
+    try:
+        with open(path, encoding="utf-8") as fh:
+            org = fh.read().strip()
+    except OSError:
+        return None
+    return org or None
+
+
+def okvevo_portal_headers(bearer: str, *, key_scheme: bool = False) -> dict[str, str]:
+    """Authorization (+ optional X-OkVevo-Org) for portal HTTP calls."""
+    headers = {
+        "Authorization": f"{'Key' if key_scheme else 'Bearer'} {bearer}",
+    }
+    org = read_okvevo_org_public_id()
+    if org:
+        headers["X-OkVevo-Org"] = org
+    return headers
+
+
 def read_okvevo_refresh_token() -> Optional[str]:
     """Refresh token next to the ID token file (Electron writes both).
 
@@ -251,7 +281,7 @@ def okvevo_fal_quote(endpoint: str, args: dict) -> tuple[Optional[int], Optional
         def _post(bearer: str):
             return httpx.post(
                 f"{origin}/api/fal/quote",
-                headers={"Authorization": f"Key {bearer}"},
+                headers=okvevo_portal_headers(bearer, key_scheme=True),
                 json={"endpoint": endpoint, "args": _quote_args(args)},
                 timeout=10.0,
             )
@@ -275,7 +305,7 @@ def okvevo_fal_quote(endpoint: str, args: dict) -> tuple[Optional[int], Optional
         if isinstance(credits, (int, float)) and credits >= 0:
             return int(credits), None
         return None, "quote had no credit amount"
-    except Exception as exc:  # noqa: BLE001 — quote must fail open
+    except Exception as exc:  # quote must fail open
         logger.warning("okvevo fal quote failed (%s): %s", endpoint, exc)
         return None, "quote unavailable"
 

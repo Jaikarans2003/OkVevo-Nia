@@ -673,6 +673,25 @@ declare global {
         | { ok: true; summary: Record<string, unknown> }
         | { ok: false; error?: string; status?: number }
       >
+      getOkvevoMe?: () => Promise<
+        | {
+            ok: true
+            me: {
+              hidePersonal?: boolean
+              upgradedOrgPublicId?: string | null
+              memberships?: Array<{
+                orgPublicId: string
+                name: string
+                kind: string
+                role: string
+              }>
+            }
+            orgPublicId: string | null
+          }
+        | { ok: false; error?: string }
+      >
+      getOkvevoOrg?: () => Promise<{ orgPublicId: string | null }>
+      setOkvevoOrg?: (orgPublicId: string | null) => Promise<{ orgPublicId: string | null }>
       signOutOkvevo?: () => Promise<{
         signedIn: boolean
         uid: string | null
