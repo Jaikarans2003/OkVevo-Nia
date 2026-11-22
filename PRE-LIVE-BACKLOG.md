@@ -299,6 +299,17 @@ _None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reapp
 | **Verify** | `gcloud scheduler jobs describe nia-fx-drift --project=okvevo-testing --location=us-central1` → ENABLED, schedule `0 9 * * 1`. Manual POST with secret → 200 and `opsAlerts/fxDrift` written; without secret → 401. `npx tsx src/lib/billing/fxDrift.selfcheck.ts`. |
 | **Notes** | Logged 2026-09-12 with Billing v2 Phase 6. Phase 3 shipped the route; this row is the Scheduler wire. Agent could not `gcloud` describe (reauth needed). |
 
+### [x] Billing summary returns stale `razorpaySubscriptionId` after leave-super-org-then-rebuy
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before live |
+| **Risk if skipped** | After an org leaves a super-org and buys a fresh starter subscription on its own wallet, `GET` billing summary (`getBillingSummary`) can keep pointing at a stale `razorpaySubscriptionId` instead of the new one. Any downstream code that keys off that id (cancel, invoices, webhook reconciliation) could act on the wrong Razorpay subscription for a real org. |
+| **Scope** | `OkVevo-Web/e2e/billing-timeline-l2/billing-timeline.spec.ts` (`2b-a` test, `buyAndActivate` + `getBillingSummary` flow); backend billing-summary read path + whatever writes `razorpaySubscriptionId` on buy/leave (super-org accept/leave + subscription-create routes under `OkVevo-Web/src/app/api/`). |
+| **Fix** | On `leaveOrRemoveParent`, clear `razorpaySubscriptionId` and `cancelAtPeriodEnd` on the child wallet so the next `subscription.activated` is not rejected as stale by `shouldApplySubscriptionEvent`. |
+| **Verify** | `cd OkVevo-Web && npm run test:billing-l2 -- -g "2b-a"` (staging `STAGING_BASE_URL` + `L2_ADMIN_EMAIL`/`L2_ADMIN_PASSWORD` env) passes; `afterBuy.razorpaySubscriptionId` equals the id just returned by `buyAndActivate`. |
+| **Notes** | Discovered 2026-11-21 on staging (PR #53, run `44950950477`) once the test's own Playwright per-test timeout (240000ms) was raised to 600000ms — the test previously never ran long enough to reach this assertion. Closed 2026-11-22: [OkVevo-Web #54](https://github.com/Jaikarans2003/OkVevo-Web/pull/54); staging deploy run [45008628935](https://github.com/Jaikarans2003/OkVevo-Web/actions/runs/45008628935) — Billing timeline Layer 2 success. |
+
 ### [ ] Test-mode billing v2 E2E (INR/USD cards, upgrade, downgrade, cancel)
 
 | Field | Value |
@@ -853,6 +864,7 @@ _None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reapp
 
 _(Move items here when done.)_
 
+| Billing summary stale `razorpaySubscriptionId` after leave-super-org-then-rebuy | 2026-11-22 | Clear subscription pointer on leave: [OkVevo-Web #54](https://github.com/Jaikarans2003/OkVevo-Web/pull/54). L2 run [45008628935](https://github.com/Jaikarans2003/OkVevo-Web/actions/runs/45008628935). |
 | manage_bot RELEASE BLOCKER (chat create/list/update) | 2026-11-12 | Descoped — Bots UI covers it; moved to Later ideas. Decided by Karan. |
 | Mac updater stable-mac.yml feed path | 2026-11-11 | feat/okvevo-polish-cleanup: publish dual-writes releases/darwin/stable/stable-mac.yml with absolute installer URLs; smoke GETs Hermes path |
 | @okvevo display alias for default bot | 2026-11-11 | feat/okvevo-polish-cleanup: claim @default/@hermes/@nia twins; tests retargeted |
