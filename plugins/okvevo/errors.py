@@ -13,7 +13,7 @@ Keyed on HTTP status / structured error_type first, message markers second
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 CREDITS_COPY = (
@@ -44,6 +44,9 @@ VENDOR_UNAVAILABLE_COPY = (
     "The image service is temporarily unavailable. Your credits were returned."
 )
 FALLBACK_COPY = "Something went wrong on my end — give that another try."
+_ORG_ACCESS_RE = re.compile(
+    r"^You no longer have access to .+\. Pick another account in Settings › Billing\.$"
+)
 
 _COPY_BY_CATEGORY = {
     "credits": CREDITS_COPY,
@@ -94,11 +97,11 @@ def busy_until_copy(reset_at: Any) -> Optional[str]:
             ts = float(text)
         except ValueError:
             try:
-                parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+                parsed = datetime.fromisoformat(text)
             except ValueError:
                 return None
             if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
+                parsed = parsed.replace(tzinfo=UTC)
             ts = parsed.timestamp()
     if ts is None or ts <= 0:
         return None
@@ -153,6 +156,23 @@ def _extract_status(raw: str, status: Optional[int]) -> Optional[int]:
     return None
 
 
+def org_access_copy(org: Optional[str] = None) -> str:
+    name = (org or "").strip() or "that organization"
+    return (
+        f"You no longer have access to {name}. "
+        "Pick another account in Settings › Billing."
+    )
+
+
+def _selected_org_label() -> str:
+    try:
+        from plugins.okvevo.gateway import read_okvevo_org_public_id
+
+        return read_okvevo_org_public_id() or ""
+    except Exception:
+        return ""
+
+
 def categorize_error(
     raw: str,
     *,
@@ -164,6 +184,10 @@ def categorize_error(
     if by_code:
         return by_code
     text = (raw or "").strip()
+    if (error_type or "").strip().lower() == "org_access_denied" or "org_access_denied" in text.lower():
+        return "org_access"
+    if _ORG_ACCESS_RE.fullmatch(text):
+        return "org_access"
     if not text:
         return None
     if text == _LEGACY_AUTH_COPY or any(hint in text.lower() for hint in _CLI_HINTS):
@@ -260,9 +284,14 @@ def map_public_error(
     """
     if _is_internal():
         return None
-    if _BUSY_RE.fullmatch((raw or "").strip()):
-        return raw.strip()
+    text = (raw or "").strip()
+    if _ORG_ACCESS_RE.fullmatch(text):
+        return text
+    if _BUSY_RE.fullmatch(text):
+        return text
     category = categorize_error(raw, status=status, error_type=error_type)
+    if category == "org_access":
+        return org_access_copy(_selected_org_label())
     return _COPY_BY_CATEGORY.get(category) if category else None
 
 

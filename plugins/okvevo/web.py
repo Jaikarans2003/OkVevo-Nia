@@ -13,10 +13,12 @@ from typing import Any
 
 import httpx
 
+from plugins.okvevo.errors import public_error_message
 from plugins.okvevo.gateway import (
     OkvevoGatewayConfigError,
     ensure_okvevo_id_token,
     okvevo_gateway_base_url,
+    okvevo_portal_headers,
     okvevo_tavily_available,
 )
 from plugins.web._common import (
@@ -46,10 +48,9 @@ def _post_gateway(endpoint: str, payload: dict[str, Any], token: str) -> httpx.R
         url = f"{okvevo_gateway_base_url()}/tavily/{endpoint.lstrip('/')}"
     except OkvevoGatewayConfigError as exc:
         raise ValueError(str(exc)) from exc
-    return httpx.post(
-        url, json=payload, timeout=60,
-        headers={"X-Client-Name": _CLIENT_NAME, "Authorization": f"Bearer {token}"},
-    )
+    headers = okvevo_portal_headers(token)
+    headers["X-Client-Name"] = _CLIENT_NAME
+    return httpx.post(url, json=payload, timeout=60, headers=headers)
 
 
 def _gateway_request(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -59,6 +60,10 @@ def _gateway_request(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Please sign in again")
     logger.info("OkVevo web %s request via portal gateway", endpoint)
     response = _post_gateway(endpoint, payload, token)
+    if response.status_code == 403 and "org_access_denied" in (response.text or ""):
+        raise ValueError(
+            public_error_message(response.text, status=403, error_type="org_access_denied")
+        )
     if response.status_code in (401, 403):
         token = ensure_okvevo_id_token(force=True)
         if not token:

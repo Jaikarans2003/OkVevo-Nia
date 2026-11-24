@@ -53,6 +53,9 @@ def install_auto_wire_swap() -> None:
         if not is_okvevo_auto_alias(alias):
             return kwargs
         kwargs["model"] = wire_model(alias)
+        extra_headers = dict(kwargs.get("extra_headers") or {})
+        extra_headers["X-OkVevo-Requested-Model"] = str(alias).strip()
+        kwargs["extra_headers"] = extra_headers
         extra = dict(kwargs.get("extra_body") or {})
         extra.pop("model", None)
         plugin = auto_plugin(alias)

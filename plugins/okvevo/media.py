@@ -37,6 +37,7 @@ from plugins.okvevo.gateway import (
     okvevo_fal_available,
     okvevo_gateway_base_url,
     okvevo_fal_spend_gate,
+    okvevo_org_headers,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,17 +82,23 @@ def _drop_okvevo_fal_client() -> None:
         _client_config = None
 
 
-def _submit_okvevo_fal_once(endpoint: str, arguments: Dict[str, Any], *, what: str):
+def _submit_okvevo_fal_once(endpoint: str, arguments: dict[str, Any], *, what: str):
     from tools.fal_common import submit_managed_fal_with_rate_limit_retry
 
     client = _okvevo_fal_client()
     try:
         return submit_managed_fal_with_rate_limit_retry(
-            lambda headers: client.submit(endpoint, arguments=arguments, headers=headers),
+            lambda headers: client.submit(
+                endpoint,
+                arguments=arguments,
+                headers={**headers, **okvevo_org_headers()},
+            ),
             what=what, name=endpoint,
         )
     except Exception as exc:
         status, code = portal_status_and_code(exc)
+        if code == "org_access_denied":
+            raise ValueError(public_error_message(str(exc), status=status, error_type=code)) from exc
         if status in (401, 403):
             raise _OkvevoAuthRetry(str(exc)) from exc
         if code or (status is not None and 400 <= status < 500):
@@ -105,7 +112,7 @@ def _public_failure(exc: BaseException) -> str:
     return public_error_message(str(exc), status=status, error_type=code)
 
 
-def _submit_okvevo_fal(endpoint: str, arguments: Dict[str, Any], *, what: str):
+def _submit_okvevo_fal(endpoint: str, arguments: dict[str, Any], *, what: str):
     """Submit to the portal fal-queue. On 401 invalid_token: refresh once, retry once."""
     from plugins.okvevo.gateway import ensure_okvevo_id_token
 
@@ -288,7 +295,7 @@ def _build_image_provider():
             return None
         except img_tool.ImageGenerationInterrupted:
             raise
-        except Exception as exc:  # noqa: BLE001 — best-effort pass
+        except Exception as exc:
             logger.error("Error upscaling image: %s", exc, exc_info=True)
             return None
 
@@ -396,7 +403,7 @@ def _build_image_provider():
                 return fail(str(exc), "interrupted", model_id)
             except ValueError as exc:
                 return fail(str(exc), "api_error", model_id)
-            except Exception as exc:  # noqa: BLE001 — uniform provider contract
+            except Exception as exc:
                 logger.warning("OkVevo image gen failed (model=%s): %s", model_id, exc, exc_info=True)
                 return fail(_public_failure(exc), "api_error", model_id)
 

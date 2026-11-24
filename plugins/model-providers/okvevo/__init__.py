@@ -141,6 +141,7 @@ class OkvevoProfile(ProviderProfile):
     def create_client(self, **client_kwargs: Any) -> Any | None:
         """OpenAI client whose ``api_key`` callable re-reads the token file."""
         try:
+            import openai
             from openai import OpenAI
 
             from plugins.okvevo.credentials import ensure_okvevo_pool_entry
@@ -174,6 +175,11 @@ class OkvevoProfile(ProviderProfile):
         if client_kwargs.get("default_headers"):
             kwargs["default_headers"] = client_kwargs["default_headers"]
         try:
+            from plugins.okvevo.gateway import apply_okvevo_org_header
+
+            kwargs["http_client"] = openai.DefaultHttpxClient(
+                event_hooks={"request": [apply_okvevo_org_header]},
+            )
             return OpenAI(**kwargs)
         except Exception:
             logger.debug("okvevo client build failed", exc_info=True)

@@ -113,7 +113,7 @@ class AdapterFailure(RuntimeError):
         http_status: int | None = None,
         request_id: str | None = None,
         retryable: bool = False,
-        retry_after_seconds: float | int | None = None,
+        retry_after_seconds: float | None = None,
     ) -> None:
         super().__init__(message)
         self.category = category
@@ -2698,7 +2698,7 @@ def _probe_image(path: Path, content: bytes | None = None) -> tuple[int, int, st
     result = subprocess.run(
         [ffprobe, "-v", "error", "-select_streams", "v:0",
          "-show_entries", "stream=width,height,pix_fmt", "-of", "csv=p=0", str(path)],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, timeout=30, check=False,
     )
     parts = result.stdout.strip().split(",")
     if result.returncode != 0 or len(parts) < 2:
@@ -2738,7 +2738,7 @@ def _downscale_image(path: Path, *, alpha: bool) -> bytes:
         if not alpha:
             command += ["-q:v", "4"]  # ~JPEG q90: reference fidelity, sane bytes
         command.append(out_path)
-        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=120, check=False)
         if result.returncode != 0:
             raise AdapterFailure(
                 f"ffmpeg could not downscale reference image {path.name}. Nothing was submitted.",
@@ -2804,7 +2804,7 @@ class _PortalHttp:
 
     def _request(self, path: str, method: str, body: Mapping[str, Any] | None = None) -> dict[str, Any]:
         data = json.dumps(body).encode("utf-8") if body is not None else None
-        headers = {"Authorization": f"Key {self._token}"}
+        headers = {"Authorization": f"Key {self._token}", **_org_headers()}
         if data is not None:
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(
@@ -2922,7 +2922,7 @@ def _portal_url(path: str) -> str:
     return f"{_portal_site_origin()}{path}"
 
 
-def _default_portal_http() -> "_PortalHttp":
+def _default_portal_http() -> _PortalHttp:
     read_token, resolve, _quote_keys = _gateway_helpers()
     gateway = resolve()
     token = read_token()
@@ -3017,6 +3017,15 @@ def _gateway_helpers():
     return ensure_okvevo_id_token, resolve_okvevo_fal_gateway, _quote_args
 
 
+def _org_headers() -> dict[str, str]:
+    root = Path(__file__).resolve().parents[4]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from plugins.okvevo.gateway import okvevo_org_headers
+
+    return okvevo_org_headers()
+
+
 def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
     """Read-only credit estimate from POST /api/fal/quote. Fail-closed: any
     failure is an AdapterFailure so the skill cannot confirm an unpriced job.
@@ -3042,12 +3051,23 @@ def _quote_portal(job: Mapping[str, Any]) -> dict[str, Any]:
         f"{origin}/api/fal/quote",
         data=body,
         method="POST",
-        headers={"Authorization": f"Key {read_token()}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Key {read_token()}", "Content-Type": "application/json", **_org_headers()},
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             quoted = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        if exc.code == 403 and "org_access_denied" in raw:
+            from plugins.okvevo.errors import public_error_message
+
+            raise AdapterFailure(
+                public_error_message(raw, status=403, error_type="org_access_denied"),
+                category="authentication",
+                code="org_access_denied",
+                http_status=403,
+                retryable=False,
+            ) from exc
         if exc.code in (401, 403):
             raise AdapterFailure(
                 "Sign in to OkVevo to see the credit estimate. Nothing was submitted.",
@@ -3112,7 +3132,12 @@ def portal_failure_message(raw: str, fallback: str) -> str:
     error = parsed.get("error")
     message = error.get("message") if isinstance(error, dict) else None
     if isinstance(message, str) and message.strip():
-        return message.strip()
+        text = message.strip()
+        if text == "org_access_denied":
+            from plugins.okvevo.errors import public_error_message
+
+            return public_error_message(text, status=403, error_type="org_access_denied")
+        return text
     return fallback
 
 
@@ -3165,7 +3190,7 @@ def _run_portal(job: Mapping[str, Any]) -> tuple[Path, str]:
             f"{origin}/api/gateway/fal/queue/{endpoint}",
             data=json.dumps(args).encode("utf-8"),
             method="POST",
-            headers={"Authorization": f"Key {token}", "Content-Type": "application/json"},
+            headers={"Authorization": f"Key {token}", "Content-Type": "application/json", **_org_headers()},
         )
         try:
             with urllib.request.urlopen(request, timeout=60) as response:

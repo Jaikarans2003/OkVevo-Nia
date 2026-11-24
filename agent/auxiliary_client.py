@@ -4647,6 +4647,16 @@ def _to_async_client(sync_client, model: str, is_vision: bool = False):
         async_kwargs["default_headers"] = headers
     _apply_required_codex_headers(async_kwargs, access_token=sync_client.api_key, base_url=sync_base_url)
     async_kwargs = {**_openai_http_client_kwargs(sync_base_url, async_mode=True), **async_kwargs}
+    # OkVevo: the sync portal client stamps X-OkVevo-Org via an httpx hook.
+    # Rebuilding AsyncOpenAI drops that client, so auxiliary calls (titles,
+    # compression, vision, summaries) would bill the wrong wallet.
+    try:
+        from plugins.okvevo.gateway import async_portal_http_client
+        portal_http = async_portal_http_client(sync_base_url)
+    except ImportError:
+        portal_http = None
+    if portal_http is not None:
+        async_kwargs["http_client"] = portal_http
     # Hermes owns the auxiliary retry/timeout budget; disable SDK-internal retries.
     # See #54465.
     async_kwargs.setdefault("max_retries", 0)
