@@ -6,9 +6,9 @@ Pinned source: https://github.com/zenstory-ai/drama-skills `c2426e03c0e7722bebcc
 - `short-drama/references/okvevo-production-profile.example.json`: example `choices` with `quality_band`, `spend_cap_credits`, and `target_video_model`.
 - `short-drama-video-prompts/SKILL.md`: LTX stays on the generic prompt path. The skill does not pick an endpoint or a price.
 - `short-drama-produce/SKILL.md`: call the OkVevo adapter (`choose`, `quote`, `submit`, `collect`, `cancel`). Stop `tts` and `music`. Same-pass audio stays. Do not use the bundled provider adapters.
-- `short-drama-produce/references/okvevo-adapter.example.json`: adapter config pointing at `okvevo/drama_fal_adapter.py`.
+- `short-drama-produce/references/okvevo-adapter.example.json`: adapter config. Commands are `provider_adapters.py portal`.
 - `LICENSE` copied into each of the eleven skill folders. `SOURCE.md` records the URL and SHA.
-- Packaging: `apps/desktop/scripts/pack-agent-snapshot.mjs` puts `skills/` and `okvevo/` in `agent-snapshot.tar.gz`, which electron-builder ships as `extraResources`. A fresh pack contains `okvevo/drama_fal_adapter.py`, the eleven skill folders, and `short-drama/scripts/dashboard_server.py`. The local dashboard stays: Electron `net.request` to `127.0.0.1` got 200 for the page, 401 for `/api/projects` without the session token, and 200 with it.
+- Packaging: `apps/desktop/scripts/pack-agent-snapshot.mjs` puts `skills/` and `okvevo/` in `agent-snapshot.tar.gz`, which electron-builder ships as `extraResources`. A fresh pack contains the eleven skill folders and `short-drama/scripts/dashboard_server.py`. Drama commands are `provider_adapters.py portal`. The local dashboard stays: Electron `net.request` to `127.0.0.1` got 200 for the page, 401 for `/api/projects` without the session token, and 200 with it.
 
 ## 2026-10-10 portal Fal
 

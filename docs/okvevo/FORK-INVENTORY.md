@@ -17,7 +17,7 @@ Evidence: the 48 repo commits + marker scan (`okvevo|NIA_|drama|…`) across cor
 | G3 | Credits + user-facing error mapping | `agent/user_facing_errors.py`, `agent/user_facing_brand.py` + tests | KEEP-PLUGIN → error mapping inside `plugins/okvevo*`; concealment parts dropped |
 | G4 | Image / video / TTS via portal Fal (incl. GPT Image 2, wan-3.0, seedance pins) | patches in `plugins/image_gen/openai*`, `plugins/video_gen/fal`, `tools/fal_common.py`, `tools/image_generation_tool.py`, `tools/video_generation_tool.py`, `tools/tts_tool.py`, `agent/image_gen_provider.py`, `agent/image_routing.py`, `agent/provider_media.py` | KEEP-PLUGIN → image/video providers registered from `plugins/okvevo/` via upstream registries |
 | G5 | Web search via portal gateway | patch in `plugins/web/tavily/provider.py` (tavily itself exists upstream at v0.22.4) | KEEP-PLUGIN → OkVevo web provider in `plugins/okvevo/` |
-| G6 | Short-drama pipeline (portal Fal adapter, quote fail-closed, voice clone, schemas) | `okvevo/drama_fal_adapter.py`, `okvevo/fal-schemas/*`, `okvevo/drama-cards.json`, `okvevo/media-catalog.json`, 31 fork-only `skills/creative/*` dirs | KEEP-OWNED (`okvevo/`) + KEEP-SKILL (relocate skills to `okvevo/skills/creative/`, load via upstream `skills.external_dirs`) |
+| G6 | Short-drama pipeline (portal Fal adapter, quote fail-closed, voice clone, schemas) | `okvevo/skills/creative/short-drama-produce/scripts/provider_adapters.py`, `okvevo/fal-schemas/*`, `okvevo/drama-cards.json`, `okvevo/media-catalog.json`, 31 fork-only `skills/creative/*` dirs | KEEP-OWNED (`okvevo/`) + KEEP-SKILL (relocate skills to `okvevo/skills/creative/`, load via upstream `skills.external_dirs`) |
 | G7 | Generated-media durability / output_dir honoring (PRs #57–#58) | `agent/nia_generated_media.py`, `tools/media_catalog.py`, `scripts/check_media_catalog.py` | CHECK: upstream v0.22.4 has `tests/agent/test_generated_media_durable.py` — compare; port only the residual not covered upstream |
 | G8 | manage_bot + bots/group UX deltas | `tools/manage_bot_tool.py` delta, `tui_gateway/methods_bot_relay.py`, group member picker (#46) | manage_bot exists upstream (fork delta = OkVevo copy) → re-express or drop; #46 see G11 |
 | G9 | Brand overlay (icons, locale catalogs at pack time) | `brand/**`, `scripts/overlay-brand-assets.mjs(+test)`, `apps/desktop/scripts/prepare-app-icon.mjs` | KEEP-OWNED + KEEP-UI; move `scripts/overlay-brand-assets.*` under `apps/desktop/scripts/` (upstream-owned `scripts/` must stay clean) |
@@ -70,7 +70,6 @@ Status: A = only in fork, M = modified vs comparator, D = only in comparator.
 | A | `brand/assets/apps/desktop/assets/icon.png` | OkVevo-owned path; survives merge |
 | A | `brand/nia.json` | OkVevo-owned path; survives merge |
 | A | `okvevo/drama-cards.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/drama_fal_adapter.py` | OkVevo-owned path; survives merge |
 | A | `okvevo/fal-schemas/alibaba__wan-3.0-prime__image-to-video.json` | OkVevo-owned path; survives merge |
 | A | `okvevo/fal-schemas/alibaba__wan-3.0-prime__reference-to-video.json` | OkVevo-owned path; survives merge |
 | A | `okvevo/fal-schemas/alibaba__wan-3.0-prime__text-to-video.json` | OkVevo-owned path; survives merge |
