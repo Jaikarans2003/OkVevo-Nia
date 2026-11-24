@@ -64,14 +64,30 @@ def read_okvevo_org_public_id() -> Optional[str]:
     return org or None
 
 
+def okvevo_org_headers() -> dict[str, str]:
+    """``X-OkVevo-Org`` for the selected account, or ``{}`` when Personal."""
+    org = read_okvevo_org_public_id()
+    if not org:
+        return {}
+    return {"X-OkVevo-Org": org}
+
+
+def apply_okvevo_org_header(request) -> None:
+    """httpx hook: set the org header on portal-origin requests only."""
+    origin = okvevo_web_origin()
+    url = str(getattr(request, "url", "") or "")
+    if not origin or (url != origin and not url.startswith(origin + "/")):
+        return
+    for key, value in okvevo_org_headers().items():
+        request.headers[key] = value
+
+
 def okvevo_portal_headers(bearer: str, *, key_scheme: bool = False) -> dict[str, str]:
     """Authorization (+ optional X-OkVevo-Org) for portal HTTP calls."""
     headers = {
         "Authorization": f"{'Key' if key_scheme else 'Bearer'} {bearer}",
     }
-    org = read_okvevo_org_public_id()
-    if org:
-        headers["X-OkVevo-Org"] = org
+    headers.update(okvevo_org_headers())
     return headers
 
 

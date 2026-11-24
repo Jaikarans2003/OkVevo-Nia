@@ -24,8 +24,13 @@ export const PUBLIC_ERROR_COPY = {
   unreadableFile: "I couldn't read that file — try attaching it again.",
   vendorRejected: 'The image service refused this request. Your credits were returned.',
   vendorUnavailable: 'The image service is temporarily unavailable. Your credits were returned.',
+  orgAccess:
+    'You no longer have access to that organization. Pick another account in Settings › Billing.',
   fallback: 'Something went wrong on my end — give that another try.'
 } as const
+
+const ORG_ACCESS_COPY_RE =
+  /^You no longer have access to .+\. Pick another account in Settings › Billing\.$/
 
 export type PublicErrorCategory = keyof typeof PUBLIC_ERROR_COPY
 
@@ -41,7 +46,8 @@ const FRIENDLY_PATTERNS: RegExp[] = [
   /^sign in to okvevo\b/i,
   /contact okvevo support\.?$/i,
   // plugins/okvevo/errors.py busy_until_copy (portal 429 reset_at).
-  /^Busy, retrying at \d{2}:\d{2}$/
+  /^Busy, retrying at \d{2}:\d{2}$/,
+  ORG_ACCESS_COPY_RE
 ]
 
 const CLI_HINTS = ['hermes fallback add', 'hermes setup', 'hermes model', 'hermes auth']
@@ -108,6 +114,10 @@ export function categorizePublicError(raw: string): PublicErrorCategory | null {
 
   if (lowered.includes('plan not active') || lowered.includes("subscription isn't active")) {
     return 'subscription'
+  }
+
+  if (lowered.includes('org_access_denied')) {
+    return 'orgAccess'
   }
 
   if (status === 401 || status === 403) {
