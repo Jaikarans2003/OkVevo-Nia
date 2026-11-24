@@ -72,14 +72,34 @@ def okvevo_org_headers() -> dict[str, str]:
     return {"X-OkVevo-Org": org}
 
 
+def _targets_okvevo_portal(url: str) -> bool:
+    origin = okvevo_web_origin()
+    text = (url or "").strip()
+    return bool(origin) and (text == origin or text.startswith(origin + "/"))
+
+
 def apply_okvevo_org_header(request) -> None:
     """httpx hook: set the org header on portal-origin requests only."""
-    origin = okvevo_web_origin()
-    url = str(getattr(request, "url", "") or "")
-    if not origin or (url != origin and not url.startswith(origin + "/")):
+    if not _targets_okvevo_portal(str(getattr(request, "url", "") or "")):
         return
     for key, value in okvevo_org_headers().items():
         request.headers[key] = value
+
+
+async def apply_okvevo_org_header_async(request) -> None:
+    """Async twin of :func:`apply_okvevo_org_header` for ``DefaultAsyncHttpxClient``."""
+    apply_okvevo_org_header(request)
+
+
+def async_portal_http_client(base_url: str):
+    """Portal-origin async client that stamps ``X-OkVevo-Org``, else ``None``."""
+    if not _targets_okvevo_portal(str(base_url or "").rstrip("/")):
+        return None
+    import openai
+
+    return openai.DefaultAsyncHttpxClient(
+        event_hooks={"request": [apply_okvevo_org_header_async]},
+    )
 
 
 def okvevo_portal_headers(bearer: str, *, key_scheme: bool = False) -> dict[str, str]:

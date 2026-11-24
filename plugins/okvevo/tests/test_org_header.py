@@ -107,6 +107,35 @@ def test_billable_calls_send_the_selected_org(monkeypatch, tmp_path, case):
     assert captured["drama"]["x-okvevo-org"] == org
 
 
+def test_async_auxiliary_call_sends_the_selected_org(monkeypatch, tmp_path):
+    """Titles, compression, vision, and summaries rebuild an async client."""
+    import asyncio
+
+    from agent.auxiliary_client import _to_async_client
+
+    class _Sync:
+        def __init__(self, base_url: str) -> None:
+            self.base_url = base_url
+            self.api_key = "token"
+
+    async def _stamp(client, url: str) -> httpx.Request:
+        request = httpx.Request("POST", url)
+        hook = client._client.event_hooks["request"][0]
+        await hook(request)
+        await client.close()
+        return request
+
+    _select(monkeypatch, tmp_path, CASES["promoted_child_owner"])
+    selected, _model = _to_async_client(_Sync(f"{ORIGIN}/api/gateway"), "openrouter/auto")
+    stamped = asyncio.run(_stamp(selected, f"{ORIGIN}/api/gateway/chat/completions"))
+    assert stamped.headers["X-OkVevo-Org"] == CASES["promoted_child_owner"]
+
+    _select(monkeypatch, tmp_path, "")
+    personal, _model = _to_async_client(_Sync(f"{ORIGIN}/api/gateway"), "openrouter/auto")
+    bare = asyncio.run(_stamp(personal, f"{ORIGIN}/api/gateway/chat/completions"))
+    assert "X-OkVevo-Org" not in bare.headers
+
+
 def test_empty_org_file_sends_no_header(monkeypatch, tmp_path):
     _select(monkeypatch, tmp_path, "")
     assert okvevo_org_headers() == {}

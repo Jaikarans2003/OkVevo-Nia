@@ -6,9 +6,10 @@ Pinned upstream tag: **v0.23.0**.
 
 ## Active
 
-Count = **1**.
+Count = **2**.
 
 - `lefthook.yml` — `extends: [scripts/okvevo/lefthook.yml]` only; OkVevo brand/asset-spec pre-commit gates stay OkVevo-owned
+- `agent/auxiliary_client.py` — `_to_async_client` keeps `X-OkVevo-Org` when the sync base URL is the portal. The rebuilt `AsyncOpenAI` uses `DefaultAsyncHttpxClient` and `async_portal_http_client` (`okvevo_org_headers`). Drift skips this file in `check_upstream_delta.sh`.
 
 Identity uses generated `SOUL.md` (`scripts/okvevo/make_soul.py`) plus
 `agent.platform_hints.desktop.append`. LLM routing, credits, and media live in
@@ -21,7 +22,7 @@ URL to `Jaikarans2003/OkVevo-Nia`.
 
 Root `package-lock.json` may differ from the tag for desktop packaging
 (lockfile delta, not a Python KEEP-PATCH). Drift skips this one file.
-`lefthook.yml` is the Active KEEP-PATCH above (also skipped by drift `is_owned`).
+`lefthook.yml` and `agent/auxiliary_client.py` are the Active KEEP-PATCHes above (also skipped by drift `is_owned`).
 Billing display uses portal `GET /api/billing/summary` (no Firebase client SDK).
 
 ## UI/packaging deltas
