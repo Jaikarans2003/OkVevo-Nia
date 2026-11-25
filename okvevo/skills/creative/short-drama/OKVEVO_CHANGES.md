@@ -6,9 +6,9 @@ Pinned source: https://github.com/zenstory-ai/drama-skills `c2426e03c0e7722bebcc
 - `short-drama/references/okvevo-production-profile.example.json`: example `choices` with `quality_band`, `spend_cap_credits`, and `target_video_model`.
 - `short-drama-video-prompts/SKILL.md`: LTX stays on the generic prompt path. The skill does not pick an endpoint or a price.
 - `short-drama-produce/SKILL.md`: call the OkVevo adapter (`choose`, `quote`, `submit`, `collect`, `cancel`). Stop `tts` and `music`. Same-pass audio stays. Do not use the bundled provider adapters.
-- `short-drama-produce/references/okvevo-adapter.example.json`: adapter config pointing at `okvevo/drama_fal_adapter.py`.
+- `short-drama-produce/references/okvevo-adapter.example.json`: adapter config. Commands are `provider_adapters.py portal`.
 - `LICENSE` copied into each of the eleven skill folders. `SOURCE.md` records the URL and SHA.
-- Packaging: `apps/desktop/scripts/pack-agent-snapshot.mjs` puts `skills/` and `okvevo/` in `agent-snapshot.tar.gz`, which electron-builder ships as `extraResources`. A fresh pack contains `okvevo/drama_fal_adapter.py`, the eleven skill folders, and `short-drama/scripts/dashboard_server.py`. The local dashboard stays: Electron `net.request` to `127.0.0.1` got 200 for the page, 401 for `/api/projects` without the session token, and 200 with it.
+- Packaging: `apps/desktop/scripts/pack-agent-snapshot.mjs` puts `skills/` and `okvevo/` in `agent-snapshot.tar.gz`, which electron-builder ships as `extraResources`. A fresh pack contains the eleven skill folders and `short-drama/scripts/dashboard_server.py`. Drama commands are `provider_adapters.py portal`. The local dashboard stays: Electron `net.request` to `127.0.0.1` got 200 for the page, 401 for `/api/projects` without the session token, and 200 with it.
 
 ## 2026-10-10 portal Fal
 
@@ -50,6 +50,10 @@ Pinned source: https://github.com/zenstory-ai/drama-skills `c2426e03c0e7722bebcc
 - Portal `clonedVoices` is the SoT (`uid`, `custom_voice_id`, `character`, `project`, `cloned_at`, `used_in_tts_at`, `consent_at`, `sample_sha256`). Local `metadata/voices/` is a cache.
 - Speech jobs with an unowned custom `voice_id` get 403 before any hold.
 - Missing local cache → `GET /api/fal/voices` restore; `delete-voice` drops our record. Fal/MiniMax has no delete-voice API.
+
+## 2026-11-25 packed schema path (0.1.31 schema_missing)
+
+- `provider_adapters.py`: `okvevo_agent_root()` walks up from `__file__` to the first parent that contains both `plugins/okvevo` and `okvevo/fal-schemas` (no `parents[N]`). Used for `fal_schema_dir()`, `_gateway_helpers`, and `_org_headers`. Missing schemas/plugins say the install is incomplete (not "sign in"). Pack CI runs `provider_adapters.py --check-layout` against the Mac and Windows packed snapshot.
 
 ## 2026-10-12 Fal request contract (G3 job 1 fix)
 
