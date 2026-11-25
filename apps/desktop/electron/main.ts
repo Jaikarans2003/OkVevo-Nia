@@ -464,6 +464,11 @@ import {
 } from './okvevo-config-migration'
 import { applyPackEnv, loadHermesDotenvIntoProcess, loadPackEnvFile, stripOkvevoApiKeyCopies } from './okvevo-env'
 import { bakedFeedUrlFromPack, resolveDesktopFeedBase } from './okvevo-feed'
+import {
+  recordDesktopGatewayAfterEnsure,
+  shouldTakeOverStaleDesktopGateway,
+  stopOkvevoDesktopGateway
+} from './okvevo-gateway-lifecycle'
 import { listWindowsProcesses, reapPackageRootedProcesses } from './package-process-reap'
 import {
   bundledPayload,
@@ -4337,12 +4342,16 @@ function reapOrphanedBackendsOnce() {
 // Stop app-owned Windows backends before replacing application outputs.
 // PM generations can retain live readers. Gateway draining/restart belongs to
 // `hermes update`; neither venv scans nor a second fleet stop belong here.
+// OkVevo also stops the detached packaged gateway (Mac osascript + child) so an
+// update install cannot race a leftover host lock (exit 75 on next boot).
 async function stopBackendsForUpdate(): Promise<void> {
   closeGatewayTicketBridges()
 
   if (IS_WINDOWS) {
     await Promise.all([teardownPrimaryBackendAndWait(backendTeardownOptions('reconnect')), stopAllPoolBackends()])
   }
+
+  await stopOkvevoOwnedGateway('update')
 }
 
 // Uninstall still deletes the installation and its historical venv. Unlike
@@ -4351,6 +4360,8 @@ async function releaseBackendLock(updateRoot: string, tag: string): Promise<{ un
   closeGatewayTicketBridges()
 
   if (!IS_WINDOWS) {
+    await stopOkvevoOwnedGateway('update')
+
     return { unlocked: true }
   }
 
@@ -11820,6 +11831,8 @@ async function dialPoolBackend(profile, entry, opts: { forceLocal?: boolean; poo
     directoryExists(path.join(HERMES_HOME, 'profiles', key))
   )
 
+  await reclaimStaleOkvevoGatewayBeforeEnsure()
+
   const connection = await ensureLocalGateway(async () => {
     const backend = await ensureRuntime(
       await resolveHermesBackend(['--profile', profile, 'gateway', 'ensure', '--json']),
@@ -11857,6 +11870,7 @@ async function dialPoolBackend(profile, entry, opts: { forceLocal?: boolean; poo
   }, restartStaleLocalGateway)
 
   assertPoolEntryStillOwned(poolKey, entry)
+  recordDesktopGatewayAfterEnsure(HERMES_HOME)
 
   return { ...connection, profile, logs: hermesLog.slice(-80), ...getWindowState() }
 }
@@ -11864,6 +11878,42 @@ async function dialPoolBackend(profile, entry, opts: { forceLocal?: boolean; poo
 // `hermes gateway restart` drains in-flight turns before the owner exits; the CLI client is
 // bounded so a wedged drain cannot hang Restart. The gateway's own drain is unaffected by the kill.
 const GATEWAY_RESTART_CLIENT_TIMEOUT_MS = 120_000
+
+/** Graceful `hermes gateway stop` then SIGTERM/SIGKILL for a packaged OkVevo owner only. */
+async function stopOkvevoOwnedGateway(reason: 'quit' | 'update' | 'reclaim'): Promise<void> {
+  const result = await stopOkvevoDesktopGateway(HERMES_HOME, {
+    runGatewayStop: async () => {
+      try {
+        const backend = await resolveHermesBackend(['gateway', 'stop'])
+        await runGatewayEnsure(
+          { ...backend, env: desktopBackendSpawnEnv(backend.env || {}) },
+          resolveHermesCwd(),
+          HERMES_HOME,
+          profileBackendParentEnv({ hermesHome: HERMES_HOME, profile: 'default' }),
+          { timeoutMs: 4_000, label: 'hermes gateway stop' }
+        )
+      } catch (error) {
+        rememberLog(
+          `[okvevo-gateway] ${reason}: gateway stop client failed: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
+    }
+  })
+
+  if (result.stopped) {
+    rememberLog(`[okvevo-gateway] ${reason}: stopped desktop gateway (${result.reason})`)
+  }
+}
+
+/** Before ensure: take over a prior OkVevo Desktop gateway that holds the lock but does not answer. */
+async function reclaimStaleOkvevoGatewayBeforeEnsure(): Promise<void> {
+  if (!(await shouldTakeOverStaleDesktopGateway(HERMES_HOME))) {
+    return
+  }
+
+  rememberLog('[okvevo-gateway] prior desktop gateway holds the lock but its control socket does not answer; taking over')
+  await stopOkvevoOwnedGateway('reclaim')
+}
 
 // Supervised restart of the per-host gateway Desktop attaches to (it never owns that process): the
 // `gateway ensure` resolver, spawn helper and quoting, against the profile owning the process, with
@@ -11975,9 +12025,10 @@ function reapInstallRootedStragglers(excludePids: number[]): void {
   }
 }
 
-// Closing Desktop never stops the detached gateway: only processes this app
-// still owns are torn down, and the straggler reap protects every live Hermes
-// runtime tree (package-process-reap.ts).
+// Upstream Hermes leaves the detached gateway running on quit (attach-mode
+// messaging/cron). OkVevo is local-desktop-only: stop the gateway this app
+// launched (osascript wrapper + child) so the next launch is not refused with
+// exit 75. CLI-started gateways are never touched (okvevo-gateway-lifecycle).
 const backendShutdown = createBackendShutdownCoordinator(async (): Promise<void> => {
   const ownedChildren = IS_WINDOWS ? collectOwnedBackendChildren() : []
   const localShutdown = localBackendLifecycle.shutdown()
@@ -11987,6 +12038,8 @@ const backendShutdown = createBackendShutdownCoordinator(async (): Promise<void>
 
   // Bounded: a backend that ignores SIGTERM must not wedge app quit (main's 7 s teardown budget).
   await waitForTeardown([localShutdown, primaryStop, pooledStops], 7_000)
+
+  await stopOkvevoOwnedGateway('quit')
 
   reapInstallRootedStragglers(Number.isInteger(primary?.pid) ? [primary.pid] : [])
 
@@ -12297,6 +12350,8 @@ async function startHermes(requestedProfile?: string, inheritsPrimary = false) {
     // Local WSL backend — paths are bridgeable.
     setWslBridgeProfileState(primaryProfile, true)
 
+    await reclaimStaleOkvevoGatewayBeforeEnsure()
+
     const connection = await ensureLocalGateway(() => runGatewayEnsure(
       { ...setup.backend, env: desktopBackendSpawnEnv(setup.backend.env || {}) },
       resolveHermesCwd(),
@@ -12305,6 +12360,7 @@ async function startHermes(requestedProfile?: string, inheritsPrimary = false) {
     ), undefined, restartStaleLocalGateway)
 
     backendConnectionState.assertCurrentAttempt(connectionAttempt)
+    recordDesktopGatewayAfterEnsure(HERMES_HOME)
 
     backendStartFailure = null
     rememberLog('[backend] Hermes gateway is ready')
