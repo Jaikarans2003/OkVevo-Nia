@@ -51,6 +51,10 @@ Pinned source: https://github.com/zenstory-ai/drama-skills `c2426e03c0e7722bebcc
 - Speech jobs with an unowned custom `voice_id` get 403 before any hold.
 - Missing local cache → `GET /api/fal/voices` restore; `delete-voice` drops our record. Fal/MiniMax has no delete-voice API.
 
+## 2026-11-25 packed schema path (0.1.31 schema_missing)
+
+- `provider_adapters.py`: `okvevo_agent_root()` walks up from `__file__` to the first parent that contains both `plugins/okvevo` and `okvevo/fal-schemas` (no `parents[N]`). Used for `fal_schema_dir()`, `_gateway_helpers`, and `_org_headers`. Missing schemas/plugins say the install is incomplete (not "sign in"). Pack CI runs `provider_adapters.py --check-layout` against the Mac and Windows packed snapshot.
+
 ## 2026-10-12 Fal request contract (G3 job 1 fix)
 
 - `provider_adapters.py`: portal bodies are built from the pinned Fal OpenAPI input schema per endpoint (`okvevo/fal-schemas/`, fetch date in each file; byte-identical to OkVevo-Web `src/lib/fal/schemas/`). Only schema fields are sent; `prompt` always; gpt-image-2 `image_size` is `{width, height}` (presets refused); h3-max `resolution` in schema case (`768P`) + `prompt_expansion_mode` (schema default `balanced`); seedance `duration` is the string enum; wan sends `audio` not `generate_audio`; music sends only `prompt`/`lyrics`/`duration` (`[instrumental]` when instrumental, duration default 60); speech sends `voice_setting.voice_id` (top-level `voice_id` was ignored by Fal) and `output_format: url`. `portal_request_body` fails before quote/hold when a required field is missing. Contract tests: `tests/skills/test_drama_fal_contract.py`.

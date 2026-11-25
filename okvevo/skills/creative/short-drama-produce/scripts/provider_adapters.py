@@ -2231,14 +2231,48 @@ def _portal_endpoint(job: Mapping[str, Any]) -> str:
 # Fal input schemas pinned per endpoint (fetch date inside each file), byte-
 # identical to OkVevo-Web src/lib/fal/schemas. The portal validates the final
 # body against the same files before any hold.
-FAL_SCHEMA_DIR = Path(__file__).resolve().parents[4] / "okvevo" / "fal-schemas"
+#
+# Never use parents[N]: in both the repo and the packed app this file lives at
+# <agent root>/okvevo/skills/creative/short-drama-produce/scripts/, so
+# parents[4] is <agent root>/okvevo and "…/okvevo/fal-schemas" doubles okvevo/.
+_INCOMPLETE_INSTALL = (
+    "This OkVevo install is incomplete (drama Fal schemas or plugins are missing). "
+    "Reinstall OkVevo. Nothing was submitted."
+)
 _FAL_SCHEMAS: dict[str, dict[str, Any]] = {}
+
+
+def okvevo_agent_root(start: Path | None = None) -> Path:
+    """Walk up to the first parent that owns plugins/okvevo and okvevo/fal-schemas."""
+    here = (start or Path(__file__)).resolve()
+    for parent in (here.parent, *here.parents):
+        if (parent / "plugins" / "okvevo").is_dir() and (
+            parent / "okvevo" / "fal-schemas"
+        ).is_dir():
+            return parent
+    raise AdapterFailure(
+        _INCOMPLETE_INSTALL,
+        category="configuration",
+        code="install_incomplete",
+        retryable=False,
+    )
+
+
+def fal_schema_dir() -> Path:
+    return okvevo_agent_root() / "okvevo" / "fal-schemas"
 
 
 def fal_input_schema(endpoint: str) -> dict[str, Any]:
     """The pinned Fal OpenAPI input schema (properties/required) for endpoint."""
     if endpoint not in _FAL_SCHEMAS:
-        path = FAL_SCHEMA_DIR / (endpoint.replace("/", "__") + ".json")
+        path = fal_schema_dir() / (endpoint.replace("/", "__") + ".json")
+        if not path.is_file():
+            raise AdapterFailure(
+                _INCOMPLETE_INSTALL,
+                category="configuration",
+                code="install_incomplete",
+                retryable=False,
+            )
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))["openapi"]
             ref = doc["paths"]["/" + endpoint]["post"]["requestBody"]["content"][
@@ -3003,14 +3037,22 @@ def _payload_result_urls(payload: Any) -> list[str]:
 
 
 def _gateway_helpers():
-    root = Path(__file__).resolve().parents[4]
+    root = okvevo_agent_root()
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
-    from plugins.okvevo.gateway import (
-        _quote_args,
-        ensure_okvevo_id_token,
-        resolve_okvevo_fal_gateway,
-    )
+    try:
+        from plugins.okvevo.gateway import (
+            _quote_args,
+            ensure_okvevo_id_token,
+            resolve_okvevo_fal_gateway,
+        )
+    except ImportError as exc:
+        raise AdapterFailure(
+            _INCOMPLETE_INSTALL,
+            category="configuration",
+            code="install_incomplete",
+            retryable=False,
+        ) from exc
     # ensure_okvevo_id_token re-reads the file AND refreshes the JWT when near
     # expiry (or when force=True after a 401). Re-read alone cannot help once
     # the ID token itself has expired — see G3 job 4 (2026-10-13).
@@ -3018,10 +3060,18 @@ def _gateway_helpers():
 
 
 def _org_headers() -> dict[str, str]:
-    root = Path(__file__).resolve().parents[4]
+    root = okvevo_agent_root()
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
-    from plugins.okvevo.gateway import okvevo_org_headers
+    try:
+        from plugins.okvevo.gateway import okvevo_org_headers
+    except ImportError as exc:
+        raise AdapterFailure(
+            _INCOMPLETE_INSTALL,
+            category="configuration",
+            code="install_incomplete",
+            retryable=False,
+        ) from exc
 
     return okvevo_org_headers()
 
@@ -3610,6 +3660,30 @@ def _selftest() -> None:
         raise AssertionError("slot wait text mismatch")
     if portal_poll_action({"status": "COMPLETED", "logs": []}) != "done":
         raise AssertionError("completed status must finish")
+    root = okvevo_agent_root()
+    if not (root / "okvevo" / "fal-schemas" / "fal-ai__minimax__speech-02-hd.json").is_file():
+        raise AssertionError("speech schema missing under walked agent root")
+    if root / "okvevo" / "okvevo" / "fal-schemas" == fal_schema_dir():
+        raise AssertionError("schema dir must not double okvevo/")
+
+
+def _check_layout() -> None:
+    """Packed-app / CI check: schema dir + gateway/org-header imports resolve."""
+    root = okvevo_agent_root()
+    speech = fal_schema_dir() / "fal-ai__minimax__speech-02-hd.json"
+    if not speech.is_file():
+        raise SystemExit(f"missing speech schema at {speech}")
+    read_token, resolve, quote_args = _gateway_helpers()
+    headers = _org_headers()
+    if not callable(read_token) or not callable(resolve) or not callable(quote_args):
+        raise SystemExit("gateway helpers did not import")
+    if not isinstance(headers, dict):
+        raise SystemExit("okvevo_org_headers did not return a dict")
+    # Prove the broken parents[4]/okvevo path is not what we use.
+    doubled = Path(__file__).resolve().parents[4] / "okvevo" / "fal-schemas"
+    if fal_schema_dir() == doubled:
+        raise SystemExit(f"schema dir still doubles okvevo/: {fal_schema_dir()}")
+    print(f"drama layout ok root={root} schemas={fal_schema_dir()}")
 
 
 def main() -> int:
@@ -3623,12 +3697,20 @@ def main() -> int:
         ),
     )
     parser.add_argument("--selftest", action="store_true")
+    parser.add_argument(
+        "--check-layout",
+        action="store_true",
+        help="resolve fal-schemas and import gateway/org-header helpers (packed CI)",
+    )
     args = parser.parse_args()
+    if args.check_layout:
+        _check_layout()
+        return 0
     if args.selftest:
         _selftest()
         return 0
     if args.provider is None:
-        parser.error("provider is required unless --selftest is used")
+        parser.error("provider is required unless --selftest or --check-layout is used")
     try:
         job = json.load(sys.stdin.buffer)
         if not isinstance(job, Mapping):

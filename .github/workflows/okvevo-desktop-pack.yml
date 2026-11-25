@@ -196,6 +196,14 @@ jobs:
             --resources "$app/Contents/Resources" \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: Assert drama agent-root layout in packed snapshot
+        run: |
+          set -euo pipefail
+          app=$(ls -d apps/desktop/release/mac*/OkVevo.app | head -1)
+          agent="$app/Contents/Resources/agent-payload/hermes-agent"
+          adapters="$agent/okvevo/skills/creative/short-drama-produce/scripts/provider_adapters.py"
+          test -f "$adapters"
+          PYTHONPATH="$agent" python3 "$adapters" --check-layout
       - name: Assert packaged OkVevo icons (no Hermes asar marks)
         run: |
           set -euo pipefail
@@ -360,6 +368,16 @@ jobs:
             --resources apps/desktop/release/win-unpacked/resources \
             --target "${{ inputs.pack_target }}" \
             --prefix "${{ inputs.feed_prefix }}"
+      - name: Assert drama agent-root layout in packed snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          agent=apps/desktop/release/win-unpacked/resources/agent-payload/hermes-agent
+          adapters="$agent/okvevo/skills/creative/short-drama-produce/scripts/provider_adapters.py"
+          test -f "$adapters"
+          py=python3
+          command -v python3 >/dev/null 2>&1 || py=python
+          PYTHONPATH="$agent" "$py" "$adapters" --check-layout
       - name: Assert packaged OkVevo icons (no Hermes asar marks)
         shell: bash
         run: |
