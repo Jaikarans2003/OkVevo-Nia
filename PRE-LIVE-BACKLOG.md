@@ -41,7 +41,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Hard gates (block go-live)
 
-_None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reappears under this heading._
+### [ ] Quit / update must stop the desktop-launched gateway (no leftover exit 75)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Hard gate / production blocker until merged to staging |
+| **Risk if skipped** | Quitting or updating OkVevo leaves the detached Mac gateway (osascript + python) holding `~/.hermes` host lock. Next launch fails with `Gateway inaccessible (runtime_exited) … status 75` — seen on 0.1.32 after a normal quit/uninstall. Users cannot open the app until they manually kill leftovers. |
+| **Scope** | `apps/desktop/electron/okvevo-gateway-lifecycle.ts`, `apps/desktop/electron/main.ts` (quit/update/ensure hooks), `apps/desktop/e2e/okvevo/packed-quit-relaunch.spec.ts`, Mac pack E2E in `okvevo-desktop-pack.yml` |
+| **Fix** | OkVevo-owned lifecycle (upstream Hermes intentionally leaves the gateway running for attach-mode). On quit and before update: graceful `hermes gateway stop`, then SIGTERM→SIGKILL of the packaged gateway + osascript wrapper. On start: if the lock owner is a prior OkVevo Desktop launch and its control socket does not answer, take over (same effect as `--replace`). Never stop/replace a CLI-started gateway. |
+| **Verify** | `npx vitest run electron/okvevo-gateway-lifecycle.test.ts`. Mac pack E2E: `packed-quit-relaunch` — quit then relaunch boots; hard-kill Electron leaving the gateway then relaunch boots. Manual: quit 0.1.N+, confirm no `gateway run` / osascript leftover, reopen. |
+| **Notes** | Logged 2026-11-25 after 0.1.32 Mac failure (PID leftover from 16:06). Upstream comment in `main.ts`: "Closing Desktop never stops the detached gateway" — product fork for OkVevo. Branch: `fix/okvevo-stop-gateway-on-quit`. |
 
 ---
 

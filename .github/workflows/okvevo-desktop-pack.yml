@@ -522,6 +522,7 @@ jobs:
           test -f "$OKVEVO_E2E_EXECUTABLE"
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-mention-menu
+          npx playwright test --config e2e/okvevo/playwright.config.ts packed-quit-relaunch
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -104,6 +104,10 @@ corresponding list **exactly**.
 - `apps/desktop/electron/okvevo-env.ts`
 - `apps/desktop/electron/okvevo-feed.test.ts`
 - `apps/desktop/electron/okvevo-feed.ts`
+- `apps/desktop/electron/okvevo-gateway-lifecycle.ts` — stop packaged gateway on quit/update; reclaim stale dead-socket owner on start (never CLI)
+- `apps/desktop/electron/okvevo-gateway-lifecycle.test.ts`
+- `apps/desktop/e2e/okvevo/packed-quit-relaunch.spec.ts` — Mac pack E2E: quit→relaunch and leftover-gateway takeover
+- `apps/desktop/electron/main.ts` — hooks: reclaim before ensure, record after ensure, stop on quit/update (OkVevo product; upstream leaves gateway running)
 - `apps/desktop/electron/plugin-files-hardening.test.ts` — asserts the OkVevo plugin-file refusal copy
 - `apps/desktop/electron/plugin-files-spellings.test.ts` — describe title follows the OkVevo plugin-file refusal copy
 - `apps/desktop/electron/plugin-files.ts` — plugin-file refusals name OkVevo data (v0.23.0 copy)
