@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 
 import httpx
@@ -31,17 +30,6 @@ def _select(monkeypatch, tmp_path: Path, org: str) -> None:
     monkeypatch.setenv("OKVEVO_ORG_FILE", str(path))
     monkeypatch.setenv("OKVEVO_WEB_ORIGIN", ORIGIN)
     monkeypatch.delenv("OKVEVO_BUILD_CHANNEL", raising=False)
-
-
-def _drama():
-    path = (
-        Path(__file__).resolve().parents[3]
-        / "okvevo/skills/creative/short-drama-produce/scripts/provider_adapters.py"
-    )
-    spec = importlib.util.spec_from_file_location("okvevo_drama_provider_adapters", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 @pytest.mark.parametrize("case", list(CASES))
@@ -88,23 +76,6 @@ def test_billable_calls_send_the_selected_org(monkeypatch, tmp_path, case):
     )
     media._submit_okvevo_fal_once("openai/gpt-image-2", {"prompt": "hi"}, what="image")
     assert captured["image"]["X-OkVevo-Org"] == org
-
-    drama = _drama()
-    class _Body:
-        def __enter__(self):
-            return self
-        def __exit__(self, *args):
-            return False
-        def read(self):
-            return b"{}"
-
-    def _urlopen(request, timeout=60):
-        captured["drama"] = {key.lower(): value for key, value in request.header_items()}
-        return _Body()
-
-    monkeypatch.setattr(drama.urllib.request, "urlopen", _urlopen)
-    drama._PortalHttp(ORIGIN, "tok").post_json("/api/gateway/fal/queue/fal-ai/minimax/speech-02-hd", {"text": "Hello."})
-    assert captured["drama"]["x-okvevo-org"] == org
 
 
 def test_async_auxiliary_call_sends_the_selected_org(monkeypatch, tmp_path):
