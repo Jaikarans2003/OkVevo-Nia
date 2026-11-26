@@ -115,7 +115,7 @@ describe('BillingSettings', () => {
     expect(screen.getByText('Visa •••• 3206')).toBeTruthy()
     expect(
       screen.getByText(
-        "Remote spending is off for this account — a billing admin can turn it on from the portal's OkVevo page."
+        "Remote spending is off for this account — a billing admin can turn it on from the portal's OkVevo Agent page."
       )
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: '$100' })).toBeNull()
@@ -691,6 +691,99 @@ describe('BillingSettings', () => {
     expect(screen.queryByText(/Nous credits below are unchanged/)).toBeNull()
     expect(screen.queryByText('Payment & credits')).toBeNull()
     expect(screen.queryByText('$996.47')).toBeNull()
+  })
+
+  it('shows a sponsored remaining bar named for the funding organisation', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
+    ;(window.hermesDesktop as { getOkvevoBilling: ReturnType<typeof vi.fn> }).getOkvevoBilling = vi.fn(
+      async () => ({
+        ok: true,
+        summary: {
+          planName: 'Starter',
+          status: 'active',
+          remainingPct: 50,
+          additionalPct: 40,
+          sponsoredPct: 25,
+          fundedBy: 'Acme',
+          periodEnd: new Date(2026, 9, 12).toISOString(),
+          cancelAtPeriodEnd: false,
+          entitled: true,
+          canPurchase: true
+        }
+      })
+    )
+
+    renderBilling()
+
+    expect(await screen.findByText('From Acme')).toBeTruthy()
+    expect(screen.getByText('25%')).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: 'From Acme' }).getAttribute('aria-valuenow')).toBe('25')
+    expect(screen.getByRole('progressbar', { name: 'Plan remaining' }).getAttribute('aria-valuenow')).toBe('50')
+    expect(screen.getByRole('progressbar', { name: 'Additional remaining' }).getAttribute('aria-valuenow')).toBe('40')
+  })
+
+  it('labels a sponsored remaining bar From super-organisation when fundedBy is null', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
+    ;(window.hermesDesktop as { getOkvevoBilling: ReturnType<typeof vi.fn> }).getOkvevoBilling = vi.fn(
+      async () => ({
+        ok: true,
+        summary: {
+          planName: 'Starter',
+          status: 'active',
+          remainingPct: 50,
+          additionalPct: 40,
+          sponsoredPct: 25,
+          fundedBy: null,
+          periodEnd: new Date(2026, 9, 12).toISOString(),
+          cancelAtPeriodEnd: false,
+          entitled: true,
+          canPurchase: true
+        }
+      })
+    )
+
+    renderBilling()
+
+    expect(await screen.findByText('From super-organisation')).toBeTruthy()
+    expect(screen.getByText('25%')).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: 'From super-organisation' }).getAttribute('aria-valuenow')).toBe(
+      '25'
+    )
+    expect(screen.queryByText('From Acme')).toBeNull()
+  })
+
+  it('hides the sponsored remaining bar when sponsoredPct is 0', async () => {
+    isByokChromeVisible.mockReturnValue(false)
+    $okvevoAuth.set({ signedIn: true, uid: 'user-1', email: 'a@b.com', displayName: null })
+    ;(window.hermesDesktop as { getOkvevoBilling: ReturnType<typeof vi.fn> }).getOkvevoBilling = vi.fn(
+      async () => ({
+        ok: true,
+        summary: {
+          planName: 'Starter',
+          status: 'active',
+          remainingPct: 50,
+          additionalPct: 40,
+          sponsoredPct: 0,
+          fundedBy: 'Acme',
+          periodEnd: new Date(2026, 9, 12).toISOString(),
+          cancelAtPeriodEnd: false,
+          entitled: true,
+          canPurchase: true
+        }
+      })
+    )
+
+    renderBilling()
+
+    expect(await screen.findByText('Additional remaining')).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: 'Plan remaining' }).getAttribute('aria-valuenow')).toBe('50')
+    expect(screen.getByRole('progressbar', { name: 'Additional remaining' }).getAttribute('aria-valuenow')).toBe('40')
+    expect(screen.queryByRole('progressbar', { name: 'From Acme' })).toBeNull()
+    expect(screen.queryByRole('progressbar', { name: 'From super-organisation' })).toBeNull()
+    expect(screen.queryByText('From Acme')).toBeNull()
+    expect(screen.queryByText('From super-organisation')).toBeNull()
   })
 
   it('shows two-decimal plan remaining without rounding the bar to an integer', async () => {

@@ -8,6 +8,7 @@ export type OkvevoBillingView = {
   planStatus: string | null
   remainingPct: number
   additionalPct: number
+  sponsoredPct: number
   currentPeriodEnd: Date | null
   cancelAtPeriodEnd: boolean
   entitled: boolean
@@ -41,8 +42,13 @@ export function formatPctLabel(pct: number): string {
 
 export function formatOkvevoBillingDescription(data: OkvevoBillingView): string {
   const plan = data.planName || 'None'
+  const line = `${plan} · remaining ${formatPctLabel(data.remainingPct)} · additional ${formatPctLabel(data.additionalPct)}`
 
-  return `${plan} · remaining ${formatPctLabel(data.remainingPct)} · additional ${formatPctLabel(data.additionalPct)}`
+  if (data.sponsoredPct > 0) {
+    return `${line} · sponsored ${formatPctLabel(data.sponsoredPct)}`
+  }
+
+  return line
 }
 
 function toDate(v: unknown): Date | null {
@@ -80,6 +86,7 @@ export function billingViewFromSummary(data: Record<string, unknown> | undefined
       entitled: false,
       additionalNextExpiry: null,
       canPurchase: true,
+      sponsoredPct: 0,
       fundedBy: null
     }
   }
@@ -94,6 +101,7 @@ export function billingViewFromSummary(data: Record<string, unknown> | undefined
     entitled: data.entitled === true,
     additionalNextExpiry: toDate(data.additionalNextExpiry),
     canPurchase: data.canPurchase !== false,
+    sponsoredPct: readPct(data.sponsoredPct),
     fundedBy: typeof data.fundedBy === 'string' ? data.fundedBy : null
   }
 }
