@@ -846,6 +846,10 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Later ideas
 
+### Desktop short-drama removed; portal drama stays
+
+Desktop pack no longer ships the short-drama skill, `okvevo/fal-schemas/`, or `okvevo/drama-cards.json` (`fd37346e39`, 2026-11-26). The OkVevo-Web drama route and rate-card audio entries stay until a later product decision.
+
 ### manage_bot from chat (descoped)
 
 | Field | Value |
