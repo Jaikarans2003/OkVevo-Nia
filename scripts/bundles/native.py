@@ -305,6 +305,8 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
         Path(os.path.relpath(repo_dir, site)).as_posix() + "\n", encoding="utf-8")
     from scripts.bundles.payload import relativize_links
     relativize_links(out)
+    # Snapshot exclusions already dropped docs/, tests/, and stray pycs.
+    # compileall runs on that tree, not the checkout.
     from scripts.bundles.bytecode import bake_bytecode
     baked = bake_bytecode(out, python_bin)
     print(f"✓ baked bytecode ({baked['modules']} modules, unchecked-hash, owner-writable caches)")

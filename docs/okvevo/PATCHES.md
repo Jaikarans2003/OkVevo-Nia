@@ -6,13 +6,15 @@ Pinned upstream tag: **v0.23.0**.
 
 ## Active
 
-Count = **15**. The old cap of 3 covered one-line hooks. The desktop Python
+Count = **17**. The old cap of 3 covered one-line hooks. The desktop Python
 distribution swap and the CI gates are larger, and drift skips them in
 `check_upstream_delta.sh` for the reasons below.
 
 - `lefthook.yml` — `extends: [scripts/okvevo/lefthook.yml]` only; OkVevo brand/asset-spec pre-commit gates stay OkVevo-owned
 - `agent/auxiliary_client.py` — `_to_async_client` keeps `X-OkVevo-Org` when the sync base URL is the portal. The rebuilt `AsyncOpenAI` uses `DefaultAsyncHttpxClient` and `async_portal_http_client` (`okvevo_org_headers`). Drift skips this file in `check_upstream_delta.sh`.
-- `pm/packages.py` — desktop bundle may fetch `install_only_stripped`; `fetch_url` default and the lock pin stay `install_only`
+- `pm/packages.py` — desktop bundle reads the pinned `install_only_stripped` sha256; `fetch_url` default and the lock pin stay `install_only`
+- `pm/lock.json` — `python.desktop_stripped` pins the Mac and Windows stripped archive sha256
+- `pm/lock.py` — `row()` exposes lock keys that are not install artifacts
 - `pm/build_operations.py` — `prepare_tools` passes that tarball through; `verified_tools` admits its published digest
 - `pm/client.py` — forwards `python_distribution` to `prepare_tools`
 - `pm/install.py` — an explicit artifact list records that digest in facts

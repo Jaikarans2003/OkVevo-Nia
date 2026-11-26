@@ -635,6 +635,23 @@ def test_python_package_url_carries_release_tag():
         pass
 
 
+def test_stripped_python_sha_is_pinned_in_the_lock():
+    from pm.lock import Lockfile
+    from pm.paths import lockfile_path
+    from pm.registry import get_package
+
+    lock = Lockfile(lockfile_path())
+    python = get_package("python")
+    for target, name in (
+        ("darwin-arm64", "aarch64-apple-darwin-install_only_stripped.tar.gz"),
+        ("win32-x64", "x86_64-pc-windows-msvc-install_only_stripped.tar.gz"),
+    ):
+        rows = python.bundle_artifacts(lock, target, "install_only_stripped")
+        assert rows[0]["url"].endswith(name)
+        assert rows[0]["sha256"] == lock.row("python")["desktop_stripped"][target]["sha256"]
+        assert len(rows[0]["sha256"]) == 64
+
+
 def test_desktop_python_url_is_install_only_stripped():
     from pm.registry import get_package
 

@@ -232,6 +232,8 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
+      - name: B5 coding smoke (packed Mac runtime)
+        run: bash scripts/okvevo/b5-coding-smoke.sh "$(ls -d apps/desktop/release/mac*/OkVevo.app | head -1)/Contents/Resources/agent-payload"
       - name: Assert bundled payload and baked feed
         run: |
           set -euo pipefail
@@ -439,6 +441,9 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
+      - name: B5 coding smoke (packed Windows runtime)
+        shell: bash
+        run: bash scripts/okvevo/b5-coding-smoke.sh apps/desktop/release/win-unpacked/resources/agent-payload
       - name: Assert bundled payload and baked feed
         shell: bash
         run: |
@@ -598,6 +603,13 @@ jobs:
           npm run build
           npm run builder -- --dir --publish never \
             -c.extraMetadata.version="$VERSION"
+      - name: Stamp bundle before launch
+        working-directory: apps/desktop
+        run: |
+          set -euo pipefail
+          app=$(ls -d release/mac*/OkVevo.app | head -1)
+          touch release/.bundle-stamp
+          echo "Stamped $app"
       - name: Packed sign-in chat E2E
         working-directory: apps/desktop
         run: |
@@ -608,6 +620,12 @@ jobs:
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-signin-chat
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-mention-menu
           npx playwright test --config e2e/okvevo/playwright.config.ts packed-quit-relaunch
+      - name: Prove Mac bundle unchanged after launch
+        working-directory: apps/desktop
+        run: |
+          set -euo pipefail
+          app=$(ls -d release/mac*/OkVevo.app | head -1)
+          bash ../scripts/okvevo/prove-bundle-unchanged.sh "$PWD/$app" "$PWD/release/.bundle-stamp"
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

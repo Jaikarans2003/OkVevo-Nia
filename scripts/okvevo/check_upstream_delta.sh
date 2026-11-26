@@ -34,7 +34,7 @@ is_owned() {
     # KEEP-PATCH: async auxiliary rebuild keeps the portal org header.
     agent/auxiliary_client.py) return 0 ;;
     # Desktop pack fetches install_only_stripped. Lock pin stays install_only.
-    pm/packages.py|pm/build_operations.py|pm/client.py|pm/install.py) return 0 ;;
+    pm/packages.py|pm/build_operations.py|pm/client.py|pm/install.py|pm/lock.py|pm/lock.json) return 0 ;;
     scripts/bundles/native.py|scripts/bundles/payload.py) return 0 ;;
     tests/pm/test_pm_core.py|tests/pm/test_build_operations.py|tests/scripts/test_bundle_payload.py) return 0 ;;
     # Unique always-on CI gates. Nightly schedule still runs E2E.

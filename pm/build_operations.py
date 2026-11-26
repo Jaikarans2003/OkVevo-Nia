@@ -187,9 +187,9 @@ def verified_tools(names: Sequence[str], *, source_store: Path, target: str,
         identity = _identity(lock, package.name, target)
         if not version or identity is None:
             raise InstallError(package.name, "tool source failed verification: missing pin")
-        # Desktop packs fetch install_only_stripped and record that digest.
-        # The lock pin stays install_only. Admit the stripped digest only when
-        # it is the one python-build-standalone published for this pin.
+        # Desktop packs record the stripped digest pinned in pm/lock.json.
+        # The install_only pin is unchanged. Admit the stripped digest only
+        # when it matches that pin.
         if (package.name == "python"
                 and not facts.installed(package.name, version, source_store, identity)):
             try:

@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 import pytest
@@ -14,6 +15,34 @@ from scripts.build.inputs import project_entries
 from scripts.build.agent import plant_surfaces
 from scripts.build.launchers import posix_launcher
 from scripts.bundles.desktop import release_version
+
+
+def test_compileall_runs_after_the_snapshot_exclusions():
+    text = (Path(__file__).resolve().parents[2] / "scripts/bundles/native.py").read_text(encoding="utf-8")
+    snap = text.index("snapshot(source, revision, repo_dir, exclude=INERT_SNAPSHOT_DIRS)")
+    bake = text.index("bake_bytecode(out, python_bin)")
+    assert snap < bake
+
+
+def test_shipped_runtime_does_not_open_dropped_docs_or_tests():
+    """The payload snapshot drops repo docs/ and tests/. A runtime open of those paths would fail."""
+    import re
+    from pathlib import Path as P
+
+    root = P(__file__).resolve().parents[2]
+    opener = re.compile(r"""(?:read_text|read_bytes|\bopen)\([^)\n]{0,120}["'](?:docs|tests)/""")
+    joined = re.compile(r"""/\s*["'](?:docs|tests)["']""")
+    hits = []
+    for folder in ("agent", "hermes_cli", "gateway", "tools", "plugins"):
+        for path in (root / folder).rglob("*.py"):
+            if "tests" in path.parts:
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                if ".exists()" in line:
+                    continue
+                if opener.search(line) or joined.search(line):
+                    hits.append(f"{path.relative_to(root)}:{number}:{line.strip()}")
+    assert hits == []
 
 
 def test_payload_snapshot_drops_docs_tests_and_source_maps():

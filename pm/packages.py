@@ -308,7 +308,11 @@ class Python(_BionicDebArm, BinaryPackage, DebPackage):
         )
 
     def bundle_artifacts(self, lock, target: str, distribution: str) -> list[dict]:
-        """Desktop-only tarball swap. The lock pin stays install_only so source installs are unchanged."""
+        """Desktop-only tarball swap. The lock pin stays install_only.
+
+        The stripped sha256 is ``desktop_stripped`` in pm/lock.json. The pack
+        never asks GitHub for a digest.
+        """
         version = lock.version(self.name)
         if not version:
             raise InstallError(self.name, "not in the lockfile")
@@ -316,16 +320,16 @@ class Python(_BionicDebArm, BinaryPackage, DebPackage):
         for artifact in lock.artifacts(self.name, target):
             url = self.fetch_url(version, target, distribution=distribution)
             if url == artifact["url"]:
-                rows.append(artifact)
+                rows.append({"url": artifact["url"], "sha256": artifact["sha256"]})
                 continue
-            digest = _pbs_sha256(version, url)
+            pin = (lock.row(self.name).get("desktop_stripped") or {}).get(target) or {}
             name = url.rsplit("/", 1)[-1]
-            if not digest:
+            if pin.get("url") != url or not pin.get("sha256"):
                 raise InstallError(
-                    self.name, f"no published sha256 for {name}",
-                    "desktop bundle keeps the lock pin when the stripped digest is missing",
+                    self.name, f"no pinned sha256 for {name}",
+                    "add python.desktop_stripped in pm/lock.json for this target",
                 )
-            rows.append({"url": url, "sha256": digest})
+            rows.append({"url": pin["url"], "sha256": pin["sha256"]})
         return rows
 
     def latest_versions(self, target: str, locked=None) -> list[str]:
@@ -1253,14 +1257,6 @@ class LlamaCpp(BinaryPackage):
         if libs:
             shutil.copyfile(libs[0], staged / "libgomp.so.1")
             shutil.rmtree(staged / "usr")
-
-
-def _pbs_sha256(version: str, url: str) -> str | None:
-    """GitHub asset digest for one python-build-standalone file. Same sha256 the lock pins."""
-    tag = version.partition("+")[2]
-    if not tag:
-        return None
-    return _github_release_digests("astral-sh/python-build-standalone", tag).get(url.rsplit("/", 1)[-1])
 
 
 def _github_release_digests(repo: str, tag: str) -> dict[str, str]:
