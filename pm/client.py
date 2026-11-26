@@ -416,14 +416,13 @@ def build_requirements_environment(requirements: Sequence[str], *, out: Path,
 
 
 def prepare_tools(names: Sequence[str], *, out: Path, target: str,
-                  cache: Path | None = None, python_distribution: str | None = None) -> Path:
+                  cache: Path | None = None) -> Path:
     """Realize build tools without selecting application or profile state."""
     if isinstance(names, str):
         raise TypeError("names must be a sequence, not a string")
-    arguments = {"names": list(names), "out": Path(out), "target": target, "cache": cache}
-    if python_distribution:
-        arguments["python_distribution"] = python_distribution
-    return Path(_python_operation("prepare_tools", arguments))
+    return Path(_python_operation("prepare_tools", {
+        "names": list(names), "out": Path(out), "target": target, "cache": cache,
+    }))
 
 
 def stage_tools(names: Sequence[str], *, source_store: Path, out: Path, target: str) -> Path:

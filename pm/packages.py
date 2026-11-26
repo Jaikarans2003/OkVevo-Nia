@@ -289,48 +289,18 @@ class Python(_BionicDebArm, BinaryPackage, DebPackage):
             return f"{WINDOWS_PYTHON3} is missing beside python.exe"
         return f"{WINDOWS_PYTHON3} differs from python.exe"
 
-    def fetch_url(self, version: str, target: str, *, distribution: str = "install_only") -> str:
-        if distribution not in {"install_only", "install_only_stripped"}:
-            raise InstallError(self.name, f"unknown python distribution {distribution!r}")
+    def fetch_url(self, version: str, target: str) -> str:
         if target == "linux-arm64-bionic":
             return self._BIONIC_URL
         # lock version is "<python>+<release tag>", e.g. "3.14.7+20260901"
-        # install_only_stripped is the same archive layout without debug symbols
-        # (bin/python3, python.exe). Source installs keep install_only; the
-        # desktop bundle asks for the stripped build.
         pyver, _, tag = version.partition("+")
         if not tag:
             raise InstallError(self.name, f"version {version!r} needs the +<release> tag")
         triple = _RUST_TRIPLE[target]
         return (
             "https://github.com/astral-sh/python-build-standalone/releases/download/"
-            f"{tag}/cpython-{pyver}+{tag}-{triple}-{distribution}.tar.gz"
+            f"{tag}/cpython-{pyver}+{tag}-{triple}-install_only.tar.gz"
         )
-
-    def bundle_artifacts(self, lock, target: str, distribution: str) -> list[dict]:
-        """Desktop-only tarball swap. The lock pin stays install_only.
-
-        The stripped sha256 is ``desktop_stripped`` in pm/lock.json. The pack
-        never asks GitHub for a digest.
-        """
-        version = lock.version(self.name)
-        if not version:
-            raise InstallError(self.name, "not in the lockfile")
-        rows = []
-        for artifact in lock.artifacts(self.name, target):
-            url = self.fetch_url(version, target, distribution=distribution)
-            if url == artifact["url"]:
-                rows.append({"url": artifact["url"], "sha256": artifact["sha256"]})
-                continue
-            pin = (lock.row(self.name).get("desktop_stripped") or {}).get(target) or {}
-            name = url.rsplit("/", 1)[-1]
-            if pin.get("url") != url or not pin.get("sha256"):
-                raise InstallError(
-                    self.name, f"no pinned sha256 for {name}",
-                    "add python.desktop_stripped in pm/lock.json for this target",
-                )
-            rows.append({"url": pin["url"], "sha256": pin["sha256"]})
-        return rows
 
     def latest_versions(self, target: str, locked=None) -> list[str]:
         # Keep the locked minor line. The advertised asset owns patch and build.

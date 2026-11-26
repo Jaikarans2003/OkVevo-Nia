@@ -19,8 +19,8 @@ Lanes:
 * ``e2e``, ``e2e_upgrade``, ``e2e_desktop_core``, ``e2e_desktop_update`` —
   the end-to-end suites. The classifier still says which suites a diff
   touches (``_E2E_LANES``, the ``run-e2e`` label), but ci.yaml's ``detect``
-  gate forces these lanes off on pull requests and pushes to main or staging:
-  the E2E suites run on a release run, a manual dispatch, or the nightly schedule.
+  gate forces these lanes off on pull requests and pushes to main: the E2E
+  suites run only on a release run or a manual dispatch.
 * ``frontend``    — TS typecheck matrix + desktop build, and the WhatsApp
   bridge's ``node --test`` suites.
 * ``site``        — Docusaurus + generated skill docs.
@@ -54,9 +54,9 @@ Lanes:
 
 ``docker``, ``nix`` and the E2E lanes take most of the larger-runner minutes.
 An ordinary product change does not start them on a pull request. Every push
-to main or staging runs the non-E2E lanes (a push has no diff, so every lane
-is on, then the detect gate turns E2E off). The nightly schedule keeps E2E
-on. A stable-release run forces every lane on.
+to main runs them all (a push has no diff, so every lane is on), so a
+regression they catch shows up on main after the merge. A stable-release run
+forces every lane on.
 
 Contract — *fail open, never closed*. We may run a lane we didn't need, but
 must never skip one a change could break:

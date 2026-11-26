@@ -6,26 +6,11 @@ Pinned upstream tag: **v0.23.0**.
 
 ## Active
 
-Count = **17**. The old cap of 3 covered one-line hooks. The desktop Python
-distribution swap and the CI gates are larger, and drift skips them in
-`check_upstream_delta.sh` for the reasons below.
+Count = **4**. Upstream Python, the bundle scripts, and `ci.yaml` match staging.
+OkVevo gates live on the `okvevo-*` workflows. Drift skips the four files below.
 
 - `lefthook.yml` — `extends: [scripts/okvevo/lefthook.yml]` only; OkVevo brand/asset-spec pre-commit gates stay OkVevo-owned
 - `agent/auxiliary_client.py` — `_to_async_client` keeps `X-OkVevo-Org` when the sync base URL is the portal. The rebuilt `AsyncOpenAI` uses `DefaultAsyncHttpxClient` and `async_portal_http_client` (`okvevo_org_headers`). Drift skips this file in `check_upstream_delta.sh`.
-- `pm/packages.py` — desktop bundle reads the pinned `install_only_stripped` sha256; `fetch_url` default and the lock pin stay `install_only`
-- `pm/lock.json` — `python.desktop_stripped` pins the Mac and Windows stripped archive sha256
-- `pm/lock.py` — `row()` exposes lock keys that are not install artifacts
-- `pm/build_operations.py` — `prepare_tools` passes that tarball through; `verified_tools` admits its published digest
-- `pm/client.py` — forwards `python_distribution` to `prepare_tools`
-- `pm/install.py` — an explicit artifact list records that digest in facts
-- `scripts/bundles/native.py` — desktop payload asks for `install_only_stripped`
-- `scripts/bundles/payload.py` — snapshot omits docs, tests, bytecode, source maps, and `.d.ts`
-- `tests/pm/test_pm_core.py` — stripped URL stays off the default fetch
-- `tests/pm/test_build_operations.py` — admission accepts the published stripped digest without changing the lock pin
-- `tests/scripts/test_bundle_payload.py` — snapshot exclusions
-- `.github/workflows/ci.yaml` — always-on gate `ci-gate / CI`; nightly schedule keeps E2E on
-- `scripts/ci/classify_changes.py` — E2E stays off for pull requests and for pushes to main or staging
-- `tests/ci/test_update_ci_routing.py` — nightly schedule still selects the E2E lanes
 - `.gitignore` — ignores `.cursor/coordination/`
 - `docs/fork-deltas/portal-gateway-billing.md` — desktop billing header and sponsored row
 
@@ -96,7 +81,7 @@ corresponding list **exactly**.
 - `apps/desktop/electron/local-backend-lifecycle.ts`
 - `apps/desktop/electron/local-gateway-python.ts`
 - `apps/desktop/electron/local-gateway.ts`
-- `apps/desktop/electron/main.ts`
+- `apps/desktop/electron/main.ts` — quit, update, and ensure call `okvevo-gateway-lifecycle`; the start-time check stays in that module
 - `apps/desktop/electron/managed-ssh-update.ts`
 - `apps/desktop/electron/mcp-oauth-callback-ipc.ts`
 - `apps/desktop/electron/media-protocol.ts`
@@ -122,10 +107,9 @@ corresponding list **exactly**.
 - `apps/desktop/electron/okvevo-env.ts`
 - `apps/desktop/electron/okvevo-feed.test.ts`
 - `apps/desktop/electron/okvevo-feed.ts`
-- `apps/desktop/electron/okvevo-gateway-lifecycle.ts` — stop packaged gateway on quit/update; reclaim stale dead-socket owner on start (never CLI)
-- `apps/desktop/electron/okvevo-gateway-lifecycle.test.ts`
+- `apps/desktop/electron/okvevo-gateway-lifecycle.ts` — stop packaged gateway on quit/update; signal a PID only when its start time matches; never a CLI gateway
+- `apps/desktop/electron/okvevo-gateway-lifecycle.test.ts` — a reused PID is never signaled; the same PID and start time still stops
 - `apps/desktop/e2e/okvevo/packed-quit-relaunch.spec.ts` — Mac pack E2E: quit→relaunch and leftover-gateway takeover
-- `apps/desktop/electron/main.ts` — hooks: reclaim before ensure, record after ensure, stop on quit/update (OkVevo product; upstream leaves gateway running)
 - `apps/desktop/electron/plugin-files-hardening.test.ts` — asserts the OkVevo plugin-file refusal copy
 - `apps/desktop/electron/plugin-files-spellings.test.ts` — describe title follows the OkVevo plugin-file refusal copy
 - `apps/desktop/electron/plugin-files.ts` — plugin-file refusals name OkVevo data (v0.23.0 copy)

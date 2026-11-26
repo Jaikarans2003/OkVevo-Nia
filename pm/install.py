@@ -165,23 +165,6 @@ def _identity(lockfile: Lockfile, name: str, target: str):
     return (target, tuple(a["sha256"] for a in artifacts))
 
 
-def _source_identity(package, lockfile, facts, store_root, version: str, target: str):
-    """Lock identity, or the pinned stripped Python digest when that is what the store recorded."""
-    identity = _identity(lockfile, package.name, target)
-    if identity is None or facts.installed(package.name, version, store_root, identity):
-        return identity
-    if package.name != "python" or not hasattr(package, "bundle_artifacts"):
-        return identity
-    try:
-        rows = package.bundle_artifacts(lockfile, target, "install_only_stripped")
-    except InstallError:
-        return identity
-    stripped = (target, tuple(row["sha256"] for row in rows))
-    if facts.installed(package.name, version, store_root, stripped):
-        return stripped
-    return identity
-
-
 def lazy_installs_allowed() -> bool:
     """Policy: may pm install things on demand right now?
 
@@ -386,12 +369,10 @@ def _settle_previous_entry(package, store, entry, previous_entry, previous, targ
         _restore_previous_entry(store, entry, previous_entry)
 
 
-def _entry_current(package, lockfile, facts, store, entry, previous, version, pin, target,
-                   identity=None) -> bool:
+def _entry_current(package, lockfile, facts, store, entry, previous, version, pin, target) -> bool:
     if facts is not None:
         return previous is not None and facts.installed(
-            package.name, version, store.root,
-            identity if identity is not None else _identity(lockfile, package.name, target),
+            package.name, version, store.root, _identity(lockfile, package.name, target)
         ) and _entry_verified(package, previous, store, target)
     try:
         recorded = (entry / ".pm-stage-pin.json").read_text(encoding="utf-8-sig")
@@ -430,9 +411,8 @@ def _refresh_found_env(package, location, target, operation) -> None:
 def _copy_verified_source(package, lockfile, copy_from, staged, version, target) -> None:
     source_facts, source_store = copy_from
     source = source_facts.get(package.name)
-    identity = _source_identity(package, lockfile, source_facts, source_store.root, version, target)
-    if (not source_facts.installed(package.name, version, source_store.root, identity)
-            or not source
+    if (not source_facts.installed(package.name, version, source_store.root,
+                                   _identity(lockfile, package.name, target))
             or not _entry_verified(package, source, source_store, target)):
         raise InstallError(package.name, "bundled copy source failed verification")
     shutil.copytree(source_store.entry(source["entry"]), staged, symlinks=True)
@@ -464,7 +444,6 @@ def _install(
     copy_from: tuple[Facts, Store] | None = None,
     _lock_held: bool = False,
     _fresh_copy: bool = False,
-    fetch_artifacts: list | None = None,
 ) -> Path:
     """Realize one pin. Host installs commit facts; cross-target stages carry a marker."""
     version = lockfile.version(package.name)
@@ -481,9 +460,8 @@ def _install(
     entry = store.entry(entry_name)
     if getattr(package, "pin_only", False):
         return entry
-    artifacts = fetch_artifacts if fetch_artifacts is not None else lockfile.artifacts(package.name, target)
+    artifacts = lockfile.artifacts(package.name, target)
     pin = json.dumps({"target": target, "sha256": [a["sha256"] for a in artifacts]})
-    fetched_identity = (target, tuple(a["sha256"] for a in artifacts))
 
     with nullcontext() if _lock_held else store.install_lock():
         if pause_event is not None and pause_event.is_set():
@@ -494,10 +472,8 @@ def _install(
         previous_entry = store.entry(f".previous-{'stage-' if facts is None else ''}{entry_name}")
         _settle_previous_entry(package, store, entry, previous_entry, previous, target)
         _reclaim_set_aside(store)
-        if (_entry_current(
-                package, lockfile, facts, store, entry, previous, version, pin, target,
-                identity=fetched_identity if fetch_artifacts is not None else None,
-        ) and not _fresh_copy):
+        if (_entry_current(package, lockfile, facts, store, entry, previous, version, pin, target)
+                and not _fresh_copy):
             if facts is not None:
                 _refresh_recorded_env(package, facts, store, entry, previous, target)
             _remove_downloads(store, artifacts)

@@ -848,7 +848,7 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ### Thin shell only if the installer stays too large
 
-Revisit a thin shell only if the installer is still too large after the 2026-11-26 size pass (stripped desktop Python, snapshot exclusions). Any future runtime download must be a signed, checksummed artifact from `releases.okvevo.com`, never the source repo.
+The stripped-Python swap was reverted on 2026-11-27. Measure unpacked sizes from a green pack first. Any later size cut belongs in OkVevo-owned pack steps. A future runtime download must be a signed, checksummed artifact from `releases.okvevo.com`, never the source repo.
 
 ### Desktop short-drama removed; portal drama stays
 

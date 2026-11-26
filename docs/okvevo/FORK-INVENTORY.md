@@ -28,13 +28,16 @@ Evidence: the 48 repo commits + marker scan (`okvevo|NIA_|drama|…`) across cor
 | G14 | Bootstrap/install pointing at our repo | `apps/bootstrap-installer/src-tauri/src/install_script.rs`, `apps/desktop/electron/bootstrap-runner.ts`, `scripts/install.sh` / `install.ps1` deltas | RESOLVED 2026-10-22: upstream `install.sh` line 23 / `install.ps1` line 80 accept `HERMES_REPO_URL` (re-runs included) → scripts reset clean; desktop (KEEP-UI) passes our repo URL + the build-time commit SHA (amendment 13). Installer Rust patch only if we ship the Tauri bootstrap-installer — decide in commit 3 |
 | G15 | Fork tests for kept features | `tests/**` A-status subset | Move the ones covering kept features into `plugins/okvevo/tests` or `okvevo/tests`; the rest DROP-RESET |
 
-## KEEP-PATCH ledger (hard cap 3 — final list lives in PATCHES.md)
+## KEEP-PATCH ledger (final list lives in PATCHES.md)
 
-1. `apps/bootstrap-installer/src-tauri/src/install_script.rs` — clone our repo at the build-time-pinned commit SHA. Upstream hard-codes `NousResearch/hermes-agent` with only a dev-env override. **Only needed if we ship the Tauri bootstrap-installer** (the Electron DMG path uses `bootstrap-runner.ts` + `HERMES_REPO_URL`, both ours/UI). Decide in commit 3.
-2. — (eliminated: G13 redaction ports via upstream plugin hooks)
-3. — (eliminated: G14 install scripts honor `HERMES_REPO_URL`)
+Upstream files this PR still changes, outside the desktop UI list:
 
-Anything beyond cap 3 → stop and ask Karan (plan stop condition).
+1. `lefthook.yml` — extends the OkVevo hook file
+2. `agent/auxiliary_client.py` — portal org header survives the async client rebuild
+3. `.gitignore` — ignores `.cursor/coordination/`
+4. `docs/fork-deltas/portal-gateway-billing.md` — sponsored billing row
+
+`pm/`, `scripts/bundles/native.py`, `scripts/bundles/payload.py`, and `.github/workflows/ci.yaml` match staging. Quit and update call `apps/desktop/electron/okvevo-gateway-lifecycle.ts`. `main.ts` only calls that module.
 ## Full classification (generated 2026-10-22)
 
 Comparator: `git diff v2026.8.31 okvevo/staging` — the upstream tag with the smallest diff to the product branch (2,806 files; scan: v2026.8.16→v0.22.4, minimum at v2026.8.31).

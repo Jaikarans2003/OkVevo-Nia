@@ -100,12 +100,8 @@ def build_requirements_environment(
 
 
 def prepare_tools(names: Sequence[str], *, out: Path, target: str,
-                  cache: Path | None = None, python_distribution: str | None = None) -> Path:
-    """Realize an explicit tool closure in a build-owned store, not live state.
-
-    ``python_distribution`` swaps only the desktop bundle's Python tarball.
-    The lock pin is left alone so source installs keep install_only.
-    """
+                  cache: Path | None = None) -> Path:
+    """Realize an explicit tool closure in a build-owned store, not live state."""
     from pm.install import _install, _lockfile
     from pm.lock import Facts
     from pm.package import StatePackage
@@ -122,10 +118,7 @@ def prepare_tools(names: Sequence[str], *, out: Path, target: str,
     with store.install_lock():
         facts = Facts(out / "facts.json", strict=True)
         for package in packages:
-            fetch = None
-            if python_distribution and package.name == "python":
-                fetch = package.bundle_artifacts(lock, target, python_distribution)
-            _install(package, lock, facts, store, target, _lock_held=True, fetch_artifacts=fetch)
+            _install(package, lock, facts, store, target, _lock_held=True)
     return out
 
 
@@ -161,7 +154,7 @@ def verified_tools(names: Sequence[str], *, source_store: Path, target: str,
     digest to the canonical entry, lock and declared environment; it does not
     rerun arbitrary version probes just to read a previously published tool.
     """
-    from pm.install import _identity, _lockfile, _source_identity
+    from pm.install import _identity, _lockfile
     from pm.lock import Facts
     from pm.package import StatePackage
     from pm.registry import walk
@@ -184,10 +177,9 @@ def verified_tools(names: Sequence[str], *, source_store: Path, target: str,
         if getattr(package, "pin_only", False):
             continue
         version = lock.version(package.name)
-        if not version or _identity(lock, package.name, target) is None:
+        identity = _identity(lock, package.name, target)
+        if not version or identity is None:
             raise InstallError(package.name, "tool source failed verification: missing pin")
-        # Same rule as the copy: admit the stripped digest pinned in the lock.
-        identity = _source_identity(package, lock, facts, source_store, version, target)
         fact = facts.get(package.name)
         expected = package.store_entry(version, target)
         entry = source_store / expected

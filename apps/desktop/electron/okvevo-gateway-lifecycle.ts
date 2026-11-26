@@ -13,6 +13,49 @@ import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 
+import { fileExists } from './fs-probes'
+import { bundledPayload, payloadTicketRuntime } from './payload-backend'
+
+/** Bundled interpreter for upstream `gateway.status` start-time checks. Dev falls back to the checkout venv. */
+export function okvevoGatewayPythonDeps(input: {
+  appPath: string
+  env?: NodeJS.ProcessEnv
+  resourcesPath: string
+}): { pythonCommand?: string, pythonCwd?: string, pythonEnv?: NodeJS.ProcessEnv } {
+  const env = input.env ?? process.env
+  const payload = bundledPayload(input.resourcesPath)
+
+  if (payload) {
+    const ticket = payloadTicketRuntime(payload)
+
+    return {
+      pythonCommand: ticket.ticketCommand,
+      pythonEnv: { ...env, ...ticket.ticketEnv },
+      pythonCwd: payload.repoDir
+    }
+  }
+
+  const repoRoot = path.resolve(input.appPath, '../..')
+
+  const candidates = [
+    env.HERMES_PYTHON,
+    path.join(repoRoot, '.venv', 'bin', 'python'),
+    path.join(repoRoot, '.venv', 'Scripts', 'python.exe')
+  ].filter((candidate): candidate is string => Boolean(candidate) && fileExists(candidate))
+
+  const pythonCommand = candidates[0]
+
+  if (!pythonCommand) {
+    return {}
+  }
+
+  return {
+    pythonCommand,
+    pythonEnv: { ...env, PYTHONPATH: [repoRoot, env.PYTHONPATH].filter(Boolean).join(path.delimiter) },
+    pythonCwd: repoRoot
+  }
+}
+
 export const OKVEVO_DESKTOP_GATEWAY_MARKER = 'okvevo-desktop-gateway.json'
 export const OKVEVO_GATEWAY_STOP_GRACE_MS = 4_000
 export const OKVEVO_GATEWAY_SOCKET_PROBE_MS = 750

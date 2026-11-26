@@ -6,6 +6,7 @@ import { test } from 'vitest'
 import {
   clearDesktopGatewayMarker,
   isOkvevoPackagedGateway,
+  okvevoGatewayPythonDeps,
   parseGatewayLock,
   reclaimStaleOkvevoDesktopGateway,
   shouldTakeOverStaleDesktopGateway,
@@ -264,6 +265,30 @@ test('the same PID and start time still stops', async () => {
   assert.match(asked, /start_time_fingerprints_match/)
   assert.equal(result.stopped, true)
   assert.ok(signals.some(([pid, sig]) => pid === 4242 && sig === 'SIGTERM'))
+})
+
+test('okvevoGatewayPythonDeps uses a dev interpreter only when that file exists', () => {
+  const missing = okvevoGatewayPythonDeps({
+    appPath: '/tmp/okvevo-no-app',
+    resourcesPath: '/tmp/okvevo-no-resources',
+    env: {}
+  })
+
+  assert.equal(missing.pythonCommand, undefined)
+
+  const python = process.env.HERMES_PYTHON
+
+  if (!python) {
+    return
+  }
+
+  const found = okvevoGatewayPythonDeps({
+    appPath: '/tmp/okvevo-no-app',
+    resourcesPath: '/tmp/okvevo-no-resources',
+    env: { HERMES_PYTHON: python }
+  })
+
+  assert.equal(found.pythonCommand, python)
 })
 
 test('clearDesktopGatewayMarker removes the marker file', () => {

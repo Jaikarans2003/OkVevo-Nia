@@ -87,10 +87,6 @@ class Lockfile:
     def version(self, name: str) -> str | None:
         return (self._packages.get(name) or {}).get("version")
 
-    def row(self, name: str) -> dict:
-        """The raw package object, including keys that are not install artifacts."""
-        return self._packages.get(name) or {}
-
     def artifacts(self, name: str, target: str) -> list[dict]:
         """Every archive this target needs, in extraction order. One
         artifact and a list of them are the same thing here — the single
