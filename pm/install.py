@@ -165,6 +165,23 @@ def _identity(lockfile: Lockfile, name: str, target: str):
     return (target, tuple(a["sha256"] for a in artifacts))
 
 
+def _source_identity(package, lockfile, facts, store_root, version: str, target: str):
+    """Lock identity, or the pinned stripped Python digest when that is what the store recorded."""
+    identity = _identity(lockfile, package.name, target)
+    if identity is None or facts.installed(package.name, version, store_root, identity):
+        return identity
+    if package.name != "python" or not hasattr(package, "bundle_artifacts"):
+        return identity
+    try:
+        rows = package.bundle_artifacts(lockfile, target, "install_only_stripped")
+    except InstallError:
+        return identity
+    stripped = (target, tuple(row["sha256"] for row in rows))
+    if facts.installed(package.name, version, store_root, stripped):
+        return stripped
+    return identity
+
+
 def lazy_installs_allowed() -> bool:
     """Policy: may pm install things on demand right now?
 
@@ -413,8 +430,9 @@ def _refresh_found_env(package, location, target, operation) -> None:
 def _copy_verified_source(package, lockfile, copy_from, staged, version, target) -> None:
     source_facts, source_store = copy_from
     source = source_facts.get(package.name)
-    if (not source_facts.installed(package.name, version, source_store.root,
-                                   _identity(lockfile, package.name, target))
+    identity = _source_identity(package, lockfile, source_facts, source_store.root, version, target)
+    if (not source_facts.installed(package.name, version, source_store.root, identity)
+            or not source
             or not _entry_verified(package, source, source_store, target)):
         raise InstallError(package.name, "bundled copy source failed verification")
     shutil.copytree(source_store.entry(source["entry"]), staged, symlinks=True)

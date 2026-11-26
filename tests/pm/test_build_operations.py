@@ -194,6 +194,40 @@ def test_verified_tools_admits_published_stripped_python(tmp_path, monkeypatch):
     assert selected.entries["python"].binary == binary
 
 
+def test_copy_accepts_pinned_stripped_python(tmp_path, monkeypatch):
+    """stage_tools copies from a store whose facts name the stripped digest, not the lock pin."""
+    from pm.install import _copy_verified_source
+    from pm.lock import Facts, Lockfile
+    from pm.registry import get_package
+    from pm.store import Store, current_target, tree_digest
+
+    target, store = current_target(), tmp_path / "tools"
+    lock = Lockfile(tmp_path / "lock.json")
+    package = get_package("python")
+    version = "3.14.9+20261021"
+    entry = store / package.store_entry(version, target)
+    binary = package.binary(entry, target)
+    assert binary is not None
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"stripped runtime")
+    stripped = "b" * 64
+    url = package.fetch_url(version, target, distribution="install_only_stripped")
+    lock._packages["python"] = {
+        "version": version,
+        "artifacts": {target: {"url": "https://example.test/install_only.tar.gz", "sha256": "a" * 64}},
+        "desktop_stripped": {target: {"url": url, "sha256": stripped}},
+    }
+    facts = Facts(store / "facts.json")
+    facts.record(
+        "python", version, entry.name, package.env(entry, target), store,
+        target=target, artifacts=[stripped], digest=tree_digest(entry),
+    )
+    monkeypatch.setattr(package, "verify", lambda *_a, **_k: "")
+    staged = tmp_path / "staged"
+    _copy_verified_source(package, lock, (facts, Store(store)), staged, version, target)
+    assert package.binary(staged, target).read_bytes() == b"stripped runtime"
+
+
 @pytest.fixture
 def build_tools(tmp_path, monkeypatch, build_worker):
     env = {key: value for key, value in os.environ.items()

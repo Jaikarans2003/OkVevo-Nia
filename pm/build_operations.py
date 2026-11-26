@@ -161,7 +161,7 @@ def verified_tools(names: Sequence[str], *, source_store: Path, target: str,
     digest to the canonical entry, lock and declared environment; it does not
     rerun arbitrary version probes just to read a previously published tool.
     """
-    from pm.install import _identity, _lockfile
+    from pm.install import _identity, _lockfile, _source_identity
     from pm.lock import Facts
     from pm.package import StatePackage
     from pm.registry import walk
@@ -184,22 +184,10 @@ def verified_tools(names: Sequence[str], *, source_store: Path, target: str,
         if getattr(package, "pin_only", False):
             continue
         version = lock.version(package.name)
-        identity = _identity(lock, package.name, target)
-        if not version or identity is None:
+        if not version or _identity(lock, package.name, target) is None:
             raise InstallError(package.name, "tool source failed verification: missing pin")
-        # Desktop packs record the stripped digest pinned in pm/lock.json.
-        # The install_only pin is unchanged. Admit the stripped digest only
-        # when it matches that pin.
-        if (package.name == "python"
-                and not facts.installed(package.name, version, source_store, identity)):
-            try:
-                rows = package.bundle_artifacts(lock, target, "install_only_stripped")
-            except InstallError:
-                rows = None
-            if rows:
-                stripped = (target, tuple(a["sha256"] for a in rows))
-                if facts.installed(package.name, version, source_store, stripped):
-                    identity = stripped
+        # Same rule as the copy: admit the stripped digest pinned in the lock.
+        identity = _source_identity(package, lock, facts, source_store, version, target)
         fact = facts.get(package.name)
         expected = package.store_entry(version, target)
         entry = source_store / expected
