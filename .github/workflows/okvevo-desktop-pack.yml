@@ -127,6 +127,8 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: ${{ needs.require-secrets.outputs.mac_signing == 'true' && 'true' || 'false' }}
       OKVEVO_REQUIRE_NOTARIZE: ${{ needs.require-secrets.outputs.mac_signing == 'true' && '1' || '0' }}
       GH_TOKEN: ${{ github.token }}
+      # apps/desktop has no lockfile of its own; the workspace lock is the root one.
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-pm
@@ -152,12 +154,37 @@ jobs:
       # desktop.py refuses a dirty checkout. Upstream's Desktop pack restores
       # ffmpeg into apps/desktop/resources/ffmpeg and then builds. Those files
       # are untracked, so this pack prepares the payload before that restore.
+      # Payload cache is keyed on uv.lock + pm/lock.json. A hit skips prepare.
+      # The LGPL ffmpeg cache below is separate and already present.
+      - name: Restore bundled agent payload
+        id: agent-payload
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            apps/desktop/build/agent-payload
+            apps/desktop/build/agent-payload.prepared.json
+          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - name: Prepare bundled agent payload
+        if: steps.agent-payload.outputs.cache-hit != 'true'
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
+      - name: Save bundled agent payload
+        if: steps.agent-payload.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            apps/desktop/build/agent-payload
+            apps/desktop/build/agent-payload.prepared.json
+          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
           key: lgpl-ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/build-ffmpeg-macos.mjs', 'apps/desktop/scripts/fetch-ffmpeg.mjs') }}
+      - name: Cache electron-builder
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .cache/electron-builder
+          key: electron-builder-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         env:
@@ -188,6 +215,23 @@ jobs:
           npm run builder -- --mac dmg zip --publish never \
             -c.extraMetadata.version="$VERSION"
           node scripts/publish-release-feed.mjs write-yml --dir release --platform mac --version "$VERSION"
+      - name: Measure unpacked Mac Resources
+        run: |
+          set +e
+          app=$(ls -d apps/desktop/release/mac*/OkVevo.app 2>/dev/null | head -1)
+          {
+            echo "## Unpacked Mac Resources (KiB, top 30)"
+            if [ -z "${app:-}" ]; then
+              echo "No OkVevo.app Resources tree to measure."
+            else
+              du -sk "$app/Contents/Resources"/* "$app/Contents/Resources/agent-payload"/* 2>/dev/null | sort -nr | head -30
+              echo "### tools"
+              du -sk "$app/Contents/Resources/agent-payload/tools"/* 2>/dev/null | sort -nr | head -30
+              echo "### venv / uv-cache"
+              du -sk "$app/Contents/Resources/agent-payload/venv"/* "$app/Contents/Resources/agent-payload/uv-cache"/* 2>/dev/null | sort -nr | head -30
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
       - name: Assert bundled payload and baked feed
         run: |
           set -euo pipefail
@@ -278,6 +322,7 @@ jobs:
       WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       OKVEVO_REQUIRE_WIN_SIGN: ${{ needs.require-secrets.outputs.win_signing == 'true' && '1' || '0' }}
       GH_TOKEN: ${{ github.token }}
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-pm
@@ -303,9 +348,28 @@ jobs:
         shell: bash
         run: node scripts/write-okvevo-pack-env.mjs --require
       # Same order as macOS: prepare while the checkout is still clean.
+      # Skip prepare when the lockfile-keyed payload cache already exists.
+      - name: Restore bundled agent payload
+        id: agent-payload
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            apps/desktop/build/agent-payload
+            apps/desktop/build/agent-payload.prepared.json
+          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - name: Prepare bundled agent payload
+        if: steps.agent-payload.outputs.cache-hit != 'true'
         shell: bash
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
+      - name: Save bundled agent payload
+        if: steps.agent-payload.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            apps/desktop/build/agent-payload
+            apps/desktop/build/agent-payload.prepared.json
+          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
@@ -323,6 +387,11 @@ jobs:
           RELEASES_S3_BUCKET: ${{ secrets.RELEASES_S3_BUCKET }}
           RELEASES_S3_ENDPOINT: ${{ secrets.RELEASES_S3_ENDPOINT }}
         run: node scripts/ensure-ffmpeg-win-mirror.mjs --cold
+      - name: Cache electron-builder
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .cache/electron-builder
+          key: electron-builder-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
       - name: Stamp version and pack (public channel, publish never)
         working-directory: apps/desktop
         shell: bash
@@ -352,6 +421,24 @@ jobs:
           npm run builder -- --win nsis --publish never \
             -c.extraMetadata.version="$VERSION"
           node scripts/publish-release-feed.mjs write-yml --dir release --platform win --version "$VERSION"
+      - name: Measure unpacked Windows tree
+        shell: bash
+        run: |
+          set +e
+          win=apps/desktop/release/win-unpacked
+          {
+            echo "## Unpacked Windows tree (KiB, top 30)"
+            if [ ! -d "$win/resources" ]; then
+              echo "No win-unpacked resources tree to measure."
+            else
+              du -sk "$win/resources"/* "$win/resources/agent-payload"/* 2>/dev/null | sort -nr | head -30
+              echo "### tools"
+              du -sk "$win/resources/agent-payload/tools"/* 2>/dev/null | sort -nr | head -30
+              echo "### venv / uv-cache"
+              du -sk "$win/resources/agent-payload/venv"/* "$win/resources/agent-payload/uv-cache"/* 2>/dev/null | sort -nr | head -30
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
       - name: Assert bundled payload and baked feed
         shell: bash
         run: |
@@ -449,6 +536,8 @@ jobs:
     if: ${{ inputs.yml_mode == 'build' }}
     runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-pm
@@ -471,8 +560,22 @@ jobs:
       - name: Require pack-env
         working-directory: apps/desktop
         run: node scripts/write-okvevo-pack-env.mjs --require
+      - name: Restore bundled agent payload
+        id: agent-payload
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            apps/desktop/build/agent-payload
+            apps/desktop/build/agent-payload.prepared.json
+          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - name: Prepare bundled agent payload
+        if: steps.agent-payload.outputs.cache-hit != 'true'
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
+      - name: Restore electron-builder cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .cache/electron-builder
+          key: electron-builder-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
@@ -522,6 +625,8 @@ jobs:
     if: ${{ inputs.yml_mode == 'build' }}
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-pm
@@ -546,9 +651,23 @@ jobs:
         working-directory: apps/desktop
         shell: bash
         run: node scripts/write-okvevo-pack-env.mjs --require
+      - name: Restore bundled agent payload
+        id: agent-payload
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            apps/desktop/build/agent-payload
+            apps/desktop/build/agent-payload.prepared.json
+          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - name: Prepare bundled agent payload
+        if: steps.agent-payload.outputs.cache-hit != 'true'
         shell: bash
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
+      - name: Restore electron-builder cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .cache/electron-builder
+          key: electron-builder-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
@@ -646,3 +765,16 @@ jobs:
     timeout-minutes: 5
     steps:
       - run: echo "archive complete"
+
+  ci-gate:
+    name: ci-gate / reusable pack
+    needs: [require-secrets, macos, windows, macos-e2e, windows-e2e, publish-feed, archive-complete]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Evaluate job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: printf '%s' "$NEEDS" | python3 scripts/ci/required_results.py

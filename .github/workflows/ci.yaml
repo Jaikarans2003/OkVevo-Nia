@@ -40,16 +40,22 @@ on:
         default: false
   pull_request:
   push:
-    branches: [main]
+    branches: [main, staging]
+  schedule:
+    # Nightly full suite, including E2E. A failure opens an issue from
+    # okvevo-ci-nightly-alert.yml (this file is also workflow_call, so it
+    # cannot ask for issues: write — stable-release does not grant that).
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read
   pull-requests: write # needed by lint (PR comment) + supply-chain review_status
 
-# cancel-in-progress only ever applies to PR events. A push, a dispatch, and
-# above all a stable-release workflow_call run are never cancelled by a later
-# commit or a rerun of the same branch — the caller's own concurrency uses
-# github.run_id, so even a parent rerun cannot kill this child mid-flight.
+# cancel-in-progress only ever applies to PR events. A push, a nightly
+# schedule, a dispatch, and above all a stable-release workflow_call run are
+# never cancelled by a later commit or a rerun of the same branch — the
+# caller's own concurrency uses github.run_id, so even a parent rerun cannot
+# kill this child mid-flight.
 # Release (workflow_call with inputs.release) never cancels and never gets
 # cancelled: its group is github.run_id. PRs collapse per-PR; pushes use the
 # ref as before.
@@ -107,9 +113,9 @@ jobs:
           github-token: ${{ github.token }}
       - name: Force all lanes on release; E2E only on release or dispatch
         # Overwrite the classifier outputs with 'true' when inputs.release. The E2E
-        # lanes are forced off unless this is a release run or a manual dispatch
-        # (whose empty diff already turns every lane on): never on a pull request
-        # or a push to main, whatever the diff or labels say.
+        # lanes are forced off unless this is a release run, a manual dispatch, or
+        # the nightly schedule (whose empty diff already turns every lane on):
+        # never on a pull request or a push, whatever the diff or labels say.
         id: gate-lanes
         env:
           RELEASE: ${{ inputs.release }}
@@ -120,7 +126,7 @@ jobs:
           import json, os
           values = json.loads(os.environ['CLASSIFIED'])
           release = os.environ['RELEASE'] == 'true'
-          e2e_allowed = release or os.environ['EVENT_NAME'] == 'workflow_dispatch'
+          e2e_allowed = release or os.environ['EVENT_NAME'] in ('workflow_dispatch', 'schedule')
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               for lane, value in values.items():
                   if lane.startswith('e2e') and not e2e_allowed:
@@ -137,9 +143,9 @@ jobs:
   # Skipped workflows (if condition is false) don't spin up runners.
   #
   # The E2E suites (e2e, e2e-upgrade, both Desktop suites, and the two
-  # Windows journeys in tests-os) run ONLY on a release run (inputs.release)
-  # or a manual dispatch; the detect gate forces their lanes off for pull
-  # requests and pushes to main.
+  # Windows journeys in tests-os) run ONLY on a release run (inputs.release),
+  # a manual dispatch, or the nightly schedule; the detect gate forces their
+  # lanes off for pull requests and pushes (main and staging).
   # ─────────────────────────────────────────────────────────────────────
   tests:
     name: Python tests
@@ -586,3 +592,51 @@ jobs:
         with:
           path: ci-timings-baseline.json
           key: ci-timings-baseline-${{ github.run_id }}
+
+  # Unique required-check name. all-checks-pass stays as-is for the ruleset
+  # that still names it. This gate needs every job in this workflow, including
+  # detect. Skipped lanes stay success except the ones required_results.py
+  # already rejects. The nightly issue opener is a separate workflow: a job
+  # here that asks for issues: write fails the stable-release workflow_call.
+  ci-gate:
+    name: ci-gate / CI
+    needs:
+      - detect
+      - tests
+      - tests-os
+      - lint
+      - js-tests
+      - rust-tests
+      - remote-backends
+      - catalog-tests
+      - bootstrap-installer
+      - e2e-desktop
+      - e2e-desktop-core
+      - e2e-desktop-update
+      - docs-site
+      - history-check
+      - contributor-check
+      - uv-lockfile
+      - infographic-check
+      - case-collision-check
+      - blob-size-check
+      - lazy-deps-guard
+      - lockfile-diff
+      - prompt-surface-diff
+      - docker-lint
+      - profile-artifact-check
+      - icons-freshness-check
+      - supply-chain
+      - all-checks-pass
+      - ci-timings
+    if: always()
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
+        with:
+          ref: ${{ inputs.commit || github.sha }}
+      - name: Evaluate job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: printf '%s' "$NEEDS" | python3 scripts/ci/required_results.py

@@ -1,0 +1,53 @@
+# Opens one issue when the nightly CI schedule fails.
+# Lives outside ci.yaml on purpose: ci.yaml is a workflow_call from
+# stable-release.yml, and a job there that asks for issues: write fails
+# that call at startup (same constraint as install-e2e-red.yml).
+name: CI nightly failure
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  open-issue:
+    name: Open nightly CI issue
+    if: >-
+      github.event.workflow_run.event == 'schedule' &&
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or comment on the nightly CI issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          TITLE_PREFIX="[ci-nightly]"
+          existing=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --search "in:title \"$TITLE_PREFIX\"" \
+            --json number,title \
+            --jq '.[] | select(.title | startswith("'"$TITLE_PREFIX"'")) | .number' \
+            | head -1)
+          BODY="The nightly CI schedule failed.
+
+          **Run:** ${RUN_URL}
+          **Run id:** ${RUN_ID}
+
+          This issue was opened by \`.github/workflows/okvevo-ci-nightly-alert.yml\`. Close it once the schedule is green again."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "${{ github.repository }}" \
+              --body "Nightly CI failed again: ${RUN_URL} (run ${RUN_ID})."
+          else
+            gh issue create --repo "${{ github.repository }}" \
+              --title "$TITLE_PREFIX CI schedule failed" \
+              --body "$BODY"
+          fi

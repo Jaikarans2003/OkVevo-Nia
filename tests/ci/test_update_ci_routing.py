@@ -98,9 +98,9 @@ def _on(workflow: dict) -> dict:
 def _detect_outputs(lanes: dict[str, bool], event_name: str = "workflow_dispatch") -> dict[str, Any]:
     """The classifier's lines -> the composite action's outputs -> ci.yaml ``detect`` outputs.
 
-    Replays a manual dispatch by default: E2E lanes reach their consumers only on a dispatch or a
-    release run (pull requests and main pushes force them off), and the routing tests below check
-    that a set lane reaches its suites."""
+    Replays a manual dispatch by default: E2E lanes reach their consumers on a dispatch, a
+    release run, or the nightly schedule (pull requests and pushes force them off), and the
+    routing tests below check that a set lane reaches its suites."""
     raw = {k: gha.to_string(v) for k, v in lanes.items()}
     action = _yaml(".github/actions/detect-changes/action.yml")
     action_out = {k: gha.render(v["value"], {"steps": {"classify": {"outputs": raw}}})
@@ -828,6 +828,18 @@ def test_pull_requests_and_main_pushes_never_run_e2e(event_name):
         assert not any(_consumers_reached(run, lane).values()), f"{event_name}: {lane} ran"
     assert "e2e-desktop-core" not in run
     assert "tests" in run and "tests-os" in run  # the unit lanes still run
+
+
+def test_nightly_schedule_runs_the_e2e_lanes():
+    """The 02:00 UTC schedule keeps the E2E lanes the push gate turns off.
+
+    Presence only: replaying the suite commands needs bash 4 (mapfile), which
+    the push/PR test never reaches because those lanes are forced off.
+    """
+    lanes = cc.classify([])
+    run = _run_workflow(".github/workflows/ci.yaml", inputs={}, detect=_detect_outputs(lanes, "schedule"))
+    for lane in ("e2e", "e2e_upgrade", "e2e_desktop_update"):
+        assert all(_reached(run, *path) is not None for path in _CONSUMERS[lane]), lane
 
 
 def test_windows_install_update_dispatch_alone_sets_strict():
