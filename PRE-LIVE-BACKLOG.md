@@ -846,6 +846,10 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Later ideas
 
+### Thin shell only if the installer stays too large
+
+Revisit a thin shell only if the installer is still too large after the 2026-11-26 size pass (stripped desktop Python, snapshot exclusions). Any future runtime download must be a signed, checksummed artifact from `releases.okvevo.com`, never the source repo.
+
 ### Desktop short-drama removed; portal drama stays
 
 Desktop pack no longer ships the short-drama skill, `okvevo/fal-schemas/`, or `okvevo/drama-cards.json` (`fd37346e39`, 2026-11-26). The OkVevo-Web drama route and rate-card audio entries stay until a later product decision.
