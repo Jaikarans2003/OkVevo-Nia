@@ -182,6 +182,7 @@ jobs:
             electron/okvevo-about.test.ts \
             electron/backend-env.test.ts \
             electron/okvevo-auth.test.ts \
+            electron/okvevo-gateway-lifecycle.test.ts \
             scripts/okvevo-feed-urls.test.mjs \
             scripts/ci-map-pack-env.test.mjs \
             scripts/publish-release-feed.test.mjs \
@@ -202,6 +203,7 @@ jobs:
             src/components/boot-failure-overlay.test.tsx \
             src/components/chat/intro.test.tsx \
             src/lib/okvevo-billing-listener.test.ts \
+            src/app/settings/billing/index.test.tsx \
             src/lib/model-options.test.ts \
             src/lib/provider-branding.test.ts \
             src/app/shell/model-catalog-menu.test.tsx \
