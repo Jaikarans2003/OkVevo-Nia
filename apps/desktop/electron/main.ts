@@ -11870,7 +11870,7 @@ async function dialPoolBackend(profile, entry, opts: { forceLocal?: boolean; poo
   }, restartStaleLocalGateway)
 
   assertPoolEntryStillOwned(poolKey, entry)
-  recordDesktopGatewayAfterEnsure(HERMES_HOME)
+  recordDesktopGatewayAfterEnsure(HERMES_HOME, okvevoGatewayPythonDeps())
 
   return { ...connection, profile, logs: hermesLog.slice(-80), ...getWindowState() }
 }
@@ -11879,9 +11879,43 @@ async function dialPoolBackend(profile, entry, opts: { forceLocal?: boolean; poo
 // bounded so a wedged drain cannot hang Restart. The gateway's own drain is unaffected by the kill.
 const GATEWAY_RESTART_CLIENT_TIMEOUT_MS = 120_000
 
+/** Bundled interpreter for upstream `gateway.status` start-time checks. Works for the packed app and a local checkout. */
+function okvevoGatewayPythonDeps(): { pythonCommand?: string, pythonCwd?: string, pythonEnv?: NodeJS.ProcessEnv } {
+  const payload = bundledPayload(process.resourcesPath)
+
+  if (payload) {
+    const ticket = payloadTicketRuntime(payload)
+
+    return {
+      pythonCommand: ticket.ticketCommand,
+      pythonEnv: { ...process.env, ...ticket.ticketEnv },
+      pythonCwd: payload.repoDir
+    }
+  }
+
+  const candidates = [
+    process.env.HERMES_PYTHON,
+    path.join(SOURCE_REPO_ROOT, '.venv', 'bin', 'python'),
+    path.join(SOURCE_REPO_ROOT, '.venv', 'Scripts', 'python.exe')
+  ].filter((candidate): candidate is string => Boolean(candidate) && fileExists(candidate))
+
+  const pythonCommand = candidates[0]
+
+  if (!pythonCommand) {
+    return {}
+  }
+
+  return {
+    pythonCommand,
+    pythonEnv: { ...process.env, PYTHONPATH: [SOURCE_REPO_ROOT, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter) },
+    pythonCwd: SOURCE_REPO_ROOT
+  }
+}
+
 /** Graceful `hermes gateway stop` then SIGTERM/SIGKILL for a packaged OkVevo owner only. */
 async function stopOkvevoOwnedGateway(reason: 'quit' | 'update' | 'reclaim'): Promise<void> {
   const result = await stopOkvevoDesktopGateway(HERMES_HOME, {
+    ...okvevoGatewayPythonDeps(),
     runGatewayStop: async () => {
       try {
         const backend = await resolveHermesBackend(['gateway', 'stop'])
@@ -11907,7 +11941,7 @@ async function stopOkvevoOwnedGateway(reason: 'quit' | 'update' | 'reclaim'): Pr
 
 /** Before ensure: take over a prior OkVevo Desktop gateway that holds the lock but does not answer. */
 async function reclaimStaleOkvevoGatewayBeforeEnsure(): Promise<void> {
-  if (!(await shouldTakeOverStaleDesktopGateway(HERMES_HOME))) {
+  if (!(await shouldTakeOverStaleDesktopGateway(HERMES_HOME, okvevoGatewayPythonDeps()))) {
     return
   }
 
@@ -12360,7 +12394,7 @@ async function startHermes(requestedProfile?: string, inheritsPrimary = false) {
     ), undefined, restartStaleLocalGateway)
 
     backendConnectionState.assertCurrentAttempt(connectionAttempt)
-    recordDesktopGatewayAfterEnsure(HERMES_HOME)
+    recordDesktopGatewayAfterEnsure(HERMES_HOME, okvevoGatewayPythonDeps())
 
     backendStartFailure = null
     rememberLog('[backend] Hermes gateway is ready')

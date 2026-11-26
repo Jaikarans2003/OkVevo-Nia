@@ -8,7 +8,7 @@
  * Never stop or replace a gateway the user started from the CLI.
  */
 
-import type * as childProcess from 'node:child_process'
+import { execFileSync as nodeExecFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
@@ -22,11 +22,15 @@ export type GatewayLockRecord = {
   hermes_home?: string
   kind?: string
   pid: number
+  /** Upstream `gateway.lock` process-start fingerprint. */
+  start_time?: number | null
 }
 
 export type DesktopGatewayMarker = {
   pid: number
+  pidStartTime?: number | null
   wrapperPid?: number | null
+  wrapperStartTime?: number | null
   writtenAt: string
 }
 
@@ -34,8 +38,20 @@ export type OkvevoGatewayLifecycleDeps = {
   clearTimeoutFn?: typeof clearTimeout
   connectSocket?: (sockPath: string, timeoutMs: number) => Promise<boolean>
   existsSync?: (p: string) => boolean
+  execFileSync?: (file: string, args: string[], options: {
+    cwd?: string
+    encoding: 'utf8'
+    env?: NodeJS.ProcessEnv
+    timeout: number
+  }) => string
   isPidAlive?: (pid: number) => boolean
   kill?: (pid: number, signal: NodeJS.Signals) => void
+  /** True when upstream `get_process_start_time` matches the recorded fingerprint. */
+  processMatches?: (pid: number, expectedStart: number) => boolean
+  pythonCommand?: string
+  pythonCwd?: string
+  pythonEnv?: NodeJS.ProcessEnv
+  readProcessStart?: (pid: number) => number | null
   now?: () => number
   parentPid?: (pid: number) => number | null
   processCmdline?: (pid: number) => string
@@ -99,10 +115,7 @@ function defaultSleep(ms: number): Promise<void> {
 
 function defaultParentPid(pid: number): number | null {
   try {
-     
-    const { execFileSync } = require('node:child_process') as typeof childProcess
-
-    const out = execFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], {
+    const out = nodeExecFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], {
       encoding: 'utf8',
       timeout: 2_000
     }).trim()
@@ -117,16 +130,71 @@ function defaultParentPid(pid: number): number | null {
 
 function defaultProcessCmdline(pid: number): string {
   try {
-     
-    const { execFileSync } = require('node:child_process') as typeof childProcess
-
-    return execFileSync('ps', ['-o', 'command=', '-p', String(pid)], {
+    return nodeExecFileSync('ps', ['-o', 'command=', '-p', String(pid)], {
       encoding: 'utf8',
       timeout: 2_000
     }).trim()
   } catch {
     return ''
   }
+}
+
+const START_TIME_CODE = [
+  'from gateway.status import get_process_start_time',
+  'import sys',
+  'live = get_process_start_time(int(sys.argv[1]))',
+  'print("" if live is None else int(live))'
+].join('\n')
+
+const MATCH_CODE = [
+  'from gateway.status import get_process_start_time, start_time_fingerprints_match',
+  'import sys',
+  'pid, expected = int(sys.argv[1]), int(sys.argv[2])',
+  'live = get_process_start_time(pid)',
+  'try:',
+  '    ok = live is not None and start_time_fingerprints_match(expected, live)',
+  'except (TypeError, ValueError):',
+  '    ok = False',
+  'print("yes" if ok else "no")'
+].join('\n')
+
+function recordedStart(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+function askPython(deps: OkvevoGatewayLifecycleDeps, code: string, args: string[]): string | null {
+  if (!deps.pythonCommand) {
+    return null
+  }
+
+  try {
+    const execFileSync = deps.execFileSync ?? nodeExecFileSync
+
+    return String(execFileSync(deps.pythonCommand, ['-c', code, ...args], {
+      cwd: deps.pythonCwd,
+      encoding: 'utf8',
+      env: deps.pythonEnv,
+      timeout: 8_000
+    })).trim()
+  } catch {
+    return null
+  }
+}
+
+function readStart(deps: OkvevoGatewayLifecycleDeps, pid: number): number | null {
+  if (deps.readProcessStart) {
+    return recordedStart(deps.readProcessStart(pid))
+  }
+
+  return recordedStart(Number(askPython(deps, START_TIME_CODE, [String(pid)])))
+}
+
+function sameProcess(deps: OkvevoGatewayLifecycleDeps, pid: number, expected: number): boolean {
+  if (deps.processMatches) {
+    return deps.processMatches(pid, expected)
+  }
+
+  return askPython(deps, MATCH_CODE, [String(pid), String(expected)]) === 'yes'
 }
 
 export function desktopGatewayMarkerPath(hermesHome: string): string {
@@ -153,7 +221,8 @@ export function parseGatewayLock(raw: string): GatewayLockRecord | null {
       pid: parsed.pid as number,
       kind: typeof parsed.kind === 'string' ? parsed.kind : undefined,
       argv: Array.isArray(parsed.argv) ? parsed.argv.map(String) : undefined,
-      hermes_home: typeof parsed.hermes_home === 'string' ? parsed.hermes_home : undefined
+      hermes_home: typeof parsed.hermes_home === 'string' ? parsed.hermes_home : undefined,
+      start_time: recordedStart(parsed.start_time)
     }
   } catch {
     return null
@@ -219,7 +288,9 @@ export function readDesktopGatewayMarker(
 
     return {
       pid: parsed.pid as number,
+      pidStartTime: recordedStart(parsed.pidStartTime),
       wrapperPid: Number.isInteger(parsed.wrapperPid) ? (parsed.wrapperPid as number) : null,
+      wrapperStartTime: recordedStart(parsed.wrapperStartTime),
       writtenAt: typeof parsed.writtenAt === 'string' ? parsed.writtenAt : ''
     }
   } catch {
@@ -245,7 +316,9 @@ export function writeDesktopGatewayMarker(
 
   const marker: DesktopGatewayMarker = {
     pid,
+    pidStartTime: readStart(deps, pid),
     wrapperPid: keepWrapper,
+    wrapperStartTime: keepWrapper ? readStart(deps, keepWrapper) : null,
     writtenAt: new Date().toISOString()
   }
 
@@ -306,6 +379,14 @@ export async function shouldTakeOverStaleDesktopGateway(
     return false
   }
 
+  const expected = recordedStart(lock.start_time)
+
+  if (expected == null || !sameProcess(deps, lock.pid, expected)) {
+    clearDesktopGatewayMarker(hermesHome, deps)
+
+    return false
+  }
+
   const existsSync = deps.existsSync ?? fs.existsSync
   const sock = gatewaySockPath(hermesHome)
 
@@ -319,30 +400,33 @@ export async function shouldTakeOverStaleDesktopGateway(
   return !answers
 }
 
-function pidsToSignal(hermesHome: string, deps: OkvevoGatewayLifecycleDeps): number[] {
+function pidsToSignal(hermesHome: string, deps: OkvevoGatewayLifecycleDeps): Array<{ expected: number, pid: number }> {
   const lock = readGatewayLock(hermesHome, deps)
   const marker = readDesktopGatewayMarker(hermesHome, deps)
-  const pids = new Set<number>()
+  const targets: Array<{ expected: number | null, pid: number }> = []
 
   if (lock && ((marker && marker.pid === lock.pid) || isOkvevoPackagedGateway(lock))) {
-    pids.add(lock.pid)
+    targets.push({ pid: lock.pid, expected: recordedStart(lock.start_time) })
   } else if (marker) {
-    pids.add(marker.pid)
+    targets.push({ pid: marker.pid, expected: recordedStart(marker.pidStartTime) })
   }
 
   if (marker?.wrapperPid) {
-    pids.add(marker.wrapperPid)
-  } else if (lock && isOkvevoPackagedGateway(lock)) {
-    const parentPid = deps.parentPid ?? defaultParentPid
-    const processCmdline = deps.processCmdline ?? defaultProcessCmdline
-    const ppid = parentPid(lock.pid)
-
-    if (ppid && /osascript/i.test(processCmdline(ppid))) {
-      pids.add(ppid)
-    }
+    targets.push({ pid: marker.wrapperPid, expected: recordedStart(marker.wrapperStartTime) })
   }
 
-  return [...pids]
+  const isPidAlive = deps.isPidAlive ?? defaultIsPidAlive
+  const matched: Array<{ expected: number, pid: number }> = []
+
+  for (const target of targets) {
+    if (target.expected == null || !isPidAlive(target.pid) || !sameProcess(deps, target.pid, target.expected)) {
+      continue
+    }
+
+    matched.push({ pid: target.pid, expected: target.expected })
+  }
+
+  return matched
 }
 
 async function waitUntilDead(
@@ -386,20 +470,20 @@ export async function stopOkvevoDesktopGateway(
     return { stopped: false, reason: 'not_desktop_owned' }
   }
 
+  const pids = pidsToSignal(hermesHome, deps).map(target => target.pid)
+
+  if (!pids.length) {
+    clearDesktopGatewayMarker(hermesHome, deps)
+
+    return { stopped: false, reason: 'stale_pid' }
+  }
+
   if (deps.runGatewayStop) {
     try {
       await deps.runGatewayStop()
     } catch {
       /* best-effort */
     }
-  }
-
-  const pids = pidsToSignal(hermesHome, deps)
-
-  if (!pids.length) {
-    clearDesktopGatewayMarker(hermesHome, deps)
-
-    return { stopped: true, reason: 'no_pids' }
   }
 
   const kill = deps.kill ?? defaultKill
