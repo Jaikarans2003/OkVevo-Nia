@@ -100,8 +100,12 @@ def build_requirements_environment(
 
 
 def prepare_tools(names: Sequence[str], *, out: Path, target: str,
-                  cache: Path | None = None) -> Path:
-    """Realize an explicit tool closure in a build-owned store, not live state."""
+                  cache: Path | None = None, python_distribution: str | None = None) -> Path:
+    """Realize an explicit tool closure in a build-owned store, not live state.
+
+    ``python_distribution`` swaps only the desktop bundle's Python tarball.
+    The lock pin is left alone so source installs keep install_only.
+    """
     from pm.install import _install, _lockfile
     from pm.lock import Facts
     from pm.package import StatePackage
@@ -118,7 +122,10 @@ def prepare_tools(names: Sequence[str], *, out: Path, target: str,
     with store.install_lock():
         facts = Facts(out / "facts.json", strict=True)
         for package in packages:
-            _install(package, lock, facts, store, target, _lock_held=True)
+            fetch = None
+            if python_distribution and package.name == "python":
+                fetch = package.bundle_artifacts(lock, target, python_distribution)
+            _install(package, lock, facts, store, target, _lock_held=True, fetch_artifacts=fetch)
     return out
 
 

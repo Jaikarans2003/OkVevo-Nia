@@ -625,12 +625,27 @@ def test_python_package_url_carries_release_tag():
     url = python.fetch_url("3.14.7+20260901", "win32-arm64")
     assert "download/20260901/" in url
     assert "cpython-3.14.7+20260901-aarch64-pc-windows-msvc-install_only" in url
+    assert url.endswith(".tar.gz")
+    assert python.binary_rel == {"win32": "python.exe", "posix": "bin/python3"}
 
     try:
         python.fetch_url("3.14.7", "win32-arm64")
         raise AssertionError("bare version must be rejected")
     except PmInstallError:
         pass
+
+
+def test_desktop_python_url_is_install_only_stripped():
+    from pm.registry import get_package
+
+    python = get_package("python")
+    desktop = python.fetch_url("3.14.7+20260901", "darwin-arm64", distribution="install_only_stripped")
+    assert "install_only_stripped" in desktop
+    assert desktop.endswith(".tar.gz")
+    assert python.fetch_url("3.14.7+20260901", "darwin-arm64").endswith("-install_only.tar.gz")
+    assert python.fetch_url(
+        "3.14.7+20260901", "linux-arm64-bionic", distribution="install_only_stripped"
+    ).endswith(".deb")
 
 
 @pytest.mark.platforms("macos")

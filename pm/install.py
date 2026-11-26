@@ -369,10 +369,12 @@ def _settle_previous_entry(package, store, entry, previous_entry, previous, targ
         _restore_previous_entry(store, entry, previous_entry)
 
 
-def _entry_current(package, lockfile, facts, store, entry, previous, version, pin, target) -> bool:
+def _entry_current(package, lockfile, facts, store, entry, previous, version, pin, target,
+                   identity=None) -> bool:
     if facts is not None:
         return previous is not None and facts.installed(
-            package.name, version, store.root, _identity(lockfile, package.name, target)
+            package.name, version, store.root,
+            identity if identity is not None else _identity(lockfile, package.name, target),
         ) and _entry_verified(package, previous, store, target)
     try:
         recorded = (entry / ".pm-stage-pin.json").read_text(encoding="utf-8-sig")
@@ -444,6 +446,7 @@ def _install(
     copy_from: tuple[Facts, Store] | None = None,
     _lock_held: bool = False,
     _fresh_copy: bool = False,
+    fetch_artifacts: list | None = None,
 ) -> Path:
     """Realize one pin. Host installs commit facts; cross-target stages carry a marker."""
     version = lockfile.version(package.name)
@@ -460,8 +463,9 @@ def _install(
     entry = store.entry(entry_name)
     if getattr(package, "pin_only", False):
         return entry
-    artifacts = lockfile.artifacts(package.name, target)
+    artifacts = fetch_artifacts if fetch_artifacts is not None else lockfile.artifacts(package.name, target)
     pin = json.dumps({"target": target, "sha256": [a["sha256"] for a in artifacts]})
+    fetched_identity = (target, tuple(a["sha256"] for a in artifacts))
 
     with nullcontext() if _lock_held else store.install_lock():
         if pause_event is not None and pause_event.is_set():
@@ -472,8 +476,10 @@ def _install(
         previous_entry = store.entry(f".previous-{'stage-' if facts is None else ''}{entry_name}")
         _settle_previous_entry(package, store, entry, previous_entry, previous, target)
         _reclaim_set_aside(store)
-        if (_entry_current(package, lockfile, facts, store, entry, previous, version, pin, target)
-                and not _fresh_copy):
+        if (_entry_current(
+                package, lockfile, facts, store, entry, previous, version, pin, target,
+                identity=fetched_identity if fetch_artifacts is not None else None,
+        ) and not _fresh_copy):
             if facts is not None:
                 _refresh_recorded_env(package, facts, store, entry, previous, target)
             _remove_downloads(store, artifacts)

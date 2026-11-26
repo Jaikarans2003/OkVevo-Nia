@@ -9,11 +9,20 @@ import sys
 
 import pytest
 
-from scripts.bundles.payload import relativize_links, snapshot
+from scripts.bundles.payload import INERT_SNAPSHOT_DIRS, relativize_links, snapshot
 from scripts.build.inputs import project_entries
 from scripts.build.agent import plant_surfaces
 from scripts.build.launchers import posix_launcher
 from scripts.bundles.desktop import release_version
+
+
+def test_payload_snapshot_drops_docs_tests_and_source_maps():
+    assert "docs" in INERT_SNAPSHOT_DIRS
+    assert "**/tests/**" in INERT_SNAPSHOT_DIRS
+    assert "**/*.map" in INERT_SNAPSHOT_DIRS
+    assert "**/*.d.ts" in INERT_SNAPSHOT_DIRS
+    assert "**/*.pyc" in INERT_SNAPSHOT_DIRS
+    assert not any("dist-info" in name or name.endswith("examples") for name in INERT_SNAPSHOT_DIRS)
 
 
 def test_release_version_comes_from_the_release_identity_not_the_checkout(tmp_path):

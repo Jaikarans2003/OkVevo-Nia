@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-# Snapshot dirs the sealed agent payload never reads. Tests, docs and CI
+# Snapshot paths the sealed agent payload never reads. Tests, docs and CI
 # definitions never ship; the frontend/desktop sources and build scripts are
 # prebuilt by CI into staged products (AgentInputs.frontends) — a sealed
 # payload never re-enters the source-build graph (is_bundled_payload routes
@@ -24,9 +24,15 @@ if str(ROOT) not in sys.path:
 # themed icon when apps/desktop/assets is absent. Excluded here means:
 # not packaged, not compiled, not baked. Frontend product staging
 # (scripts/bundles/stage.py) needs its full tree and passes no exclusions.
+# Globs (a * or ?) are git pathspecs. Skill examples/ and *.dist-info stay:
+# skills read examples/, and installs need dist-info. *.map and *.d.ts are
+# only tracked under apps/ui-tui/web, which this list already drops; the
+# globs keep a later file in the python tree out too. Nothing outside those
+# trees imports them.
 INERT_SNAPSHOT_DIRS = (
     "tests", "tests-js", "website", "evals", ".github", "nix", "docker",
-    "apps", "ui-tui", "web", "scripts",
+    "apps", "ui-tui", "web", "scripts", "docs",
+    "**/tests/**", "**/__pycache__/**", "**/*.pyc", "**/*.map", "**/*.d.ts",
 )
 
 
@@ -37,7 +43,10 @@ def snapshot(repo: Path, ref: str, destination: Path, exclude: tuple[str, ...] =
         raise ValueError("the snapshot destination must not contain the source checkout")
     with tempfile.TemporaryDirectory(prefix="hermes-archive-") as temp:
         archive = Path(temp) / "source.tar"
-        pathspecs = [f":(exclude){name}" for name in exclude]
+        pathspecs = [
+            f":(exclude,glob){name}" if any(ch in name for ch in "*?[") else f":(exclude){name}"
+            for name in exclude
+        ]
         subprocess.run(
             ["git", "archive", "--format=tar", "--output", str(archive), ref, "--", *pathspecs],
             cwd=repo, check=True)

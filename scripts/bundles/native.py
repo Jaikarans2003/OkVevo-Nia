@@ -204,7 +204,8 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
 
     with _phase(f"preparing {len(names)} pinned tools"):
         prepare_tools(names, out=Path(tools) if tools is not None else store_dir,
-                      target=current_target(), cache=cache)
+                      target=current_target(), cache=cache,
+                      python_distribution="install_only_stripped")
     if tools is not None:
         with _phase("copying verified tools into the payload store"):
             stage_tools(names, source_store=Path(tools), out=store_dir, target=current_target())
@@ -248,6 +249,11 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
                       env=env, cache=cache, all_extras=True, sealed=True, explicit=True,
                       timeout=2 * 60 * 60)
     print("✓ venv (all extras, on the staged interpreter)")
+    # ponytail: no site-packages prune (tests/docs/examples/__pycache__). The
+    # shipped pycs are the uv --compile-bytecode + bake_bytecode caches, and a
+    # directory-name prune needs a packed tree to prove no dependency imports
+    # a tests or docs package. Upgrade: du the unpacked app, then drop only
+    # directories a packed-runtime grep shows are never imported.
 
     # Inventory the staged interpreter before publishing the bundle contract.
     from pm.features import installed_extras, write_features
