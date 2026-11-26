@@ -6,10 +6,26 @@ Pinned upstream tag: **v0.23.0**.
 
 ## Active
 
-Count = **2**.
+Count = **15**. The old cap of 3 covered one-line hooks. The desktop Python
+distribution swap and the CI gates are larger, and drift skips them in
+`check_upstream_delta.sh` for the reasons below.
 
 - `lefthook.yml` — `extends: [scripts/okvevo/lefthook.yml]` only; OkVevo brand/asset-spec pre-commit gates stay OkVevo-owned
 - `agent/auxiliary_client.py` — `_to_async_client` keeps `X-OkVevo-Org` when the sync base URL is the portal. The rebuilt `AsyncOpenAI` uses `DefaultAsyncHttpxClient` and `async_portal_http_client` (`okvevo_org_headers`). Drift skips this file in `check_upstream_delta.sh`.
+- `pm/packages.py` — desktop bundle may fetch `install_only_stripped`; `fetch_url` default and the lock pin stay `install_only`
+- `pm/build_operations.py` — `prepare_tools` passes that tarball through; `verified_tools` admits its published digest
+- `pm/client.py` — forwards `python_distribution` to `prepare_tools`
+- `pm/install.py` — an explicit artifact list records that digest in facts
+- `scripts/bundles/native.py` — desktop payload asks for `install_only_stripped`
+- `scripts/bundles/payload.py` — snapshot omits docs, tests, bytecode, source maps, and `.d.ts`
+- `tests/pm/test_pm_core.py` — stripped URL stays off the default fetch
+- `tests/pm/test_build_operations.py` — admission accepts the published stripped digest without changing the lock pin
+- `tests/scripts/test_bundle_payload.py` — snapshot exclusions
+- `.github/workflows/ci.yaml` — always-on gate `ci-gate / CI`; nightly schedule keeps E2E on
+- `scripts/ci/classify_changes.py` — E2E stays off for pull requests and for pushes to main or staging
+- `tests/ci/test_update_ci_routing.py` — nightly schedule still selects the E2E lanes
+- `.gitignore` — ignores `.cursor/coordination/`
+- `docs/fork-deltas/portal-gateway-billing.md` — desktop billing header and sponsored row
 
 Identity uses generated `SOUL.md` (`scripts/okvevo/make_soul.py`) plus
 `agent.platform_hints.desktop.append`. LLM routing, credits, and media live in
@@ -22,7 +38,7 @@ URL to `Jaikarans2003/OkVevo-Nia`.
 
 Root `package-lock.json` may differ from the tag for desktop packaging
 (lockfile delta, not a Python KEEP-PATCH). Drift skips this one file.
-`lefthook.yml` and `agent/auxiliary_client.py` are the Active KEEP-PATCHes above (also skipped by drift `is_owned`).
+The Active list above is skipped by drift `is_owned`.
 Billing display uses portal `GET /api/billing/summary` (no Firebase client SDK).
 
 ## UI/packaging deltas

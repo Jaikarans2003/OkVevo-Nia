@@ -163,6 +163,37 @@ def test_verified_tools_admits_only_locked_entries_without_execution(tmp_path, m
     assert {p.relative_to(store): p.read_bytes() for p in store.rglob("*") if p.is_file()} == before
 
 
+def test_verified_tools_admits_published_stripped_python(tmp_path, monkeypatch):
+    """Lock pin stays install_only. A desktop store recorded with the published stripped digest still admits."""
+    from pm import build_operations
+    from pm.lock import Facts, Lockfile
+    from pm.registry import get_package
+    from pm.store import current_target, tree_digest
+
+    target, store = current_target(), tmp_path / "tools"
+    lock = Lockfile(tmp_path / "lock.json")
+    package = get_package("python")
+    entry = store / package.store_entry("3.14.9+20261021", target)
+    binary = package.binary(entry, target)
+    assert binary is not None
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"stripped runtime")
+    lock.set_pin("python", "3.14.9+20261021", {target: {"url": "https://example.test/install_only.tar.gz", "sha256": "a" * 64}})
+    stripped = "b" * 64
+    Facts(store / "facts.json").record(
+        "python", "3.14.9+20261021", entry.name, package.env(entry, target), store,
+        target=target, artifacts=[stripped], digest=tree_digest(entry),
+    )
+
+    def _rows(_lock, _target, distribution):
+        assert distribution == "install_only_stripped"
+        return [{"url": "https://example.test/install_only_stripped.tar.gz", "sha256": stripped}]
+
+    monkeypatch.setattr(package, "bundle_artifacts", _rows)
+    selected = build_operations.verified_tools(["python"], source_store=store, target=target, lock=lock)
+    assert selected.entries["python"].binary == binary
+
+
 @pytest.fixture
 def build_tools(tmp_path, monkeypatch, build_worker):
     env = {key: value for key, value in os.environ.items()

@@ -33,6 +33,16 @@ is_owned() {
     lefthook.yml) return 0 ;;
     # KEEP-PATCH: async auxiliary rebuild keeps the portal org header.
     agent/auxiliary_client.py) return 0 ;;
+    # Desktop pack fetches install_only_stripped. Lock pin stays install_only.
+    pm/packages.py|pm/build_operations.py|pm/client.py|pm/install.py) return 0 ;;
+    scripts/bundles/native.py|scripts/bundles/payload.py) return 0 ;;
+    tests/pm/test_pm_core.py|tests/pm/test_build_operations.py|tests/scripts/test_bundle_payload.py) return 0 ;;
+    # Unique always-on CI gates. Nightly schedule still runs E2E.
+    .github/workflows/ci.yaml) return 0 ;;
+    scripts/ci/classify_changes.py|tests/ci/test_update_ci_routing.py) return 0 ;;
+    # Coordination dir ignore, and the fork-delta ledger for portal billing.
+    .gitignore) return 0 ;;
+    docs/fork-deltas|docs/fork-deltas/*) return 0 ;;
     .github/workflows/okvevo-*.yml) return 0 ;;
     # OkVevo ships the bootstrap DMG with brand volume artwork (not Hermes).
     .github/workflows/bootstrap-installer-build.yml) return 0 ;;

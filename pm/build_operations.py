@@ -187,6 +187,19 @@ def verified_tools(names: Sequence[str], *, source_store: Path, target: str,
         identity = _identity(lock, package.name, target)
         if not version or identity is None:
             raise InstallError(package.name, "tool source failed verification: missing pin")
+        # Desktop packs fetch install_only_stripped and record that digest.
+        # The lock pin stays install_only. Admit the stripped digest only when
+        # it is the one python-build-standalone published for this pin.
+        if (package.name == "python"
+                and not facts.installed(package.name, version, source_store, identity)):
+            try:
+                rows = package.bundle_artifacts(lock, target, "install_only_stripped")
+            except InstallError:
+                rows = None
+            if rows:
+                stripped = (target, tuple(a["sha256"] for a in rows))
+                if facts.installed(package.name, version, source_store, stripped):
+                    identity = stripped
         fact = facts.get(package.name)
         expected = package.store_entry(version, target)
         entry = source_store / expected
