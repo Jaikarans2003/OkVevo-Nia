@@ -154,28 +154,10 @@ jobs:
       # desktop.py refuses a dirty checkout. Upstream's Desktop pack restores
       # ffmpeg into apps/desktop/resources/ffmpeg and then builds. Those files
       # are untracked, so this pack prepares the payload before that restore.
-      # Payload cache is keyed on uv.lock + pm/lock.json. A hit skips prepare.
-      # The LGPL ffmpeg cache below is separate and already present.
-      - name: Restore bundled agent payload
-        id: agent-payload
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            apps/desktop/build/agent-payload
-            apps/desktop/build/agent-payload.prepared.json
-          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
+      # The prepared payload is built every time. actions/cache drops Git
+      # symlinks on Windows (tools/git-*/etc/mtab), and 7za then fails.
       - name: Prepare bundled agent payload
-        if: steps.agent-payload.outputs.cache-hit != 'true'
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
-      - name: Save bundled agent payload
-        if: steps.agent-payload.outputs.cache-hit != 'true'
-        continue-on-error: true
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            apps/desktop/build/agent-payload
-            apps/desktop/build/agent-payload.prepared.json
-          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
@@ -350,28 +332,10 @@ jobs:
         shell: bash
         run: node scripts/write-okvevo-pack-env.mjs --require
       # Same order as macOS: prepare while the checkout is still clean.
-      # Skip prepare when the lockfile-keyed payload cache already exists.
-      - name: Restore bundled agent payload
-        id: agent-payload
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            apps/desktop/build/agent-payload
-            apps/desktop/build/agent-payload.prepared.json
-          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
+      # Always fresh. A restored payload loses Git's etc/mtab symlink on Windows.
       - name: Prepare bundled agent payload
-        if: steps.agent-payload.outputs.cache-hit != 'true'
         shell: bash
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
-      - name: Save bundled agent payload
-        if: steps.agent-payload.outputs.cache-hit != 'true'
-        continue-on-error: true
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            apps/desktop/build/agent-payload
-            apps/desktop/build/agent-payload.prepared.json
-          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: apps/desktop/resources/ffmpeg
@@ -565,16 +529,7 @@ jobs:
       - name: Require pack-env
         working-directory: apps/desktop
         run: node scripts/write-okvevo-pack-env.mjs --require
-      - name: Restore bundled agent payload
-        id: agent-payload
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            apps/desktop/build/agent-payload
-            apps/desktop/build/agent-payload.prepared.json
-          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - name: Prepare bundled agent payload
-        if: steps.agent-payload.outputs.cache-hit != 'true'
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - name: Restore electron-builder cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -669,16 +624,7 @@ jobs:
         working-directory: apps/desktop
         shell: bash
         run: node scripts/write-okvevo-pack-env.mjs --require
-      - name: Restore bundled agent payload
-        id: agent-payload
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            apps/desktop/build/agent-payload
-            apps/desktop/build/agent-payload.prepared.json
-          key: bundled-agent-payload-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pm/lock.json') }}
       - name: Prepare bundled agent payload
-        if: steps.agent-payload.outputs.cache-hit != 'true'
         shell: bash
         run: bash apps/desktop/scripts/ci-prepare-bundled-payload.sh
       - name: Restore electron-builder cache
