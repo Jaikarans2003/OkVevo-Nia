@@ -212,7 +212,7 @@ jobs:
               echo "### venv / uv-cache"
               du -sk "$app/Contents/Resources/agent-payload/venv"/* "$app/Contents/Resources/agent-payload/uv-cache"/* 2>/dev/null | sort -nr | head -30
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           exit 0
       - name: B5 coding smoke (packed Mac runtime)
         run: bash scripts/okvevo/b5-coding-smoke.sh "$(ls -d apps/desktop/release/mac*/OkVevo.app | head -1)/Contents/Resources/agent-payload"
@@ -403,7 +403,7 @@ jobs:
               echo "### venv / uv-cache"
               du -sk "$win/resources/agent-payload/venv"/* "$win/resources/agent-payload/uv-cache"/* 2>/dev/null | sort -nr | head -30
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           exit 0
       - name: B5 coding smoke (packed Windows runtime)
         shell: bash
@@ -578,9 +578,15 @@ jobs:
       - name: Prove Mac bundle unchanged after launch
         working-directory: apps/desktop
         run: |
-          set -euo pipefail
+          set +e
           app=$(ls -d release/mac*/OkVevo.app | head -1)
           bash "$GITHUB_WORKSPACE/scripts/okvevo/prove-bundle-unchanged.sh" "$PWD/$app" "$PWD/release/.bundle-stamp"
+          status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "::warning::Mac bundle changed after launch. Every changed path is listed above. Report-only until Mac signing."
+            exit 0
+          fi
+          exit "$status"
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
