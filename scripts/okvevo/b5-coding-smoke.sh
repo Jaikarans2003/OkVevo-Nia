@@ -8,15 +8,16 @@ if [ -z "$payload" ] || [ ! -d "$payload/tools" ]; then
   echo "usage: b5-coding-smoke.sh <agent-payload>" >&2
   exit 2
 fi
+payload="$(cd "$1" && pwd)"
 
 find_bin() {
   set +o pipefail
   find "$payload/tools" "$payload/bin" "$payload/venv" "$payload/../ffmpeg" \
-    -type f \( -name "$1" -o -name "$1.exe" -o -name "$1.cmd" \) 2>/dev/null | head -1 || true
+    \( -type f -o -type l \) \( -name "$1" -o -name "$1.exe" -o -name "$1.cmd" \) 2>/dev/null | head -1 || true
   set -o pipefail
 }
 
-python=$(set +o pipefail; find "$payload/venv" -type f \( -name python -o -name python.exe -o -name python3 \) 2>/dev/null | head -1 || true; set -o pipefail)
+python=$(set +o pipefail; find "$payload/venv" \( -type f -o -type l \) \( -name python -o -name python.exe -o -name python3 \) 2>/dev/null | head -1 || true; set -o pipefail)
 [ -n "$python" ] || python=$(find_bin python3)
 [ -n "$python" ] || python=$(find_bin python)
 uv=$(find_bin uv)

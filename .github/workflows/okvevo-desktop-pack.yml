@@ -625,7 +625,7 @@ jobs:
         run: |
           set -euo pipefail
           app=$(ls -d release/mac*/OkVevo.app | head -1)
-          bash ../scripts/okvevo/prove-bundle-unchanged.sh "$PWD/$app" "$PWD/release/.bundle-stamp"
+          bash "$GITHUB_WORKSPACE/scripts/okvevo/prove-bundle-unchanged.sh" "$PWD/$app" "$PWD/release/.bundle-stamp"
       - name: Upload sign-in E2E screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
