@@ -103,10 +103,3 @@ def test_fal_internal_build_prefers_byok(signed_in, monkeypatch):
     monkeypatch.setenv("OKVEVO_BUILD_CHANNEL", "internal")
     monkeypatch.setenv("FAL_KEY", "user-key")
     assert not gateway.okvevo_fal_available()
-
-
-def test_resolver_shape(signed_in):
-    cfg = gateway.resolve_okvevo_fal_gateway()
-    assert cfg.vendor == "okvevo-fal"
-    assert cfg.gateway_origin == "https://portal.example/api/gateway/fal/queue"
-    assert cfg.nous_user_token == signed_in.read_text()

@@ -8,7 +8,12 @@ export default defineConfig({
   outputDir: path.join(process.cwd(), 'release', 'e2e-playwright'),
   reporter: 'line',
   retries: 0,
-  testMatch: ['packed-chat.spec.ts', 'packed-signin-chat.spec.ts', 'packed-mention-menu.spec.ts'],
+  testMatch: [
+    'packed-chat.spec.ts',
+    'packed-signin-chat.spec.ts',
+    'packed-mention-menu.spec.ts',
+    'packed-quit-relaunch.spec.ts'
+  ],
   timeout: 600_000,
   use: {
     screenshot: 'only-on-failure',

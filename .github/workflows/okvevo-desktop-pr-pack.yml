@@ -26,7 +26,7 @@ permissions:
 
 concurrency:
   group: okvevo-desktop-pr-pack-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -83,3 +83,16 @@ jobs:
             echo "::error::Mac and Windows build-only pack did not pass"
             exit 1
           fi
+
+  ci-gate:
+    name: ci-gate / desktop pack
+    needs: [changes, pack, gate]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Evaluate job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: printf '%s' "$NEEDS" | python3 scripts/ci/required_results.py

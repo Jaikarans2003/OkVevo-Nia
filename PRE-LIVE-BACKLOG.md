@@ -41,7 +41,16 @@ Items here are **not urgent day-to-day**, but **must be closed before any extern
 
 ## Hard gates (block go-live)
 
-_None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reappears under this heading._
+### [ ] Quit / update must stop the desktop-launched gateway (no leftover exit 75)
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Hard gate / production blocker until merged to staging |
+| **Risk if skipped** | Quitting or updating OkVevo leaves the detached Mac gateway (osascript + python) holding `~/.hermes` host lock. Next launch fails with `Gateway inaccessible (runtime_exited) … status 75` — seen on 0.1.32 after a normal quit/uninstall. Users cannot open the app until they manually kill leftovers. |
+| **Scope** | `apps/desktop/electron/okvevo-gateway-lifecycle.ts`, `apps/desktop/electron/main.ts` (quit/update/ensure hooks), `apps/desktop/e2e/okvevo/packed-quit-relaunch.spec.ts`, Mac pack E2E in `okvevo-desktop-pack.yml` |
+| **Fix** | OkVevo-owned lifecycle (upstream Hermes intentionally leaves the gateway running for attach-mode). On quit and before update: graceful `hermes gateway stop`, then SIGTERM→SIGKILL of the packaged gateway + osascript wrapper. On start: if the lock owner is a prior OkVevo Desktop launch and its control socket does not answer, take over (same effect as `--replace`). Never stop/replace a CLI-started gateway. |
+| **Verify** | `npx vitest run electron/okvevo-gateway-lifecycle.test.ts`. Mac pack E2E: `packed-quit-relaunch` — quit then relaunch boots; hard-kill Electron leaving the gateway then relaunch boots. Manual: quit 0.1.N+, confirm no `gateway run` / osascript leftover, reopen. |
+| **Notes** | Logged 2026-11-25 after 0.1.32 Mac failure (PID leftover from 16:06). Upstream comment in `main.ts`: "Closing Desktop never stops the detached gateway" — product fork for OkVevo. Branch: `fix/okvevo-stop-gateway-on-quit`. |
 
 ---
 
@@ -85,6 +94,28 @@ _None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reapp
 | **Fix** | Ship privacy, terms, refund/cancellation, and contact pages; link from checkout and footer. Decide exact copy after the admin dashboard exists. |
 | **Verify** | www footer + checkout link all four; pages render on production. |
 | **Notes** | Logged 2026-11-12 with promote-staging-to-prod plan. |
+
+### [ ] Before Mac signing: no runtime writes inside the .app
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Required before public launch (before the first signed Mac ship) |
+| **Risk if skipped** | A signed, notarized `.app` that writes `__pycache__` or rewrites `okvevo-pack-env.json` breaks its signature on first launch. Gatekeeper then treats the updated app as damaged. |
+| **Scope** | Packed `OkVevo.app`. Upstream design: `scripts/bundles/bytecode.py`, `scripts/build/launcher_wrapper.py`. Do not reimplement compileall in OkVevo pack steps. |
+| **Fix** | Match upstream's bytecode bake and launcher redirect, or report the gap upstream if the packed launch path never applies them. Bake roots today are `hermes-agent`, the venv `site-packages`, and `pm-runtime` `site-packages` (`bytecode._import_roots`). The marker is `.hermes-baked-pycache` at the payload root. `tools/python` stdlib is not a bake root, and the interpreter imports `encodings` and `pathlib` before `launcher_wrapper.configure` can set `sys.pycache_prefix`. When the marker is present the wrapper leaves the prefix unset on purpose. `payload.storePython` (ticket minting) never runs the wrapper. The Mac bundle-unchanged CI step is report-only until this is fixed. |
+| **Verify** | On a packed Mac app, confirm `Contents/Resources/agent-payload/.hermes-baked-pycache` exists, launch once, then `find OkVevo.app -newer <pre-launch-stamp>` prints nothing. |
+| **Notes** | Seen on pack run #135 and on the shipped 0.1.32 app. Not a regression from desktop PR #102. Logged 2026-11-27. |
+
+### [ ] Packed @ menu test failed once in #134 and passed in #133 and #135: watch
+
+| Field | Value |
+|-------|-------|
+| **Gate** | Should fix — watch, do not change the test |
+| **Risk if skipped** | A real mention-menu failure ships if the one #134 miss repeats and nobody is looking. |
+| **Scope** | `apps/desktop/e2e/okvevo/packed-mention-menu.spec.ts` (`expectOkvevoMentionMenu`, listbox not visible at line 78 on #134) |
+| **Fix** | If it fails again on a later pack, treat it as a product bug and fix from the Playwright trace. Do not edit the test to make it pass. |
+| **Verify** | `packed @ menu shows @okvevo in normal session and bot chat` is green on the next Mac sign-in E2E. |
+| **Notes** | Failed once on pack run #134 (`45952055703`). Passed on #133 and #135. Logged 2026-11-27. |
 
 ---
 
@@ -836,6 +867,14 @@ _None open as of 2026-11-12. Publish release fails closed if any `### [ ]` reapp
 ---
 
 ## Later ideas
+
+### Thin shell only if the installer stays too large
+
+The stripped-Python swap was reverted on 2026-11-27. Measure unpacked sizes from a green pack first. Any later size cut belongs in OkVevo-owned pack steps. A future runtime download must be a signed, checksummed artifact from `releases.okvevo.com`, never the source repo.
+
+### Desktop short-drama removed; portal drama stays
+
+Desktop pack no longer ships the short-drama skill, `okvevo/fal-schemas/`, or `okvevo/drama-cards.json` (`fd37346e39`, 2026-11-26). The OkVevo-Web drama route and rate-card audio entries stay until a later product decision.
 
 ### manage_bot from chat (descoped)
 

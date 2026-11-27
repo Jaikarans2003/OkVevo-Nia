@@ -33,6 +33,9 @@ is_owned() {
     lefthook.yml) return 0 ;;
     # KEEP-PATCH: async auxiliary rebuild keeps the portal org header.
     agent/auxiliary_client.py) return 0 ;;
+    # Coordination dir ignore, and the fork-delta ledger for portal billing.
+    .gitignore) return 0 ;;
+    docs/fork-deltas|docs/fork-deltas/*) return 0 ;;
     .github/workflows/okvevo-*.yml) return 0 ;;
     # OkVevo ships the bootstrap DMG with brand volume artwork (not Hermes).
     .github/workflows/bootstrap-installer-build.yml) return 0 ;;

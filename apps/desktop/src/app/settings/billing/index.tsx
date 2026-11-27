@@ -396,6 +396,12 @@ function OkvevoAccountChrome() {
         <>
           <OkvevoUsageRow label="Plan remaining" pct={liveSnapshot.remainingPct} />
           <OkvevoUsageRow label="Additional remaining" pct={liveSnapshot.additionalPct} />
+          {liveSnapshot.sponsoredPct > 0 ? (
+            <OkvevoUsageRow
+              label={liveSnapshot.fundedBy ? `From ${liveSnapshot.fundedBy}` : 'From super-organisation'}
+              pct={liveSnapshot.sponsoredPct}
+            />
+          ) : null}
           {liveSnapshot.additionalNextExpiry ? (
             <ListRow
               description={`Additional credits expire ${fmtDate.format(liveSnapshot.additionalNextExpiry)}`}

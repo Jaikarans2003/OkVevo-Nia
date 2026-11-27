@@ -12,11 +12,100 @@ permissions:
 
 concurrency:
   group: okvevo-checks-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: OkVevo check paths
+    runs-on: ubuntu-latest
+    outputs:
+      agent-python: ${{ steps.filter.outputs['agent-python'] }}
+      okvevo-plugins: ${{ steps.filter.outputs['okvevo-plugins'] }}
+      desktop-electron: ${{ steps.filter.outputs['desktop-electron'] }}
+      packaging: ${{ steps.filter.outputs.packaging }}
+      docs-only: ${{ steps.filter.outputs['docs-only'] }}
+      other: ${{ steps.filter.outputs.other }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Detect OkVevo check paths
+        id: filter
+        run: |
+          set -euo pipefail
+          write() { printf '%s\n' "$1" >> "$GITHUB_OUTPUT"; }
+          # Push to staging/main runs every bucket. PRs use the diff.
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            write "agent-python=true"
+            write "okvevo-plugins=true"
+            write "desktop-electron=true"
+            write "packaging=true"
+            write "docs-only=false"
+            write "other=true"
+            exit 0
+          fi
+          git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD > "$RUNNER_TEMP/changed"
+          agent=false
+          plugins=false
+          desktop=false
+          packaging=false
+          docs_only=true
+          other=false
+          saw=false
+          is_doc() {
+            printf '%s\n' "$1" | grep -Eq '(^|/)[^/]+\.md$|^docs/|^website/docs/|^website/blog/|^\.github/(ISSUE_TEMPLATE|PULL_REQUEST_TEMPLATE)|^(LICENSE|NOTICE|CODE_OF_CONDUCT|CONTRIBUTING|CHANGELOG)(\.|$)'
+          }
+          while IFS= read -r f || [ -n "${f:-}" ]; do
+            [ -z "$f" ] && continue
+            saw=true
+            hit=false
+            if printf '%s\n' "$f" | grep -Eq '^(agent/|gateway/|hermes_cli/|providers/|tools/|tests/|cron/|acp_adapter/|pyproject\.toml$|uv\.lock$)'; then
+              agent=true; hit=true
+            fi
+            if printf '%s\n' "$f" | grep -Eq '^plugins/' && ! printf '%s\n' "$f" | grep -Eq '^plugins/(okvevo/|model-providers/okvevo/)'; then
+              agent=true; hit=true
+            fi
+            if printf '%s\n' "$f" | grep -Eq '^(plugins/okvevo/|plugins/model-providers/okvevo/|okvevo/)'; then
+              plugins=true; hit=true
+            fi
+            if printf '%s\n' "$f" | grep -Eq '^apps/desktop/(src/|electron/|e2e/|public/|index\.html$|vite\.|tsconfig)'; then
+              desktop=true; hit=true
+            fi
+            if printf '%s\n' "$f" | grep -Eq '^(apps/desktop/scripts/|apps/desktop/electron-builder|apps/desktop/resources/|apps/desktop/package\.json$|scripts/bundles/|apps/bootstrap-installer/|brand/|package-lock\.json$|package\.json$|\.github/workflows/okvevo-desktop)'; then
+              packaging=true; hit=true
+            fi
+            if [ "$hit" = true ]; then
+              docs_only=false
+            elif ! is_doc "$f"; then
+              docs_only=false
+              other=true
+            fi
+          done < "$RUNNER_TEMP/changed"
+          if [ "$saw" = false ]; then
+            agent=true
+            plugins=true
+            desktop=true
+            packaging=true
+            docs_only=false
+            other=true
+          fi
+          write "agent-python=$agent"
+          write "okvevo-plugins=$plugins"
+          write "desktop-electron=$desktop"
+          write "packaging=$packaging"
+          write "docs-only=$docs_only"
+          write "other=$other"
+
   drift-branding-plugins:
     name: Drift + branding + OkVevo plugins
+    needs: changes
+    if: >-
+      github.event_name != 'pull_request' ||
+      needs.changes.outputs['agent-python'] == 'true' ||
+      needs.changes.outputs['okvevo-plugins'] == 'true' ||
+      needs.changes.outputs['desktop-electron'] == 'true' ||
+      needs.changes.outputs.packaging == 'true' ||
+      needs.changes.outputs.other == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -65,6 +154,13 @@ jobs:
 
   desktop-okvevo:
     name: Desktop OkVevo suites
+    needs: changes
+    if: >-
+      github.event_name != 'pull_request' ||
+      needs.changes.outputs['desktop-electron'] == 'true' ||
+      needs.changes.outputs['okvevo-plugins'] == 'true' ||
+      needs.changes.outputs.packaging == 'true' ||
+      needs.changes.outputs.other == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -86,6 +182,7 @@ jobs:
             electron/okvevo-about.test.ts \
             electron/backend-env.test.ts \
             electron/okvevo-auth.test.ts \
+            electron/okvevo-gateway-lifecycle.test.ts \
             scripts/okvevo-feed-urls.test.mjs \
             scripts/ci-map-pack-env.test.mjs \
             scripts/publish-release-feed.test.mjs \
@@ -106,8 +203,22 @@ jobs:
             src/components/boot-failure-overlay.test.tsx \
             src/components/chat/intro.test.tsx \
             src/lib/okvevo-billing-listener.test.ts \
+            src/app/settings/billing/index.test.tsx \
             src/lib/model-options.test.ts \
             src/lib/provider-branding.test.ts \
             src/app/shell/model-catalog-menu.test.tsx \
             src/plugins/hermes-bots/model-picker.test.tsx \
             src/components/assistant-ui/thread/assistant-message.test.tsx
+
+  ci-gate:
+    name: ci-gate / OkVevo checks
+    needs: [changes, drift-branding-plugins, gitleaks, desktop-okvevo]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Evaluate job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: printf '%s' "$NEEDS" | python3 scripts/ci/required_results.py

@@ -25,6 +25,7 @@ describe('okvevo billing display', () => {
       entitled: true,
       additionalNextExpiry: null,
       canPurchase: true,
+      sponsoredPct: 0,
       fundedBy: null
     })
 
@@ -68,5 +69,73 @@ describe('okvevo billing display', () => {
     expect(view.entitled).toBe(false)
     expect(view.canPurchase).toBe(false)
     expect(view.fundedBy).toBe('Acme')
+    expect(view.sponsoredPct).toBe(0)
+  })
+
+  it('maps a sponsored balance and names the funding super-organisation', () => {
+    const view = billingViewFromSummary({
+      planName: 'Starter',
+      remainingPct: 50,
+      additionalPct: 40,
+      sponsoredPct: 25,
+      fundedBy: 'Acme'
+    })
+
+    expect(view.sponsoredPct).toBe(25)
+    expect(view.fundedBy).toBe('Acme')
+    expect(formatOkvevoBillingDescription(view)).toBe(
+      'Starter · remaining 50% · additional 40% · sponsored 25%'
+    )
+  })
+
+  it('maps a sponsored balance when fundedBy is absent', () => {
+    const view = billingViewFromSummary({
+      planName: 'Starter',
+      remainingPct: 50,
+      additionalPct: 40,
+      sponsoredPct: 25
+    })
+
+    expect(view.sponsoredPct).toBe(25)
+    expect(view.fundedBy).toBeNull()
+    expect(formatOkvevoBillingDescription(view)).toBe(
+      'Starter · remaining 50% · additional 40% · sponsored 25%'
+    )
+  })
+
+  it('leaves the one-line summary unchanged when sponsoredPct is zero, missing, or not a number', () => {
+    const unchanged = 'Starter · remaining 50% · additional 40%'
+
+    const missing = billingViewFromSummary({
+      planName: 'Starter',
+      remainingPct: 50,
+      additionalPct: 40
+    })
+
+    const zero = billingViewFromSummary({
+      planName: 'Starter',
+      remainingPct: 50,
+      additionalPct: 40,
+      sponsoredPct: 0,
+      fundedBy: 'Acme'
+    })
+
+    const notANumber = billingViewFromSummary({
+      planName: 'Starter',
+      remainingPct: 50,
+      additionalPct: 40,
+      sponsoredPct: '25'
+    })
+
+    expect(missing.sponsoredPct).toBe(0)
+    expect(missing.fundedBy).toBeNull()
+    expect(formatOkvevoBillingDescription(missing)).toBe(unchanged)
+    expect(zero.sponsoredPct).toBe(0)
+    expect(zero.fundedBy).toBe('Acme')
+    expect(formatOkvevoBillingDescription(zero)).toBe(unchanged)
+    expect(notANumber.sponsoredPct).toBe(0)
+    expect(formatOkvevoBillingDescription(notANumber)).toBe(unchanged)
+    expect(billingViewFromSummary(undefined).sponsoredPct).toBe(0)
+    expect(billingViewFromSummary(undefined).fundedBy).toBeNull()
   })
 })

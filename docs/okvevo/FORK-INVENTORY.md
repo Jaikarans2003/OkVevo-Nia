@@ -17,7 +17,7 @@ Evidence: the 48 repo commits + marker scan (`okvevo|NIA_|drama|…`) across cor
 | G3 | Credits + user-facing error mapping | `agent/user_facing_errors.py`, `agent/user_facing_brand.py` + tests | KEEP-PLUGIN → error mapping inside `plugins/okvevo*`; concealment parts dropped |
 | G4 | Image / video / TTS via portal Fal (incl. GPT Image 2, wan-3.0, seedance pins) | patches in `plugins/image_gen/openai*`, `plugins/video_gen/fal`, `tools/fal_common.py`, `tools/image_generation_tool.py`, `tools/video_generation_tool.py`, `tools/tts_tool.py`, `agent/image_gen_provider.py`, `agent/image_routing.py`, `agent/provider_media.py` | KEEP-PLUGIN → image/video providers registered from `plugins/okvevo/` via upstream registries |
 | G5 | Web search via portal gateway | patch in `plugins/web/tavily/provider.py` (tavily itself exists upstream at v0.22.4) | KEEP-PLUGIN → OkVevo web provider in `plugins/okvevo/` |
-| G6 | Short-drama pipeline (portal Fal adapter, quote fail-closed, voice clone, schemas) | `okvevo/skills/creative/short-drama-produce/scripts/provider_adapters.py`, `okvevo/fal-schemas/*`, `okvevo/drama-cards.json`, `okvevo/media-catalog.json`, 31 fork-only `skills/creative/*` dirs | KEEP-OWNED (`okvevo/`) + KEEP-SKILL (relocate skills to `okvevo/skills/creative/`, load via upstream `skills.external_dirs`) |
+| G6 | Short-drama pipeline | Desktop skill folders, `okvevo/fal-schemas/*`, and `okvevo/drama-cards.json` removed 2026-11-26 (`fd37346e39`). `okvevo/media-catalog.json` stays. Portal drama route and rate-card audio stay in OkVevo-Web. | DROPPED from the desktop pack. No runtime importer remained outside the skill. |
 | G7 | Generated-media durability / output_dir honoring (PRs #57–#58) | `agent/nia_generated_media.py`, `tools/media_catalog.py`, `scripts/check_media_catalog.py` | CHECK: upstream v0.22.4 has `tests/agent/test_generated_media_durable.py` — compare; port only the residual not covered upstream |
 | G8 | manage_bot + bots/group UX deltas | `tools/manage_bot_tool.py` delta, `tui_gateway/methods_bot_relay.py`, group member picker (#46) | manage_bot exists upstream (fork delta = OkVevo copy) → re-express or drop; #46 see G11 |
 | G9 | Brand overlay (icons, locale catalogs at pack time) | `brand/**`, `scripts/overlay-brand-assets.mjs(+test)`, `apps/desktop/scripts/prepare-app-icon.mjs` | KEEP-OWNED + KEEP-UI; move `scripts/overlay-brand-assets.*` under `apps/desktop/scripts/` (upstream-owned `scripts/` must stay clean) |
@@ -28,13 +28,16 @@ Evidence: the 48 repo commits + marker scan (`okvevo|NIA_|drama|…`) across cor
 | G14 | Bootstrap/install pointing at our repo | `apps/bootstrap-installer/src-tauri/src/install_script.rs`, `apps/desktop/electron/bootstrap-runner.ts`, `scripts/install.sh` / `install.ps1` deltas | RESOLVED 2026-10-22: upstream `install.sh` line 23 / `install.ps1` line 80 accept `HERMES_REPO_URL` (re-runs included) → scripts reset clean; desktop (KEEP-UI) passes our repo URL + the build-time commit SHA (amendment 13). Installer Rust patch only if we ship the Tauri bootstrap-installer — decide in commit 3 |
 | G15 | Fork tests for kept features | `tests/**` A-status subset | Move the ones covering kept features into `plugins/okvevo/tests` or `okvevo/tests`; the rest DROP-RESET |
 
-## KEEP-PATCH ledger (hard cap 3 — final list lives in PATCHES.md)
+## KEEP-PATCH ledger (final list lives in PATCHES.md)
 
-1. `apps/bootstrap-installer/src-tauri/src/install_script.rs` — clone our repo at the build-time-pinned commit SHA. Upstream hard-codes `NousResearch/hermes-agent` with only a dev-env override. **Only needed if we ship the Tauri bootstrap-installer** (the Electron DMG path uses `bootstrap-runner.ts` + `HERMES_REPO_URL`, both ours/UI). Decide in commit 3.
-2. — (eliminated: G13 redaction ports via upstream plugin hooks)
-3. — (eliminated: G14 install scripts honor `HERMES_REPO_URL`)
+Upstream files this PR still changes, outside the desktop UI list:
 
-Anything beyond cap 3 → stop and ask Karan (plan stop condition).
+1. `lefthook.yml` — extends the OkVevo hook file
+2. `agent/auxiliary_client.py` — portal org header survives the async client rebuild
+3. `.gitignore` — ignores `.cursor/coordination/`
+4. `docs/fork-deltas/portal-gateway-billing.md` — sponsored billing row
+
+`pm/`, `scripts/bundles/native.py`, `scripts/bundles/payload.py`, and `.github/workflows/ci.yaml` match staging. Quit and update call `apps/desktop/electron/okvevo-gateway-lifecycle.ts`. `main.ts` only calls that module.
 ## Full classification (generated 2026-10-22)
 
 Comparator: `git diff v2026.8.31 okvevo/staging` — the upstream tag with the smallest diff to the product branch (2,806 files; scan: v2026.8.16→v0.22.4, minimum at v2026.8.31).
@@ -69,27 +72,9 @@ Status: A = only in fork, M = modified vs comparator, D = only in comparator.
 | A | `brand/assets/apps/desktop/assets/icon.ico` | OkVevo-owned path; survives merge |
 | A | `brand/assets/apps/desktop/assets/icon.png` | OkVevo-owned path; survives merge |
 | A | `brand/nia.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/drama-cards.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/alibaba__wan-3.0-prime__image-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/alibaba__wan-3.0-prime__reference-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/alibaba__wan-3.0-prime__text-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/bytedance__seedance-2.0__image-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/bytedance__seedance-2.0__reference-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/bytedance__seedance-2.0__text-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/bytedance__seedance-2.5__image-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/bytedance__seedance-2.5__reference-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/bytedance__seedance-2.5__text-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/fal-ai__minimax__speech-02-hd.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/fal-ai__minimax__voice-clone.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/minimax__h3-max__image-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/minimax__h3-max__reference-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/minimax__h3-max__text-to-video.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/minimax__music-3.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/openai__gpt-image-2.json` | OkVevo-owned path; survives merge |
-| A | `okvevo/fal-schemas/openai__gpt-image-2__edit.json` | OkVevo-owned path; survives merge |
 | A | `okvevo/media-catalog.json` | OkVevo-owned path; survives merge |
 
-### KEEP-SKILL (1145 files)
+### KEEP-SKILL (1145 files as of 2026-10-22; short-drama groups removed 2026-11-26)
 
 Grouped (path, status, count):
 
@@ -101,25 +86,14 @@ Grouped (path, status, count):
 | `skills/creative/hyperframes-animation` | A | 108 |
 | `skills/creative/hyperframes-creative` | A | 78 |
 | `skills/creative/remotion-to-hyperframes` | A | 70 |
-| `skills/creative/short-drama-develop` | A | 37 |
-| `skills/creative/short-drama` | A | 35 |
 | `skills/creative/pr-to-video` | A | 30 |
-| `skills/creative/short-drama-edit` | A | 30 |
 | `skills/creative/product-launch-video` | A | 29 |
 | `skills/creative/talking-head-recut` | A | 28 |
-| `skills/creative/short-drama-video-prompts` | A | 27 |
 | `skills/creative/faceless-explainer` | A | 24 |
-| `skills/creative/short-drama-storyboard` | A | 24 |
 | `skills/creative/motion-graphics` | A | 23 |
-| `skills/creative/short-drama-assets` | A | 22 |
 | `skills/creative/hyperframes-core` | A | 20 |
-| `skills/creative/short-drama-write` | A | 20 |
-| `skills/creative/short-drama-image-prompts` | A | 19 |
 | `skills/creative/hyperframes` | A | 17 |
-| `skills/creative/short-drama-review` | A | 17 |
-| `skills/creative/short-drama-produce` | A | 14 |
 | `skills/creative/hyperframes-cli` | A | 11 |
-| `skills/creative/short-drama-novel-analyze` | A | 11 |
 | `skills/creative/hyperframes-registry` | A | 10 |
 | `skills/creative/hyperframes-audio` | A | 7 |
 | `skills/creative/general-video` | A | 4 |

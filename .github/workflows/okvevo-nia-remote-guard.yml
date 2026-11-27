@@ -33,3 +33,16 @@ jobs:
             exit 1
           fi
           echo "OK: repository is Jaikarans2003/OkVevo-Nia"
+
+  ci-gate:
+    name: ci-gate / remote guard
+    needs: assert-okvevo-nia
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Evaluate job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: printf '%s' "$NEEDS" | python3 scripts/ci/required_results.py

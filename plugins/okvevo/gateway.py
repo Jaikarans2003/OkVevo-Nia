@@ -410,10 +410,9 @@ def ensure_okvevo_fal_run_id(arguments: dict) -> dict:
     """Attach one run_id per tool call. Reuse it on retries.
 
     The portal requires ``run_id`` on every metered submit (HTTP 400
-    otherwise) and keys its reserve/settle idempotency on it. Normal
-    image/video tools do not send approved_credits — the portal reserves
-    the server-computed price. Drama-skill jobs send approved_credits from
-    the rate-card quote the user already confirmed.
+    otherwise) and keys its reserve/settle idempotency on it. Image and
+    video tools do not send approved_credits — the portal reserves
+    the server-computed price.
     """
     out = dict(arguments)
     existing = out.get("run_id")
@@ -447,23 +446,3 @@ def okvevo_tavily_available() -> bool:
             return False
     return True
 
-
-def resolve_okvevo_fal_gateway():
-    """Queue origin + Firebase ID token, or None when signed out / unavailable.
-
-    Consumed by the short-drama skill's provider adapters; the in-agent image
-    and video providers build their own client in ``plugins/okvevo/media.py``.
-    """
-    if not okvevo_fal_available():
-        return None
-    token = ensure_okvevo_id_token()
-    if not token:
-        return None
-    from types import SimpleNamespace
-
-    return SimpleNamespace(
-        vendor="okvevo-fal",
-        gateway_origin=f"{okvevo_gateway_base_url()}/fal/queue",
-        nous_user_token=token,
-        managed_mode=True,
-    )

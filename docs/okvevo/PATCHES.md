@@ -6,10 +6,13 @@ Pinned upstream tag: **v0.23.0**.
 
 ## Active
 
-Count = **2**.
+Count = **4**. Upstream Python, the bundle scripts, and `ci.yaml` match staging.
+OkVevo gates live on the `okvevo-*` workflows. Drift skips the four files below.
 
 - `lefthook.yml` — `extends: [scripts/okvevo/lefthook.yml]` only; OkVevo brand/asset-spec pre-commit gates stay OkVevo-owned
 - `agent/auxiliary_client.py` — `_to_async_client` keeps `X-OkVevo-Org` when the sync base URL is the portal. The rebuilt `AsyncOpenAI` uses `DefaultAsyncHttpxClient` and `async_portal_http_client` (`okvevo_org_headers`). Drift skips this file in `check_upstream_delta.sh`.
+- `.gitignore` — ignores `.cursor/coordination/`
+- `docs/fork-deltas/portal-gateway-billing.md` — desktop billing header and sponsored row
 
 Identity uses generated `SOUL.md` (`scripts/okvevo/make_soul.py`) plus
 `agent.platform_hints.desktop.append`. LLM routing, credits, and media live in
@@ -22,7 +25,7 @@ URL to `Jaikarans2003/OkVevo-Nia`.
 
 Root `package-lock.json` may differ from the tag for desktop packaging
 (lockfile delta, not a Python KEEP-PATCH). Drift skips this one file.
-`lefthook.yml` and `agent/auxiliary_client.py` are the Active KEEP-PATCHes above (also skipped by drift `is_owned`).
+The Active list above is skipped by drift `is_owned`.
 Billing display uses portal `GET /api/billing/summary` (no Firebase client SDK).
 
 ## UI/packaging deltas
@@ -78,7 +81,7 @@ corresponding list **exactly**.
 - `apps/desktop/electron/local-backend-lifecycle.ts`
 - `apps/desktop/electron/local-gateway-python.ts`
 - `apps/desktop/electron/local-gateway.ts`
-- `apps/desktop/electron/main.ts`
+- `apps/desktop/electron/main.ts` — quit, update, and ensure call `okvevo-gateway-lifecycle`; the start-time check stays in that module
 - `apps/desktop/electron/managed-ssh-update.ts`
 - `apps/desktop/electron/mcp-oauth-callback-ipc.ts`
 - `apps/desktop/electron/media-protocol.ts`
@@ -104,6 +107,9 @@ corresponding list **exactly**.
 - `apps/desktop/electron/okvevo-env.ts`
 - `apps/desktop/electron/okvevo-feed.test.ts`
 - `apps/desktop/electron/okvevo-feed.ts`
+- `apps/desktop/electron/okvevo-gateway-lifecycle.ts` — stop packaged gateway on quit/update; signal a PID only when its start time matches; never a CLI gateway
+- `apps/desktop/electron/okvevo-gateway-lifecycle.test.ts` — a reused PID is never signaled; the same PID and start time still stops
+- `apps/desktop/e2e/okvevo/packed-quit-relaunch.spec.ts` — Mac pack E2E: quit→relaunch and leftover-gateway takeover
 - `apps/desktop/electron/plugin-files-hardening.test.ts` — asserts the OkVevo plugin-file refusal copy
 - `apps/desktop/electron/plugin-files-spellings.test.ts` — describe title follows the OkVevo plugin-file refusal copy
 - `apps/desktop/electron/plugin-files.ts` — plugin-file refusals name OkVevo data (v0.23.0 copy)
